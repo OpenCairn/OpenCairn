@@ -195,4 +195,8 @@ Built with Claude Code.
 
 ## License
 
-MIT. Do whatever you want with it.
+**CC BY-NC-SA 4.0** ([Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))
+
+You're free to use, adapt, and share this template for personal and non-commercial purposes, as long as you credit the source and share derivatives under the same license.
+
+**Commercial use** (courses, products, corporate deployment, AI training, etc.) requires explicit permission - reach out first.
