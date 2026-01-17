@@ -12,7 +12,7 @@ parameters:
 
 # Pickup - Session Pickup
 
-You are helping Harrison pickup a previous work session with full context.
+You are helping the user pickup a previous work session with full context.
 
 ## Instructions
 
@@ -28,7 +28,7 @@ You are helping Harrison pickup a previous work session with full context.
      - Default: 9 days (reliably covers weekend-to-weekend)
      - Extended after break: If no sessions in last 9 days, automatically extend to 30 days
      - Explicit: Use `--days=N` value (max 90 days)
-   - Read session files from `~/vault/06 Archive/Claude Sessions/` for the determined window
+   - Read session files from `06 Archive/Claude Sessions/` for the determined window
    - Scan both main directory and year subdirectories (e.g., `2024/`, `2025/`)
    - Archive organization is transparent to pickup (finds sessions regardless of location)
    - Extract session metadata from each file:
@@ -46,7 +46,7 @@ You are helping Harrison pickup a previous work session with full context.
      - If `--with-loops`: Keep only sessions with unchecked open loops
 
 2a. **Check Works in Progress staleness:**
-   - Read `~/vault/01 Now/Works in Progress.md`
+   - Read `01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
    - If > 9 days old, prepare staleness warning to display with menu
@@ -207,7 +207,7 @@ Ready to continue. What's next?
 ```
 
 7. **Auto-load relevant context files:**
-   - Always load: `/home/harrison/CLAUDE.md`
+   - Always load: `~/CLAUDE.md`
    - If project linked: Read the project hub file
    - Display what was loaded:
      ```

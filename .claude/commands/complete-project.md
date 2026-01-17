@@ -5,7 +5,7 @@ description: Explicitly complete and archive a project - prevents zombie project
 
 # Complete Project - Formal Project Completion
 
-You are helping Harrison formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
+You are helping the user formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
 
 ## Philosophy
 
@@ -23,21 +23,21 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - Store for metadata
 
 2. **Identify project to complete:**
-   - Read `~/vault/01 Now/Works in Progress.md`
+   - Read `01 Now/Works in Progress.md`
    - Display list of Active projects
    - If project name provided as parameter: Use that
-   - Otherwise: Ask Harrison which project to complete
+   - Otherwise: Ask the user which project to complete
    - Validate project exists in Active section
 
 3. **Interactive completion interview:**
-   Ask Harrison:
+   Ask the user:
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
    - **Archive location:** "Where should the project file be archived?" (suggest: `06 Archive/Projects/YYYY/`)
 
 4. **Update project file:**
-   - Read `~/vault/03 Projects/[Project Name].md`
+   - Read `03 Projects/[Project Name].md`
    - Add completion section at top:
      ```markdown
      **Status:** COMPLETED ([Date])
@@ -49,12 +49,12 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - This preserves project history while marking completion
 
 5. **Move project file to archive:**
-   - Create archive directory if needed: `mkdir -p "~/vault/06 Archive/Projects/YYYY"`
-   - Move file: `~/vault/03 Projects/[Project Name].md` → `~/vault/06 Archive/Projects/YYYY/[Project Name].md`
+   - Create archive directory if needed: `mkdir -p "06 Archive/Projects/YYYY"`
+   - Move file: `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
    - Update any resource folders (e.g., `03 Projects/[Project]-Resources/` → `06 Archive/Projects/YYYY/`)
 
 6. **Update Works in Progress:**
-   - Read `~/vault/01 Now/Works in Progress.md`
+   - Read `01 Now/Works in Progress.md`
    - Remove project from "Active" section
    - Add to "Recently Completed" section at bottom:
      ```markdown
@@ -112,7 +112,7 @@ Project completion complete. Well done.
 - Waiting for external dependency
 - Will resume within weeks
 
-If unsure, ask Harrison: "Is this project truly complete, or just on hold?"
+If unsure, ask the user: "Is this project truly complete, or just on hold?"
 
 ## Integration
 

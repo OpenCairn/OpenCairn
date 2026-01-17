@@ -6,7 +6,7 @@ description: Restore context from hibernate snapshot after extended break - reco
 
 # Awaken - Restore from Hibernate
 
-You are helping Harrison restore context after an extended break from regular work. Your task is to load the most recent hibernate snapshot, update with any changes during the break, and set up for productive return.
+You are helping the user restore context after an extended break from regular work. Your task is to load the most recent hibernate snapshot, update with any changes during the break, and set up for productive return.
 
 ## Philosophy
 
@@ -26,7 +26,7 @@ This is the "return from sabbatical" complement to daily pickup.
    - Calculate time since last activity
 
 2. **Find hibernate snapshot:**
-   - Check `~/vault/06 Archive/Hibernate Snapshots/` for most recent snapshot
+   - Check `06 Archive/Hibernate Snapshots/` for most recent snapshot
    - If multiple exist, use the most recent unless user specifies: `/awaken --date=2026-01-17`
    - If no snapshot exists, offer to run `/pickup` with extended window instead
 
@@ -39,7 +39,7 @@ This is the "return from sabbatical" complement to daily pickup.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Welcome back, Harrison.
+Welcome back, the user.
 
 Last hibernate: [Date] ([N] days ago)
 Expected return: [Date from snapshot] (Actual: today)
@@ -52,7 +52,7 @@ Snapshot context:
 Loading pre-break state...
 ```
 
-5. **Interactive reorientation** (ask Harrison):
+5. **Interactive reorientation** (ask the user):
    - **What changed during break:** "What happened during the break that affects your work/priorities?"
    - **Completed offline:** "Did you complete any of the open loops while away?"
    - **New priorities:** "Have your priorities shifted since the snapshot?"
@@ -81,7 +81,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 >
 ```
 
-7. **Update based on Harrison's answers:**
+7. **Update based on the user's answers:**
    - Mark completed loops as `[x]`
    - Add new items from "what changed"
    - Archive dropped projects
@@ -100,7 +100,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 
 ### What Changed During Break
 
-[Bullet list from Harrison's answers]
+[Bullet list from the user's answers]
 
 ### Updated Project Status
 
@@ -159,7 +159,7 @@ Ready to continue: What would you like to work on?
 
 ## Guidelines
 
-- **Acknowledge the gap:** Explicitly state how long Harrison was away - this validates the discontinuity
+- **Acknowledge the gap:** Explicitly state how long the user was away - this validates the discontinuity
 - **Update, don't just restore:** The snapshot is a starting point, not gospel. Reality changed during the break.
 - **Expect drift:** Projects that seemed important before the break may feel irrelevant after. That's normal.
 - **Narrow focus on return:** Don't try to resume everything at once. Pick 1-3 priorities.
