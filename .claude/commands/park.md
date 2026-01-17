@@ -39,6 +39,7 @@ You are ending a work session. Your task is to create a comprehensive session su
      - Conversation 50+ turns OR
      - 5+ files modified OR
      - Session 45+ minutes OR
+     - **Infrastructure/sysadmin work** (NAS, backup, server config, networking, Docker, etc.) OR
      - Explicit `--full` flag
    - If `--auto` (default): Auto-detect based on above
    - If `--quick`, `--standard`, or `--full`: Use explicit tier
