@@ -14,6 +14,19 @@ This system addresses a specific cluster of problems:
 
 The core insight: Claude Code can read your filesystem. If your notes are well-organised files, Claude becomes a thinking partner with perfect memory of everything you've written.
 
+## Why Obsidian?
+
+Obsidian is just a markdown editor. Your vault is just a folder of files.
+
+Claude Code reads files directly from disk. It doesn't need plugins, APIs, or integrations - it just reads your notes. This means:
+
+- **No sync issues** - Any note you write is immediately available to Claude
+- **No plugins required** - Works with a fresh Obsidian install (or any markdown editor)
+- **Bidirectional** - Claude can create notes that appear instantly in Obsidian
+- **No lock-in** - It's just files. Switch editors anytime.
+
+The magic isn't in Obsidian specifically - it's in having your knowledge as accessible files rather than locked in apps.
+
 ## Two Ways to Use This
 
 ### Starting Fresh
