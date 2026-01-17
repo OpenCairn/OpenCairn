@@ -188,6 +188,7 @@ Create domain-specific context files in `07 System/`:
 Inspired by:
 - [claudesidian](https://github.com/heyitsnoah/claudesidian) - "thinking partner" philosophy
 - [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm) - skills and agents system
+- [The Neuron: Claude Code as Personal AI Assistant](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant) - workflow patterns
 
 Built with Claude Code.
 
@@ -199,4 +200,4 @@ Built with Claude Code.
 
 You're free to use, adapt, and share this template for personal and non-commercial purposes, as long as you credit the source and share derivatives under the same license.
 
-**Commercial use** (courses, products, corporate deployment, AI training, etc.) requires explicit permission - reach out first.
+**Commercial use** (courses, products, corporate deployment, AI training, etc.) requires explicit permission - [open an issue](https://github.com/harrisonaedwards/claude-code-obsidian-template/issues) to discuss.
