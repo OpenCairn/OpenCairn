@@ -17,15 +17,22 @@ This template fixes that. Permanently.
 
 > 1
 
-Loading: Side Project - App (5 sessions)
+╔════════════════════════════════════════════════════════════╗
+║  Side Project - App (5 sessions)                          ║
+╠════════════════════════════════════════════════════════════╣
+║  1. Auth flow implementation         Thu 9:16pm | Loops: 3 ║
+║  2. Database schema design           Wed 7:30pm | [C]      ║
+║  3. Initial project setup            Tue 2:15pm | [C]      ║
+╚════════════════════════════════════════════════════════════╝
 
-Open loops across all sessions:
+> 1
+
+Loading: Auth flow implementation (Thu 9:16pm)
+
+Open loops:
  [ ] Finish password reset flow
  [ ] Add rate limiting to auth endpoints
  [ ] Write tests for login edge cases
- [ ] Update README with setup instructions
-
-Project hub: [[03 Projects/Side Project - App]]
 
 Ready to continue. What's next?
 ```
@@ -123,6 +130,7 @@ That's it. You now have:
 **Session management:**
 - `/park` - End session, document work, capture open loops
 - `/pickup` - Resume any session with full context
+- `/morning` - Adaptive morning check-in, surface landscape and open loops
 
 **Thinking and research:**
 - `/thinking-partner` - Explore ideas through questions before solutioning

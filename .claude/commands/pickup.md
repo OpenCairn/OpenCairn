@@ -116,7 +116,7 @@ After pickup, consider:
 ║  4. Journal Setup                                 [C] (1)  ║
 ║     Today 6:21am | Completed                               ║
 ║                                                            ║
-║  [1-9] pickup, [e1] expand project, [v] flat view, [n] new ║
+║  [1-9] select project, [v] flat view, [n] new session      ║
 ║  Note: ⚠️ = 7+ days stale, 🔴 = 30+ days aged              ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -171,10 +171,9 @@ After pickup, consider:
 ```
 
 5. **Wait for user selection** (or if no input needed, continue automatically):
-   - **Number (1-99):** Load that project/session
-     - In project view: Loads most recent session from that project
+   - **Number (1-99):** Select that project/session
+     - In project view: Expands to show all sessions in that project (never auto-loads)
      - In expanded/flat view: Loads that specific session
-   - **'e' + number (e.g., 'e1'):** Expand project to show all its sessions
    - **'v':** Switch to flat/chronological view
    - **'p':** Switch back to project-grouped view (from flat view)
    - **'b':** Back to project list (from expanded view)
@@ -185,11 +184,11 @@ After pickup, consider:
    - **'f':** Prompt for filter criteria and re-display
    - **'s':** Prompt for keyword and show matching sessions
 
-6. **Load selected project/session context:**
+6. **Load selected session context:**
    - **If project selected (from project view):**
-     - Load the most recent session from that project
-     - Display aggregate open loops from ALL sessions in the project
-     - Show "This project has N sessions - displaying loops from all"
+     - Expand to show all sessions in that project (see expanded view format above)
+     - User then selects specific session to load
+     - Do NOT auto-load most recent - always let user choose
    - **If specific session selected (from expanded/flat view):**
      - Load just that session's context
    - Read the full session summary
@@ -206,28 +205,7 @@ After pickup, consider:
 
 7. **Display session context:**
 
-**When loading a project (from project view):**
-```
-Loading: [Project Name] (N sessions)
-Latest: [Session Title] ([Date/Time])
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-[2-3 sentence summary from most recent session]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Open loops across all N sessions:
- [ ] Loop from Session 14 (10 hours ago)
- [ ] Loop from Session 14 (10 hours ago)
- [ ] Loop from Session 12 (11 hours ago) ⚠️
- [ ] Loop from Session 12 (11 hours ago)
- ...
-
-Project hub: [[03 Projects/Project Name]]
-
-Ready to continue. What's next?
-```
-
-**When loading a specific session (from expanded/flat view):**
+**When loading a session:**
 ```
 Loading: [Session Title] ([Date/Time])
 
@@ -272,7 +250,8 @@ Ready to continue. What's next?
 - **Clustering is mechanical:** Based solely on the `**Project:**` link, not title keywords
 - **Standalone sessions:** Sessions without a project link appear individually
 - **Project sorting:** By most recent activity, not alphabetically
-- **Aggregate loops:** When displaying a project, sum open loops from ALL its sessions
+- **Aggregate loops in menu:** When displaying a project in the menu, show total open loops across all its sessions
+- **Always expand, never auto-load:** Selecting a project expands to show all its sessions; user always chooses which session to load
 - **Mental model match:** "I'm working on the renovation" is the unit, not "Session 12 vs 14"
 
 ### Date and Time
@@ -304,8 +283,9 @@ Ready to continue. What's next?
 This command enables:
 1. Zero-friction pickup (no mental "where was I?")
 2. **Project-grouped view** matches mental reality ("working on the renovation" not "Session 12")
-3. Aggregate open loops across related sessions
-4. Auto-loading of relevant context (no need to manually re-read files)
-5. Confidence in session continuity
+3. **Always expand, always choose:** Selecting a project shows all its sessions; user picks which to load (no surprising auto-loads)
+4. Aggregate open loops visible in project menu
+5. Auto-loading of relevant context once session is selected
+6. Confidence in session continuity
 
 Combined with `/park`, this creates the bulletproof **park and pickup system**.
