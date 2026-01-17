@@ -52,10 +52,21 @@ You are helping the user pickup a previous work session with full context.
    - If > 9 days old, prepare staleness warning to display with menu
    - If > 30 days old, prepare critical staleness warning
 
-3. **Display interactive menu** (with pagination if needed):
-   - **Pagination threshold:** Show first 15 sessions by default
-   - If more than 15 sessions, display page 1 with navigation options
-   - Group by day for better readability when 20+ sessions
+3. **Group sessions by project:**
+   - Extract `**Project:**` link from each session (if present)
+   - Group sessions sharing the same project link
+   - Sessions without project links remain standalone
+   - For each project group, calculate:
+     - Total session count
+     - Most recent session (for display)
+     - Aggregate open loops (sum across all sessions)
+     - Time since last activity (from most recent session)
+   - Sort project groups by most recent activity (not alphabetically)
+
+4. **Display interactive menu** (project-grouped by default):
+   - **Default view:** By Project (clusters related sessions)
+   - **Alternative view:** Flat/chronological (traditional, accessed via 'v')
+   - **Pagination threshold:** Show first 15 entries by default
    - **If Works in Progress is stale (9+ days):** Display warning banner before menu
 
 **WIP staleness warning (if 9-29 days old):**
@@ -85,89 +96,107 @@ After pickup, consider:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-**Standard menu (< 15 sessions):**
+**Default menu (project-grouped):**
 ```
 ╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - Recent Sessions (Last 9 Days)           ║
+║  Pickup Session - Last 9 Days (By Project)                ║
 ╠════════════════════════════════════════════════════════════╣
-║  1. Claude Code Learning - Sat 17 Jan 9:40am              ║
-║     "Component analysis, template creation for a friend"      ║
-║     Open loops: 3 | Last: 2 hours ago                     ║
 ║                                                            ║
-║  2. Tab Management - Thu 16 Jan 7:23pm                    ║
-║     "Limbic economy framework, multi-agent therapy"        ║
-║     Open loops: 5 ⚠️ | Last: 9 days ago (STALE)           ║
+║  1. Home Renovation                            (8 sessions)║
+║     Latest: Kitchen cabinets research      Today 7:10am   ║
+║     Open loops: 11 total | Last: 0 hours ago               ║
 ║                                                            ║
-║  3. Philosophy Work - Mon 23 Dec 11:15am                   ║
-║     "Golden red team calibration exercise"                 ║
-║     Open loops: 2 🔴 | Last: 25 days ago (AGED)            ║
+║  2. Side Project - App                         (5 sessions)║
+║     Latest: Auth flow implementation       Sat 1:49pm     ║
+║     Open loops: 7 total | Last: 17 hours ago               ║
 ║                                                            ║
-║  [Enter number to pickup, 'n' for new session, 'q' to quit]║
-║  Note: ⚠️ = 7+ days old, 🔴 = 30+ days old                 ║
+║  3. Tax Preparation                               [C] (1)  ║
+║     Today 6:55am | Completed                               ║
+║                                                            ║
+║  4. Journal Setup                                 [C] (1)  ║
+║     Today 6:21am | Completed                               ║
+║                                                            ║
+║  [1-9] pickup, [e1] expand project, [v] flat view, [n] new ║
+║  Note: ⚠️ = 7+ days stale, 🔴 = 30+ days aged              ║
 ╚════════════════════════════════════════════════════════════╝
 
 >
 ```
 
-**Paginated menu (15-30 sessions):**
+**Expanded project view (after 'e1'):**
 ```
 ╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - Page 1 of 2 (25 total sessions)         ║
+║  Home Renovation (8 sessions)                             ║
 ╠════════════════════════════════════════════════════════════╣
-║  Sat 17 Jan (5 sessions)                                   ║
-║  1. Claude Code Learning            9:40am  | Loops: 3     ║
-║  2. Supplier Meeting               12:19pm  | Loops: 2     ║
-║  3. Private Practice Transition    12:26pm  | Loops: 3     ║
 ║                                                            ║
-║  Fri 16 Jan (7 sessions)                                   ║
-║  4. Hierarchical Navigation         3:40pm  | Loops: 0     ║
-║  5. Blog Consolidation              2:15pm  | Loops: 1     ║
+║  1. Kitchen cabinets research         Today 7:10am        ║
+║     "Compared IKEA vs custom, got quotes"                  ║
+║     Open loops: 2                                          ║
+║                                                            ║
+║  2. Contractor calls                  Sat 9:16pm          ║
+║     "Called 3 contractors, scheduled walkthroughs"         ║
+║     Open loops: 5                                          ║
+║                                                            ║
+║  3. Permit research                   Sat 8:17pm     [C]  ║
+║     "Confirmed no permit needed for cabinets"              ║
+║                                                            ║
+║  ... (5 more sessions)                                     ║
+║                                                            ║
+║  [1-9] pickup session, [b] back to projects, [a] show all  ║
+╚════════════════════════════════════════════════════════════╝
+
+>
+```
+
+**Flat view (after 'v' - traditional chronological):**
+```
+╔════════════════════════════════════════════════════════════╗
+║  Pickup Session - Last 9 Days (Chronological)             ║
+╠════════════════════════════════════════════════════════════╣
+║                                                            ║
+║  Today - Sun 18 Jan                                        ║
+║  1. Kitchen cabinets research         7:10am  | Loops: 2  ║
+║  2. Tax Preparation                   6:55am  | [C]       ║
+║  3. Journal Setup                     6:21am  | [C]       ║
+║                                                            ║
+║  Yesterday - Sat 17 Jan                                    ║
+║  4. Contractor calls                  9:16pm  | Loops: 5  ║
+║  5. Permit research                   8:17pm  | [C]       ║
 ║  ...                                                       ║
 ║                                                            ║
-║  [Number to pickup, 'm' more, 'f' filter, 'n' new, 'q' quit]║
+║  [1-9] pickup, [p] project view, [m] more, [n] new        ║
 ╚════════════════════════════════════════════════════════════╝
 
 >
 ```
 
-**Grouped menu (30+ sessions):**
-```
-╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - 47 sessions in last 9 days              ║
-║  Showing: 15 most recent                                   ║
-╠════════════════════════════════════════════════════════════╣
-║  Today (12 sessions)                                   [+] ║
-║  Yesterday (15 sessions)                               [-] ║
-║    1. Session A                     3:40pm  | Loops: 2     ║
-║    2. Session B                     2:15pm  | Loops: 0     ║
-║  ...                                                       ║
-║                                                            ║
-║  Options:                                                  ║
-║    m - Show more sessions                                  ║
-║    f - Filter (--project, --with-loops)                    ║
-║    s - Search by keyword                                   ║
-║                                                            ║
-║  [Enter command or session number]                         ║
-╚════════════════════════════════════════════════════════════╝
+5. **Wait for user selection** (or if no input needed, continue automatically):
+   - **Number (1-99):** Load that project/session
+     - In project view: Loads most recent session from that project
+     - In expanded/flat view: Loads that specific session
+   - **'e' + number (e.g., 'e1'):** Expand project to show all its sessions
+   - **'v':** Switch to flat/chronological view
+   - **'p':** Switch back to project-grouped view (from flat view)
+   - **'b':** Back to project list (from expanded view)
+   - **'a':** Show all sessions in current project (from expanded view)
+   - **'n':** Start fresh conversation (or if no sessions found)
+   - **'q':** Exit gracefully
+   - **'m':** Show next page (when paginated)
+   - **'f':** Prompt for filter criteria and re-display
+   - **'s':** Prompt for keyword and show matching sessions
 
->
-```
-
-4. **Wait for user selection** (or if no input needed, continue automatically):
-   - If specific session number provided (1-99): Load that session
-   - If 'n' or no sessions found: Acknowledge, start fresh conversation
-   - If 'q': Exit gracefully
-   - If 'm' (more): Show next page of sessions
-   - If 'f' (filter): Prompt for filter criteria and re-display filtered results
-   - If 's' (search): Prompt for keyword and show matching sessions
-   - If 'a' (all): Disable pagination, show all sessions (use cautiously)
-
-5. **Load selected session context:**
+6. **Load selected project/session context:**
+   - **If project selected (from project view):**
+     - Load the most recent session from that project
+     - Display aggregate open loops from ALL sessions in the project
+     - Show "This project has N sessions - displaying loops from all"
+   - **If specific session selected (from expanded/flat view):**
+     - Load just that session's context
    - Read the full session summary
    - Extract key information:
      - Session date and number (for continuation tracking)
      - What was accomplished
-     - Open loops (unchecked items)
+     - Open loops (unchecked items) - aggregate if project view
      - Files that were created/updated
      - Resume context (where to pick up)
      - Related project
@@ -175,8 +204,30 @@ After pickup, consider:
      - Remember: "This session continues [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
      - This will be used by `/park` to create bidirectional continuation links
 
-6. **Display session context:**
+7. **Display session context:**
 
+**When loading a project (from project view):**
+```
+Loading: [Project Name] (N sessions)
+Latest: [Session Title] ([Date/Time])
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2-3 sentence summary from most recent session]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open loops across all N sessions:
+ [ ] Loop from Session 14 (10 hours ago)
+ [ ] Loop from Session 14 (10 hours ago)
+ [ ] Loop from Session 12 (11 hours ago) ⚠️
+ [ ] Loop from Session 12 (11 hours ago)
+ ...
+
+Project hub: [[03 Projects/Project Name]]
+
+Ready to continue. What's next?
+```
+
+**When loading a specific session (from expanded/flat view):**
 ```
 Loading: [Session Title] ([Date/Time])
 
@@ -185,10 +236,9 @@ Last session summary:
 [2-3 sentence summary of what was accomplished]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Open loops (N days old):
+Open loops (from this session only):
  [ ] First unchecked item
- [ ] Second unchecked item ⚠️ (Still open after 9 days)
- [ ] Third unchecked item 🔴 (Still open after 32 days - consider completing or dropping)
+ [ ] Second unchecked item
 
 Key insights from last session:
  • Important realisation 1
@@ -197,16 +247,10 @@ Key insights from last session:
 Project: [[03 Projects/Project Name]] (if applicable)
 Files updated: /path/to/file.md, /path/to/other.md
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️  STALE LOOPS DETECTED
-This session has loops that have been open for 9+ days.
-Consider: Complete, delegate, or explicitly drop these items.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 Ready to continue. What's next?
 ```
 
-7. **Auto-load relevant context files:**
+8. **Auto-load relevant context files:**
    - Always load: `~/CLAUDE.md`
    - If project linked: Read the project hub file
    - Display what was loaded:
@@ -217,12 +261,21 @@ Ready to continue. What's next?
       ✓ 07 System/Context - [Related Domain].md
      ```
 
-8. **Prompt for next action:**
+9. **Prompt for next action:**
    - Present the most logical next step based on "Resume Context"
    - Ask: "Ready to continue. What's next?" or "Should I proceed with [suggested next action]?"
 
 ## Guidelines
 
+### Project Clustering
+- **Default view is project-grouped:** Sessions sharing a `**Project:**` link are clustered together
+- **Clustering is mechanical:** Based solely on the `**Project:**` link, not title keywords
+- **Standalone sessions:** Sessions without a project link appear individually
+- **Project sorting:** By most recent activity, not alphabetically
+- **Aggregate loops:** When displaying a project, sum open loops from ALL its sessions
+- **Mental model match:** "I'm working on the renovation" is the unit, not "Session 12 vs 14"
+
+### Date and Time
 - **Always check current date/time:** First step - run `date` command for accurate age calculations. Never assume time.
 - **Auto-extend window after breaks:** If no sessions in last 9 days, automatically extend to 30 days and notify user
 - **No sessions found:** If no sessions in extended window, suggest `/awaken` or starting fresh
@@ -239,8 +292,8 @@ Ready to continue. What's next?
 - **Context loading:** Be intelligent about which context files to load based on project and domain
 - **Date formatting:** Use natural language ("Sat 17 Jan 9:40am" not "2026-01-17 09:40")
 - **Menu width:** Keep menu width at 64 characters for terminal readability
-- **Pagination threshold:** 15 sessions per page (prevents menu overflow)
-- **Grouping threshold:** Group by day when 20+ sessions for better navigation
+- **Pagination threshold:** 15 entries per page (prevents menu overflow)
+- **View modes:** Project-grouped (default), flat/chronological (via 'v')
 - **Filter preservation:** Once filter applied, maintain it until user clears or changes
 - **Hibernate detection:** If user returning after month+ gap with no sessions, suggest `/awaken`
 - **WIP staleness monitoring:** Always check Works in Progress timestamp and warn if 9+ days old
@@ -250,8 +303,9 @@ Ready to continue. What's next?
 
 This command enables:
 1. Zero-friction pickup (no mental "where was I?")
-2. Explicit open loops displayed upfront
-3. Auto-loading of relevant context (no need to manually re-read files)
-4. Confidence in session continuity
+2. **Project-grouped view** matches mental reality ("working on the renovation" not "Session 12")
+3. Aggregate open loops across related sessions
+4. Auto-loading of relevant context (no need to manually re-read files)
+5. Confidence in session continuity
 
 Combined with `/park`, this creates the bulletproof **park and pickup system**.
