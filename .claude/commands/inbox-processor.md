@@ -6,7 +6,7 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
-You are helping Harrison process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
+You are helping the user process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
 
@@ -17,7 +17,7 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
 ## Instructions
 
 1. **Scan the inbox:**
-   - Read all files in `~/vault/02 Inbox/`
+   - Read all files in `02 Inbox/`
    - List items with brief description:
      ```
      Found 7 items in inbox:
@@ -52,7 +52,7 @@ For each item, determine the appropriate home using NIPARAS logic:
 
 3. **Present categorisation plan:**
 
-Show Harrison the proposed categorisation:
+Show the user the proposed categorisation:
 
 ```markdown
 ## Inbox Processing Plan
@@ -129,7 +129,7 @@ Item → Is it REFERENCE for future use?
 
 Item → Is it COMPLETED/INACTIVE?
        ├─ Yes → 06 Archive/
-       └─ No → Uncertain, ask Harrison
+       └─ No → Uncertain, ask the user
 ```
 
 ## Guidelines
@@ -138,7 +138,7 @@ Item → Is it COMPLETED/INACTIVE?
 - **Create folders as needed:** If a new topic emerges, create appropriate structure
 - **Rename for clarity:** Add dates, context, or more descriptive names when moving
 - **Link, don't duplicate:** If item relates to multiple places, keep in one location and link from others
-- **Ask when uncertain:** If categorisation isn't obvious, present options and ask Harrison
+- **Ask when uncertain:** If categorisation isn't obvious, present options and ask the user
 - **Batch similar items:** If multiple items go to same destination, move them together
 - **Update indexes:** If adding to a project or area, update the relevant hub file
 
@@ -168,7 +168,7 @@ Run inbox processing:
 - Weekly (Sunday/Monday) as part of weekly synthesis
 - When inbox gets >10-15 items
 - Before starting deep work on a project (clear the decks)
-- Whenever Harrison explicitly requests it
+- Whenever the user explicitly requests it
 
 ## Integration with Other Commands
 

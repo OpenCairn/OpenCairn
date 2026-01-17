@@ -5,7 +5,7 @@ description: Weekly patterns review - aggregate progress, insights, and alignmen
 
 # Weekly Synthesis - Patterns Over Time
 
-You are facilitating Harrison's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
+You are facilitating the user's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
 
 ## Philosophy
 
@@ -21,8 +21,8 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Get date range for display: e.g., "Week 3, Jan 13-19"
 
 2. **Gather the week's data:**
-   - Read daily reviews from `~/vault/06 Archive/Daily Reviews/` for dates from week start to current date
-   - Read session summaries from `~/vault/06 Archive/Claude Sessions/` for the same date range
+   - Read daily reviews from `06 Archive/Daily Reviews/` for dates from week start to current date
+   - Read session summaries from `06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
@@ -52,13 +52,13 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
 - "Anything to stop doing or delegate?"
 
 4. **Ensure directory exists:**
-   - Check if `~/vault/06 Archive/Weekly Reviews/` directory exists
-   - If not, create it: `mkdir -p "~/vault/06 Archive/Weekly Reviews"`
+   - Check if `06 Archive/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "06 Archive/Weekly Reviews"`
    - This prevents first-run failures
 
 5. **Generate weekly synthesis:**
 
-Create a file at `~/vault/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
+Create a file at `06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
 
 ```markdown
 # Weekly Synthesis - Week [NN], [Date Range]
@@ -147,7 +147,7 @@ Create a file at `~/vault/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week
 ```
 
 6. **Check Works in Progress integrity:**
-   - Read `~/vault/01 Now/Works in Progress.md`
+   - Read `01 Now/Works in Progress.md`
    - For each Active project:
      - Check if project file exists in `03 Projects/` or `06 Archive/`
      - Check when project folder/files were last modified (if applicable)
@@ -184,27 +184,27 @@ Recommended: Review this synthesis at start of next week to set the week's direc
 - **Forward-looking:** Use insights to improve next week, not just to record past week
 - **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
 - **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
-- **Natural language:** Write in Harrison's voice - analytical, outcome-focused, honest
+- **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
 
 ## Frequency
 
 Run this weekly, typically:
 - Sunday evening (week review and next week planning)
 - Monday morning (week ahead orientation)
-- Or whenever Harrison explicitly requests it
+- Or whenever the user explicitly requests it
 
 ## Integration with Other Commands
 
 - **Synthesizes daily reviews:** Aggregates daily patterns into weekly insights
 - **Informs project planning:** Identifies what needs attention, what to drop
-- **Feeds into monthly/quarterly reviews:** (If Harrison implements those)
+- **Feeds into monthly/quarterly reviews:** (If the user implements those)
 - **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)
 
 This creates a **weekly rhythm** that prevents value drift and ensures high-level course correction.
 
 ## Goal Alignment (Optional Enhancement)
 
-If Harrison starts tracking explicit goals in the vault:
+If the user starts tracking explicit goals in the vault:
 - Compare weekly effort to goal progress
 - Flag misalignments ("You spent 40% of time on X, but it's not in your top 3 goals")
 - Suggest reallocation or goal updates

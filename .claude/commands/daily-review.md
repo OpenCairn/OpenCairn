@@ -5,7 +5,7 @@ description: End-of-day reflection - what happened, what matters, what's next
 
 # Daily Review - End-of-Day Reflection
 
-You are facilitating Harrison's daily review. This is a lightweight end-of-day reflection to capture progress, insights, and open loops.
+You are facilitating the user's daily review. This is a lightweight end-of-day reflection to capture progress, insights, and open loops.
 
 ## Philosophy
 
@@ -19,9 +19,9 @@ Daily reviews create temporal context - they bridge individual sessions into coh
    - Use this for file paths and headers
 
 2. **Check if today's session summary exists:**
-   - Look for `~/vault/06 Archive/Claude Sessions/YYYY-MM-DD.md` (using current date from step 1)
+   - Look for `06 Archive/Claude Sessions/YYYY-MM-DD.md` (using current date from step 1)
    - If it exists, read it to understand what happened today
-   - If not, ask Harrison to summarise the day
+   - If not, ask the user to summarise the day
 
 3. **Run the daily review interview:**
 
@@ -46,13 +46,13 @@ Ask these questions in order:
 - "Any time-sensitive items?"
 
 4. **Ensure directory exists:**
-   - Check if `~/vault/06 Archive/Daily Reviews/` directory exists
-   - If not, create it: `mkdir -p "~/vault/06 Archive/Daily Reviews"`
+   - Check if `06 Archive/Daily Reviews/` directory exists
+   - If not, create it: `mkdir -p "06 Archive/Daily Reviews"`
    - This prevents first-run failures
 
 5. **Generate daily summary:**
 
-Create a file at `~/vault/06 Archive/Daily Reviews/YYYY-MM-DD.md` (using current date from step 1):
+Create a file at `06 Archive/Daily Reviews/YYYY-MM-DD.md` (using current date from step 1):
 
 ```markdown
 # Daily Review - [Day of Week], [Date]
@@ -102,14 +102,14 @@ Daily review complete. Sleep well.
 - **Forward-looking:** The goal is to set up tomorrow for success
 - **Pattern detection:** Note recurring friction or insights for weekly synthesis
 - **Session integration:** Link to today's session summaries for full context
-- **Natural language:** Write in Harrison's voice - direct, outcome-focused
+- **Natural language:** Write in the user's voice - direct, outcome-focused
 
 ## Frequency
 
 Run this at end of day, typically after the last work session but before bed. Can be triggered:
 - Explicitly with `/daily-review`
 - As part of `/park` for the last session of the day
-- When Harrison says "end of day" or similar phrases
+- When the user says "end of day" or similar phrases
 
 ## Integration with Other Commands
 

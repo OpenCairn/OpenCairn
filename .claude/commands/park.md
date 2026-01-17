@@ -15,21 +15,10 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 ## Instructions
 
-0. **Verify NAS mount accessibility** before proceeding:
-   - Check if `~/vault` is accessible: `mountpoint -q ~/vault`
-   - If mount is not available, display error and abort:
-     ```
-     ❌ ERROR: NAS mount not accessible at ~/vault
-     Cannot park session - session summary would be lost.
-
-     Troubleshooting:
-     - Check mount status: mount | grep nas
-     - Verify network connection to NAS
-     - Try remounting: sudo mount -a
-
-     Session NOT parked. Try again once NAS is accessible.
-     ```
-   - Only proceed if mount is confirmed accessible
+0. **Verify vault is accessible** before proceeding:
+   - Check that the session archive directory exists: `06 Archive/Claude Sessions/`
+   - If the directory doesn't exist or isn't writable, warn the user
+   - Only proceed if vault is confirmed accessible
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
@@ -79,10 +68,10 @@ You are ending a work session. Your task is to create a comprehensive session su
    - If nothing to fix, skip this output entirely
 
 5. **Determine session metadata:**
-   - Session number for today (check existing file at `~/vault/06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
+   - Session number for today (check existing file at `06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
-   - Related project (if applicable, from `~/vault/03 Projects/`)
+   - Related project (if applicable, from `03 Projects/`)
    - **Quick tier:** Skip project detection (just use topic)
 
 6. **Find previous session and check for continuation** (conditional on tier):
@@ -152,10 +141,10 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 8. **Write the summary** (with file locking for concurrent safety):
    - Use file locking to prevent race conditions if multiple Claude instances are running
-   - Create lock file before writing: `~/vault/06 Archive/Claude Sessions/.YYYY-MM-DD.md.lock`
+   - Create lock file before writing: `06 Archive/Claude Sessions/.YYYY-MM-DD.md.lock`
    - Wait up to 5 seconds for lock acquisition
    - If lock cannot be acquired, warn: "Another session is parking simultaneously. Waiting..."
-   - Append to `~/vault/06 Archive/Claude Sessions/YYYY-MM-DD.md` (using current date from step 1)
+   - Append to `06 Archive/Claude Sessions/YYYY-MM-DD.md` (using current date from step 1)
    - If file doesn't exist, create it with header: `# Claude Session - YYYY-MM-DD`
    - Use tier-appropriate format from step 7
    - Maintain chronological order (latest session at bottom)
@@ -177,7 +166,7 @@ You are ending a work session. Your task is to create a comprehensive session su
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Standard tier:** Update WIP only if session explicitly linked to a project
    - **Full tier:** Always update WIP for related projects
-   - Read `~/vault/01 Now/Works in Progress.md`
+   - Read `01 Now/Works in Progress.md`
    - Find the relevant project section
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
@@ -229,14 +218,14 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Explicit override available:** Use `--quick`, `--standard`, or `--full` to override auto-detection
 - **Quick tier for throwaway sessions:** 3-minute lookups, quick questions, minor tasks
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
-- **Always verify NAS accessibility:** First step - check mount status before any write operations. If NAS is unavailable, abort rather than silently fail
+- **Always verify vault accessibility:** First step - check that session archive directory exists before writing. If vault is unavailable, warn the user
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever Harrison is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
+- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
 - **Continuation tracking:** When `/pickup` loads a previous session, `/park` creates bidirectional links: "Continues:" in new session, "Continued in:" appended to original. This tracks project threads across time
 - **File locking for safety:** Use lock files to prevent race conditions when multiple Claude instances park simultaneously
 - **Conditional auto-fix:** Quick tier skips linting (not justified); Standard/Full tiers lint modified files
 - **Silent when clean:** Only show fix report if issues were found and corrected
-- **Narrative tone:** Write summaries in Harrison's voice - direct, technical, outcome-focused
+- **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick/Standard tier skip if not obvious
@@ -245,7 +234,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 ## Cue Word Detection
 
-This command should also trigger automatically when Harrison uses these phrases:
+This command should also trigger automatically when the user uses these phrases:
 - "bedtime"
 - "wrapping up"
 - "done for tonight"
