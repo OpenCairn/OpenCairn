@@ -15,10 +15,23 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 ## Instructions
 
-0. **Verify vault is accessible** before proceeding:
-   - Check that the session archive directory exists: `06 Archive/Claude Sessions/`
-   - If the directory doesn't exist or isn't writable, warn the user
-   - Only proceed if vault is confirmed accessible
+### Phase 1: Setup and Verification
+
+0. **Verify NAS mount accessibility** before proceeding:
+   - Check if `~/vault` is accessible: `mountpoint -q ~/vault`
+   - If mount is not available, display error and abort:
+     ```
+     ❌ ERROR: NAS mount not accessible at ~/vault
+     Cannot park session - session summary would be lost.
+
+     Troubleshooting:
+     - Check mount status: mount | grep nas
+     - Verify network connection to NAS
+     - Try remounting: sudo mount -a
+
+     Session NOT parked. Try again once NAS is accessible.
+     ```
+   - Only proceed if mount is confirmed accessible
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
@@ -50,23 +63,59 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 3. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
 
-4. **Automatic lint, refactor, proofread** (conditional on tier):
-   - **Quick tier:** Skip linting (overhead not justified for quick tasks)
-   - **Standard tier:** Lint only files modified this session (not all files)
-   - **Full tier:** Lint all modified files + check for broken links across vault
-   - Linting checks:
-     - American English → British English (organise, categorise, prioritise, realise, analyse, summarise)
-     - Inconsistent terminology (ensure park/pickup not parking/resume/restore)
-     - YAML frontmatter syntax errors
-     - Broken file paths or links
-   - Fix any issues found automatically
-   - If fixes were made, display brief report:
-     ```
-     🔧 Auto-fixed before parking:
-     - Fixed 3 American English spellings in command files
-     - Updated terminology in CLAUDE.md (resume → pickup)
-     ```
-   - If nothing to fix, skip this output entirely
+### Phase 2: Quality Assurance
+
+4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
+
+   **This step MUST produce visible output. No silent skipping.**
+
+   | Tier | Action |
+   |------|--------|
+   | Quick | Display: `⏭ Quality check: Skipped (Quick tier)` and proceed |
+   | Standard | Check files modified this session only |
+   | Full | Check all modified files + vault-wide broken link scan |
+
+   **Three categories of checks (Standard/Full tiers):**
+
+   **LINT** - Syntax and structure:
+   - YAML frontmatter syntax errors
+   - Broken file paths or internal links
+   - Markdown syntax issues (unclosed code blocks, malformed lists)
+   - Broken Obsidian wikilinks
+
+   **REFACTOR** - Content quality:
+   - Consolidate redundant content (did I repeat myself across files?)
+   - Update stale references (outdated info, old dates, deprecated approaches)
+   - Fix broken structure (illogical heading hierarchy, orphaned sections)
+   - Remove dead/orphaned content created then abandoned
+
+   **PROOFREAD** - Language and consistency:
+   - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
+   - Terminology consistency (park/pickup not parking/resume/restore)
+   - Typos, grammar, unclear phrasing
+   - Tone consistency with the user's voice
+
+   **Fix any issues found automatically.**
+
+   **REQUIRED OUTPUT (exactly one of these MUST appear):**
+
+   ```
+   ⏭ Quality check: Skipped (Quick tier)
+   ```
+
+   ```
+   ✓ Quality check: N files checked, no issues found
+   ```
+
+   ```
+   🔧 Quality check: Fixed N issues
+   - [specific fix 1]
+   - [specific fix 2]
+   ```
+
+   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until one of the above outputs appears in your response. If you find yourself writing session metadata without having displayed a quality check result, STOP and return to this step.
+
+### Phase 3: Document and Archive
 
 5. **Determine session metadata:**
    - Session number for today (check existing file at `06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
@@ -145,39 +194,75 @@ You are ending a work session. Your task is to create a comprehensive session su
 ```
 
 8. **Write the summary** (with file locking for concurrent safety):
-   - Use file locking to prevent race conditions if multiple Claude instances are running
-   - Create lock file before writing: `06 Archive/Claude Sessions/.YYYY-MM-DD.md.lock`
-   - Wait up to 5 seconds for lock acquisition
-   - If lock cannot be acquired, warn: "Another session is parking simultaneously. Waiting..."
-   - Append to `06 Archive/Claude Sessions/YYYY-MM-DD.md` (using current date from step 1)
-   - If file doesn't exist, create it with header: `# Claude Session - YYYY-MM-DD`
-   - Use tier-appropriate format from step 7
-   - Maintain chronological order (latest session at bottom)
-   - Release lock file after write completes
-   - Implementation note: Use bash `flock` or create/delete lock file atomically
+   - **CRITICAL: Use Bash with flock, NOT the Edit tool** - Edit tool has no locking and causes race conditions
+   - Lock file path: `06 Archive/Claude Sessions/.lock`
+   - Wait up to 10 seconds for lock acquisition (NAS can be slow)
+   - If file doesn't exist, create it with header first
+
+   **Implementation - use this exact pattern:**
+   ```bash
+   # First, read current file to determine next session number (do this BEFORE locking)
+   # Then write with flock:
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat >> "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+
+   ## Session N - [Topic] ([Time]) [Q]
+
+   [Session content here]
+   EOF'
+   ```
+
+   **If file doesn't exist yet:**
+   ```bash
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat > "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+   # Claude Session - YYYY-MM-DD
+
+   ## Session 1 - [Topic] ([Time])
+
+   [Session content here]
+   EOF'
+   ```
+
+   **If lock times out (exit code 1):** Display warning and retry once, then fail gracefully:
+   ```
+   ⚠ Lock acquisition timed out - another session may be parking. Retrying...
+   ```
 
 8a. **Add forward link to previous session** (standard/full tier):
    - **Quick tier:** Skip (no previous session linking done)
    - **Standard/Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
-     - Acquire file lock on previous session's file (same pattern as step 8)
-     - Read the previous session's file
-     - **Idempotency check:** If "Next session:" already exists for this session heading, skip (prevents duplicates on re-park)
-     - **Handle Quick tier previous sessions:** Quick format has no "Pickup Context" section
-       - If previous session is Quick tier (ends with `[Q]`): Append forward link after the one-line summary
-       - If previous session is Standard/Full tier: Add below "Pickup Context" section
-     - Add forward link:
-       ```markdown
-       **Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
-       ```
-     - Release file lock
-     - **Error handling:** If forward link fails (file missing, lock timeout):
-       - Log warning but don't fail the park
-       - Set `forward_link_failed = true` for completion message
+     - **CRITICAL: Use Bash with flock for editing previous session file**
+     - First read the file (without lock) to check idempotency and find insertion point
+     - **Idempotency check:** If "Next session:" link to this session already exists, skip
+     - Then use flock + sed or flock + temporary file pattern for atomic edit:
+
+   **Implementation for Standard/Full previous sessions (has Pickup Context):**
+   ```bash
+   # Find the line number of the last "**Project:**" or last line of Pickup Context section
+   # Then insert after it using sed with flock:
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c '
+     sed -i "/^\\*\\*Project:\\*\\* \\[\\[.*\\]\\]$/a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]" \
+       "06 Archive/Claude Sessions/PREV-DATE.md"
+   '
+   ```
+
+   **Implementation for Quick tier previous sessions (no Pickup Context):**
+   ```bash
+   # Quick sessions end with [Q] on the summary line - append after the one-line summary
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c '
+     sed -i "/^## Session .* \\[Q\\]$/{n;a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
+     }" "06 Archive/Claude Sessions/PREV-DATE.md"
+   '
+   ```
+
+   **Error handling:** If forward link fails (file missing, lock timeout, sed error):
+     - Log warning but don't fail the park
+     - Set `forward_link_failed = true` for completion message
+
    - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
-     - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (YYYY-MM-DD)`
-     - Same file locking and error handling applies
+     - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
+     - Same flock pattern applies
 
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -195,13 +280,15 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 **Quick tier:**
 ```
-✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md (Quick park)
+⏭ Quality check: Skipped (Quick tier)
+✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 
 Quick park complete. Minimal overhead for minor task.
 ```
 
 **Standard tier:**
 ```
+✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 ✓ Open loops: N items
 ✓ Bidirectional links added (previous ↔ next)
@@ -215,18 +302,20 @@ To pickup: `claude` or `/pickup`
 
 **Full tier:**
 ```
+✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 ✓ Open loops documented: N items
 ✓ Bidirectional links added (previous ↔ next)
   [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
   [OR if no previous session: "✓ No previous session to link (first session)"]
 ✓ Project updated: [Project Name] (if applicable)
-✓ All files linted and validated
 
 Shutdown complete. You can rest.
 
 To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
+
+**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
 ## Guidelines
 
@@ -239,13 +328,13 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Explicit override available:** Use `--quick`, `--standard`, or `--full` to override auto-detection
 - **Quick tier for throwaway sessions:** 3-minute lookups, quick questions, minor tasks
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
-- **Always verify vault accessibility:** First step - check that session archive directory exists before writing. If vault is unavailable, warn the user
+- **Always verify NAS accessibility:** First step - check mount status before any write operations. If NAS is unavailable, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
 - **Bidirectional linking:** Standard/Full tiers add "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
-- **File locking for safety:** Use lock files to prevent race conditions when multiple Claude instances park simultaneously. Applies to both step 8 (writing new session) and step 8a (editing previous session for forward link)
-- **Conditional auto-fix:** Quick tier skips linting (not justified); Standard/Full tiers lint modified files
-- **Silent when clean:** Only show fix report if issues were found and corrected
+- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`06 Archive/Claude Sessions/.lock`) protects both writes and edits
+- **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Standard/Full show results. This prevents silent skipping.
+- **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Standard/Full tiers.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
@@ -255,7 +344,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 ## Cue Word Detection
 
-This command should also trigger automatically when the user uses these phrases:
+This command should also trigger automatically when the user says these phrases:
 - "bedtime"
 - "wrapping up"
 - "done for tonight"
