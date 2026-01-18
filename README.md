@@ -127,17 +127,20 @@ That's it. You now have:
 
 ### Commands
 
+**Daily rhythm:**
+- `/morning` - Start of day: surface landscape, catch gaps, set intention
+- `/afternoon` - Mid-day recalibration: check drift, reprioritise remaining time (alias: `/regroup`)
+- `/goodnight` - End of day: inventory loops, set tomorrow's queue, close cleanly
+
 **Session management:**
 - `/park` - End session, document work, capture open loops
 - `/pickup` - Resume any session with full context
-- `/morning` - Adaptive morning check-in, surface landscape and open loops
 
 **Thinking and research:**
 - `/thinking-partner` - Explore ideas through questions before solutioning
 - `/research-assistant` - Deep search across your vault
 
 **Review and reflection:**
-- `/daily-review` - End-of-day reflection
 - `/weekly-synthesis` - Weekly patterns and alignment
 
 **Workflow:**
