@@ -80,8 +80,12 @@ You are ending a work session. Your task is to create a comprehensive session su
    - **Standard/Full tier:**
      - Check if this session is continuing a previous one (from `/pickup` context)
      - If continuing: Store continuation link for inclusion in summary
-     - Otherwise: Read recent session files to find the most recent session
-     - Extract title for backlink
+     - Find the most recent session by searching:
+       1. Today's file: `06 Archive/Claude Sessions/YYYY-MM-DD.md`
+       2. If no sessions today: Check yesterday, then up to 7 days back
+       3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
+     - Extract title and file path for backlink and forward linking
+     - Store previous session's tier (Quick vs Standard/Full) for step 8a
 
 7. **Generate session summary** (format varies by tier):
 
@@ -152,16 +156,28 @@ You are ending a work session. Your task is to create a comprehensive session su
    - Release lock file after write completes
    - Implementation note: Use bash `flock` or create/delete lock file atomically
 
-8a. **Add forward link to original session** (if continuing previous session):
-   - **If this session continues a previous one:**
-     - Read the original session file (from "Continues:" link)
-     - Find the original session heading
-     - Append below its "Pickup Context" section:
+8a. **Add forward link to previous session** (standard/full tier):
+   - **Quick tier:** Skip (no previous session linking done)
+   - **Standard/Full tier:**
+     - If no previous session found in step 6, skip forward linking (first session ever)
+     - Acquire file lock on previous session's file (same pattern as step 8)
+     - Read the previous session's file
+     - **Idempotency check:** If "Next session:" already exists for this session heading, skip (prevents duplicates on re-park)
+     - **Handle Quick tier previous sessions:** Quick format has no "Pickup Context" section
+       - If previous session is Quick tier (ends with `[Q]`): Append forward link after the one-line summary
+       - If previous session is Standard/Full tier: Add below "Pickup Context" section
+     - Add forward link:
        ```markdown
-       **Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] ([Date])
+       **Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
        ```
-     - This creates bidirectional continuation tracking
-   - **If not a continuation:** Skip this step
+     - Release file lock
+     - **Error handling:** If forward link fails (file missing, lock timeout):
+       - Log warning but don't fail the park
+       - Set `forward_link_failed = true` for completion message
+   - **If this session also continues a specific previous session** (from `/pickup`):
+     - Add "Continued in:" link to the original session as well (if different from immediate previous)
+     - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (YYYY-MM-DD)`
+     - Same file locking and error handling applies
 
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -188,7 +204,9 @@ Quick park complete. Minimal overhead for minor task.
 ```
 ✓ Session summary saved to: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 ✓ Open loops: N items
-✓ Previous session linked
+✓ Bidirectional links added (previous ↔ next)
+  [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
+  [OR if no previous session: "✓ No previous session to link (first session)"]
 
 Shutdown complete. You can rest.
 
@@ -199,7 +217,9 @@ To pickup: `claude` or `/pickup`
 ```
 ✓ Session summary saved to: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 ✓ Open loops documented: N items
-✓ Linked to previous session (Session N-1 - Topic)
+✓ Bidirectional links added (previous ↔ next)
+  [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
+  [OR if no previous session: "✓ No previous session to link (first session)"]
 ✓ Project updated: [Project Name] (if applicable)
 ✓ All files linted and validated
 
@@ -211,7 +231,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 ## Guidelines
 
 - **Park ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
-- **Tiered overhead:** System minimizes friction by matching overhead to session importance:
+- **Tiered overhead:** System minimises friction by matching overhead to session importance:
   - Quick: < 5 min, no files → one-line log (5 sec overhead)
   - Standard: 5-45 min, few files → summary + open loops (30 sec overhead)
   - Full: 45+ min, many files → comprehensive (90 sec overhead)
@@ -222,8 +242,8 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Always verify vault accessibility:** First step - check that session archive directory exists before writing. If vault is unavailable, warn the user
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
-- **Continuation tracking:** When `/pickup` loads a previous session, `/park` creates bidirectional links: "Continues:" in new session, "Continued in:" appended to original. This tracks project threads across time
-- **File locking for safety:** Use lock files to prevent race conditions when multiple Claude instances park simultaneously
+- **Bidirectional linking:** Standard/Full tiers add "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
+- **File locking for safety:** Use lock files to prevent race conditions when multiple Claude instances park simultaneously. Applies to both step 8 (writing new session) and step 8a (editing previous session for forward link)
 - **Conditional auto-fix:** Quick tier skips linting (not justified); Standard/Full tiers lint modified files
 - **Silent when clean:** Only show fix report if issues were found and corrected
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
