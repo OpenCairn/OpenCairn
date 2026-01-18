@@ -1,262 +1,141 @@
 # Claude Code + Obsidian Template
 
-> **It's Sunday afternoon. You sit down to continue that project you were excited about on Thursday. You open your laptop and... nothing. Where were you? What were the next steps? What files were you editing? You spend 20 minutes scrolling through browser tabs and file histories, trying to reconstruct your mental state. By the time you remember, the motivation is gone.**
+> **It's Sunday afternoon. You sit down to continue planning that Japan trip you were excited about on Thursday. You open your laptop and... nothing. Where were you? Which hotels were you comparing? What did you decide about the Kyoto day trips?**
+>
+> **You won't spend 20 minutes reconstructing. Nobody does. The activation energy is too high, the dopamine too low. So you check your phone. Refresh something. The trip sits there unplanned for another week.**
 
-This template fixes that. Permanently.
+This template fixes that.
 
 ```
 > /pickup
 
-╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - Last 9 Days (By Project)                ║
-╠════════════════════════════════════════════════════════════╣
-║  1. Side Project - App                         (5 sessions)║
-║     Latest: Auth flow implementation       Thu 9:16pm     ║
-║     Open loops: 7 total | Last: 2 days ago                 ║
-╚════════════════════════════════════════════════════════════╝
+Recent Sessions (By Project)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Japan Trip                (4 sessions)
+   Latest: Kyoto logistics       Thu 9:16pm | 3 loops
 
 > 1
 
-╔════════════════════════════════════════════════════════════╗
-║  Side Project - App (5 sessions)                          ║
-╠════════════════════════════════════════════════════════════╣
-║  1. Auth flow implementation         Thu 9:16pm | Loops: 3 ║
-║  2. Database schema design           Wed 7:30pm | [C]      ║
-║  3. Initial project setup            Tue 2:15pm | [C]      ║
-╚════════════════════════════════════════════════════════════╝
-
-> 1
-
-Loading: Auth flow implementation (Thu 9:16pm)
+Loading: Kyoto logistics
 
 Open loops:
- [ ] Finish password reset flow
- [ ] Add rate limiting to auth endpoints
- [ ] Write tests for login edge cases
+ [ ] Book ryokan - narrowed to 2 options, need to decide
+ [ ] Figure out JR pass vs individual tickets
+ [ ] Ask Mike about that ramen place in Osaka
 
 Ready to continue. What's next?
 ```
 
-Zero reconstruction. Zero "where was I?" You're back in flow within seconds.
+Zero reconstruction. Instant flow.
 
 ---
 
-## The Core Idea
+## How It Works
 
-Claude Code can read files from your disk. Obsidian stores notes as files on your disk.
+Web-based LLMs are like collaborating on a Word doc via email - you send a file, they send edits, you lose track of versions, they forget what you discussed last week.
 
-Put them together: Claude becomes a thinking partner with perfect memory of everything you've written - your projects, your preferences, your context, your open loops.
+Claude Code is different. It reads and writes files directly on your disk. **The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files.
 
-**Before:** Every Claude conversation starts from scratch. You re-explain who you are, what you're working on, what you've already tried.
+This means:
 
-**After:** Claude reads your `CLAUDE.md` and knows your life context. It reads your project files and knows what you're building. It reads your session history and knows exactly where you left off.
+- **You control what Claude knows.** Put it in the folder, Claude can read it. Don't put it there, Claude doesn't know it exists. No algorithm deciding what's "relevant".
 
----
+- **Context doesn't drift.** Web LLMs compress and summarise behind the scenes. After a few sessions, their memory of your project diverges from reality. Here, Claude reads your actual notes every time. The source of truth is your files.
 
-## What This Solves
+- **Structure is yours to define.** Want Claude to understand your health history before giving supplement advice? Write a `Context - Health.md` file and link it from `CLAUDE.md`. Claude navigates to what it needs, when it needs it.
 
-- **"Where was I?"** - The Sunday afternoon problem. Session history with one-command pickup.
-- **Mental open loops** - Tasks rattling around your head because you don't trust your capture system. Everything captured, nothing forgotten.
-- **Context amnesia** - Re-explaining yourself every conversation. Claude knows who you are.
-- **Terminal anxiety** - Keeping sessions open for days because closing means losing context. Park confidently, pickup seamlessly.
-- **Scattered notes** - Ideas across apps, files, browser tabs. One folder, one system, infinite context.
+Obsidian is just a nice way to view and edit these files. The magic is **local files + an LLM that can actually use them**.
 
 ---
 
-## The Park and Pickup System
+## The System
 
-This is the heart of the template.
+### Park and Pickup
 
-**At the end of each work session:**
-```
-> /park
-```
+The core mechanic.
 
-Claude documents what you did, captures open loops, and archives the session. You get a "shutdown complete" moment - confident closure knowing everything is captured.
+**End of session:** `/park` - Claude documents what you did, captures open loops, archives the session. Confident closure.
 
-**When you return:**
-```
-> /pickup
-```
+**Next session:** `/pickup` - Interactive menu, grouped by project. Select one, get full context. No reconstruction.
 
-Interactive menu of recent sessions, grouped by project. Select one and Claude loads everything - what you were doing, what's still open, which files matter. No reconstruction. Instant flow.
+### Daily Rhythm
+
+Structure your day:
+
+| Command | When | What |
+|---------|------|------|
+| `/morning` | Start of day | Surface landscape, catch gaps, set intention |
+| `/afternoon` | Mid-day | Check drift, reprioritise remaining time |
+| `/goodnight` | End of day | Inventory loops, set tomorrow's queue |
+
+### Extended Breaks
+
+Going on vacation? `/hibernate` before you leave. `/awaken` when you return. Bridges the gap between sessions and months.
 
 ---
 
-## 5-Minute Quick Start
+## Quick Start
 
 ```bash
-# Clone the template
 git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
 cd my-vault
-
-# Remove git history (start fresh)
 rm -rf .git && git init
 
-# Open CLAUDE.md and fill in your details
-# (who you are, what you're working on, how you think)
-
-# Start Claude Code
+# Edit CLAUDE.md with your details
 claude
 
-# Try it
-> /pickup     # See the session menu (empty at first)
-> /park       # End your first session
+> /park    # End your first session
+> /pickup  # See it appear in the menu
 ```
-
-That's it. You now have:
-- A folder structure that scales
-- Session management that never forgets
-- An AI that knows your context
 
 ---
 
 ## What's Included
 
-### Folder Structure (NIPARAS)
-
+**Folder structure (NIPARAS):**
 ```
-01 Now/          - Active focus, current priorities
-02 Inbox/        - Quick capture (process later)
-03 Projects/     - Discrete work with end states
-04 Areas/        - Ongoing responsibilities (no end date)
-05 Resources/    - Reference material, knowledge base
-06 Archive/      - Completed/inactive items, session history
-07 System/       - Meta-documentation, Claude context files
-```
-
-### Commands
-
-**Daily rhythm:**
-- `/morning` - Start of day: surface landscape, catch gaps, set intention
-- `/afternoon` - Mid-day recalibration: check drift, reprioritise remaining time (alias: `/regroup`)
-- `/goodnight` - End of day: inventory loops, set tomorrow's queue, close cleanly
-
-**Session management:**
-- `/park` - End session, document work, capture open loops
-- `/pickup` - Resume any session with full context
-
-**Thinking and research:**
-- `/thinking-partner` - Explore ideas through questions before solutioning
-- `/research-assistant` - Deep search across your vault
-
-**Review and reflection:**
-- `/weekly-synthesis` - Weekly patterns and alignment
-
-**Workflow:**
-- `/inbox-processor` - Organise captures into the folder structure
-- `/de-ai-ify` - Remove AI writing patterns from text
-
-### Extended Breaks
-
-Going on vacation? Taking a sabbatical?
-
-```
-> /hibernate    # Before you leave - comprehensive state snapshot
-> /awaken       # When you return - restore context, update priorities
+01 Now/       - Current focus
+02 Inbox/     - Quick capture
+03 Projects/  - Work with end states
+04 Areas/     - Ongoing responsibilities
+05 Resources/ - Reference material
+06 Archive/   - Completed items, sessions
+07 System/    - Context files for Claude
 ```
 
-Bridges the gap between session-to-session continuity and month-long breaks.
+**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/thinking-partner`, `/research-assistant`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/inbox-processor`, `/de-ai-ify`
 
 ---
 
 ## Already Have a System?
 
-**Don't adopt this wholesale.** Instead:
+Don't adopt this wholesale. Cherry-pick:
 
-1. Clone this repo and examine it with Claude:
-   ```
-   cd /path/to/this/repo
-   claude
-   > "Analyse this template. I have [describe your system].
-   >  Which elements would integrate well? Which would conflict?"
-   ```
+- Just `/park` and `/pickup`
+- Just the `CLAUDE.md` pattern
+- Just the folder structure
+- The full system
 
-2. Cherry-pick what fits:
-   - Just the `/park` and `/pickup` commands
-   - Just the `CLAUDE.md` pattern
-   - Just the folder structure ideas
-   - The full system
-
-3. Let Claude help you adapt components to your existing conventions.
-
-The goal is *your* system working for *you*.
+Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What integrates well?"*
 
 ---
 
 ## Philosophy
 
-**Files, not features.** Everything is plain markdown. No plugins, no lock-in, works with any editor.
+**Files, not features.** Plain markdown. No plugins, no lock-in.
 
-**Hierarchical context loading.** Claude doesn't read everything upfront. It reads `CLAUDE.md`, follows links to hub files, then to detailed pages. Efficient navigation, not brute force.
+**Hierarchical context.** Claude reads `CLAUDE.md`, follows links to hub files, then details. Efficient, not brute force.
 
-**Park and pickup.** Explicit session boundaries with documented handoffs. Based on Cal Newport's "shutdown complete" ritual.
-
-**Your system, not mine.** This reflects my preferences. Fork it, modify it, throw out what doesn't fit.
-
----
-
-## Why Obsidian?
-
-Obsidian is just a markdown editor. Your vault is just a folder of files.
-
-Claude Code reads files directly from disk. No plugins, no APIs, no sync issues. Any note you write is immediately available to Claude. Any note Claude writes appears instantly in Obsidian.
-
-The magic isn't Obsidian specifically - it's having your knowledge as accessible files rather than locked in apps.
-
----
-
-## Customisation
-
-### CLAUDE.md
-
-Your persistent context file. Claude reads it at the start of every session. Include:
-- Who you are (life stage, profession, current priorities)
-- How you think (mental frameworks, decision-making style)
-- Communication preferences (locale, detail level, pushback tolerance)
-- Key file locations
-
-See the template file for structure.
-
-### Adding Commands
-
-Create `.md` files in `.claude/commands/`:
-
-```markdown
----
-name: my-command
-description: What this does
----
-
-# My Command
-
-Instructions for Claude when invoked...
-```
-
-### Hub Files
-
-Create domain-specific context in `07 System/`:
-- `Context - Work.md`
-- `Context - Health.md`
-- `Context - [Your Domain].md`
-
-These become indexes Claude reads to understand each area of your life.
+**Park and pickup.** Explicit session boundaries. Based on Cal Newport's "shutdown complete" ritual.
 
 ---
 
 ## Credits
 
-Inspired by:
-- [claudesidian](https://github.com/heyitsnoah/claudesidian) - "thinking partner" philosophy
-- [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm) - skills and agents system
-- [The Neuron](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant) - workflow patterns
-
-Built with Claude Code.
+Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm), [The Neuron](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant). Built with Claude Code.
 
 ---
 
 ## License
 
-**CC BY-NC-SA 4.0** ([Creative Commons Attribution-NonCommercial-ShareAlike 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/))
-
-Free for personal and non-commercial use with attribution. Commercial use requires permission - [open an issue](https://github.com/harrisonaedwards/claude-code-obsidian-template/issues) to discuss.
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) - Free for personal use with attribution. Commercial use requires permission.
