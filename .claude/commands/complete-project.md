@@ -129,9 +129,9 @@ User: /complete-project "Claude Code Learning"
 You: Reading Works in Progress...
 
 Active projects:
-1. Work roster example
-2. Claude Code Learning ⚠️
-3. Travel 2026
+1. Home Renovation
+2. Side Project - App ⚠️
+3. Travel Planning
 ...
 
 Project "Claude Code Learning" found.
@@ -143,7 +143,7 @@ User: Completed successfully
 
 You: What was accomplished or learned?
 
-User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for publication.
+User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published documentation.
 
 You: Why are you completing this now?
 

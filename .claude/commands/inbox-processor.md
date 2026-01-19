@@ -73,8 +73,8 @@ Show the user the proposed categorisation:
    → `04 Areas/Computers/Apps/wezterm-config-screenshot.png`
    Reason: Technical documentation, keep with wezterm files
 
-5. **meeting-notes-David.md**
-   → `03 Projects/Work Strategy/meeting-notes-david-2026-01-16.md`
+5. **meeting-notes-manager.md**
+   → `03 Projects/Work Strategy/meeting-notes-2026-01-16.md`
    Reason: Related to active project (check date and context)
 
 6. **article-clip-attention-restoration.md**
