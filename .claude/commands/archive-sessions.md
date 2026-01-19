@@ -13,7 +13,7 @@ You are organising the user's session archive. As sessions accumulate (1000+ fil
 
 ## Philosophy
 
-Session files should be easily accessible while actively relevant (last 90 days), then organized by year for long-term retrieval. This balances:
+Session files should be easily accessible while actively relevant (last 90 days), then organised by year for long-term retrieval. This balances:
 - **Recent access:** Last 3 months flat in main directory (fast pickup scanning)
 - **Long-term organization:** Older sessions in year folders (manageable, searchable)
 - **Link preservation:** Obsidian links remain valid (relative paths work)
