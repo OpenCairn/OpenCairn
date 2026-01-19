@@ -17,21 +17,21 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 ### Phase 1: Setup and Verification
 
-0. **Verify NAS mount accessibility** before proceeding:
-   - Check if `~/vault` is accessible: `mountpoint -q ~/vault`
-   - If mount is not available, display error and abort:
+0. **Verify vault accessibility** before proceeding:
+   - Check if the vault directory is accessible (especially if on network mount)
+   - If vault is not available, display error and abort:
      ```
-     ❌ ERROR: NAS mount not accessible at ~/vault
+     ❌ ERROR: Vault directory not accessible
      Cannot park session - session summary would be lost.
 
      Troubleshooting:
-     - Check mount status: mount | grep nas
-     - Verify network connection to NAS
-     - Try remounting: sudo mount -a
+     - Check if vault path exists
+     - Verify network connection (if network mount)
+     - Try remounting if applicable
 
-     Session NOT parked. Try again once NAS is accessible.
+     Session NOT parked. Try again once vault is accessible.
      ```
-   - Only proceed if mount is confirmed accessible
+   - Only proceed if vault is confirmed accessible
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
