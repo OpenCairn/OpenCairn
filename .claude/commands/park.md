@@ -232,27 +232,70 @@ You are ending a work session. Your task is to create a comprehensive session su
    - **Standard/Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
      - **CRITICAL: Use Bash with flock for editing previous session file**
-     - First read the file (without lock) to check idempotency and find insertion point
-     - **Idempotency check:** If "Next session:" link to this session already exists, skip
-     - Then use flock + sed or flock + temporary file pattern for atomic edit:
 
-   **Implementation for Standard/Full previous sessions (has Pickup Context):**
+   **GUARD 1 - Self-reference check (REQUIRED):**
+   Before any forward linking, verify we're not linking a session to itself:
+   - If previous session heading == current session heading, skip with warning:
+     `⚠ Detected self-reference attempt, skipping forward link`
+   - This can occur when context compaction causes session number confusion
+
+   **GUARD 2 - Idempotency check (REQUIRED):**
+   Before inserting, check if a "Next session:" link already exists in the previous session's Pickup Context:
    ```bash
-   # Find the line number of the last "**Project:**" or last line of Pickup Context section
-   # Then insert after it using sed with flock:
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c '
-     sed -i "/^\\*\\*Project:\\*\\* \\[\\[.*\\]\\]$/a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]" \
-       "06 Archive/Claude Sessions/PREV-DATE.md"
-   '
+   # Check if forward link to this specific session already exists
+   if grep -q "\\*\\*Next session:\\*\\*.*#Session $CURRENT_NUM - " "$PREV_FILE"; then
+     echo "Forward link already exists, skipping"
+     # Skip insertion entirely - do NOT proceed to sed
+   fi
+   ```
+
+   **GUARD 3 - Scope to previous session only (REQUIRED):**
+   The sed pattern MUST be constrained to the previous session's block only. A file contains multiple sessions, each with `**Project:**` lines. Matching globally will insert links into ALL sessions.
+
+   **Implementation - Line-number scoped insertion (Standard/Full previous sessions):**
+   ```bash
+   # 1. Find previous session heading line number (use exact session number and title)
+   PREV_HEADING=$(grep -n "^## Session $PREV_NUM - $PREV_TOPIC" "$PREV_FILE" | head -1 | cut -d: -f1)
+
+   # 2. Find next session heading after it (or use EOF)
+   NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$PREV_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
+   if [ -n "$NEXT_HEADING" ]; then
+     END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
+   else
+     END_LINE=$(wc -l < "$PREV_FILE")
+   fi
+
+   # 3. Find the last Pickup Context metadata line within that range
+   # (Project > Continues > Previous session, in order of preference)
+   INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$PREV_FILE" | \
+     grep -n "^\\*\\*\\(Project\\|Continues\\|Previous session\\):\\*\\*" | tail -1 | cut -d: -f1)
+   INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
+
+   # 4. Insert at specific line number (scoped, not pattern-matched)
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
+     sed -i \"${INSERT_LINE}a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]\" \"$PREV_FILE\"
+   "
    ```
 
    **Implementation for Quick tier previous sessions (no Pickup Context):**
    ```bash
-   # Quick sessions end with [Q] on the summary line - append after the one-line summary
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c '
-     sed -i "/^## Session .* \\[Q\\]$/{n;a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
-     }" "06 Archive/Claude Sessions/PREV-DATE.md"
-   '
+   # Quick sessions are single-line. Find the specific session line and insert after content.
+   # Still must scope to the specific session - don't match all [Q] sessions!
+   PREV_LINE=$(grep -n "^## Session $PREV_NUM - .*\\[Q\\]$" "$PREV_FILE" | head -1 | cut -d: -f1)
+   # Quick sessions may have content on next line, find where to insert
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
+     # Insert after the quick session's content line (line after heading, or heading if no content)
+     sed -i \"$((PREV_LINE + 1))a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]\" \"$PREV_FILE\"
+   "
+   ```
+
+   **GUARD 4 - Post-insertion validation:**
+   After insertion, verify no duplicates were created:
+   ```bash
+   NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$PREV_FILE" | grep -c "^\\*\\*Next session:\\*\\*")
+   if [ "$NEXT_COUNT" -gt 1 ]; then
+     echo "⚠ WARNING: Previous session has $NEXT_COUNT 'Next session:' links - manual review needed"
+   fi
    ```
 
    **Error handling:** If forward link fails (file missing, lock timeout, sed error):
@@ -262,7 +305,7 @@ You are ending a work session. Your task is to create a comprehensive session su
    - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
-     - Same flock pattern applies
+     - Same scoped insertion pattern applies - MUST constrain to specific session block
 
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -328,10 +371,11 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Explicit override available:** Use `--quick`, `--standard`, or `--full` to override auto-detection
 - **Quick tier for throwaway sessions:** 3-minute lookups, quick questions, minor tasks
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
-- **Always verify NAS accessibility:** First step - check mount status before any write operations. If NAS is unavailable, abort rather than silently fail
+- **Always verify vault accessibility:** First step - check directory/mount status before any write operations. If vault is unavailable, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
+- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context. This is intentional - local time is more meaningful than forcing a fixed timezone
 - **Bidirectional linking:** Standard/Full tiers add "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
+- **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`06 Archive/Claude Sessions/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Standard/Full show results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Standard/Full tiers.
@@ -344,7 +388,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 ## Cue Word Detection
 
-This command should also trigger automatically when the user says these phrases:
+This command should also trigger automatically when the user uses these phrases:
 - "bedtime"
 - "wrapping up"
 - "done for tonight"

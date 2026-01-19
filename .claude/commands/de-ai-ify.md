@@ -16,7 +16,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 
 ## Instructions
 
-1. **Analyze the text:**
+1. **Analyse the text:**
    - Identify AI patterns (see checklist below)
    - Note structural issues (generic intro/conclusion, listicles, etc.)
    - Find ideas worth keeping
@@ -25,7 +25,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 
 Check for voice training data:
 - `04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
-- the user's blog posts at `03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+- the user's blog posts (if applicable)
 - His Obsidian notes (especially in `07 System/` and `03 Projects/`)
 
 Extract patterns:
@@ -117,7 +117,7 @@ Present two versions:
 ## Voice Training Sources
 
 **Primary sources** (the user's authentic writing):
-1. Blog posts at `03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+1. Blog posts (if the user maintains a blog)
 2. His messages in ChatGPT export (his prompts, not AI responses)
 3. His notes in Roam export (personal writing, not captures)
 4. Obsidian project files and context files (his documentation)
