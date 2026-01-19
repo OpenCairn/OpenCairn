@@ -8,6 +8,7 @@ parameters:
   - "--with-loops" - Show only sessions with open loops
   - "--hibernate=DATE" - Load hibernate snapshot instead of session (redirects to /awaken)
   - "--all" - Show all sessions without pagination (use cautiously)
+  - "--show-hidden" - Include hidden entries in the menu
 ---
 
 # Pickup - Session Pickup
@@ -22,7 +23,7 @@ You are helping the user pickup a previous work session with full context.
    - Use these to calculate how long ago each session was
 
 2. **Parse parameters and scan for sessions:**
-   - Check for parameters: `--days=N`, `--project=NAME`, `--with-loops`, `--hibernate=DATE`, `--all`
+   - Check for parameters: `--days=N`, `--project=NAME`, `--with-loops`, `--hibernate=DATE`, `--all`, `--show-hidden`
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
    - Determine lookback window:
      - Default: 9 days (reliably covers weekend-to-weekend)
@@ -45,7 +46,15 @@ You are helping the user pickup a previous work session with full context.
      - If `--project=NAME`: Keep only sessions linking to that project
      - If `--with-loops`: Keep only sessions with unchecked open loops
 
-2a. **Check Works in Progress staleness:**
+2a. **Filter hidden entries:**
+   - Read `06 Archive/Claude Sessions/.pickup-hidden` (if exists)
+   - File format: one entry per line, lines starting with `#` are comments
+     - Project names: `Home Renovation` (hides entire project cluster)
+     - Session identifiers: `2026-01-18#Session 1 - Journal Setup` (hides specific session)
+   - Unless `--show-hidden` is set, exclude matching projects and sessions from display
+   - If `--show-hidden` is set, show all entries but mark hidden ones with `[H]`
+
+2b. **Check Works in Progress staleness:**
    - Read `01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
@@ -116,14 +125,14 @@ After pickup, consider:
 ║  4. Journal Setup                                 [C] (1)  ║
 ║     Today 6:21am | Completed                               ║
 ║                                                            ║
-║  [1-9] select project, [v] flat view, [n] new session      ║
+║  [1-9] select, [v] flat view, [h] hide, [n] new session   ║
 ║  Note: ⚠️ = 7+ days stale, 🔴 = 30+ days aged              ║
 ╚════════════════════════════════════════════════════════════╝
 
 >
 ```
 
-**Expanded project view (after 'e1'):**
+**Expanded project view (after selecting a project number):**
 ```
 ╔════════════════════════════════════════════════════════════╗
 ║  Home Renovation (8 sessions)                             ║
@@ -183,6 +192,25 @@ After pickup, consider:
    - **'m':** Show next page (when paginated)
    - **'f':** Prompt for filter criteria and re-display
    - **'s':** Prompt for keyword and show matching sessions
+   - **'h':** Enter hide mode (see step 5a)
+   - **'u':** Unhide - show hidden entries and allow restoring them
+
+5a. **Hide mode** (when 'h' selected):
+   - Display current menu with selection prompts
+   - User enters numbers (comma-separated or space-separated) of entries to hide
+   - For each selected entry:
+     - If project: Add project name to `.pickup-hidden`
+     - If standalone session: Add `YYYY-MM-DD#Session N - Title` to `.pickup-hidden`
+   - Append to `06 Archive/Claude Sessions/.pickup-hidden`
+   - Re-display menu with hidden entries removed
+   - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
+
+5b. **Unhide mode** (when 'u' selected):
+   - Read `.pickup-hidden` file
+   - Display numbered list of currently hidden entries
+   - User enters numbers to restore (unhide)
+   - Remove selected lines from `.pickup-hidden`
+   - Re-display main menu with restored entries visible
 
 6. **Load selected session context:**
    - **If project selected (from project view):**
@@ -244,6 +272,19 @@ Ready to continue. What's next?
    - Ask: "Ready to continue. What's next?" or "Should I proceed with [suggested next action]?"
 
 ## Guidelines
+
+### Hide/Unhide Feature
+- **Purpose:** Declutter the pickup menu by hiding completed projects or irrelevant sessions
+- **Hidden file location:** `06 Archive/Claude Sessions/.pickup-hidden`
+- **Hiding is non-destructive:** Session files remain intact, just filtered from display
+- **Project-level hiding:** Hiding a project hides all its sessions
+- **Session-level hiding:** Can hide individual standalone sessions
+- **Unhide anytime:** Use 'u' in menu or `--show-hidden` flag to see/restore hidden entries
+- **Good candidates for hiding:**
+  - Completed projects (already marked [C])
+  - One-off sessions you won't return to
+  - Old standalone sessions superseded by newer work
+- **Don't hide:** Sessions with unresolved open loops (address them first or explicitly drop)
 
 ### Project Clustering
 - **Default view is project-grouped:** Sessions sharing a `**Project:**` link are clustered together
