@@ -38,10 +38,12 @@ Brief status update. What's the current state? What's next?
 
 ## Recently Completed
 
-<!-- Move completed projects here with completion date. Keeps them visible for a while. -->
-
-- **[Project Name]** - [DATE]
-  - [Brief description of what was accomplished]
+<!-- Move completed projects here with completion date. Keeps them visible for a while.
+Format (from /complete-project):
+- **[Project Name]** - [Date] ([Outcome])
+  - [Brief result/accomplishment]
+  - [[06 Archive/Projects/YYYY/Project Name]]
+-->
 
 ---
 

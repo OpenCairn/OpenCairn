@@ -105,7 +105,7 @@ claude
 
 **Areas vs Resources:** Areas are domains you actively maintain (Photography, Health, Finances) - each contains its own reference material. Resources is a staging ground for generic stuff that doesn't belong to a specific domain yet. When something accumulates enough mass, it graduates to an Area.
 
-**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/thinking-partner`, `/research-assistant`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/inbox-processor`, `/de-ai-ify`
+**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/thinking-partner`, `/research-assistant`, `/inbox-processor`, `/de-ai-ify`, `/complete-project`, `/archive-sessions`
 
 ---
 

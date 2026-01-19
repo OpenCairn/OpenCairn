@@ -58,7 +58,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - Remove project from "Active" section
    - Add to "Recently Completed" section at bottom:
      ```markdown
-     - **[Project Name]** — [Date] ([Outcome])
+     - **[Project Name]** - [Date] ([Outcome])
        - [Brief result/accomplishment]
        - [[06 Archive/Projects/YYYY/Project Name]]
      ```

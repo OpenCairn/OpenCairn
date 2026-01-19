@@ -18,10 +18,10 @@
 
 ## To Process
 
-<!-- Items that need to be moved to their proper home -->
-
-- [ ] Item to categorise
-- [ ] Another item
+<!-- Items that need to be moved to their proper home
+- [ ] Example item to categorise
+- [ ] Another example item
+-->
 
 ---
 
