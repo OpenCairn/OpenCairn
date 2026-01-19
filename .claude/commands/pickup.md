@@ -256,6 +256,7 @@ Ready to continue. What's next?
 
 ### Date and Time
 - **Always check current date/time:** First step - run `date` command for accurate age calculations. Never assume time.
+- **Menu header shows configured window:** Display "Last 9 Days" (or whatever `--days=N` was set to), not the range of files found. The window is what we searched, not what we found. If sessions only exist from Jan 15-19 but we searched 9 days, header still says "Last 9 Days".
 - **Auto-extend window after breaks:** If no sessions in last 9 days, automatically extend to 30 days and notify user
 - **No sessions found:** If no sessions in extended window, suggest `/awaken` or starting fresh
 - **Session ordering:** Display most recent first (reverse chronological)
