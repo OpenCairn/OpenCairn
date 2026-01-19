@@ -45,7 +45,7 @@ For each item, determine the appropriate home using NIPARAS logic:
 **Additional routing rules:**
 - Session notes → `06 Archive/Claude Sessions/`
 - Daily reflections → `06 Archive/Daily Reviews/`
-- Blog drafts → `03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+- Blog drafts → `03 Projects/Blog/drafts/` (or your blog project path)
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project
 - Article clippings → `05 Resources/[Topic]/` or relevant project
@@ -66,7 +66,7 @@ Show the user the proposed categorisation:
    Reason: Ongoing health management area
 
 3. **blog-post-draft-epistemics.md**
-   → `03 Projects/Blog-Sites/revealedpriorities/content/posts/drafts/epistemics-force-multiplier.md`
+   → `03 Projects/Blog/drafts/epistemics-force-multiplier.md`
    Reason: Blog project, likely related to existing post series
 
 4. **screenshot-wezterm-config.png**

@@ -3,7 +3,7 @@ name: pickup
 aliases: [resume, restore]
 description: Interactive menu to pickup recent sessions with full context - the "pickup" in park and pickup
 parameters:
-  - "--days=N" - Show sessions from last N days (default: 9, max: 90)
+  - "--days=N" - Show sessions from last N days (default: 10, max: 90)
   - "--project=NAME" - Filter to sessions related to specific project
   - "--with-loops" - Show only sessions with open loops
   - "--hibernate=DATE" - Load hibernate snapshot instead of session (redirects to /awaken)
@@ -26,8 +26,8 @@ You are helping the user pickup a previous work session with full context.
    - Check for parameters: `--days=N`, `--project=NAME`, `--with-loops`, `--hibernate=DATE`, `--all`, `--show-hidden`
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
    - Determine lookback window:
-     - Default: 9 days (reliably covers weekend-to-weekend)
-     - Extended after break: If no sessions in last 9 days, automatically extend to 30 days
+     - Default: 10 days (reliably covers weekend-to-weekend plus buffer)
+     - Extended after break: If no sessions in last 10 days, automatically extend to 30 days
      - Explicit: Use `--days=N` value (max 90 days)
    - Read session files from `06 Archive/Claude Sessions/` for the determined window
    - Scan both main directory and year subdirectories (e.g., `2024/`, `2025/`)
@@ -76,9 +76,9 @@ You are helping the user pickup a previous work session with full context.
    - **Default view:** By Project (clusters related sessions)
    - **Alternative view:** Flat/chronological (traditional, accessed via 'v')
    - **Pagination threshold:** Show first 15 entries by default
-   - **If Works in Progress is stale (9+ days):** Display warning banner before menu
+   - **If Works in Progress is stale (10+ days):** Display warning banner before menu
 
-**WIP staleness warning (if 9-29 days old):**
+**WIP staleness warning (if 10-29 days old):**
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️  Works in Progress may be stale
@@ -108,7 +108,7 @@ After pickup, consider:
 **Default menu (project-grouped):**
 ```
 ╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - Last 9 Days (By Project)                ║
+║  Pickup Session - Last 10 Days (By Project)               ║
 ╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
 ║  1. Home Renovation                            (8 sessions)║
@@ -160,7 +160,7 @@ After pickup, consider:
 **Flat view (after 'v' - traditional chronological):**
 ```
 ╔════════════════════════════════════════════════════════════╗
-║  Pickup Session - Last 9 Days (Chronological)             ║
+║  Pickup Session - Last 10 Days (Chronological)            ║
 ╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
 ║  Today - Sun 18 Jan                                        ║
@@ -297,8 +297,8 @@ Ready to continue. What's next?
 
 ### Date and Time
 - **Always check current date/time:** First step - run `date` command for accurate age calculations. Never assume time.
-- **Menu header shows configured window:** Display "Last 9 Days" (or whatever `--days=N` was set to), not the range of files found. The window is what we searched, not what we found. If sessions only exist from Jan 15-19 but we searched 9 days, header still says "Last 9 Days".
-- **Auto-extend window after breaks:** If no sessions in last 9 days, automatically extend to 30 days and notify user
+- **Menu header shows configured window:** Display "Last 10 Days" (or whatever `--days=N` was set to), not the range of files found. The window is what we searched, not what we found. If sessions only exist from Jan 15-19 but we searched 10 days, header still says "Last 10 Days".
+- **Auto-extend window after breaks:** If no sessions in last 10 days, automatically extend to 30 days and notify user
 - **No sessions found:** If no sessions in extended window, suggest `/awaken` or starting fresh
 - **Session ordering:** Display most recent first (reverse chronological)
 - **Age display:** Show relative time ("2 hours ago", "yesterday", "3 days ago") using current time from step 1
