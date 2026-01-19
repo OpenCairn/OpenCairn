@@ -58,7 +58,7 @@ You are helping the user pickup a previous work session with full context.
    - Read `01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
-   - If > 9 days old, prepare staleness warning to display with menu
+   - If > 10 days old, prepare staleness warning to display with menu
    - If > 30 days old, prepare critical staleness warning
 
 3. **Group sessions by project:**
@@ -305,10 +305,10 @@ Ready to continue. What's next?
 - **Open loop counting:** Only count unchecked items (`- [ ]`), ignore completed ones (`- [x]`)
 - **Open loop age tracking:**
   - Calculate days since session date for all unchecked loops
-  - Flag stale (9-29 days): ⚠️ warning in menu
+  - Flag stale (10-29 days): ⚠️ warning in menu
   - Flag aged (30+ days): 🔴 critical in menu + prominent warning on load
   - Purpose: Surface loops that may need completion or explicit dropping
-- **Stale loop warnings:** Display only when loading sessions with 9+ day old loops
+- **Stale loop warnings:** Display only when loading sessions with 10+ day old loops
 - **Loop age philosophy:** Long-open loops often indicate either low priority (should drop) or high friction (needs decomposition)
 - **Context loading:** Be intelligent about which context files to load based on project and domain
 - **Date formatting:** Use natural language ("Sat 17 Jan 9:40am" not "2026-01-17 09:40")
@@ -317,7 +317,7 @@ Ready to continue. What's next?
 - **View modes:** Project-grouped (default), flat/chronological (via 'v')
 - **Filter preservation:** Once filter applied, maintain it until user clears or changes
 - **Hibernate detection:** If user returning after month+ gap with no sessions, suggest `/awaken`
-- **WIP staleness monitoring:** Always check Works in Progress timestamp and warn if 9+ days old
+- **WIP staleness monitoring:** Always check Works in Progress timestamp and warn if 10+ days old
 - **Critical staleness (30+ days):** Strong warning that projects list is likely outdated, suggest /awaken or manual review
 
 ## Integration with Claude Code

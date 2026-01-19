@@ -6,7 +6,7 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
-You are helping the user process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
+You are helping the user process their inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
 
@@ -25,7 +25,7 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
      2. medication-notes.md (2KB, Jan 14)
      3. blog-post-draft-epistemics.md (15KB, Jan 16)
      4. screenshot-wezterm-config.png (140KB, Jan 17)
-     5. meeting-notes-David.md (3KB, Jan 16)
+     5. meeting-notes-Alex.md (3KB, Jan 16)
      6. article-clip-attention-restoration.md (8KB, Jan 13)
      7. quick-thoughts-2026-01-14.md (1KB, Jan 14)
      ```
@@ -58,7 +58,7 @@ Show the user the proposed categorisation:
 ## Inbox Processing Plan
 
 1. **travel-insurance-quote.pdf**
-   → `05 Resources/Travel 2026/travel-insurance-quote.pdf`
+   → `05 Resources/Travel/travel-insurance-quote.pdf`
    Reason: Reference material for active travel project
 
 2. **medication-notes.md**

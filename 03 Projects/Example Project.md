@@ -28,9 +28,10 @@
 
 ## Resources
 
-Related files:
-- [[05 Resources/Example Project/resource-file.md]]
-- [[05 Resources/Example Project/reference.pdf]]
+<!-- Link to related files in your vault:
+- [[05 Resources/[Project Name]/resource-file.md]]
+- [[05 Resources/[Project Name]/reference.pdf]]
+-->
 
 ---
 

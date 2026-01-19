@@ -135,5 +135,5 @@ This command should trigger when the user says:
 
 - **Reads from:** Works in Progress, recent Claude Sessions, Daily Reviews
 - **May update:** Works in Progress, Journal, Project files
-- **Complements:** `/park` (end of session), `/daily-review` (end of day)
+- **Complements:** `/park` (end of session), `/goodnight` (end of day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
