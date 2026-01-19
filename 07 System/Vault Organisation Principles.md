@@ -13,8 +13,8 @@ This vault uses a seven-folder structure called NIPARAS:
 | **01 Now** | Active working memory, current focus | Works in Progress, Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
-| **04 Areas** | Ongoing responsibilities (no end date) | Health, Finances, Career, Relationships |
-| **05 Resources** | Reference material | Saved articles, how-to guides, templates |
+| **04 Areas** | Domains of life (with nested resources) | Health, Finances, Photography, Worldview |
+| **05 Resources** | Generic scrapbook, pre-emergence staging | Journal, recipes, screenshots, misc |
 | **06 Archive** | Completed/inactive items | Old projects, session logs, historical notes |
 | **07 System** | Meta-documentation | This file, context files, vault config |
 
@@ -25,12 +25,14 @@ This vault uses a seven-folder structure called NIPARAS:
 - "Plan 2026 vacation" - project
 - "Learn enough Python to automate Y" - project
 
-**Areas** are ongoing responsibilities. They never end, only evolve.
-- "Health" - area (you're always maintaining health)
-- "Career" - area (even after retiring, it becomes "legacy")
-- "Home" - area (always needs maintenance)
+**Areas** are domains of life you actively maintain. They never end, only evolve. Each Area contains its own nested resources - reference material lives with the domain it supports.
+- "Health" - area (with nested folders for supplements, bloodwork, etc.)
+- "Photography" - area (with nested portfolios, gear notes, learning materials)
+- "Finances" - area (with nested tax docs, investment notes, etc.)
 
-If you're confused about where something goes: Does it have a finish line? Project. Is it an ongoing concern? Area.
+**Resources** is a staging ground for generic material that doesn't belong to a specific Area yet. When something accumulates enough mass or importance, it graduates to become an Area.
+
+If you're confused about where something goes: Does it have a finish line? Project. Is it a domain of life? Area. Is it generic reference material? Resources.
 
 ---
 
@@ -43,7 +45,7 @@ The hub page:
 - Links to related files wherever they live
 - Tracks progress and open loops
 
-Related files live in `05 Resources/[Project Name]/` or wherever makes sense topically.
+Related files live in the relevant Area folder (e.g., travel files in `04 Areas/Travel/`) or in `05 Resources/` for project-specific material that doesn't belong to an Area.
 
 **Why?**
 - One place to see project status (the hub page)

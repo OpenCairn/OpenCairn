@@ -94,14 +94,16 @@ claude
 
 **Folder structure (NIPARAS):**
 ```
-01 Now/       - Current focus
-02 Inbox/     - Quick capture
-03 Projects/  - Work with end states
-04 Areas/     - Ongoing responsibilities
-05 Resources/ - Reference material
-06 Archive/   - Completed items, sessions
+01 Now/       - Current focus, working memory
+02 Inbox/     - Quick capture, downloads
+03 Projects/  - Sprints with end states
+04 Areas/     - Domains of life (with nested resources)
+05 Resources/ - Generic scrapbook, pre-emergence staging
+06 Archive/   - Completed items, session history
 07 System/    - Context files for Claude
 ```
+
+**Areas vs Resources:** Areas are domains you actively maintain (Photography, Health, Finances) - each contains its own reference material. Resources is a staging ground for generic stuff that doesn't belong to a specific domain yet. When something accumulates enough mass, it graduates to an Area.
 
 **Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/thinking-partner`, `/research-assistant`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/inbox-processor`, `/de-ai-ify`
 
