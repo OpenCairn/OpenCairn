@@ -68,7 +68,7 @@ You are helping the user pickup a previous work session with full context.
    - For each project group, calculate:
      - Total session count
      - Most recent session (for display)
-     - Aggregate open loops (sum across all sessions)
+     - **Open loops from most recent session only** (older sessions are historical snapshots, their loops may be resolved)
      - Time since last activity (from most recent session)
    - Sort project groups by most recent activity (not alphabetically)
 
@@ -113,11 +113,11 @@ After pickup, consider:
 ║                                                            ║
 ║  1. Home Renovation                            (8 sessions)║
 ║     Latest: Kitchen cabinets research      Today 7:10am   ║
-║     Open loops: 11 total | Last: 0 hours ago               ║
+║     Open loops: 2 | Last: 0 hours ago                      ║
 ║                                                            ║
 ║  2. Side Project - App                         (5 sessions)║
 ║     Latest: Auth flow implementation       Sat 1:49pm     ║
-║     Open loops: 7 total | Last: 17 hours ago               ║
+║     Open loops: 3 | Last: 17 hours ago                     ║
 ║                                                            ║
 ║  3. Tax Preparation                               [C] (1)  ║
 ║     Today 6:55am | Completed                               ║
@@ -132,6 +132,8 @@ After pickup, consider:
 >
 ```
 
+**Note:** Loop counts in project view come from the **most recent session only**, not aggregated across all sessions. Older sessions are historical snapshots - their loops may have been resolved in later sessions.
+
 **Expanded project view (after selecting a project number):**
 ```
 ╔════════════════════════════════════════════════════════════╗
@@ -140,11 +142,10 @@ After pickup, consider:
 ║                                                            ║
 ║  1. Kitchen cabinets research         Today 7:10am        ║
 ║     "Compared IKEA vs custom, got quotes"                  ║
-║     Open loops: 2                                          ║
+║     Open loops: 2  ← current state                         ║
 ║                                                            ║
 ║  2. Contractor calls                  Sat 9:16pm          ║
 ║     "Called 3 contractors, scheduled walkthroughs"         ║
-║     Open loops: 5                                          ║
 ║                                                            ║
 ║  3. Permit research                   Sat 8:17pm     [C]  ║
 ║     "Confirmed no permit needed for cabinets"              ║
@@ -156,6 +157,8 @@ After pickup, consider:
 
 >
 ```
+
+**Note:** Only the most recent session shows loop count (marked "← current state"). Older sessions don't display loops since they're historical snapshots.
 
 **Flat view (after 'v' - traditional chronological):**
 ```
@@ -169,7 +172,7 @@ After pickup, consider:
 ║  3. Journal Setup                     6:21am  | [C]       ║
 ║                                                            ║
 ║  Yesterday - Sat 17 Jan                                    ║
-║  4. Contractor calls                  9:16pm  | Loops: 5  ║
+║  4. Contractor calls                  9:16pm              ║
 ║  5. Permit research                   8:17pm  | [C]       ║
 ║  ...                                                       ║
 ║                                                            ║
@@ -178,6 +181,8 @@ After pickup, consider:
 
 >
 ```
+
+**Note:** In flat view, only sessions from today show loop counts. Older sessions omit loops since they're historical snapshots - use project view to see current project state.
 
 5. **Wait for user selection** (or if no input needed, continue automatically):
    - **Number (1-99):** Select that project/session
@@ -291,7 +296,7 @@ Ready to continue. What's next?
 - **Clustering is mechanical:** Based solely on the `**Project:**` link, not title keywords
 - **Standalone sessions:** Sessions without a project link appear individually
 - **Project sorting:** By most recent activity, not alphabetically
-- **Aggregate loops in menu:** When displaying a project in the menu, show total open loops across all its sessions
+- **Most recent session loops only:** When displaying a project, show open loops from the most recent session only - older sessions are historical snapshots whose loops may have been resolved
 - **Always expand, never auto-load:** Selecting a project expands to show all its sessions; user always chooses which session to load
 - **Mental model match:** "I'm working on the renovation" is the unit, not "Session 12 vs 14"
 
@@ -326,7 +331,7 @@ This command enables:
 1. Zero-friction pickup (no mental "where was I?")
 2. **Project-grouped view** matches mental reality ("working on the renovation" not "Session 12")
 3. **Always expand, always choose:** Selecting a project shows all its sessions; user picks which to load (no surprising auto-loads)
-4. Aggregate open loops visible in project menu
+4. Current open loops visible in project menu (from most recent session only)
 5. Auto-loading of relevant context once session is selected
 6. Confidence in session continuity
 
