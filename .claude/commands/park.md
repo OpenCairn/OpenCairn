@@ -3,15 +3,22 @@ name: park
 aliases: [shutdown-complete]
 description: End session with Cal Newport "shutdown complete" - document work, open loops, enable frictionless pickup
 parameters:
-  - "--quick" - Minimal parking (one-line log entry, no full summary)
-  - "--standard" - Normal parking (auto-detected for most sessions)
-  - "--full" - Comprehensive parking (all features, for significant work)
+  - "--quick" - Minimal parking (one-line log entry, for trivial sessions)
+  - "--full" - Comprehensive parking (default for anything worth documenting)
   - "--auto" - Auto-detect tier based on session characteristics (default)
 ---
 
 # Park - Session Parking
 
 You are ending a work session. Your task is to create a comprehensive session summary that enables confident rest and frictionless pickup.
+
+## Tier Philosophy
+
+**Two tiers only:**
+- **Quick** - Genuinely trivial sessions (<5 min, no files touched, just a question answered). One line is enough.
+- **Full** - Everything else. If it's worth documenting at all, do it properly. Includes bidirectional links, pickup context, key insights, open loops.
+
+The old "standard" tier was a false economy - saving 30 seconds of processing time but losing context that might be valuable later is bad math.
 
 ## Instructions
 
@@ -40,25 +47,21 @@ You are ending a work session. Your task is to create a comprehensive session su
    - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
 2. **Detect session tier** (unless explicit parameter provided):
-   - **Quick tier** triggers when:
-     - Conversation < 10 turns OR
-     - No files created/updated OR
-     - Session < 5 minutes duration
-   - **Standard tier** triggers when:
-     - Conversation 10-50 turns OR
-     - 1-5 files modified OR
-     - Session 5-45 minutes duration
-   - **Full tier** triggers when:
-     - Conversation 50+ turns OR
-     - 5+ files modified OR
-     - Session 45+ minutes OR
-     - **Infrastructure/sysadmin work** (NAS, backup, server config, networking, Docker, etc.) OR
-     - Explicit `--full` flag
+   - **Quick tier** triggers when ALL of:
+     - Conversation < 10 turns AND
+     - No files created/updated AND
+     - Session < 5 minutes duration AND
+     - No decisions made, just information lookup
+   - **Full tier** triggers when ANY of:
+     - Files created/updated OR
+     - Decisions made OR
+     - Open loops generated OR
+     - Session involved any substantive work
    - If `--auto` (default): Auto-detect based on above
-   - If `--quick`, `--standard`, or `--full`: Use explicit tier
+   - If `--quick` or `--full`: Use explicit tier
    - Display tier selection:
      ```
-     Parking tier: [Quick/Standard/Full] (auto-detected)
+     Parking tier: [Quick/Full] (auto-detected)
      ```
 
 3. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
@@ -72,10 +75,9 @@ You are ending a work session. Your task is to create a comprehensive session su
    | Tier | Action |
    |------|--------|
    | Quick | Display: `⏭ Quality check: Skipped (Quick tier)` and proceed |
-   | Standard | Check files modified this session only |
    | Full | Check all modified files + vault-wide broken link scan |
 
-   **Three categories of checks (Standard/Full tiers):**
+   **Three categories of checks (Full tier):**
 
    **LINT** - Syntax and structure:
    - YAML frontmatter syntax errors
@@ -90,7 +92,6 @@ You are ending a work session. Your task is to create a comprehensive session su
    - Remove dead/orphaned content created then abandoned
 
    **PROOFREAD** - Language and consistency:
-   - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice
@@ -126,7 +127,7 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 6. **Find previous session and check for continuation** (conditional on tier):
    - **Quick tier:** Skip previous session linking (saves read overhead)
-   - **Standard/Full tier:**
+   - **Full tier:**
      - Check if this session is continuing a previous one (from `/pickup` context)
      - If continuing: Store continuation link for inclusion in summary
      - Find the most recent session by searching:
@@ -134,7 +135,7 @@ You are ending a work session. Your task is to create a comprehensive session su
        2. If no sessions today: Check yesterday, then up to 7 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Standard/Full) for step 8a
+     - Store previous session's tier (Quick vs Full) for step 8a
 
 7. **Generate session summary** (format varies by tier):
 
@@ -143,26 +144,6 @@ You are ending a work session. Your task is to create a comprehensive session su
 ## Session N - [Topic/Name] ([Time]) [Q]
 
 [One-line summary of what was done]
-```
-
-**Standard Tier Format:**
-```markdown
-## Session N - [Topic/Name] ([Time with seconds - HH:MM:SSam/pm])
-
-### Summary
-[2-3 sentence narrative of what was accomplished]
-
-### Next Steps / Open Loops
-- [ ] Specific actionable item
-- [ ] Another open loop
-
-### Files Created/Updated
-- path/to/file.md - [what changed]
-
-### Pickup Context
-**For next session:** [One sentence about where to pick up]
-**Previous session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N-1 - Topic]]
-**Continues:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session X - Topic]] (if applicable)
 ```
 
 **Full Tier Format:**
@@ -196,7 +177,7 @@ You are ending a work session. Your task is to create a comprehensive session su
 8. **Write the summary** (with file locking for concurrent safety):
    - **CRITICAL: Use Bash with flock, NOT the Edit tool** - Edit tool has no locking and causes race conditions
    - Lock file path: `06 Archive/Claude Sessions/.lock`
-   - Wait up to 10 seconds for lock acquisition (NAS can be slow)
+   - Wait up to 10 seconds for lock acquisition (network mounts can be slow)
    - If file doesn't exist, create it with header first
 
    **Implementation - use this exact pattern:**
@@ -227,9 +208,9 @@ You are ending a work session. Your task is to create a comprehensive session su
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-8a. **Add forward link to previous session** (standard/full tier):
+8a. **Add forward link to previous session** (full tier only):
    - **Quick tier:** Skip (no previous session linking done)
-   - **Standard/Full tier:**
+   - **Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
      - **CRITICAL: Use Bash with flock for editing previous session file**
 
@@ -252,7 +233,7 @@ You are ending a work session. Your task is to create a comprehensive session su
    **GUARD 3 - Scope to previous session only (REQUIRED):**
    The sed pattern MUST be constrained to the previous session's block only. A file contains multiple sessions, each with `**Project:**` lines. Matching globally will insert links into ALL sessions.
 
-   **Implementation - Line-number scoped insertion (Standard/Full previous sessions):**
+   **Implementation - Line-number scoped insertion (Full previous sessions):**
    ```bash
    # 1. Find previous session heading line number (use exact session number and title)
    PREV_HEADING=$(grep -n "^## Session $PREV_NUM - $PREV_TOPIC" "$PREV_FILE" | head -1 | cut -d: -f1)
@@ -309,8 +290,7 @@ You are ending a work session. Your task is to create a comprehensive session su
 
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
-   - **Standard tier:** Update WIP only if session explicitly linked to a project
-   - **Full tier:** Always update WIP for related projects
+   - **Full tier:** Update WIP for related projects
    - Read `01 Now/Works in Progress.md`
    - Find the relevant project section
    - Update status with:
@@ -326,21 +306,7 @@ You are ending a work session. Your task is to create a comprehensive session su
 ⏭ Quality check: Skipped (Quick tier)
 ✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md
 
-Quick park complete. Minimal overhead for minor task.
-```
-
-**Standard tier:**
-```
-✓ Quality check: N files, M issues fixed [OR "no issues"]
-✓ Session summary saved to: 06 Archive/Claude Sessions/YYYY-MM-DD.md
-✓ Open loops: N items
-✓ Bidirectional links added (previous ↔ next)
-  [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
-  [OR if no previous session: "✓ No previous session to link (first session)"]
-
-Shutdown complete. You can rest.
-
-To pickup: `claude` or `/pickup`
+Quick park complete. Minimal overhead for trivial task.
 ```
 
 **Full tier:**
@@ -363,26 +329,22 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 ## Guidelines
 
 - **Park ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
-- **Tiered overhead:** System minimises friction by matching overhead to session importance:
-  - Quick: < 5 min, no files → one-line log (5 sec overhead)
-  - Standard: 5-45 min, few files → summary + open loops (30 sec overhead)
-  - Full: 45+ min, many files → comprehensive (90 sec overhead)
-- **Auto-detection works:** Default `--auto` mode correctly identifies tier 95%+ of the time
-- **Explicit override available:** Use `--quick`, `--standard`, or `--full` to override auto-detection
-- **Quick tier for throwaway sessions:** 3-minute lookups, quick questions, minor tasks
+- **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
+- **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
+- **Explicit override available:** Use `--quick` or `--full` to override auto-detection
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
 - **Always verify vault accessibility:** First step - check directory/mount status before any write operations. If vault is unavailable, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context. This is intentional - local time is more meaningful than forcing a fixed timezone
-- **Bidirectional linking:** Standard/Full tiers add "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
+- **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`06 Archive/Claude Sessions/.lock`) protects both writes and edits
-- **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Standard/Full show results. This prevents silent skipping.
-- **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Standard/Full tiers.
+- **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
+- **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
-- **Project context:** Full tier links projects; Quick/Standard tier skip if not obvious
+- **Project context:** Full tier links projects; Quick tier skips
 - **File lists:** Only list files that were actually created/updated, not files that were just read
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 

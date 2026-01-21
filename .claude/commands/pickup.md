@@ -96,7 +96,7 @@ Consider reviewing and updating after pickup.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Projects list is likely out of date. Many listed projects may be
-completed, abandoned, or deprioritized.
+completed, abandoned, or deprioritised.
 
 After pickup, consider:
 - Running /awaken if returning from extended break
