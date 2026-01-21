@@ -77,7 +77,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    | Quick | Display: `⏭ Quality check: Skipped (Quick tier)` and proceed |
    | Full | Check all modified files + vault-wide broken link scan |
 
-   **Three categories of checks (Full tier):**
+   **Four categories of checks (Full tier):**
 
    **LINT** - Syntax and structure:
    - YAML frontmatter syntax errors
@@ -90,6 +90,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Update stale references (outdated info, old dates, deprecated approaches)
    - Fix broken structure (illogical heading hierarchy, orphaned sections)
    - Remove dead/orphaned content created then abandoned
+
+   **VERIFY** - Session summary accuracy (if updating an already-parked session):
+   - Do open loops still reflect reality? (If user completed something mid-conversation, tick it off)
+   - Does pickup context still match? (If "ready for upload" is now uploaded, update the line)
+   - Were any "Next Steps" completed during the session that need marking done?
 
    **PROOFREAD** - Language and consistency:
    - Terminology consistency (park/pickup not parking/resume/restore)
