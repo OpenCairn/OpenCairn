@@ -37,7 +37,9 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - **Archive location:** "Where should the project file be archived?" (suggest: `06 Archive/Projects/YYYY/`)
 
 4. **Update project file:**
-   - Read `03 Projects/[Project Name].md`
+   - Find project file (check both locations):
+     - `03 Projects/[Project Name].md` (active projects)
+     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Add completion section at top:
      ```markdown
      **Status:** COMPLETED ([Date])
@@ -50,7 +52,9 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 5. **Move project file to archive:**
    - Create archive directory if needed: `mkdir -p "06 Archive/Projects/YYYY"`
-   - Move file: `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
+   - Move file from wherever it was found:
+     - From `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
+     - From `03 Projects/Backlog/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
    - Update any resource folders (e.g., `03 Projects/[Project]-Resources/` → `06 Archive/Projects/YYYY/`)
 
 6. **Update Works in Progress:**

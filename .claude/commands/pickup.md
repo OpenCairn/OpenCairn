@@ -263,12 +263,14 @@ Ready to continue. What's next?
 
 8. **Auto-load relevant context files:**
    - Always load: `~/CLAUDE.md`
-   - If project linked: Read the project hub file
+   - If project linked: Read the project hub file (check both locations):
+     - `03 Projects/[Project Name].md` (active projects)
+     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Display what was loaded:
      ```
      Auto-loaded context:
       ✓ CLAUDE.md
-      ✓ 03 Projects/[Project Name].md
+      ✓ 03 Projects/[Project Name].md (or 03 Projects/Backlog/[Project Name].md)
       ✓ 07 System/Context - [Related Domain].md
      ```
 
@@ -299,6 +301,7 @@ Ready to continue. What's next?
 - **Most recent session loops only:** When displaying a project, show open loops from the most recent session only - older sessions are historical snapshots whose loops may have been resolved
 - **Always expand, never auto-load:** Selecting a project expands to show all its sessions; user always chooses which session to load
 - **Mental model match:** "I'm working on the renovation" is the unit, not "Session 12 vs 14"
+- **Backlog projects included:** Projects in `03 Projects/Backlog/` cluster the same as active projects - the subfolder is transparent to clustering
 
 ### Date and Time
 - **Always check current date/time:** First step - run `date` command for accurate age calculations. Never assume time.
