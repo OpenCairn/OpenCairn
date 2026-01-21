@@ -47,6 +47,17 @@ The hub page:
 
 Related files live in the relevant Area folder (e.g., travel files in `04 Areas/Travel/`) or in `05 Resources/` for project-specific material that doesn't belong to an Area.
 
+**Backlog subfolder:** `03 Projects/Backlog/` contains project pages for items not yet active. These are real project pages (sessions can link to them), just not in play yet. When a backlog item becomes active, move the page up to `03 Projects/`. This keeps the main Projects folder uncluttered.
+
+**Project lifecycle:**
+```
+Idea emerges     → 03 Projects/Backlog/Project Name.md
+Becomes active   → 03 Projects/Project Name.md
+Completes        → 06 Archive/Projects/YYYY/Project Name.md
+```
+
+**Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks can live as WIP entries without a dedicated page.
+
 **Why?**
 - One place to see project status (the hub page)
 - Files organised by topic, not by project membership

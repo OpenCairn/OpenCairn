@@ -122,7 +122,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Session number for today (check existing file at `06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
-   - Related project (if applicable, from `03 Projects/`)
+   - Related project (if applicable, check both locations):
+     - `03 Projects/[Project Name].md` (active projects)
+     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
    - **Quick tier:** Skip project detection (just use topic)
 
 6. **Find previous session and check for continuation** (conditional on tier):
