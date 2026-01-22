@@ -19,11 +19,35 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
+### 0. Verify NAS Mount Accessibility
+
+Before proceeding, verify the NAS mount is accessible:
+
+```bash
+mountpoint -q /mnt/nas/Files && echo "NAS accessible" || echo "NAS NOT accessible"
+```
+
+**If mount is not available, abort:**
+```
+❌ ERROR: NAS mount not accessible at /mnt/nas/Files
+Cannot run goodnight - session data and reports would be lost.
+
+Troubleshooting:
+- Check mount status: mount | grep nas
+- Verify network connection to NAS
+- Try remounting: sudo mount -a
+
+Goodnight NOT completed. Try again once NAS is accessible.
+```
+
+Only proceed if mount is confirmed accessible.
+
 ### 1. Check current date/time
 
 ```bash
 date +"%A, %d %b %Y"  # friendly display
 date +"%Y-%m-%d"       # for file paths
+date +"%I:%M%P" | tr '[:upper:]' '[:lower:]'  # for session timestamp
 ```
 
 ### 2. Gather Today's Activity (auto)
@@ -189,14 +213,107 @@ Ensure directory exists first:
 mkdir -p "/mnt/nas/Files/06 Archive/Daily Reports"
 ```
 
-### 7. Update Works in Progress
+### 7. Log Goodnight Session with Bidirectional Links
+
+Append a session entry for the goodnight session itself to today's session file.
+
+#### 7a. Find Previous Session and Determine Next Session Number
+
+1. Read today's session file to find the last session number
+2. New session number = last + 1
+3. Store previous session's heading for forward linking
+
+#### 7b. Add Forward Link to Previous Session (with guards)
+
+**GUARD 1 - Idempotency check:**
+```bash
+# Check if forward link already exists
+if grep -q "\\*\\*Next session:\\*\\*.*#Session $NEW_NUM - Goodnight" "$SESSION_FILE"; then
+  echo "Forward link already exists, skipping"
+  # Skip insertion
+fi
+```
+
+**GUARD 2 - Scoped insertion (find previous session's block):**
+```bash
+# Find previous session heading line number
+PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
+
+# Find next session heading (or EOF)
+NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
+if [ -n "$NEXT_HEADING" ]; then
+  END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
+else
+  END_LINE=$(wc -l < "$SESSION_FILE")
+fi
+
+# Find insertion point (after last metadata line in previous session)
+# For Full sessions: after Project/Continues/Previous session lines
+# For Quick sessions [Q]: after the content line (typically line after heading)
+INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
+  grep -n "^\\*\\*\\(Project\\|Continues\\|Previous session\\):\\*\\*" | tail -1 | cut -d: -f1)
+
+# Fallback for Quick sessions (no metadata lines)
+if [ -z "$INSERT_AFTER" ]; then
+  # Insert after first non-empty line in the session block
+  INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
+    grep -n "." | tail -1 | cut -d: -f1)
+fi
+
+INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
+
+# Insert with flock
+flock -w 10 "/mnt/nas/Files/06 Archive/Claude Sessions/.lock" -c "
+  sed -i \"${INSERT_LINE}a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Goodnight: Topic]]\" \"$SESSION_FILE\"
+"
+```
+
+**GUARD 3 - Post-insertion validation:**
+```bash
+NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -c "^\\*\\*Next session:\\*\\*")
+if [ "$NEXT_COUNT" -gt 1 ]; then
+  echo "⚠ WARNING: Previous session has $NEXT_COUNT 'Next session:' links - manual review needed"
+fi
+```
+
+#### 7c. Append Goodnight Session Entry
+
+Use flock for concurrent safety:
+
+```bash
+flock -w 10 "/mnt/nas/Files/06 Archive/Claude Sessions/.lock" -c 'cat >> "/mnt/nas/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+
+## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
+
+### Summary
+[2-3 sentences covering what was reviewed/decided/updated during goodnight]
+
+### Key Insights / Decisions
+- [Any significant decisions made during close-out]
+
+### Next Steps / Open Loops
+- [ ] [Remaining items for tomorrow]
+
+### Files Updated
+- [List any files modified during goodnight]
+
+### Pickup Context
+**For next session:** [One sentence for tomorrow morning]
+**Previous session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N-1 - Previous Title]]
+EOF'
+```
+
+**Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
+
+### 8. Update Works in Progress
 
 If any project status changed significantly today, update `/mnt/nas/Files/01 Now/Works in Progress.md` with current state.
 
-### 8. Close
+### 9. Close
 
 ```
 ✓ Report saved: 06 Archive/Daily Reports/YYYY-MM-DD.md
+✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md (Session N)
 ✓ Open loops: N items across M projects
 ✓ Tomorrow's #1: [Priority item]
 
@@ -210,11 +327,14 @@ Goodnight.
 - **Forward-looking:** Tomorrow's queue is the point - set yourself up
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
+- **Always verify NAS:** First step - check mount before any writes. Abort if unavailable.
+- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `/mnt/nas/Files/06 Archive/Claude Sessions/.lock`
+- **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 
 ### Working Memory Model (Critical)
 
 **Session files are inputs, not ground truth.** Once you read them in Step 2, work from your working memory for the rest of the command. This prevents the bug where:
-1. The user says "that's done"
+1. the user says "that's done"
 2. You acknowledge it
 3. You re-read the session file (which still shows it open)
 4. You present it as open again
@@ -241,6 +361,6 @@ This command should trigger when the user says:
 
 - **Reads from:** Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (marks loops complete), Works in Progress (if needed)
+- **Updates:** Claude Sessions (marks loops complete, adds goodnight session with bidirectional links), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
