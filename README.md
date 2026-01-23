@@ -134,11 +134,12 @@ Create `~/.claude/statusline.sh`:
 #!/bin/bash
 input=$(cat)
 MODEL=$(echo "$input" | jq -r '.model.display_name // .model // "Claude"')
-USED=$(echo "$input" | jq -r '.context.used // 0')
-TOTAL=$(echo "$input" | jq -r '.context.total // 200000')
-PERCENT=$((USED * 100 / TOTAL))
-SESSION_SECS=$(echo "$input" | jq -r '.sessionDurationSeconds // 0')
-USED_FMT=$([ "$USED" -ge 1000 ] && awk "BEGIN {printf \"%.1fk\", $USED/1000}" || echo "$USED")
+PERCENT=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
+TOTAL=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
+DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
+USED=$((TOTAL * PERCENT / 100))
+USED_FMT=$([ "$USED" -ge 1000 ] && awk "BEGIN {printf \"%.0fk\", $USED/1000}" || echo "$USED")
+SESSION_SECS=$((DURATION_MS / 1000))
 
 if [ "$SESSION_SECS" -lt 60 ]; then DURATION="<1m"
 elif [ "$SESSION_SECS" -lt 3600 ]; then DURATION="$((SESSION_SECS / 60))m"
