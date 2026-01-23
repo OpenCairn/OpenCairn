@@ -122,6 +122,50 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 
 ---
 
+## Tips
+
+### Context-Aware Status Line
+
+Claude Code's default status line shows absolute tokens (`Ctx: 30.7k`). More useful: percentage with colour-coded warnings.
+
+Create `~/.claude/statusline.sh`:
+
+```bash
+#!/bin/bash
+input=$(cat)
+MODEL=$(echo "$input" | jq -r '.model.display_name // .model // "Claude"')
+USED=$(echo "$input" | jq -r '.context.used // 0')
+TOTAL=$(echo "$input" | jq -r '.context.total // 200000')
+PERCENT=$((USED * 100 / TOTAL))
+SESSION_SECS=$(echo "$input" | jq -r '.sessionDurationSeconds // 0')
+USED_FMT=$([ "$USED" -ge 1000 ] && awk "BEGIN {printf \"%.1fk\", $USED/1000}" || echo "$USED")
+
+if [ "$SESSION_SECS" -lt 60 ]; then DURATION="<1m"
+elif [ "$SESSION_SECS" -lt 3600 ]; then DURATION="$((SESSION_SECS / 60))m"
+else DURATION="$((SESSION_SECS / 3600))h$((SESSION_SECS % 3600 / 60))m"; fi
+
+if [ "$PERCENT" -ge 75 ]; then CTX="\033[31m${USED_FMT} (${PERCENT}%)\033[0m"
+elif [ "$PERCENT" -ge 50 ]; then CTX="\033[33m${USED_FMT} (${PERCENT}%)\033[0m"
+else CTX="\033[32m${USED_FMT} (${PERCENT}%)\033[0m"; fi
+
+echo -e "Ctx: ${CTX} | Model: ${MODEL} | Session: ${DURATION}"
+```
+
+Then in `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/path/to/statusline.sh"
+  }
+}
+```
+
+Now you see `Ctx: 30.7k (15%)` - green under 50%, yellow 50-75%, red above 75%. Park/compact around 50% to stay ahead of context rot. Changes take effect immediately (no restart needed).
+
+---
+
 ## Philosophy
 
 **Files, not features.** Plain markdown. No plugins, no lock-in.

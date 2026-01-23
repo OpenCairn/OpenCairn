@@ -19,29 +19,6 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
-### 0. Verify NAS Mount Accessibility
-
-Before proceeding, verify the NAS mount is accessible:
-
-```bash
-mountpoint -q /mnt/nas/Files && echo "NAS accessible" || echo "NAS NOT accessible"
-```
-
-**If mount is not available, abort:**
-```
-❌ ERROR: NAS mount not accessible at /mnt/nas/Files
-Cannot run goodnight - session data and reports would be lost.
-
-Troubleshooting:
-- Check mount status: mount | grep nas
-- Verify network connection to NAS
-- Try remounting: sudo mount -a
-
-Goodnight NOT completed. Try again once NAS is accessible.
-```
-
-Only proceed if mount is confirmed accessible.
-
 ### 1. Check current date/time
 
 ```bash
@@ -53,8 +30,8 @@ date +"%I:%M%P" | tr '[:upper:]' '[:lower:]'  # for session timestamp
 ### 2. Gather Today's Activity (auto)
 
 Read and compile:
-- **Today's sessions:** Check `/mnt/nas/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
-- **Works in Progress:** Read `/mnt/nas/Files/01 Now/Works in Progress.md` for project states
+- **Today's sessions:** Check `06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
+- **Works in Progress:** Read `01 Now/Works in Progress.md` for project states
 - **Completed tasks:** Extract from session summaries
 - **Candidate open loops:** Extract all unchecked items (`- [ ]`) from session files
 
@@ -83,8 +60,8 @@ When the user reports a loop is complete, update the source session file:
 1. **Locate the specific session** containing the loop (you have this from Step 2)
 2. **Use flock for safe editing:**
    ```bash
-   flock -w 10 "/mnt/nas/Files/06 Archive/Claude Sessions/.lock" -c "
-     sed -i 's/^- \\[ \\] EXACT_LOOP_TEXT$/- [x] EXACT_LOOP_TEXT/' '/mnt/nas/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md'
+   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
+     sed -i 's/^- \\[ \\] EXACT_LOOP_TEXT$/- [x] EXACT_LOOP_TEXT/' '06 Archive/Claude Sessions/YYYY-MM-DD.md'
    "
    ```
 3. **Confirm the update:** Display brief acknowledgement:
@@ -166,7 +143,7 @@ If the user doesn't have strong opinions, suggest based on:
 
 ### 6. Generate Daily Report
 
-Create file at `/mnt/nas/Files/06 Archive/Daily Reports/YYYY-MM-DD.md`:
+Create file at `06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
 ```markdown
 # Daily Report - [Day], [Date]
@@ -210,7 +187,7 @@ Create file at `/mnt/nas/Files/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
 Ensure directory exists first:
 ```bash
-mkdir -p "/mnt/nas/Files/06 Archive/Daily Reports"
+mkdir -p "06 Archive/Daily Reports"
 ```
 
 ### 7. Log Goodnight Session with Bidirectional Links
@@ -263,7 +240,7 @@ fi
 INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
 
 # Insert with flock
-flock -w 10 "/mnt/nas/Files/06 Archive/Claude Sessions/.lock" -c "
+flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
   sed -i \"${INSERT_LINE}a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Goodnight: Topic]]\" \"$SESSION_FILE\"
 "
 ```
@@ -281,7 +258,7 @@ fi
 Use flock for concurrent safety:
 
 ```bash
-flock -w 10 "/mnt/nas/Files/06 Archive/Claude Sessions/.lock" -c 'cat >> "/mnt/nas/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat >> "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
 
 ## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
 
@@ -307,7 +284,7 @@ EOF'
 
 ### 8. Update Works in Progress
 
-If any project status changed significantly today, update `/mnt/nas/Files/01 Now/Works in Progress.md` with current state.
+If any project status changed significantly today, update `01 Now/Works in Progress.md` with current state.
 
 ### 9. Close
 
@@ -327,8 +304,7 @@ Goodnight.
 - **Forward-looking:** Tomorrow's queue is the point - set yourself up
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
-- **Always verify NAS:** First step - check mount before any writes. Abort if unavailable.
-- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `/mnt/nas/Files/06 Archive/Claude Sessions/.lock`
+- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `06 Archive/Claude Sessions/.lock`
 - **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 
 ### Working Memory Model (Critical)
