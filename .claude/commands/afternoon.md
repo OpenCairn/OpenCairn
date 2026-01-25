@@ -124,6 +124,7 @@ You're on track. Keep going.
 - **Energy-aware:** Afternoon brain is different from morning brain - adjust expectations
 - **Permission to stop:** Sometimes the right answer is "you've done enough today"
 - **Flexible timing:** Despite the name, use whenever you feel scattered - 10am, 2pm, 6pm
+- **Never use park-language:** Do not say "Parked", "Shutdown complete", or similar /park closings. Even if user casually says "park this", use "Recalibrated" or "Keep going" - this is NOT a session-ending command and using park-language implies /park was run when it wasn't.
 
 ## Triggers
 
