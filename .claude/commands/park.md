@@ -326,7 +326,10 @@ Quick park complete. Minimal overhead for trivial task.
   [OR if no previous session: "✓ No previous session to link (first session)"]
 ✓ Project updated: [Project Name] (if applicable)
 
-Shutdown complete. You can rest.
+**Time-aware closing (check hour from step 1):**
+- Before 12pm: "Day mapped. Go get it."
+- 12pm-6pm: "Parked. Pick up when ready."
+- After 6pm: "Shutdown complete. You can rest."
 
 To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
