@@ -105,7 +105,15 @@ claude
 
 **Areas vs Resources:** Areas are domains you actively maintain (Photography, Health, Finances) - each contains its own reference material. Resources is a staging ground for generic stuff that doesn't belong to a specific domain yet. When something accumulates enough mass, it graduates to an Area.
 
-**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/thinking-partner`, `/research-assistant`, `/inbox-processor`, `/de-ai-ify`, `/complete-project`, `/archive-sessions`
+**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/thinking-partner`, `/research-assistant`, `/inbox-processor`, `/de-ai-ify`, `/complete-project`, `/archive-sessions`, `/start-project`
+
+**Scripts:** `.claude/scripts/` contains shell scripts used by commands:
+- `pickup-scan.sh` - Pre-scans vault for `/pickup`, reducing context usage by ~50%
+
+After cloning, ensure scripts are executable:
+```bash
+chmod +x .claude/scripts/*.sh
+```
 
 ---
 
@@ -145,8 +153,8 @@ if [ "$SESSION_SECS" -lt 60 ]; then DURATION="<1m"
 elif [ "$SESSION_SECS" -lt 3600 ]; then DURATION="$((SESSION_SECS / 60))m"
 else DURATION="$((SESSION_SECS / 3600))h$((SESSION_SECS % 3600 / 60))m"; fi
 
-if [ "$PERCENT" -ge 75 ]; then CTX="\033[31m${USED_FMT} (${PERCENT}%)\033[0m"
-elif [ "$PERCENT" -ge 50 ]; then CTX="\033[33m${USED_FMT} (${PERCENT}%)\033[0m"
+if [ "$PERCENT" -ge 50 ]; then CTX="\033[31m${USED_FMT} (${PERCENT}%)\033[0m"
+elif [ "$PERCENT" -ge 30 ]; then CTX="\033[33m${USED_FMT} (${PERCENT}%)\033[0m"
 else CTX="\033[32m${USED_FMT} (${PERCENT}%)\033[0m"; fi
 
 echo -e "Ctx: ${CTX} | Model: ${MODEL} | Session: ${DURATION}"
@@ -158,12 +166,20 @@ Then in `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "/path/to/statusline.sh"
+    "command": "~/.claude/statusline.sh"
   }
 }
 ```
 
-Now you see `Ctx: 30.7k (15%)` - green under 50%, yellow 50-75%, red above 75%. Park/compact around 50% to stay ahead of context rot. Changes take effect immediately (no restart needed).
+Make it executable and ensure `jq` is installed:
+
+```bash
+chmod +x ~/.claude/statusline.sh
+# On Debian/Ubuntu: sudo apt install jq
+# On macOS: brew install jq
+```
+
+Now you see `Ctx: 30.7k (15%)` - green under 30%, yellow 30-50%, red above 50%. Park around 30-40% to stay ahead of context rot. Changes take effect immediately (no restart needed).
 
 ---
 
@@ -185,4 +201,4 @@ Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidia
 
 ## License
 
-[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) - Free for personal use with attribution. Commercial use requires permission.
+[MIT License](LICENSE)

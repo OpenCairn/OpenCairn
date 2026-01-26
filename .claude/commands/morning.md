@@ -31,6 +31,7 @@ date +"%Y-%m-%d"       # for file paths if needed
 Read and present:
 - **Works in Progress:** Read `01 Now/Works in Progress.md`, show Active section
 - **Yesterday's open loops:** Check `06 Archive/Claude Sessions/` for most recent session file, extract open loops
+- **Tomorrow's Queue from last night:** Check `06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 
 Present concisely:
@@ -45,11 +46,15 @@ Good morning. Here's your landscape:
 - [ ] Item 1
 - [ ] Item 2
 
+**Last night's queue:** (from /goodnight)
+- [Item you queued at bedtime]
+- [Another item]
+
 **Time-sensitive:**
 - [Item] - [deadline]
 ```
 
-If nothing time-sensitive, skip that section. Keep it scannable.
+If a section is empty, skip it. Keep it scannable.
 
 ### 3. Catch Gaps (quick prompt)
 
@@ -118,7 +123,7 @@ You're clear. Go.
 - **Adaptive duration:** Can be 2 minutes or 20. Follow the energy, don't force.
 - **Don't over-produce:** Most days need no artifact. The conversation *is* the routine.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
-- **No guilt:** If user skips steps or says "I'm good," respect that. The routine serves them, not vice versa.
+- **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Routing over capturing:** If something comes up, help route it to the right place (WIP, project, journal) rather than creating new systems.
 - **Morning pages complement:** This is operational/triage. Morning pages (journal) is generative/exploratory. They can happen same morning - this first (quick), then journal (if desired).
 
@@ -135,5 +140,5 @@ This command should trigger when the user says:
 
 - **Reads from:** Works in Progress, recent Claude Sessions, Daily Reviews
 - **May update:** Works in Progress, Journal, Project files
-- **Complements:** `/park` (end of session), `/goodnight` (end of day)
+- **Complements:** `/park` (end of session), `/daily-review` (end of day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)

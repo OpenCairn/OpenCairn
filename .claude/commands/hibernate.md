@@ -26,7 +26,7 @@ This is the "big picture" complement to session-level parking.
 
 2. **Read comprehensive context:**
    - `01 Now/Works in Progress.md` - active projects
-   - Recent session files (last 7 days) - recent work
+   - Recent session files (last 10 days) - recent work
    - Last daily review (if exists) - recent progress
    - Last weekly synthesis (if exists) - patterns and insights
 

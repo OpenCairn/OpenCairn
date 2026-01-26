@@ -212,42 +212,64 @@ fi
 ```
 
 **GUARD 2 - Scoped insertion (find previous session's block):**
-```bash
-# Find previous session heading line number
-PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
 
-# Find next session heading (or EOF)
+**CRITICAL: All line calculations MUST happen inside the flock** to prevent race conditions.
+
+```bash
+# Entire operation wrapped in single flock - calculate and insert atomically
+flock -w 10 "06 Archive/Claude Sessions/.lock" bash -c '
+  SESSION_FILE="'"$SESSION_FILE"'"
+  PREV_NUM="'"$PREV_NUM"'"
+  NEW_SESSION_LINK="'"$NEW_SESSION_LINK"'"
+
+  # Find previous session heading line number
+  PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
+  [ -z "$PREV_HEADING" ] && exit 1
+
+  # Find next session heading (or EOF)
+  NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
+  if [ -n "$NEXT_HEADING" ]; then
+    END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
+  else
+    END_LINE=$(wc -l < "$SESSION_FILE")
+  fi
+
+  # Find insertion point (after last metadata line in previous session)
+  INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
+    grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" | tail -1 | cut -d: -f1)
+
+  # Fallback for Quick sessions (no metadata lines)
+  if [ -z "$INSERT_AFTER" ]; then
+    INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
+      grep -n "." | tail -1 | cut -d: -f1)
+  fi
+
+  INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
+
+  # Insert
+  sed -i "${INSERT_LINE}a\\${NEW_SESSION_LINK}" "$SESSION_FILE"
+'
+```
+
+**Variable setup before flock:**
+```bash
+SESSION_FILE="06 Archive/Claude Sessions/YYYY-MM-DD.md"
+PREV_NUM=3  # Previous session number
+NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session 4 - Goodnight: Topic]]"
+```
+
+**GUARD 3 - Post-insertion validation:**
+After insertion, verify no duplicates were created. This runs outside the flock (read-only check):
+```bash
+# Fresh read to check for duplicates
+PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
 NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
 if [ -n "$NEXT_HEADING" ]; then
   END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
 else
   END_LINE=$(wc -l < "$SESSION_FILE")
 fi
-
-# Find insertion point (after last metadata line in previous session)
-# For Full sessions: after Project/Continues/Previous session lines
-# For Quick sessions [Q]: after the content line (typically line after heading)
-INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-  grep -n "^\\*\\*\\(Project\\|Continues\\|Previous session\\):\\*\\*" | tail -1 | cut -d: -f1)
-
-# Fallback for Quick sessions (no metadata lines)
-if [ -z "$INSERT_AFTER" ]; then
-  # Insert after first non-empty line in the session block
-  INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-    grep -n "." | tail -1 | cut -d: -f1)
-fi
-
-INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
-
-# Insert with flock
-flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
-  sed -i \"${INSERT_LINE}a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Goodnight: Topic]]\" \"$SESSION_FILE\"
-"
-```
-
-**GUARD 3 - Post-insertion validation:**
-```bash
-NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -c "^\\*\\*Next session:\\*\\*")
+NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -c "^\*\*Next session:\*\*")
 if [ "$NEXT_COUNT" -gt 1 ]; then
   echo "⚠ WARNING: Previous session has $NEXT_COUNT 'Next session:' links - manual review needed"
 fi
@@ -304,6 +326,7 @@ Goodnight.
 - **Forward-looking:** Tomorrow's queue is the point - set yourself up
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
+- **Always verify NAS:** First step - check mount before any writes. Abort if unavailable.
 - **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `06 Archive/Claude Sessions/.lock`
 - **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 

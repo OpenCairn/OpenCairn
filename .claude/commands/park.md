@@ -6,6 +6,7 @@ parameters:
   - "--quick" - Minimal parking (one-line log entry, for trivial sessions)
   - "--full" - Comprehensive parking (default for anything worth documenting)
   - "--auto" - Auto-detect tier based on session characteristics (default)
+  - "--compact" - Run /compact after parking (Full tier only, for heavy context sessions)
 ---
 
 # Park - Session Parking
@@ -23,22 +24,6 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 ## Instructions
 
 ### Phase 1: Setup and Verification
-
-0. **Verify vault accessibility** before proceeding:
-   - Check if the vault directory is accessible (especially if on network mount)
-   - If vault is not available, display error and abort:
-     ```
-     ❌ ERROR: Vault directory not accessible
-     Cannot park session - session summary would be lost.
-
-     Troubleshooting:
-     - Check if vault path exists
-     - Verify network connection (if network mount)
-     - Try remounting if applicable
-
-     Session NOT parked. Try again once vault is accessible.
-     ```
-   - Only proceed if vault is confirmed accessible
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
@@ -97,6 +82,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Were any "Next Steps" completed during the session that need marking done?
 
    **PROOFREAD** - Language and consistency:
+   - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice
@@ -127,9 +113,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Session number for today (check existing file at `06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
-   - Related project (if applicable, check both locations):
-     - `03 Projects/[Project Name].md` (active projects)
-     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
+   - Related project (if applicable):
+     - **Finite work** → `03 Projects/[Project Name].md` (or `Backlog/`)
+     - **Ongoing area work** → `04 Areas/[path]/[name].md`
+     - **Never link to:** WIP sections, Resources, or Archive (see Guidelines for rationale)
    - **Quick tier:** Skip project detection (just use topic)
 
 6. **Find previous session and check for continuation** (conditional on tier):
@@ -139,7 +126,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - If continuing: Store continuation link for inclusion in summary
      - Find the most recent session by searching:
        1. Today's file: `06 Archive/Claude Sessions/YYYY-MM-DD.md`
-       2. If no sessions today: Check yesterday, then up to 7 days back
+       2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
      - Store previous session's tier (Quick vs Full) for step 8a
@@ -184,7 +171,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 8. **Write the summary** (with file locking for concurrent safety):
    - **CRITICAL: Use Bash with flock, NOT the Edit tool** - Edit tool has no locking and causes race conditions
    - Lock file path: `06 Archive/Claude Sessions/.lock`
-   - Wait up to 10 seconds for lock acquisition (network mounts can be slow)
+   - Wait up to 10 seconds for lock acquisition (NAS can be slow)
    - If file doesn't exist, create it with header first
 
    **Implementation - use this exact pattern:**
@@ -237,63 +224,35 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    fi
    ```
 
-   **GUARD 3 - Scope to previous session only (REQUIRED):**
-   The sed pattern MUST be constrained to the previous session's block only. A file contains multiple sessions, each with `**Project:**` lines. Matching globally will insert links into ALL sessions.
+   **✓ USE THE FORWARD-LINK SCRIPT:**
 
-   **Implementation - Line-number scoped insertion (Full previous sessions):**
+   Use the dedicated script instead of inline bash (prevents permission system corruption):
    ```bash
-   # 1. Find previous session heading line number (use exact session number and title)
-   PREV_HEADING=$(grep -n "^## Session $PREV_NUM - $PREV_TOPIC" "$PREV_FILE" | head -1 | cut -d: -f1)
-
-   # 2. Find next session heading after it (or use EOF)
-   NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$PREV_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
-   if [ -n "$NEXT_HEADING" ]; then
-     END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
-   else
-     END_LINE=$(wc -l < "$PREV_FILE")
-   fi
-
-   # 3. Find the last Pickup Context metadata line within that range
-   # (Project > Continues > Previous session, in order of preference)
-   INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$PREV_FILE" | \
-     grep -n "^\\*\\*\\(Project\\|Continues\\|Previous session\\):\\*\\*" | tail -1 | cut -d: -f1)
-   INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
-
-   # 4. Insert at specific line number (scoped, not pattern-matched)
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
-     sed -i \"${INSERT_LINE}a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]\" \"$PREV_FILE\"
-   "
+   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>"
    ```
 
-   **Implementation for Quick tier previous sessions (no Pickup Context):**
+   **Example:**
    ```bash
-   # Quick sessions are single-line. Find the specific session line and insert after content.
-   # Still must scope to the specific session - don't match all [Q] sessions!
-   PREV_LINE=$(grep -n "^## Session $PREV_NUM - .*\\[Q\\]$" "$PREV_FILE" | head -1 | cut -d: -f1)
-   # Quick sessions may have content on next line, find where to insert
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
-     # Insert after the quick session's content line (line after heading, or heading if no content)
-     sed -i \"$((PREV_LINE + 1))a\\**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]\" \"$PREV_FILE\"
-   "
+   ~/.claude/scripts/add-forward-link.sh \
+     "06 Archive/Claude Sessions/2025-03-15.md" \
+     5 6 "API Refactor"
    ```
 
-   **GUARD 4 - Post-insertion validation:**
-   After insertion, verify no duplicates were created:
-   ```bash
-   NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$PREV_FILE" | grep -c "^\\*\\*Next session:\\*\\*")
-   if [ "$NEXT_COUNT" -gt 1 ]; then
-     echo "⚠ WARNING: Previous session has $NEXT_COUNT 'Next session:' links - manual review needed"
-   fi
-   ```
+   The script handles:
+   - File locking (flock) for concurrent safety
+   - Idempotency (skips if link already exists)
+   - Quick vs Full session detection
+   - Correct insertion point finding
+   - All guards and validation
 
-   **Error handling:** If forward link fails (file missing, lock timeout, sed error):
+   **Error handling:** If script fails (file missing, lock timeout, session not found):
      - Log warning but don't fail the park
      - Set `forward_link_failed = true` for completion message
 
    - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
-     - Same scoped insertion pattern applies - MUST constrain to specific session block
+     - Use the same script with appropriate arguments
 
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -336,6 +295,12 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
+11. **Handle --compact flag** (if specified):
+   - Only applies to Full tier (Quick sessions don't need compacting)
+   - After displaying completion message, run the built-in `/compact` command
+   - The park completion message becomes part of the compact summary, providing continuity
+   - User can then continue typing in the compacted conversation
+
 ## Guidelines
 
 - **Park ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
@@ -343,18 +308,26 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
 - **Explicit override available:** Use `--quick` or `--full` to override auto-detection
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
-- **Always verify vault accessibility:** First step - check directory/mount status before any write operations. If vault is unavailable, abort rather than silently fail
+- **Verify vault accessibility:** If your vault is on a network mount, check accessibility before writes. If unavailable, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context. This is intentional - local time is more meaningful than forcing a fixed timezone
+- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context. This is intentional - local time is more meaningful than forcing a home timezone
 - **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
-- **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring.
+- **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`06 Archive/Claude Sessions/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
+- **Compact integration:** Use `--compact` when context is heavy and you want to continue working. Parks the session, then compacts. The park summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick tier skips
+- **Project linking rules:**
+  - **Finite work** → link to `03 Projects/[name].md`
+  - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
+  - **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, or Archive
+  - **No canonical home?** Create a project or area file rather than linking to WIP
+  - **Working in Resources?** That's a signal it should graduate to an Area
+  - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
 - **File lists:** Only list files that were actually created/updated, not files that were just read
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 
