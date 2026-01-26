@@ -8,7 +8,7 @@ parameters:
   - "--with-loops" - Show only sessions with open loops
   - "--hibernate=DATE" - Load hibernate snapshot instead of session (redirects to /awaken)
   - "--all" - Show all sessions without pagination (use cautiously)
-  - "--show-hidden" - Include hidden entries in the menu
+  - "--show-hidden" - Include hidden entries in the menu (shows snoozed items with resurface date)
 ---
 
 # Pickup - Session Pickup
@@ -22,37 +22,32 @@ You are helping the user pickup a previous work session with full context.
    - Get current timestamp: `date +"%s"` (Unix timestamp for age calculations)
    - Use these to calculate how long ago each session was
 
-2. **Parse parameters and scan for sessions:**
+2. **Parse parameters and scan for sessions using shell script:**
    - Check for parameters: `--days=N`, `--project=NAME`, `--with-loops`, `--hibernate=DATE`, `--all`, `--show-hidden`
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
-   - Determine lookback window:
-     - Default: 10 days (reliably covers weekend-to-weekend plus buffer)
-     - Extended after break: If no sessions in last 10 days, automatically extend to 30 days
-     - Explicit: Use `--days=N` value (max 90 days)
-   - Read session files from `06 Archive/Claude Sessions/` for the determined window
-   - Scan both main directory and year subdirectories (e.g., `2024/`, `2025/`)
-   - Archive organization is transparent to pickup (finds sessions regardless of location)
-   - Extract session metadata from each file:
-     - Session number and title
-     - Date and time
-     - One-sentence summary or "Pickup Context"
-     - **Open loops with timestamps:**
-       - Count unchecked items (`- [ ]`)
-       - Calculate age of each loop (days since session date)
-       - Flag stale loops: 7+ days = ⚠️, 30+ days = 🔴
-     - Related project (if linked)
-     - Calculate session age: "2 hours ago", "yesterday", "3 days ago" using current time from step 1
-   - Apply filters:
-     - If `--project=NAME`: Keep only sessions linking to that project
-     - If `--with-loops`: Keep only sessions with unchecked open loops
+   - **Run the pickup scanner shell script** to extract metadata efficiently:
+     ```bash
+     ~/.claude/scripts/pickup-scan.sh --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
+     ```
+     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `06 Archive/Claude Sessions`)
+   - The script outputs TSV with columns: `DATE`, `SESSION_NUM`, `TITLE`, `TIME`, `PROJECT`, `LOOP_COUNT`, `SUMMARY`
+   - **Parse the TSV output** to build session list (this is ~10x smaller than reading full files)
+   - If no sessions found in default window (10 days), re-run with `--days=30`
+   - Apply additional filters on the parsed data:
+     - If `--project=NAME`: Keep only sessions where PROJECT contains NAME (case-insensitive)
+     - If `--with-loops`: Keep only sessions where LOOP_COUNT > 0
+   - Calculate session age from DATE field: "2 hours ago", "yesterday", "3 days ago" using current time from step 1
+   - Flag stale loops based on date: 7+ days = ⚠️, 30+ days = 🔴
 
-2a. **Filter hidden entries:**
-   - Read `06 Archive/Claude Sessions/.pickup-hidden` (if exists)
+2a. **Hidden/snoozed entries (handled by shell script):**
+   - The shell script handles filtering based on `.pickup-hidden` file
    - File format: one entry per line, lines starting with `#` are comments
-     - Project names: `Home Renovation` (hides entire project cluster)
-     - Session identifiers: `2026-01-18#Session 1 - Journal Setup` (hides specific session)
-   - Unless `--show-hidden` is set, exclude matching projects and sessions from display
-   - If `--show-hidden` is set, show all entries but mark hidden ones with `[H]`
+     - Project names: `Website Redesign` (hides entire project cluster)
+     - Session identifiers: `2026-01-18#Session 1 - Journal Folder Setup` (hides specific session)
+     - **Snoozed entries:** Append `|until:YYYY-MM-DD` to snooze until a date
+   - **Snooze auto-resurface:** Expired snoozes are shown by the script (not filtered)
+   - **Snooze cleanup:** After displaying menu, remove expired snooze lines from `.pickup-hidden` using flock
+   - If `--show-hidden` passed to script, hidden/snoozed entries are included in output
 
 2b. **Check Works in Progress staleness:**
    - Read `01 Now/Works in Progress.md`
@@ -111,21 +106,21 @@ After pickup, consider:
 ║  Pickup Session - Last 10 Days (By Project)               ║
 ╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
-║  1. Home Renovation                            (8 sessions)║
-║     Latest: Kitchen cabinets research      Today 7:10am   ║
+║  1. Website Redesign                         (8 sessions)║
+║     Latest: Homepage Layout & Nav          Today 7:10am   ║
 ║     Open loops: 2 | Last: 0 hours ago                      ║
 ║                                                            ║
-║  2. Side Project - App                         (5 sessions)║
-║     Latest: Auth flow implementation       Sat 1:49pm     ║
+║  2. Claude Code Learning                       (5 sessions)║
+║     Latest: GitHub Template Repository     Sat 1:49pm     ║
 ║     Open loops: 3 | Last: 17 hours ago                     ║
 ║                                                            ║
-║  3. Tax Preparation                               [C] (1)  ║
+║  3. Template Repo v0.5 Release                    [C] (1)  ║
 ║     Today 6:55am | Completed                               ║
 ║                                                            ║
-║  4. Journal Setup                                 [C] (1)  ║
+║  4. Journal Folder Setup                          [C] (1)  ║
 ║     Today 6:21am | Completed                               ║
 ║                                                            ║
-║  [1-9] select, [v] flat view, [h] hide, [n] new session   ║
+║  [1-9] select, [v] flat, [h] hide, [z] snooze, [n] new     ║
 ║  Note: ⚠️ = 7+ days stale, 🔴 = 30+ days aged              ║
 ╚════════════════════════════════════════════════════════════╝
 
@@ -134,21 +129,21 @@ After pickup, consider:
 
 **Note:** Loop counts in project view come from the **most recent session only**, not aggregated across all sessions. Older sessions are historical snapshots - their loops may have been resolved in later sessions.
 
-**Expanded project view (after selecting a project number):**
+**Expanded project view (after selecting a project):**
 ```
 ╔════════════════════════════════════════════════════════════╗
-║  Home Renovation (8 sessions)                             ║
+║  Website Redesign (8 sessions)                            ║
 ╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
-║  1. Kitchen cabinets research         Today 7:10am        ║
-║     "Compared IKEA vs custom, got quotes"                  ║
+║  1. Homepage Layout & Nav              Today 7:10am       ║
+║     "Added hero section, simplified navigation"            ║
 ║     Open loops: 2  ← current state                         ║
 ║                                                            ║
-║  2. Contractor calls                  Sat 9:16pm          ║
-║     "Called 3 contractors, scheduled walkthroughs"         ║
+║  2. Tailscale & Skills Setup           Sat 9:16pm         ║
+║     "Tailscale, 13 skills copied, SSH key auth"            ║
 ║                                                            ║
-║  3. Permit research                   Sat 8:17pm     [C]  ║
-║     "Confirmed no permit needed for cabinets"              ║
+║  3. Old Laptop Clone & Wipe            Sat 8:17pm    [C]  ║
+║     "Cloned data to USB, wiped for donation"               ║
 ║                                                            ║
 ║  ... (5 more sessions)                                     ║
 ║                                                            ║
@@ -167,13 +162,13 @@ After pickup, consider:
 ╠════════════════════════════════════════════════════════════╣
 ║                                                            ║
 ║  Today - Sun 18 Jan                                        ║
-║  1. Kitchen cabinets research         7:10am  | Loops: 2  ║
-║  2. Tax Preparation                   6:55am  | [C]       ║
-║  3. Journal Setup                     6:21am  | [C]       ║
+║  1. Homepage Layout & Nav              7:10am  | Loops: 2 ║
+║  2. Template Repo v0.5 Release         6:55am  | [C]      ║
+║  3. Journal Folder Setup               6:21am  | [C]      ║
 ║                                                            ║
 ║  Yesterday - Sat 17 Jan                                    ║
-║  4. Contractor calls                  9:16pm              ║
-║  5. Permit research                   8:17pm  | [C]       ║
+║  4. Tailscale & Skills Setup           9:16pm             ║
+║  5. Old Laptop Clone & Wipe            8:17pm  | [C]      ║
 ║  ...                                                       ║
 ║                                                            ║
 ║  [1-9] pickup, [p] project view, [m] more, [n] new        ║
@@ -198,7 +193,8 @@ After pickup, consider:
    - **'f':** Prompt for filter criteria and re-display
    - **'s':** Prompt for keyword and show matching sessions
    - **'h':** Enter hide mode (see step 5a)
-   - **'u':** Unhide - show hidden entries and allow restoring them
+   - **'z':** Enter snooze mode (see step 5c)
+   - **'u':** Unhide/unsnooze - show hidden entries and allow restoring them
 
 5a. **Hide mode** (when 'h' selected):
    - Display current menu with selection prompts
@@ -206,31 +202,56 @@ After pickup, consider:
    - For each selected entry:
      - If project: Add project name to `.pickup-hidden`
      - If standalone session: Add `YYYY-MM-DD#Session N - Title` to `.pickup-hidden`
-   - Append to `06 Archive/Claude Sessions/.pickup-hidden`
+   - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions
+   - Append to `06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with hidden entries removed
    - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
 
 5b. **Unhide mode** (when 'u' selected):
    - Read `.pickup-hidden` file
-   - Display numbered list of currently hidden entries
-   - User enters numbers to restore (unhide)
-   - Remove selected lines from `.pickup-hidden`
+   - Display numbered list of currently hidden/snoozed entries (show snooze dates)
+   - User enters numbers to restore (unhide/unsnooze)
+   - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions
+   - Remove selected lines from `.pickup-hidden` (exact line match)
    - Re-display main menu with restored entries visible
 
-6. **Load selected session context:**
+5c. **Snooze mode** (when 'z' selected):
+   - Display current menu with selection prompts
+   - User enters numbers (comma-separated or space-separated) of entries to snooze
+   - Prompt for duration. Accept flexible formats:
+     - Relative: `2d` (2 days), `1w` (1 week), `3d` (3 days)
+     - Absolute: `2026-01-28` or `28 Jan` or `Jan 28`
+     - Natural: `tomorrow`, `until Wednesday`, `until next Monday` (always forward-looking - if today is Thursday, "until Wednesday" = next Wednesday, 6 days out; if today IS Wednesday, "until Wednesday" = next Wednesday, 7 days out)
+   - Calculate the resurface date from current date (step 1)
+   - **Validation:** If calculated date is today or in the past, warn and prompt for new duration
+   - **Dedup check:** Before appending, check if entry already exists in `.pickup-hidden`:
+     - If permanently hidden: Ask "Already hidden. Convert to snooze until [DATE]?"
+     - If already snoozed: Update the existing snooze date (don't add duplicate)
+   - For each selected entry:
+     - If project (from project view): Add `Project Name|until:YYYY-MM-DD`
+     - If session in flat view with a project link: Ask "Snooze entire project or just this session?"
+     - If standalone session: Add `YYYY-MM-DD#Session N - Title|until:YYYY-MM-DD`
+   - **Case preservation:** Use original case from session/project name (matching is case-insensitive, but file entries preserve original)
+   - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions with concurrent sessions
+   - Append to `06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
+   - Re-display menu with snoozed entries removed
+   - Confirm: "Snoozed [ITEM NAMES] until [DATE]. They'll resurface automatically."
+
+6. **Load selected session context (deferred loading):**
+   - **IMPORTANT:** This is the first time the full session file is read. Menu building used only TSV metadata.
    - **If project selected (from project view):**
-     - Expand to show all sessions in that project (see expanded view format above)
+     - Expand to show all sessions in that project (using TSV data, still no file read)
      - User then selects specific session to load
      - Do NOT auto-load most recent - always let user choose
    - **If specific session selected (from expanded/flat view):**
-     - Load just that session's context
-   - Read the full session summary
-   - Extract key information:
+     - **NOW read the full session file:** `06 Archive/Claude Sessions/YYYY-MM-DD.md`
+     - Navigate to the specific session section (`## Session N - Title`)
+   - Extract key information from the session section:
      - Session date and number (for continuation tracking)
-     - What was accomplished
-     - Open loops (unchecked items) - aggregate if project view
+     - Full summary (not truncated)
+     - Open loops with full text (unchecked items from Next Steps section)
      - Files that were created/updated
-     - Resume context (where to pick up)
+     - Resume context (from Pickup Context section)
      - Related project
    - **Store continuation context in conversation:**
      - Remember: "This session continues [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
@@ -280,6 +301,16 @@ Ready to continue. What's next?
 
 ## Guidelines
 
+### Project Clustering
+- **Default view is project-grouped:** Sessions sharing a `**Project:**` link are clustered together
+- **Clustering is mechanical:** Based solely on the `**Project:**` link, not title keywords
+- **Standalone sessions:** Sessions without a project link appear individually
+- **Project sorting:** By most recent activity, not alphabetically
+- **Most recent session loops only:** When displaying a project, show open loops from the most recent session only - older sessions are historical snapshots whose loops may have been resolved
+- **Always expand, never auto-load:** Selecting a project expands to show all its sessions; user always chooses which session to load
+- **Mental model match:** "I'm working on the website redesign" is the unit, not "Session 12 vs 14"
+- **Backlog projects included:** Projects in `03 Projects/Backlog/` cluster the same as active projects - the subfolder is transparent to clustering
+
 ### Hide/Unhide Feature
 - **Purpose:** Declutter the pickup menu by hiding completed projects or irrelevant sessions
 - **Hidden file location:** `06 Archive/Claude Sessions/.pickup-hidden`
@@ -293,15 +324,25 @@ Ready to continue. What's next?
   - Old standalone sessions superseded by newer work
 - **Don't hide:** Sessions with unresolved open loops (address them first or explicitly drop)
 
-### Project Clustering
-- **Default view is project-grouped:** Sessions sharing a `**Project:**` link are clustered together
-- **Clustering is mechanical:** Based solely on the `**Project:**` link, not title keywords
-- **Standalone sessions:** Sessions without a project link appear individually
-- **Project sorting:** By most recent activity, not alphabetically
-- **Most recent session loops only:** When displaying a project, show open loops from the most recent session only - older sessions are historical snapshots whose loops may have been resolved
-- **Always expand, never auto-load:** Selecting a project expands to show all its sessions; user always chooses which session to load
-- **Mental model match:** "I'm working on the renovation" is the unit, not "Session 12 vs 14"
-- **Backlog projects included:** Projects in `03 Projects/Backlog/` cluster the same as active projects - the subfolder is transparent to clustering
+### Snooze Feature
+- **Purpose:** Temporarily hide items that you want to revisit later - not forgotten, just deferred
+- **Snooze vs Hide:** Hide = "I'm done with this". Snooze = "Not now, but remind me on [date]"
+- **File format:** Same as hide, with `|until:YYYY-MM-DD` suffix
+  - Example: `API Integration|until:2026-01-28`
+- **Auto-resurface:** When pickup runs and today >= snooze date, item automatically reappears and line is removed from file
+- **Auto-cleanup:** Expired snooze entries are removed from `.pickup-hidden` when pickup runs (prevents file bloat)
+- **Duration formats accepted:**
+  - Relative: `2d`, `3d`, `1w`, `2w`
+  - Absolute: `2026-01-28`, `28 Jan`, `Jan 28`
+  - Natural: `tomorrow`, `until Wednesday`, `until next Monday` (always next occurrence, never past)
+- **Project name matching:** Uses display name extracted from wikilinks, case-insensitive
+- **Idempotency:** Re-snoozing updates existing entry rather than adding duplicate
+- **Past date protection:** Snooze date must be in the future (at least tomorrow)
+- **Good candidates for snoozing:**
+  - Projects you're deliberately pausing but want to reconsider soon
+  - Items blocked by external factors with known resolution dates
+  - "Not this week" items you don't want cluttering today's view
+- **Snooze philosophy:** Snoozing is a commitment to reconsider, not a way to avoid. If you snooze something 3+ times, either do it or drop it.
 
 ### Date and Time
 - **Always check current date/time:** First step - run `date` command for accurate age calculations. Never assume time.
@@ -328,14 +369,24 @@ Ready to continue. What's next?
 - **WIP staleness monitoring:** Always check Works in Progress timestamp and warn if 10+ days old
 - **Critical staleness (30+ days):** Strong warning that projects list is likely outdated, suggest /awaken or manual review
 
+### Context Efficiency (Two-Stage Loading)
+- **Problem solved:** Reading all session files (~400KB+) for menu building consumed 50-80% of context before work began
+- **Solution:** Shell script (`~/.claude/scripts/pickup-scan.sh`) extracts metadata outside Claude's context
+- **Stage 1 (menu building):** Shell script scans files, outputs ~40KB TSV metadata
+- **Stage 2 (session loading):** Only selected session file is read by Claude
+- **Result:** ~10x reduction in context usage for pickup
+- **Shell script location:** `~/.claude/scripts/pickup-scan.sh`
+- **If script missing or fails:** Warn user that context usage will be high, then fall back to direct file reading. This works but defeats the context efficiency benefit.
+
 ## Integration with Claude Code
 
 This command enables:
 1. Zero-friction pickup (no mental "where was I?")
-2. **Project-grouped view** matches mental reality ("working on the renovation" not "Session 12")
+2. **Project-grouped view** matches mental reality ("working on the website" not "Session 12")
 3. **Always expand, always choose:** Selecting a project shows all its sessions; user picks which to load (no surprising auto-loads)
 4. Current open loops visible in project menu (from most recent session only)
 5. Auto-loading of relevant context once session is selected
 6. Confidence in session continuity
+7. **Context-efficient:** Two-stage loading preserves context for actual work
 
 Combined with `/park`, this creates the bulletproof **park and pickup system**.

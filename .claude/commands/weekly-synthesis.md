@@ -25,6 +25,7 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Read session summaries from `06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
+   - Find all Scratchpad.md files in `04 Areas/`: `find "04 Areas" -name "Scratchpad.md" -type f`
 
 3. **Run the weekly synthesis interview:**
 
@@ -33,6 +34,7 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
 - "Which projects moved forward? Which stalled?"
 - "Time allocation: Where did the bulk of hours go?"
 - **Check for aged open loops:** Scan all sessions in the week for unchecked items, flag any that have been open 14+ days
+- **Scratchpad sweep:** Scan all `Scratchpad.md` files in `04 Areas/` for items that have been sitting unprocessed. Flag any that are 14+ days old or have grown stale. Scratchpads are inboxes, not permanent homes.
 
 **Reflect - What matters:**
 - "Key insights or learning from this week?"
@@ -109,6 +111,13 @@ Create a file at `06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number 
 - [ ] Item from Session Y (N days old) - Complete, drop, or delegate?
 
 **Recommendation:** These have lingered for 2+ weeks. Either act or explicitly drop.
+
+### Scratchpad Sweep
+**Area scratchpads with unprocessed items:**
+- `04 Areas/[Area]/Scratchpad.md` - N items, oldest from [date]
+- `04 Areas/[Area]/Scratchpad.md` - N items, oldest from [date]
+
+**Action needed:** Route items to proper homes or delete. Scratchpads are inboxes, not storage.
 
 ### Works in Progress Integrity Check
 **Zombie projects (in WIP but inactive 30+ days):**
