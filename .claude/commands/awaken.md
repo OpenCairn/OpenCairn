@@ -10,7 +10,7 @@ You are helping the user restore context after an extended break from regular wo
 
 ## Philosophy
 
-After weeks or months away, the 7-day pickup window shows nothing relevant. Awaken bridges the gap by:
+After weeks or months away, the 10-day pickup window shows nothing relevant. Awaken bridges the gap by:
 - Loading the pre-break state snapshot
 - Acknowledging what changed during the break
 - Updating priorities based on new reality
@@ -210,7 +210,7 @@ This is fine - life happens. Priorities may have shifted more than expected.
 
 | Feature | /pickup | /awaken |
 |---------|---------|---------|
-| Window | Last 7 days | Weeks/months |
+| Window | Last 10 days | Weeks/months |
 | Source | Session files | Hibernate snapshot |
 | Scope | Sessions | Projects |
 | Update | Read-only | Interactive update |

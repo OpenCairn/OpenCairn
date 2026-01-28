@@ -326,7 +326,7 @@ Goodnight.
 - **Forward-looking:** Tomorrow's queue is the point - set yourself up
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
-- **Always verify NAS:** First step - check mount before any writes. Abort if unavailable.
+- **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
 - **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `06 Archive/Claude Sessions/.lock`
 - **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 

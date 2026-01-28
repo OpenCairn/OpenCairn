@@ -20,8 +20,8 @@ Projects should be explicit from the start. Creating a project properly:
 - Creates the session linkage from day one
 
 **Cornerstones vs Projects:**
-- **Cornerstone:** Large, multi-week or multi-month initiative (e.g., "Career Transition", "Home Renovation")
-- **Project:** Discrete deliverable, often part of a cornerstone (e.g., "Book Flights" under "Career Transition")
+- **Cornerstone:** Large, multi-week or multi-month initiative (e.g., "Travel 2026", "Working Memory Consolidation")
+- **Project:** Discrete deliverable, often part of a cornerstone (e.g., "Task System Consolidation" under "Working Memory Consolidation")
 
 ## Instructions
 
@@ -44,7 +44,7 @@ Ask for deadline/target (optional):
 > "Any deadline or target date? (Leave blank if open-ended)"
 
 Ask about cornerstone linkage:
-> "Is this part of a larger initiative?"
+> "Is this part of a larger initiative? (e.g., 'Travel 2026', 'Working Memory Consolidation')"
 
 ### 3. Check for conflicts
 
@@ -139,7 +139,10 @@ If cornerstone specified:
 Ask:
 > "Create a resources folder at `05 Resources/[Project Name]/`? (y/n)"
 
-If yes, create the directory.
+If yes:
+```bash
+mkdir -p "05 Resources/[Project Name]"
+```
 
 ### 8. Display confirmation
 
@@ -187,30 +190,30 @@ If unsure whether something is a project or a task: if it needs multiple session
 ## Example Flow
 
 ```
-User: /start-project "Book Flights"
+User: /start-project "Task System Consolidation"
 
 You: What does 'done' look like for this project?
 
-User: All flights booked and confirmed for the trip.
+User: TickTick and Vikunja fully triaged, all tasks routed to vault or deleted, both apps empty or archived.
 
 You: Any deadline or target date?
 
-User: End of January
+User: Mon 26 Jan - Australia Day, have the time
 
 You: Is this part of a larger initiative?
 
-User: Yes, Career Transition
+User: Yes, Working Memory Consolidation
 
 You:
-✓ Project created: 03 Projects/Book Flights.md
+✓ Project created: 03 Projects/Task System Consolidation.md
 ✓ Added to Works in Progress
-✓ Linked from cornerstone: Career Transition
+✓ Linked from cornerstone: Working Memory Consolidation
 
 Project ready. What's the first action?
 
-User: Research flight options
+User: Export TickTick to CSV
 
-You: Added "Research flight options" as first next action.
+You: Added "Export TickTick to CSV" as first next action.
 ```
 
 This creates explicit project tracking from the first moment of work.

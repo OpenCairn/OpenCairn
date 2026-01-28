@@ -16,7 +16,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 
 ## Instructions
 
-1. **Analyse the text:**
+1. **Analyze the text:**
    - Identify AI patterns (see checklist below)
    - Note structural issues (generic intro/conclusion, listicles, etc.)
    - Find ideas worth keeping
@@ -24,9 +24,9 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 2. **Load voice profile:**
 
 Check for voice training data:
-- `06 Archive/AI Exports/` - ChatGPT, Claude, or other AI conversation exports
-- the user's blog posts (if applicable)
-- His Obsidian notes (especially in `07 System/` and `03 Projects/`)
+- `04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
+- the user's blog posts (if they have a blog project)
+- Their Obsidian notes (especially in `07 System/` and `03 Projects/`)
 
 Extract patterns:
 - **Sentence structure:** Mix of short declarative and longer analytical
@@ -56,7 +56,7 @@ Extract patterns:
 **Adopt the user's patterns:**
 - ✅ Short, punchy sentences for key points
 - ✅ Technical terms used precisely (don't dumb down)
-- ✅ Personal examples from their life ("When I...", "My...")
+- ✅ Personal examples from his life ("When I...", "My...")
 - ✅ Economic/systems thinking framing
 - ✅ No em dashes (use hyphens or rewrite)
 - ✅ Active voice, outcome-focused
@@ -117,17 +117,17 @@ Present two versions:
 ## Voice Training Sources
 
 **Primary sources** (the user's authentic writing):
-1. Blog posts (if the user maintains a blog)
-2. Their messages in AI conversation exports (their prompts, not AI responses)
-3. Their notes from other note-taking apps (personal writing, not captures)
+1. Blog posts (if they have a blog project)
+2. Their messages in ChatGPT export (their prompts, not AI responses)
+3. Their notes in Roam export (personal writing, not captures)
 4. Obsidian project files and context files (their documentation)
 
 **What to extract:**
 - Vocabulary preferences (technical terms they use naturally)
 - Sentence rhythm (short vs long, declarative vs questioning)
 - Structural patterns (how they build arguments)
-- Examples they choose (concrete, personal, economic)
-- Hedging patterns (when they hedge vs when they're direct)
+- Examples they choose (concrete, personal, domain-specific)
+- Hedging patterns (when he hedges vs when he's direct)
 
 **On first run**, offer to analyse these sources to build a voice profile. Store patterns for reuse.
 
@@ -149,7 +149,7 @@ Present two versions:
 - **Preserve ideas, change delivery:** Don't lose good thinking in pursuit of voice
 - **Concise over comprehensive:** the user values efficiency - shorter is better if it preserves meaning
 - **Technical precision:** Don't simplify technical concepts - use precise vocabulary
-- **Personal examples:** When applicable, suggest how the user could add their own experience
+- **Personal examples:** When applicable, suggest how the user could add his own experience
 - **No superlatives:** Avoid "best", "optimal", "perfect" - be specific instead
 - **Outcome-focused:** Frame in terms of results, not process
 
