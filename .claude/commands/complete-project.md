@@ -62,7 +62,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - Remove project from "Active" section
    - Add to "Recently Completed" section at bottom:
      ```markdown
-     - **[Project Name]** - [Date] ([Outcome])
+     - **[Project Name]** — [Date] ([Outcome])
        - [Brief result/accomplishment]
        - [[06 Archive/Projects/YYYY/Project Name]]
      ```
@@ -133,9 +133,9 @@ User: /complete-project "Claude Code Learning"
 You: Reading Works in Progress...
 
 Active projects:
-1. Home Renovation
-2. Side Project - App ⚠️
-3. Travel Planning
+1. Q1 2026 Work Roster
+2. Claude Code Learning ⚠️
+3. Summer Vacation Planning
 ...
 
 Project "Claude Code Learning" found.
@@ -147,7 +147,7 @@ User: Completed successfully
 
 You: What was accomplished or learned?
 
-User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published documentation.
+User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for public template.
 
 You: Why are you completing this now?
 

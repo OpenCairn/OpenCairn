@@ -25,7 +25,7 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Read session summaries from `06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
-   - Find all Scratchpad.md files in `04 Areas/`: `find "04 Areas" -name "Scratchpad.md" -type f`
+   - Find all Scratchpad.md files in `04 Areas/`: `find 04\ Areas -name "Scratchpad.md" -type f`
 
 3. **Run the weekly synthesis interview:**
 
@@ -114,8 +114,8 @@ Create a file at `06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number 
 
 ### Scratchpad Sweep
 **Area scratchpads with unprocessed items:**
-- `04 Areas/[Area]/Scratchpad.md` - N items, oldest from [date]
-- `04 Areas/[Area]/Scratchpad.md` - N items, oldest from [date]
+- `04 Areas/Photography/Scratchpad.md` - N items, oldest from [date]
+- `04 Areas/Family/Scratchpad.md` - N items, oldest from [date]
 
 **Action needed:** Route items to proper homes or delete. Scratchpads are inboxes, not storage.
 

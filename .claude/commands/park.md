@@ -169,33 +169,37 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 ```
 
 8. **Write the summary** (with file locking for concurrent safety):
-   - **CRITICAL: Use Bash with flock, NOT the Edit tool** - Edit tool has no locking and causes race conditions
-   - Lock file path: `06 Archive/Claude Sessions/.lock`
-   - Wait up to 10 seconds for lock acquisition (NAS can be slow)
-   - If file doesn't exist, create it with header first
+   - **CRITICAL: Use the write-session script, NOT inline flock or the Edit tool**
+   - Inline flock commands corrupt `settings.local.json` (the entire command including session content gets saved as a permission pattern)
+   - The script handles locking, file creation, and atomic writes
 
-   **Implementation - use this exact pattern:**
+   **✓ USE THE WRITE-SESSION SCRIPT:**
+
+   Use the dedicated script instead of inline bash (prevents permission system corruption):
+
+   **Appending to existing file:**
    ```bash
-   # First, read current file to determine next session number (do this BEFORE locking)
-   # Then write with flock:
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat >> "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
-
-   ## Session N - [Topic] ([Time]) [Q]
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "~/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+   ## Session N - [Topic] ([Time])
 
    [Session content here]
-   EOF'
+   EOF
    ```
 
-   **If file doesn't exist yet:**
+   **Creating new file (first session of the day):**
    ```bash
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat > "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
-   # Claude Session - YYYY-MM-DD
-
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "~/Files/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
-   EOF'
+   EOF
    ```
+
+   The script handles:
+   - File locking (flock) for concurrent safety
+   - Lock timeout (10 seconds for NAS)
+   - Date header generation (--create mode)
+   - Directory creation if needed
 
    **If lock times out (exit code 1):** Display warning and retry once, then fail gracefully:
    ```
@@ -234,8 +238,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    **Example:**
    ```bash
    ~/.claude/scripts/add-forward-link.sh \
-     "06 Archive/Claude Sessions/2025-03-15.md" \
-     5 6 "API Refactor"
+     "~/Files/06 Archive/Claude Sessions/2026-01-26.md" \
+     39 40 "Sarath Task Capture"
    ```
 
    The script handles:
@@ -308,9 +312,9 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
 - **Explicit override available:** Use `--quick` or `--full` to override auto-detection
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
-- **Verify vault accessibility:** If your vault is on a network mount, check accessibility before writes. If unavailable, abort rather than silently fail
+- **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context. This is intentional - local time is more meaningful than forcing a home timezone
+- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
 - **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`06 Archive/Claude Sessions/.lock`) protects both writes and edits

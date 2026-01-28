@@ -6,7 +6,7 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
-You are helping the user process their inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
+You are helping the user process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
 
@@ -25,7 +25,7 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
      2. medication-notes.md (2KB, Jan 14)
      3. blog-post-draft-epistemics.md (15KB, Jan 16)
      4. screenshot-wezterm-config.png (140KB, Jan 17)
-     5. meeting-notes-Alex.md (3KB, Jan 16)
+     5. meeting-notes-David.md (3KB, Jan 16)
      6. article-clip-attention-restoration.md (8KB, Jan 13)
      7. quick-thoughts-2026-01-14.md (1KB, Jan 14)
      ```
@@ -45,7 +45,7 @@ For each item, determine the appropriate home using NIPARAS logic:
 **Additional routing rules:**
 - Session notes → `06 Archive/Claude Sessions/`
 - Daily reflections → `06 Archive/Daily Reviews/`
-- Blog drafts → `03 Projects/Blog/drafts/` (or your blog project path)
+- Blog drafts → `03 Projects/Blog/content/posts/` (or your blog's path)
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project
 - Article clippings → `05 Resources/[Topic]/` or relevant project
@@ -58,7 +58,7 @@ Show the user the proposed categorisation:
 ## Inbox Processing Plan
 
 1. **travel-insurance-quote.pdf**
-   → `05 Resources/Travel/travel-insurance-quote.pdf`
+   → `05 Resources/Travel 2026/travel-insurance-quote.pdf`
    Reason: Reference material for active travel project
 
 2. **medication-notes.md**
@@ -66,15 +66,15 @@ Show the user the proposed categorisation:
    Reason: Ongoing health management area
 
 3. **blog-post-draft-epistemics.md**
-   → `03 Projects/Blog/drafts/epistemics-force-multiplier.md`
+   → `03 Projects/Blog/content/posts/drafts/epistemics-force-multiplier.md`
    Reason: Blog project, likely related to existing post series
 
 4. **screenshot-wezterm-config.png**
    → `04 Areas/Computers/Apps/wezterm-config-screenshot.png`
    Reason: Technical documentation, keep with wezterm files
 
-5. **meeting-notes-manager.md**
-   → `03 Projects/Work Strategy/meeting-notes-2026-01-16.md`
+5. **meeting-notes-David.md**
+   → `03 Projects/Career Strategy/meeting-notes-david-2026-01-16.md`
    Reason: Related to active project (check date and context)
 
 6. **article-clip-attention-restoration.md**
