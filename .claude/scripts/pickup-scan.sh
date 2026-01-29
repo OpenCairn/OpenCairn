@@ -8,17 +8,18 @@
 #
 # Environment:
 #   CLAUDE_SESSION_DIR - Override default session directory
+#   VAULT_PATH - Base path to vault (used if CLAUDE_SESSION_DIR not set)
 #
 # Output format (TSV):
 # DATE	SESSION_NUM	TITLE	TIME	PROJECT	LOOP_COUNT	SUMMARY
 
 set -euo pipefail
 
-# Defaults (SESSION_DIR can be overridden via env var for portability)
+# Defaults
 DAYS=10
 HIDDEN_FILE=""
 SHOW_HIDDEN=false
-SESSION_DIR="${CLAUDE_SESSION_DIR:-}"  # Set CLAUDE_SESSION_DIR in your environment
+SESSION_DIR=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -42,10 +43,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Determine session directory (priority: arg > CLAUDE_SESSION_DIR > VAULT_PATH > error)
+if [[ -z "$SESSION_DIR" ]]; then
+    if [[ -n "${CLAUDE_SESSION_DIR:-}" ]]; then
+        SESSION_DIR="$CLAUDE_SESSION_DIR"
+    elif [[ -n "${VAULT_PATH:-}" ]]; then
+        SESSION_DIR="$VAULT_PATH/06 Archive/Claude Sessions"
+    else
+        echo "ERROR: No session directory specified." >&2
+        echo "Set VAULT_PATH or CLAUDE_SESSION_DIR environment variable, or pass directory as argument." >&2
+        exit 1
+    fi
+fi
+
 # Validate session directory exists
 if [[ ! -d "$SESSION_DIR" ]]; then
     echo "ERROR: Session directory not found: $SESSION_DIR" >&2
-    echo "Set CLAUDE_SESSION_DIR environment variable or pass directory as argument." >&2
     exit 1
 fi
 
