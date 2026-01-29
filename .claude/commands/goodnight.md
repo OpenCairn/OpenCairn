@@ -5,7 +5,7 @@ description: End-of-day status report - inventory loops, set tomorrow's queue, c
 
 # Goodnight - End-of-Day Status Report
 
-You are running the user's end-of-day operational close-out. This is a technical/PM-focused review - think engineering standup for yourself, not therapy session.
+You are running Harrison's end-of-day operational close-out. This is a technical/PM-focused review - think engineering standup for yourself, not therapy session.
 
 ## Philosophy
 
@@ -19,6 +19,22 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
+### 0. Resolve Vault Path
+
+Determine the vault base path. Run:
+
+```bash
+if [[ -z "${VAULT_PATH:-}" ]]; then
+  echo "VAULT_PATH not set"; exit 1
+elif [[ ! -d "$VAULT_PATH" ]]; then
+  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+else
+  echo "VAULT_PATH=$VAULT_PATH OK"
+fi
+```
+
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+
 ### 1. Check current date/time
 
 ```bash
@@ -30,8 +46,8 @@ date +"%I:%M%P" | tr '[:upper:]' '[:lower:]'  # for session timestamp
 ### 2. Gather Today's Activity (auto)
 
 Read and compile:
-- **Today's sessions:** Check `06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
-- **Works in Progress:** Read `01 Now/Works in Progress.md` for project states
+- **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
+- **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md` for project states
 - **Completed tasks:** Extract from session summaries
 - **Candidate open loops:** Extract all unchecked items (`- [ ]`) from session files
 
@@ -46,22 +62,22 @@ Ask:
 
 Wait for response.
 
-**If the user provides completions:**
+**If Harrison provides completions:**
 1. Update your working memory (mark those items as completed in your draft)
 2. **Update session files immediately** (see Step 3a)
 3. Then proceed to Step 4 with the corrected data
 
-**If the user says "no" or "nothing":** Proceed to Step 4 with original data.
+**If Harrison says "no" or "nothing":** Proceed to Step 4 with original data.
 
 ### 3a. Update Session Files for Completed Loops
 
-When the user reports a loop is complete, update the source session file:
+When Harrison reports a loop is complete, update the source session file:
 
 1. **Locate the specific session** containing the loop (you have this from Step 2)
 2. **Use flock for safe editing:**
    ```bash
-   flock -w 10 "06 Archive/Claude Sessions/.lock" -c "
-     sed -i 's/^- \\[ \\] EXACT_LOOP_TEXT$/- [x] EXACT_LOOP_TEXT/' '06 Archive/Claude Sessions/YYYY-MM-DD.md'
+   flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c "
+     sed -i 's/^- \\[ \\] EXACT_LOOP_TEXT$/- [x] EXACT_LOOP_TEXT/' '$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md'
    "
    ```
 3. **Confirm the update:** Display brief acknowledgement:
@@ -98,18 +114,18 @@ When the user reports a loop is complete, update the source session file:
 - [ ] Orphan loop
 ```
 
-**Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
+**Note:** The "(marked done just now)" annotation helps Harrison see what was just reconciled vs what was already recorded.
 
 ### 4a. Mid-Flow Corrections
 
-**If the user corrects you during the report** ("actually that's done", "I finished that earlier"):
+**If Harrison corrects you during the report** ("actually that's done", "I finished that earlier"):
 
 1. **Acknowledge immediately:** "Got it, marking that complete."
 2. **Update session file** (same process as Step 3a)
 3. **Update your working memory** - do NOT re-read session files (you'll get stale data)
 4. **Continue with corrected state** - don't re-display the whole report
 
-**Critical:** Once the user tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
+**Critical:** Once Harrison tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
 
 ### 4b. Additional Captures (brief, optional)
 
@@ -136,14 +152,14 @@ Help structure as:
 - [Anything waiting on external input]
 ```
 
-If the user doesn't have strong opinions, suggest based on:
+If Harrison doesn't have strong opinions, suggest based on:
 - Time-sensitive items first
 - Blocked items need unblocking
 - High-momentum items worth continuing
 
 ### 6. Generate Daily Report
 
-Create file at `06 Archive/Daily Reports/YYYY-MM-DD.md`:
+Create file at `$VAULT_PATH/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
 ```markdown
 # Daily Report - [Day], [Date]
@@ -187,7 +203,7 @@ Create file at `06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
 Ensure directory exists first:
 ```bash
-mkdir -p "06 Archive/Daily Reports"
+mkdir -p "$VAULT_PATH/06 Archive/Daily Reports"
 ```
 
 ### 7. Log Goodnight Session with Bidirectional Links
@@ -217,7 +233,7 @@ fi
 
 ```bash
 # Entire operation wrapped in single flock - calculate and insert atomically
-flock -w 10 "06 Archive/Claude Sessions/.lock" bash -c '
+flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" bash -c '
   SESSION_FILE="'"$SESSION_FILE"'"
   PREV_NUM="'"$PREV_NUM"'"
   NEW_SESSION_LINK="'"$NEW_SESSION_LINK"'"
@@ -253,7 +269,7 @@ flock -w 10 "06 Archive/Claude Sessions/.lock" bash -c '
 
 **Variable setup before flock:**
 ```bash
-SESSION_FILE="06 Archive/Claude Sessions/YYYY-MM-DD.md"
+SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
 PREV_NUM=3  # Previous session number
 NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session 4 - Goodnight: Topic]]"
 ```
@@ -280,7 +296,7 @@ fi
 Use flock for concurrent safety:
 
 ```bash
-flock -w 10 "06 Archive/Claude Sessions/.lock" -c 'cat >> "06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c 'cat >> "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
 
 ## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
 
@@ -306,7 +322,7 @@ EOF'
 
 ### 8. Update Works in Progress
 
-If any project status changed significantly today, update `01 Now/Works in Progress.md` with current state.
+If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
 
 ### 9. Close
 
@@ -327,13 +343,13 @@ Goodnight.
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
-- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `06 Archive/Claude Sessions/.lock`
+- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `$VAULT_PATH/06 Archive/Claude Sessions/.lock`
 - **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 
 ### Working Memory Model (Critical)
 
 **Session files are inputs, not ground truth.** Once you read them in Step 2, work from your working memory for the rest of the command. This prevents the bug where:
-1. the user says "that's done"
+1. Harrison says "that's done"
 2. You acknowledge it
 3. You re-read the session file (which still shows it open)
 4. You present it as open again
@@ -345,11 +361,11 @@ Goodnight.
 4. Handle mid-flow corrections (Step 4a) - update working memory AND files
 5. Generate daily report from working memory (Step 6)
 
-**Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
+**Session file updates are write-only after initial read.** You update them when Harrison marks something done (so future runs see correct state), but you don't re-read them within this session.
 
 ## Triggers
 
-This command should trigger when the user says:
+This command should trigger when Harrison says:
 - "goodnight"
 - "end of day"
 - "close out"

@@ -9,7 +9,7 @@ parameters:
 
 # Archive Sessions - Session File Organization
 
-You are organising the user's session archive. As sessions accumulate (1000+ files after 2 years), flat directory structure becomes unwieldy. This command moves old sessions into year-based subdirectories.
+You are organising Harrison's session archive. As sessions accumulate (1000+ files after 2 years), flat directory structure becomes unwieldy. This command moves old sessions into year-based subdirectories.
 
 ## Philosophy
 
@@ -19,6 +19,20 @@ Session files should be easily accessible while actively relevant (last 90 days)
 - **Link preservation:** Obsidian links remain valid (relative paths work)
 
 ## Instructions
+
+0. **Resolve Vault Path**
+
+   ```bash
+   if [[ -z "${VAULT_PATH:-}" ]]; then
+     echo "VAULT_PATH not set"; exit 1
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   else
+     echo "VAULT_PATH=$VAULT_PATH OK"
+   fi
+   ```
+
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
 1. **Check current date** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -31,7 +45,7 @@ Session files should be easily accessible while actively relevant (last 90 days)
    - `--dry-run`: Show moves without executing
 
 3. **Scan session files:**
-   - List all files in `06 Archive/Claude Sessions/`
+   - List all files in `$VAULT_PATH/06 Archive/Claude Sessions/`
    - Filter to `YYYY-MM-DD.md` pattern (exclude subdirectories)
    - For each file:
      - Extract date from filename
@@ -40,13 +54,13 @@ Session files should be easily accessible while actively relevant (last 90 days)
 
 4. **Create year directories:**
    - For each year found in files-to-archive:
-     - Create directory: `06 Archive/Claude Sessions/YYYY/`
+     - Create directory: `$VAULT_PATH/06 Archive/Claude Sessions/YYYY/`
      - Use `mkdir -p` (safe if exists)
 
 5. **Move files** (or display if dry-run):
    - For each file marked for archival:
-     - Source: `06 Archive/Claude Sessions/YYYY-MM-DD.md`
-     - Destination: `06 Archive/Claude Sessions/YYYY/YYYY-MM-DD.md`
+     - Source: `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md`
+     - Destination: `$VAULT_PATH/06 Archive/Claude Sessions/YYYY/YYYY-MM-DD.md`
      - If dry-run: Display "Would move: [source] → [dest]"
      - If live: Move file
    - Preserve file permissions and timestamps
@@ -164,7 +178,7 @@ for the session file name and Obsidian will find it in the new location.
 - Already in subdirectories are skipped
 
 **Directories created:**
-- `06 Archive/Claude Sessions/YYYY/`
+- `$VAULT_PATH/06 Archive/Claude Sessions/YYYY/`
 
 **Link format preserved:**
 - `[[06 Archive/Claude Sessions/YYYY-MM-DD#Session 1]]` (old)

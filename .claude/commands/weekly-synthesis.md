@@ -5,13 +5,27 @@ description: Weekly patterns review - aggregate progress, insights, and alignmen
 
 # Weekly Synthesis - Patterns Over Time
 
-You are facilitating the user's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
+You are facilitating Harrison's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
 
 ## Philosophy
 
 Weekly synthesis creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities.
 
 ## Instructions
+
+0. **Resolve Vault Path**
+
+   ```bash
+   if [[ -z "${VAULT_PATH:-}" ]]; then
+     echo "VAULT_PATH not set"; exit 1
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   else
+     echo "VAULT_PATH=$VAULT_PATH OK"
+   fi
+   ```
+
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
 1. **Check current date and calculate week boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -21,11 +35,11 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Get date range for display: e.g., "Week 3, Jan 13-19"
 
 2. **Gather the week's data:**
-   - Read daily reviews from `06 Archive/Daily Reviews/` for dates from week start to current date
-   - Read session summaries from `06 Archive/Claude Sessions/` for the same date range
+   - Read daily reviews from `$VAULT_PATH/06 Archive/Daily Reviews/` for dates from week start to current date
+   - Read session summaries from `$VAULT_PATH/06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
-   - Find all Scratchpad.md files in `04 Areas/`: `find 04\ Areas -name "Scratchpad.md" -type f`
+   - Find all Scratchpad.md files in `04 Areas/`: `find $VAULT_PATH/04\ Areas -name "Scratchpad.md" -type f`
 
 3. **Run the weekly synthesis interview:**
 
@@ -54,13 +68,13 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
 - "Anything to stop doing or delegate?"
 
 4. **Ensure directory exists:**
-   - Check if `06 Archive/Weekly Reviews/` directory exists
-   - If not, create it: `mkdir -p "06 Archive/Weekly Reviews"`
+   - Check if `$VAULT_PATH/06 Archive/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "$VAULT_PATH/06 Archive/Weekly Reviews"`
    - This prevents first-run failures
 
 5. **Generate weekly synthesis:**
 
-Create a file at `06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
+Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
 
 ```markdown
 # Weekly Synthesis - Week [NN], [Date Range]
@@ -156,7 +170,7 @@ Create a file at `06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number 
 ```
 
 6. **Check Works in Progress integrity:**
-   - Read `01 Now/Works in Progress.md`
+   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - For each Active project:
      - Check if project file exists in `03 Projects/` or `06 Archive/`
      - Check when project folder/files were last modified (if applicable)
@@ -193,27 +207,27 @@ Recommended: Review this synthesis at start of next week to set the week's direc
 - **Forward-looking:** Use insights to improve next week, not just to record past week
 - **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
 - **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
-- **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
+- **Natural language:** Write in Harrison's voice - analytical, outcome-focused, honest
 
 ## Frequency
 
 Run this weekly, typically:
 - Sunday evening (week review and next week planning)
 - Monday morning (week ahead orientation)
-- Or whenever the user explicitly requests it
+- Or whenever Harrison explicitly requests it
 
 ## Integration with Other Commands
 
 - **Synthesizes daily reviews:** Aggregates daily patterns into weekly insights
 - **Informs project planning:** Identifies what needs attention, what to drop
-- **Feeds into monthly/quarterly reviews:** (If the user implements those)
+- **Feeds into monthly/quarterly reviews:** (If Harrison implements those)
 - **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)
 
 This creates a **weekly rhythm** that prevents value drift and ensures high-level course correction.
 
 ## Goal Alignment (Optional Enhancement)
 
-If the user starts tracking explicit goals in the vault:
+If Harrison starts tracking explicit goals in the vault:
 - Compare weekly effort to goal progress
 - Flag misalignments ("You spent 40% of time on X, but it's not in your top 3 goals")
 - Suggest reallocation or goal updates

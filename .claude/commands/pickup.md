@@ -17,6 +17,20 @@ You are helping the user pickup a previous work session with full context.
 
 ## Instructions
 
+0. **Resolve Vault Path**
+
+   ```bash
+   if [[ -z "${VAULT_PATH:-}" ]]; then
+     echo "VAULT_PATH not set"; exit 1
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   else
+     echo "VAULT_PATH=$VAULT_PATH OK"
+   fi
+   ```
+
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get current timestamp: `date +"%s"` (Unix timestamp for age calculations)
@@ -29,7 +43,7 @@ You are helping the user pickup a previous work session with full context.
      ```bash
      ~/.claude/scripts/pickup-scan.sh --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
      ```
-     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `06 Archive/Claude Sessions`)
+     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `$VAULT_PATH/06 Archive/Claude Sessions`)
    - The script outputs TSV with columns: `DATE`, `SESSION_NUM`, `TITLE`, `TIME`, `PROJECT`, `LOOP_COUNT`, `SUMMARY`
    - **Parse the TSV output** to build session list (this is ~10x smaller than reading full files)
    - If no sessions found in default window (10 days), re-run with `--days=30`
@@ -50,7 +64,7 @@ You are helping the user pickup a previous work session with full context.
    - If `--show-hidden` passed to script, hidden/snoozed entries are included in output
 
 2b. **Check Works in Progress staleness:**
-   - Read `01 Now/Works in Progress.md`
+   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
    - If > 10 days old, prepare staleness warning to display with menu
@@ -203,7 +217,7 @@ After pickup, consider:
      - If project: Add project name to `.pickup-hidden`
      - If standalone session: Add `YYYY-MM-DD#Session N - Title` to `.pickup-hidden`
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions
-   - Append to `06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
+   - Append to `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with hidden entries removed
    - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
 
@@ -233,7 +247,7 @@ After pickup, consider:
      - If standalone session: Add `YYYY-MM-DD#Session N - Title|until:YYYY-MM-DD`
    - **Case preservation:** Use original case from session/project name (matching is case-insensitive, but file entries preserve original)
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions with concurrent sessions
-   - Append to `06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
+   - Append to `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with snoozed entries removed
    - Confirm: "Snoozed [ITEM NAMES] until [DATE]. They'll resurface automatically."
 
@@ -244,7 +258,7 @@ After pickup, consider:
      - User then selects specific session to load
      - Do NOT auto-load most recent - always let user choose
    - **If specific session selected (from expanded/flat view):**
-     - **NOW read the full session file:** `06 Archive/Claude Sessions/YYYY-MM-DD.md`
+     - **NOW read the full session file:** `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md`
      - Navigate to the specific session section (`## Session N - Title`)
    - Extract key information from the session section:
      - Session date and number (for continuation tracking)
@@ -285,8 +299,8 @@ Ready to continue. What's next?
 8. **Auto-load relevant context files:**
    - Always load: `~/CLAUDE.md`
    - If project linked: Read the project hub file (check both locations):
-     - `03 Projects/[Project Name].md` (active projects)
-     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
+     - `$VAULT_PATH/03 Projects/[Project Name].md` (active projects)
+     - `$VAULT_PATH/03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Display what was loaded:
      ```
      Auto-loaded context:
@@ -313,7 +327,7 @@ Ready to continue. What's next?
 
 ### Hide/Unhide Feature
 - **Purpose:** Declutter the pickup menu by hiding completed projects or irrelevant sessions
-- **Hidden file location:** `06 Archive/Claude Sessions/.pickup-hidden`
+- **Hidden file location:** `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden`
 - **Hiding is non-destructive:** Session files remain intact, just filtered from display
 - **Project-level hiding:** Hiding a project hides all its sessions
 - **Session-level hiding:** Can hide individual standalone sessions
