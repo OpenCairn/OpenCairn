@@ -94,11 +94,13 @@ claude
 > /pickup  # See it appear in the menu
 ```
 
-**Important:** Commands require `VAULT_PATH` environment variable. Add to your shell profile:
+**Configuration:** `VAULT_PATH` is the single personalization point. Add to your shell profile:
 ```bash
 echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
 source ~/.bashrc
 ```
+
+That's it. All commands derive paths from this one variable.
 
 ---
 
