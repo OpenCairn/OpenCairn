@@ -81,11 +81,23 @@ git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git 
 cd my-vault
 rm -rf .git && git init
 
+# Set your vault path (add to ~/.bashrc or ~/.zshrc for persistence)
+export VAULT_PATH="$(pwd)"
+
+# Make scripts executable
+chmod +x .claude/scripts/*.sh
+
 # Edit CLAUDE.md with your details
 claude
 
 > /park    # End your first session
 > /pickup  # See it appear in the menu
+```
+
+**Important:** Commands require `VAULT_PATH` environment variable. Add to your shell profile:
+```bash
+echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc
 ```
 
 ---
@@ -109,11 +121,10 @@ claude
 
 **Scripts:** `.claude/scripts/` contains shell scripts used by commands:
 - `pickup-scan.sh` - Pre-scans vault for `/pickup`, reducing context usage by ~50%
+- `write-session.sh` - Atomic session file writes with flock
+- `add-forward-link.sh` - Bidirectional session linking
 
-After cloning, ensure scripts are executable:
-```bash
-chmod +x .claude/scripts/*.sh
-```
+Scripts require `VAULT_PATH` environment variable (set during Quick Start).
 
 ---
 
