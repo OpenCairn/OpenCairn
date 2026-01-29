@@ -5,7 +5,7 @@ description: Explicitly complete and archive a project - prevents zombie project
 
 # Complete Project - Formal Project Completion
 
-You are helping the user formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
+You are helping Harrison formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
 
 ## Philosophy
 
@@ -17,20 +17,34 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 ## Instructions
 
+0. **Resolve Vault Path**
+
+   ```bash
+   if [[ -z "${VAULT_PATH:-}" ]]; then
+     echo "VAULT_PATH not set"; exit 1
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   else
+     echo "VAULT_PATH=$VAULT_PATH OK"
+   fi
+   ```
+
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get current time: `date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'`
    - Store for metadata
 
 2. **Identify project to complete:**
-   - Read `01 Now/Works in Progress.md`
+   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - Display list of Active projects
    - If project name provided as parameter: Use that
-   - Otherwise: Ask the user which project to complete
+   - Otherwise: Ask Harrison which project to complete
    - Validate project exists in Active section
 
 3. **Interactive completion interview:**
-   Ask the user:
+   Ask Harrison:
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
@@ -38,8 +52,8 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 4. **Update project file:**
    - Find project file (check both locations):
-     - `03 Projects/[Project Name].md` (active projects)
-     - `03 Projects/Backlog/[Project Name].md` (backlog projects)
+     - `$VAULT_PATH/03 Projects/[Project Name].md` (active projects)
+     - `$VAULT_PATH/03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Add completion section at top:
      ```markdown
      **Status:** COMPLETED ([Date])
@@ -51,14 +65,14 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - This preserves project history while marking completion
 
 5. **Move project file to archive:**
-   - Create archive directory if needed: `mkdir -p "06 Archive/Projects/YYYY"`
+   - Create archive directory if needed: `mkdir -p "$VAULT_PATH/06 Archive/Projects/YYYY"`
    - Move file from wherever it was found:
      - From `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
      - From `03 Projects/Backlog/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
    - Update any resource folders (e.g., `03 Projects/[Project]-Resources/` → `06 Archive/Projects/YYYY/`)
 
 6. **Update Works in Progress:**
-   - Read `01 Now/Works in Progress.md`
+   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - Remove project from "Active" section
    - Add to "Recently Completed" section at bottom:
      ```markdown
@@ -116,7 +130,7 @@ Project completion complete. Well done.
 - Waiting for external dependency
 - Will resume within weeks
 
-If unsure, ask the user: "Is this project truly complete, or just on hold?"
+If unsure, ask Harrison: "Is this project truly complete, or just on hold?"
 
 ## Integration
 
@@ -133,9 +147,9 @@ User: /complete-project "Claude Code Learning"
 You: Reading Works in Progress...
 
 Active projects:
-1. Q1 2026 Work Roster
+1. Q1 2026 schedule planning
 2. Claude Code Learning ⚠️
-3. Summer Vacation Planning
+3. Travel 2026
 ...
 
 Project "Claude Code Learning" found.
@@ -147,7 +161,7 @@ User: Completed successfully
 
 You: What was accomplished or learned?
 
-User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for public template.
+User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for Manny's template.
 
 You: Why are you completing this now?
 

@@ -1,20 +1,34 @@
 ---
 name: de-ai-ify
 aliases: [humanize, voice-check]
-description: Remove AI writing patterns and restore the user's authentic voice
+description: Remove AI writing patterns and restore Harrison's authentic voice
 ---
 
 # De-AI-ify - Voice Restoration
 
-You are a voice editor. Your job is to transform AI-generated text (or AI-influenced drafts) into the user's authentic writing voice.
+You are a voice editor. Your job is to transform AI-generated text (or AI-influenced drafts) into Harrison's authentic writing voice.
 
 ## Philosophy
 
-AI writing has telltale patterns - hedging language, corporate-speak, unnecessary complexity, formulaic structure. the user's voice is direct, technical but accessible, outcome-focused, and intellectually honest.
+AI writing has telltale patterns - hedging language, corporate-speak, unnecessary complexity, formulaic structure. Harrison's voice is direct, technical but accessible, outcome-focused, and intellectually honest.
 
-The goal is to **preserve the ideas while replacing the AI delivery mechanism with the user's natural expression**.
+The goal is to **preserve the ideas while replacing the AI delivery mechanism with Harrison's natural expression**.
 
 ## Instructions
+
+0. **Resolve Vault Path**
+
+   ```bash
+   if [[ -z "${VAULT_PATH:-}" ]]; then
+     echo "VAULT_PATH not set"; exit 1
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   else
+     echo "VAULT_PATH=$VAULT_PATH OK"
+   fi
+   ```
+
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
 1. **Analyze the text:**
    - Identify AI patterns (see checklist below)
@@ -24,9 +38,9 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 2. **Load voice profile:**
 
 Check for voice training data:
-- `04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
-- the user's blog posts (if they have a blog project)
-- Their Obsidian notes (especially in `07 System/` and `03 Projects/`)
+- `$VAULT_PATH/04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
+- Harrison's blog posts at `$VAULT_PATH/03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+- His Obsidian notes (especially in `07 System/` and `03 Projects/`)
 
 Extract patterns:
 - **Sentence structure:** Mix of short declarative and longer analytical
@@ -53,7 +67,7 @@ Extract patterns:
 - ✅ Build argument logically
 - ✅ End with implication or action
 
-**Adopt the user's patterns:**
+**Adopt Harrison's patterns:**
 - ✅ Short, punchy sentences for key points
 - ✅ Technical terms used precisely (don't dumb down)
 - ✅ Personal examples from his life ("When I...", "My...")
@@ -70,14 +84,14 @@ Present two versions:
 [Original text]
 ```
 
-**De-AI-ified (the user's voice):**
+**De-AI-ified (Harrison's voice):**
 ```
 [Rewritten text]
 ```
 
 **Key changes:**
 - Removed: [List of AI patterns eliminated]
-- Added: [the user-specific voice elements]
+- Added: [Harrison-specific voice elements]
 - Restructured: [Structural improvements]
 
 5. **Iterate if needed:**
@@ -107,7 +121,7 @@ Present two versions:
 - [ ] False excitement ("exciting", "incredible", "amazing")
 - [ ] Overly diplomatic (avoiding taking positions)
 
-**the user's voice should be:**
+**Harrison's voice should be:**
 - [ ] Direct and outcome-focused
 - [ ] Technically precise without dumbing down
 - [ ] Uses systems/economic thinking naturally
@@ -116,17 +130,17 @@ Present two versions:
 
 ## Voice Training Sources
 
-**Primary sources** (the user's authentic writing):
-1. Blog posts (if they have a blog project)
-2. Their messages in ChatGPT export (their prompts, not AI responses)
-3. Their notes in Roam export (personal writing, not captures)
-4. Obsidian project files and context files (their documentation)
+**Primary sources** (Harrison's authentic writing):
+1. Blog posts at `03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+2. His messages in ChatGPT export (his prompts, not AI responses)
+3. His notes in Roam export (personal writing, not captures)
+4. Obsidian project files and context files (his documentation)
 
 **What to extract:**
-- Vocabulary preferences (technical terms they use naturally)
+- Vocabulary preferences (technical terms he uses naturally)
 - Sentence rhythm (short vs long, declarative vs questioning)
-- Structural patterns (how they build arguments)
-- Examples they choose (concrete, personal, domain-specific)
+- Structural patterns (how he builds arguments)
+- Examples he chooses (concrete, personal, economic)
 - Hedging patterns (when he hedges vs when he's direct)
 
 **On first run**, offer to analyse these sources to build a voice profile. Store patterns for reuse.
@@ -136,7 +150,7 @@ Present two versions:
 **Before (AI-generated):**
 "In today's fast-paced world, it's essential to leverage robust systems for managing information. By implementing a comprehensive note-taking methodology, one can effectively enhance productivity and facilitate better decision-making processes."
 
-**After (the user's voice):**
+**After (Harrison's voice):**
 "Information management systems matter because they reduce decision friction. I use Obsidian with NIPARAS structure - it took 2 hours to set up, now saves ~5 hours/week by making past learning immediately accessible."
 
 **Changes:**
@@ -147,9 +161,9 @@ Present two versions:
 ## Guidelines
 
 - **Preserve ideas, change delivery:** Don't lose good thinking in pursuit of voice
-- **Concise over comprehensive:** the user values efficiency - shorter is better if it preserves meaning
+- **Concise over comprehensive:** Harrison values efficiency - shorter is better if it preserves meaning
 - **Technical precision:** Don't simplify technical concepts - use precise vocabulary
-- **Personal examples:** When applicable, suggest how the user could add his own experience
+- **Personal examples:** When applicable, suggest how Harrison could add his own experience
 - **No superlatives:** Avoid "best", "optimal", "perfect" - be specific instead
 - **Outcome-focused:** Frame in terms of results, not process
 
@@ -163,8 +177,8 @@ Use de-AI-ify:
 
 ## Integration with Other Commands
 
-- **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
+- **After content generation:** If Claude writes a draft, run de-AI-ify before Harrison publishes
 - **Before blog publishing:** Final voice check on posts
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
 
-This ensures **the user's authentic voice in all published work**.
+This ensures **Harrison's authentic voice in all published work**.

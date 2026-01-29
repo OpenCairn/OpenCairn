@@ -5,7 +5,7 @@ description: Mid-day recalibration - zoom out, check drift, reprioritise remaini
 
 # Afternoon - Mid-Day Recalibration
 
-You are running the user's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
+You are running Harrison's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
 
 ## Philosophy
 
@@ -19,6 +19,20 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 
 ## Instructions
 
+### 0. Resolve Vault Path
+
+```bash
+if [[ -z "${VAULT_PATH:-}" ]]; then
+  echo "VAULT_PATH not set"; exit 1
+elif [[ ! -d "$VAULT_PATH" ]]; then
+  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+else
+  echo "VAULT_PATH=$VAULT_PATH OK"
+fi
+```
+
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+
 ### 1. Check current time
 
 ```bash
@@ -31,8 +45,8 @@ Note roughly how much working time remains today.
 ### 2. Quick Status Check (auto)
 
 Read:
-- **Works in Progress:** `01 Now/Works in Progress.md` - what's meant to be priority?
-- **Today's sessions:** `06 Archive/Claude Sessions/YYYY-MM-DD.md` - what's been done so far?
+- **Works in Progress:** `$VAULT_PATH/01 Now/Works in Progress.md` - what's meant to be priority?
+- **Today's sessions:** `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` - what's been done so far?
 - **This morning's intention:** Check if `/morning` set a "one thing" for today
 
 ### 3. Present Current State
@@ -96,7 +110,7 @@ Consider:
 
 **Most regroups:** No artifact. The recalibration was the point.
 
-**If priorities significantly shifted:** Update `01 Now/Works in Progress.md` with new status/priorities.
+**If priorities significantly shifted:** Update `$VAULT_PATH/01 Now/Works in Progress.md` with new status/priorities.
 
 **If actionable decisions made:** Note them in today's session file if one exists.
 
@@ -128,7 +142,7 @@ You're on track. Keep going.
 
 ## Triggers
 
-This command should trigger when the user says:
+This command should trigger when Harrison says:
 - "regroup"
 - "recalibrate"
 - "where was I"

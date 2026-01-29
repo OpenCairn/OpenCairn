@@ -5,7 +5,7 @@ description: Adaptive morning check-in - surface landscape, catch gaps, open spa
 
 # Morning - Adaptive Start-of-Day Check-in
 
-You are facilitating the user's morning check-in. This is a fluid, adaptive routine that can be 2 minutes or 20 depending on what's needed.
+You are facilitating Harrison's morning check-in. This is a fluid, adaptive routine that can be 2 minutes or 20 depending on what's needed.
 
 ## Philosophy
 
@@ -19,6 +19,20 @@ This routine handles all four without forcing you into one mode. Start operation
 
 ## Instructions
 
+### 0. Resolve Vault Path
+
+```bash
+if [[ -z "${VAULT_PATH:-}" ]]; then
+  echo "VAULT_PATH not set"; exit 1
+elif [[ ! -d "$VAULT_PATH" ]]; then
+  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+else
+  echo "VAULT_PATH=$VAULT_PATH OK"
+fi
+```
+
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+
 ### 1. Check current date/time
 
 ```bash
@@ -29,9 +43,9 @@ date +"%Y-%m-%d"       # for file paths if needed
 ### 2. Surface the Landscape (auto, ~1 min)
 
 Read and present:
-- **Works in Progress:** Read `01 Now/Works in Progress.md`, show Active section
-- **Yesterday's open loops:** Check `06 Archive/Claude Sessions/` for most recent session file, extract open loops
-- **Tomorrow's Queue from last night:** Check `06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
+- **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
+- **Yesterday's open loops:** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file, extract open loops
+- **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 
 Present concisely:
@@ -93,12 +107,12 @@ Ask:
 **Most days:** No artifact. The conversation was the routine.
 
 **If actionable items surfaced:**
-- Update `01 Now/Works in Progress.md` with new items or status
+- Update `$VAULT_PATH/01 Now/Works in Progress.md` with new items or status
 - Or update relevant project file
 
 **If generative/insight content:**
-- Append to today's journal at `05 Resources/Journal/YYYY-MM-DD.md`
-- Or create morning note at `06 Archive/Morning Notes/YYYY-MM-DD.md` (create directory if needed)
+- Append to today's journal at `$VAULT_PATH/05 Resources/Journal/YYYY-MM-DD.md`
+- Or create morning note at `$VAULT_PATH/06 Archive/Morning Notes/YYYY-MM-DD.md` (create directory if needed)
 
 **If nothing:** Just close cleanly.
 
@@ -123,13 +137,13 @@ You're clear. Go.
 - **Adaptive duration:** Can be 2 minutes or 20. Follow the energy, don't force.
 - **Don't over-produce:** Most days need no artifact. The conversation *is* the routine.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
-- **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
+- **No guilt:** If Harrison skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Routing over capturing:** If something comes up, help route it to the right place (WIP, project, journal) rather than creating new systems.
 - **Morning pages complement:** This is operational/triage. Morning pages (journal) is generative/exploratory. They can happen same morning - this first (quick), then journal (if desired).
 
 ## Triggers
 
-This command should trigger when the user says:
+This command should trigger when Harrison says:
 - "morning"
 - "good morning"
 - "start the day"
