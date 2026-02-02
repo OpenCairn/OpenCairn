@@ -20,7 +20,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
-.nfs*
 
 # Personal commands (not for public template)
 .claude/commands/sync-template.md
