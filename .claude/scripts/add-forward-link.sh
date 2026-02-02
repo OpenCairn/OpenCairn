@@ -93,8 +93,10 @@ flock -w 10 "$LOCK_FILE" bash -c '
         INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
     fi
 
-    # Insert the forward link (escape backslashes for sed)
-    ESCAPED_LINK=$(printf '%s\n' "$NEW_SESSION_LINK" | sed '\''s/\\/\\\\/g'\'')
-    sed -i "${INSERT_LINE}a\\${ESCAPED_LINK}" "$SESSION_FILE"
+    # Insert the forward link using awk (more robust than sed append)
+    awk -v line="$INSERT_LINE" -v text="$NEW_SESSION_LINK" '\''
+        NR == line { print; print text; next }
+        { print }
+    '\'' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
     echo "Forward link added to Session ${PREV_NUM} -> Session ${NEW_NUM}"
 '
