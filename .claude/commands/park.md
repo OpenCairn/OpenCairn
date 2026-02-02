@@ -283,6 +283,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
+   **⛔ CHECKPOINT:** Before proceeding to step 10, verify WIP was actually updated (Full tier) or explicitly skipped (Quick tier / no relevant project). The completion message MUST include a WIP status line. If you're about to output the completion message without having touched WIP, STOP and complete this step first.
+
 10. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
@@ -301,7 +303,8 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Bidirectional links added (previous ↔ next)
   [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
   [OR if no previous session: "✓ No previous session to link (first session)"]
-✓ Project updated: [Project Name] (if applicable)
+✓ WIP updated: [Section Name]
+  [OR "✓ WIP: No relevant project section" if session doesn't map to a WIP project]
 
 **Time-aware closing (check hour from step 1):**
 - Before 12pm: "Day mapped. Go get it."
@@ -311,7 +314,7 @@ Quick park complete. Minimal overhead for trivial task.
 To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
 
-**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
+**IMPORTANT:** The "Quality check" and "WIP" lines are REQUIRED in all Full tier completion messages. If you cannot produce these lines, you skipped Step 4 or Step 9 - go back and complete them before finishing the park. This prevents the failure mode where side-task verification (e.g., checking a bug fix worked) triggers premature closure.
 
 11. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
