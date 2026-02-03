@@ -72,7 +72,7 @@ Show the user the proposed categorisation:
 ## Inbox Processing Plan
 
 1. **travel-insurance-quote.pdf**
-   → `05 Resources/Travel 2026/travel-insurance-quote.pdf`
+   → `05 Resources/Summer Vacation/travel-insurance-quote.pdf`
    Reason: Reference material for active travel project
 
 2. **medication-notes.md**

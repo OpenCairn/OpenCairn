@@ -149,7 +149,7 @@ You: Reading Works in Progress...
 Active projects:
 1. Q1 2026 schedule planning
 2. Claude Code Learning ⚠️
-3. Travel 2026
+3. Summer Vacation
 ...
 
 Project "Claude Code Learning" found.
