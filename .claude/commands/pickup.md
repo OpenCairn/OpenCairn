@@ -70,6 +70,15 @@ You are helping the user pickup a previous work session with full context.
    - If > 10 days old, prepare staleness warning to display with menu
    - If > 30 days old, prepare critical staleness warning
 
+2c. **Check Tickler for due items:**
+   - Read `$VAULT_PATH/01 Now/Tickler.md` (if file doesn't exist, skip this step)
+   - Parse date headers (format: `## YYYY-MM-DD`)
+   - For each date header where date <= today (from step 1):
+     - Extract all unchecked items (`- [ ]`) under that header
+     - Note if date is past (not today) — these are overdue
+     - Store for display in tickler banner
+   - If any items due, prepare tickler banner to display before menu
+
 3. **Group sessions by project:**
    - Extract `**Project:**` link from each session (if present)
    - Group sessions sharing the same project link
@@ -111,6 +120,18 @@ After pickup, consider:
 - Running /awaken if returning from extended break
 - Manually reviewing and updating Works in Progress
 - Archiving completed projects
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Tickler items due (if any items where date <= today):**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 Tickler items due
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- [ ] Item 1 → [[context link]]
+- [ ] Item 2 (⚠️ 3 days overdue) → [[context link]]
+
+To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -402,5 +423,8 @@ This command enables:
 5. Auto-loading of relevant context once session is selected
 6. Confidence in session continuity
 7. **Context-efficient:** Two-stage loading preserves context for actual work
+8. **Tickler surfacing:** Deferred tasks automatically resurface when their date arrives
 
 Combined with `/park`, this creates the bulletproof **park and pickup system**.
+
+**Reads from:** Claude Sessions, Works in Progress, Tickler

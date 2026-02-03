@@ -5,7 +5,7 @@ description: Adaptive morning check-in - surface landscape, catch gaps, open spa
 
 # Morning - Adaptive Start-of-Day Check-in
 
-You are facilitating Harrison's morning check-in. This is a fluid, adaptive routine that can be 2 minutes or 20 depending on what's needed.
+You are facilitating the user's morning check-in. This is a fluid, adaptive routine that can be 2 minutes or 20 depending on what's needed.
 
 ## Philosophy
 
@@ -44,6 +44,7 @@ date +"%Y-%m-%d"       # for file paths if needed
 
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
+- **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show any items where date header <= today (YYYY-MM-DD format). Flag overdue items (date < today). These are deferred tasks that have resurfaced.
 - **Yesterday's open loops:** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file, extract open loops
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
@@ -55,6 +56,10 @@ Good morning. Here's your landscape:
 **Active projects:**
 - [Project] - [status/next action]
 - [Project] - [status/next action]
+
+**Tickler items due:**
+- [ ] [Item] → [[context link]]
+- [ ] [Another item] (⚠️ overdue) → [[context link]]
 
 **Open loops from yesterday:**
 - [ ] Item 1
@@ -137,13 +142,13 @@ You're clear. Go.
 - **Adaptive duration:** Can be 2 minutes or 20. Follow the energy, don't force.
 - **Don't over-produce:** Most days need no artifact. The conversation *is* the routine.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
-- **No guilt:** If Harrison skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
+- **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Routing over capturing:** If something comes up, help route it to the right place (WIP, project, journal) rather than creating new systems.
 - **Morning pages complement:** This is operational/triage. Morning pages (journal) is generative/exploratory. They can happen same morning - this first (quick), then journal (if desired).
 
 ## Triggers
 
-This command should trigger when Harrison says:
+This command should trigger when the user says:
 - "morning"
 - "good morning"
 - "start the day"
@@ -152,7 +157,7 @@ This command should trigger when Harrison says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, recent Claude Sessions, Daily Reviews
-- **May update:** Works in Progress, Journal, Project files
+- **Reads from:** Works in Progress, Tickler, recent Claude Sessions, Daily Reviews
+- **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files
 - **Complements:** `/park` (end of session), `/daily-review` (end of day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)

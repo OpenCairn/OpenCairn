@@ -5,7 +5,7 @@ description: End-of-day status report - inventory loops, set tomorrow's queue, c
 
 # Goodnight - End-of-Day Status Report
 
-You are running Harrison's end-of-day operational close-out. This is a technical/PM-focused review - think engineering standup for yourself, not therapy session.
+You are running the user's end-of-day operational close-out. This is a technical/PM-focused review - think engineering standup for yourself, not therapy session.
 
 ## Philosophy
 
@@ -62,16 +62,16 @@ Ask:
 
 Wait for response.
 
-**If Harrison provides completions:**
+**If the user provides completions:**
 1. Update your working memory (mark those items as completed in your draft)
 2. **Update session files immediately** (see Step 3a)
 3. Then proceed to Step 4 with the corrected data
 
-**If Harrison says "no" or "nothing":** Proceed to Step 4 with original data.
+**If the user says "no" or "nothing":** Proceed to Step 4 with original data.
 
 ### 3a. Update Session Files for Completed Loops
 
-When Harrison reports a loop is complete, update the source session file:
+When the user reports a loop is complete, update the source session file:
 
 1. **Locate the specific session** containing the loop (you have this from Step 2)
 2. **Use flock for safe editing:**
@@ -114,18 +114,18 @@ When Harrison reports a loop is complete, update the source session file:
 - [ ] Orphan loop
 ```
 
-**Note:** The "(marked done just now)" annotation helps Harrison see what was just reconciled vs what was already recorded.
+**Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
 
 ### 4a. Mid-Flow Corrections
 
-**If Harrison corrects you during the report** ("actually that's done", "I finished that earlier"):
+**If the user corrects you during the report** ("actually that's done", "I finished that earlier"):
 
 1. **Acknowledge immediately:** "Got it, marking that complete."
 2. **Update session file** (same process as Step 3a)
 3. **Update your working memory** - do NOT re-read session files (you'll get stale data)
 4. **Continue with corrected state** - don't re-display the whole report
 
-**Critical:** Once Harrison tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
+**Critical:** Once the user tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
 
 ### 4b. Additional Captures (brief, optional)
 
@@ -152,7 +152,7 @@ Help structure as:
 - [Anything waiting on external input]
 ```
 
-If Harrison doesn't have strong opinions, suggest based on:
+If the user doesn't have strong opinions, suggest based on:
 - Time-sensitive items first
 - Blocked items need unblocking
 - High-momentum items worth continuing
@@ -349,7 +349,7 @@ Goodnight.
 ### Working Memory Model (Critical)
 
 **Session files are inputs, not ground truth.** Once you read them in Step 2, work from your working memory for the rest of the command. This prevents the bug where:
-1. Harrison says "that's done"
+1. the user says "that's done"
 2. You acknowledge it
 3. You re-read the session file (which still shows it open)
 4. You present it as open again
@@ -361,11 +361,11 @@ Goodnight.
 4. Handle mid-flow corrections (Step 4a) - update working memory AND files
 5. Generate daily report from working memory (Step 6)
 
-**Session file updates are write-only after initial read.** You update them when Harrison marks something done (so future runs see correct state), but you don't re-read them within this session.
+**Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
 
 ## Triggers
 
-This command should trigger when Harrison says:
+This command should trigger when the user says:
 - "goodnight"
 - "end of day"
 - "close out"

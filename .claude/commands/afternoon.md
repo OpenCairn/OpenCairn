@@ -5,7 +5,7 @@ description: Mid-day recalibration - zoom out, check drift, reprioritise remaini
 
 # Afternoon - Mid-Day Recalibration
 
-You are running Harrison's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
+You are running the user's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
 
 ## Philosophy
 
@@ -142,7 +142,7 @@ You're on track. Keep going.
 
 ## Triggers
 
-This command should trigger when Harrison says:
+This command should trigger when the user says:
 - "regroup"
 - "recalibrate"
 - "where was I"

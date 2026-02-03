@@ -154,7 +154,7 @@ Unlike `/park`, checkpoint:
 
 ## Triggers
 
-This command should trigger when Harrison says:
+This command should trigger when the user says:
 - "checkpoint"
 - "save progress"
 - "plant a flag"
