@@ -5,7 +5,7 @@ description: Explicitly complete and archive a project - prevents zombie project
 
 # Complete Project - Formal Project Completion
 
-You are helping Harrison formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
+You are helping the user formally complete a project. This command prevents "zombie projects" that linger in Works in Progress long after they're effectively done.
 
 ## Philosophy
 
@@ -40,11 +40,11 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - Display list of Active projects
    - If project name provided as parameter: Use that
-   - Otherwise: Ask Harrison which project to complete
+   - Otherwise: Ask the user which project to complete
    - Validate project exists in Active section
 
 3. **Interactive completion interview:**
-   Ask Harrison:
+   Ask the user:
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
@@ -130,7 +130,7 @@ Project completion complete. Well done.
 - Waiting for external dependency
 - Will resume within weeks
 
-If unsure, ask Harrison: "Is this project truly complete, or just on hold?"
+If unsure, ask the user: "Is this project truly complete, or just on hold?"
 
 ## Integration
 
@@ -161,7 +161,7 @@ User: Completed successfully
 
 You: What was accomplished or learned?
 
-User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for Manny's template.
+User: Created comprehensive park and pickup system, implemented all critical and high-value improvements, published blog post, ready for public template.
 
 You: Why are you completing this now?
 

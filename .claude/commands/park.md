@@ -99,7 +99,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
-   - Tone consistency with Harrison's voice
+   - Tone consistency with the user's voice
 
    **Fix any issues found automatically.**
 
@@ -283,7 +283,23 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
-   **⛔ CHECKPOINT:** Before proceeding to step 10, verify WIP was actually updated (Full tier) or explicitly skipped (Quick tier / no relevant project). The completion message MUST include a WIP status line. If you're about to output the completion message without having touched WIP, STOP and complete this step first.
+9a. **Offer Tickler for date-deferred loops** (Full tier only):
+   - Scan open loops for explicit future dates. Common patterns:
+     - "week of [date]" → use that date (if it's a Monday) or the Monday of that week
+     - "after [date]" / "from [date]" → use that date
+     - "[month] [day]" or "[day] [month]" → parse to YYYY-MM-DD
+     - "next week" → use next Monday
+     - "next month" → use 1st of next month
+   - If any loops have future dates:
+     - List them with parsed dates
+     - Ask: "Add these to Tickler for auto-resurface?"
+     - If yes: Use the write-tickler script for each item:
+       ```bash
+       ~/.claude/scripts/write-tickler.sh "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
+       ```
+       The script handles: file creation, date header creation/ordering, flock-based locking
+     - If no: Skip (items remain in session only)
+   - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
 10. **Display completion message** (tier-appropriate):
 
@@ -303,8 +319,9 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Bidirectional links added (previous ↔ next)
   [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
   [OR if no previous session: "✓ No previous session to link (first session)"]
-✓ WIP updated: [Section Name]
-  [OR "✓ WIP: No relevant project section" if session doesn't map to a WIP project]
+✓ Project updated: [Project Name] (if applicable)
+✓ Tickler: N items added for [dates] (if any date-deferred loops were added)
+  [OR omit this line if no tickler items added]
 
 **Time-aware closing (check hour from step 1):**
 - Before 12pm: "Day mapped. Go get it."
@@ -314,7 +331,7 @@ Quick park complete. Minimal overhead for trivial task.
 To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
 
-**IMPORTANT:** The "Quality check" and "WIP" lines are REQUIRED in all Full tier completion messages. If you cannot produce these lines, you skipped Step 4 or Step 9 - go back and complete them before finishing the park. This prevents the failure mode where side-task verification (e.g., checking a bug fix worked) triggers premature closure.
+**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
 11. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
@@ -331,15 +348,16 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever Harrison is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
+- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
 - **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude Sessions/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` when context is heavy and you want to continue working. Parks the session, then compacts. The park summary in the compacted conversation provides continuity without needing /pickup.
-- **Narrative tone:** Write summaries in Harrison's voice - direct, technical, outcome-focused
+- **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
+- **Tickler integration:** When open loops have explicit future dates ("week of Feb 9", "after travel"), offer to add them to `01 Now/Tickler.md`. This ensures date-deferred work resurfaces automatically via /morning and /pickup. Don't add everything — only loops with clear "not now, but on X date" intent.
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick tier skips
 - **Project linking rules:**
@@ -354,7 +372,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 ## Cue Word Detection
 
-This command should also trigger automatically when Harrison uses these phrases:
+This command should also trigger automatically when the user uses these phrases:
 - "bedtime"
 - "wrapping up"
 - "done for tonight"

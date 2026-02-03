@@ -6,7 +6,7 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
-You are helping Harrison process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
+You are helping the user process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
 
@@ -59,14 +59,14 @@ For each item, determine the appropriate home using NIPARAS logic:
 **Additional routing rules:**
 - Session notes → `06 Archive/Claude Sessions/`
 - Daily reflections → `06 Archive/Daily Reviews/`
-- Blog drafts → `03 Projects/Blog-Sites/revealedpriorities/content/posts/`
+- Blog drafts → `03 Projects/Blog-Sites/blog/content/posts/`
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project
 - Article clippings → `05 Resources/[Topic]/` or relevant project
 
 3. **Present categorisation plan:**
 
-Show Harrison the proposed categorisation:
+Show the user the proposed categorisation:
 
 ```markdown
 ## Inbox Processing Plan
@@ -80,7 +80,7 @@ Show Harrison the proposed categorisation:
    Reason: Ongoing health management area
 
 3. **blog-post-draft-epistemics.md**
-   → `03 Projects/Blog-Sites/revealedpriorities/content/posts/drafts/epistemics-force-multiplier.md`
+   → `03 Projects/Blog-Sites/blog/content/posts/drafts/epistemics-force-multiplier.md`
    Reason: Blog project, likely related to existing post series
 
 4. **screenshot-wezterm-config.png**
@@ -143,7 +143,7 @@ Item → Is it REFERENCE for future use?
 
 Item → Is it COMPLETED/INACTIVE?
        ├─ Yes → 06 Archive/
-       └─ No → Uncertain, ask Harrison
+       └─ No → Uncertain, ask the user
 ```
 
 ## Guidelines
@@ -152,7 +152,7 @@ Item → Is it COMPLETED/INACTIVE?
 - **Create folders as needed:** If a new topic emerges, create appropriate structure
 - **Rename for clarity:** Add dates, context, or more descriptive names when moving
 - **Link, don't duplicate:** If item relates to multiple places, keep in one location and link from others
-- **Ask when uncertain:** If categorisation isn't obvious, present options and ask Harrison
+- **Ask when uncertain:** If categorisation isn't obvious, present options and ask the user
 - **Batch similar items:** If multiple items go to same destination, move them together
 - **Update indexes:** If adding to a project or area, update the relevant hub file
 
@@ -182,7 +182,7 @@ Run inbox processing:
 - Weekly (Sunday/Monday) as part of weekly synthesis
 - When inbox gets >10-15 items
 - Before starting deep work on a project (clear the decks)
-- Whenever Harrison explicitly requests it
+- Whenever the user explicitly requests it
 
 ## Integration with Other Commands
 

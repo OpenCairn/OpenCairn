@@ -5,7 +5,7 @@ description: Weekly patterns review - aggregate progress, insights, and alignmen
 
 # Weekly Synthesis - Patterns Over Time
 
-You are facilitating Harrison's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
+You are facilitating the user's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
 
 ## Philosophy
 
@@ -40,6 +40,10 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
    - Find all Scratchpad.md files in `04 Areas/`: `find $VAULT_PATH/04\ Areas -name "Scratchpad.md" -type f`
+   - **Sweep for tagged tasks:**
+     - Long Poles [LP]: `grep -r "\[LP\]" "$VAULT_PATH" --include="*.md" -l`
+     - Cornerstones [CS]: `grep -r "\[CS\]" "$VAULT_PATH" --include="*.md" -l`
+   - Read the matched files and extract the tagged items for review
 
 3. **Run the weekly synthesis interview:**
 
@@ -133,6 +137,18 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 **Action needed:** Route items to proper homes or delete. Scratchpads are inboxes, not storage.
 
+### Long Poles [LP] & Cornerstones [CS]
+
+**Long Poles** - Need lead time, can't be rushed:
+- [ ] [LP task from file X] - Status/progress this week?
+- [ ] [LP task from file Y] - Status/progress this week?
+
+**Cornerstones** - Foundational, other things depend on these:
+- [ ] [CS task from file X] - Status/progress this week?
+- [ ] [CS task from file Y] - Status/progress this week?
+
+**Review:** Are LP items getting attention early enough? Are CS blockers being addressed?
+
 ### Works in Progress Integrity Check
 **Zombie projects (in WIP but inactive 30+ days):**
 - [Project A] - Last activity: N days ago. Complete or drop?
@@ -207,27 +223,27 @@ Recommended: Review this synthesis at start of next week to set the week's direc
 - **Forward-looking:** Use insights to improve next week, not just to record past week
 - **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
 - **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
-- **Natural language:** Write in Harrison's voice - analytical, outcome-focused, honest
+- **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
 
 ## Frequency
 
 Run this weekly, typically:
 - Sunday evening (week review and next week planning)
 - Monday morning (week ahead orientation)
-- Or whenever Harrison explicitly requests it
+- Or whenever the user explicitly requests it
 
 ## Integration with Other Commands
 
 - **Synthesizes daily reviews:** Aggregates daily patterns into weekly insights
 - **Informs project planning:** Identifies what needs attention, what to drop
-- **Feeds into monthly/quarterly reviews:** (If Harrison implements those)
+- **Feeds into monthly/quarterly reviews:** (If the user implements those)
 - **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)
 
 This creates a **weekly rhythm** that prevents value drift and ensures high-level course correction.
 
 ## Goal Alignment (Optional Enhancement)
 
-If Harrison starts tracking explicit goals in the vault:
+If the user starts tracking explicit goals in the vault:
 - Compare weekly effort to goal progress
 - Flag misalignments ("You spent 40% of time on X, but it's not in your top 3 goals")
 - Suggest reallocation or goal updates

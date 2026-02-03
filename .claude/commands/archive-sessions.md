@@ -9,7 +9,7 @@ parameters:
 
 # Archive Sessions - Session File Organization
 
-You are organising Harrison's session archive. As sessions accumulate (1000+ files after 2 years), flat directory structure becomes unwieldy. This command moves old sessions into year-based subdirectories.
+You are organising the user's session archive. As sessions accumulate (1000+ files after 2 years), flat directory structure becomes unwieldy. This command moves old sessions into year-based subdirectories.
 
 ## Philosophy
 

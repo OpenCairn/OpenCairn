@@ -9,7 +9,7 @@ parameters:
 
 # Start Project - New Project Initialisation
 
-You are helping Harrison spin up a new project. This command creates the project file, adds it to Works in Progress, and optionally links it to a cornerstone project.
+You are helping the user spin up a new project. This command creates the project file, adds it to Works in Progress, and optionally links it to a cornerstone project.
 
 ## Philosophy
 
