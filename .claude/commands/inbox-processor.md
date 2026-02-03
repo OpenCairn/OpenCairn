@@ -32,17 +32,7 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
 
 1. **Scan the inbox:**
    - Read all files in `$VAULT_PATH/02 Inbox/`
-   - List items with brief description:
-     ```
-     Found 7 items in inbox:
-     1. travel-insurance-quote.pdf (9KB, Jan 15)
-     2. medication-notes.md (2KB, Jan 14)
-     3. blog-post-draft-epistemics.md (15KB, Jan 16)
-     4. screenshot-wezterm-config.png (140KB, Jan 17)
-     5. meeting-notes-David.md (3KB, Jan 16)
-     6. article-clip-attention-restoration.md (8KB, Jan 13)
-     7. quick-thoughts-2026-01-14.md (1KB, Jan 14)
-     ```
+   - List items with brief description (filename, size, date)
 
 2. **Categorise each item:**
 
@@ -71,33 +61,11 @@ Show the user the proposed categorisation:
 ```markdown
 ## Inbox Processing Plan
 
-1. **travel-insurance-quote.pdf**
-   → `05 Resources/Summer Vacation/travel-insurance-quote.pdf`
-   Reason: Reference material for active travel project
+1. **[filename]**
+   → `[destination path]`
+   Reason: [Why this destination is appropriate]
 
-2. **medication-notes.md**
-   → `04 Areas/Health/Medications/medication-notes.md`
-   Reason: Ongoing health management area
-
-3. **blog-post-draft-epistemics.md**
-   → `03 Projects/Blog-Sites/blog/content/posts/drafts/epistemics-force-multiplier.md`
-   Reason: Blog project, likely related to existing post series
-
-4. **screenshot-wezterm-config.png**
-   → `04 Areas/Computers/Apps/wezterm-config-screenshot.png`
-   Reason: Technical documentation, keep with wezterm files
-
-5. **meeting-notes-David.md**
-   → `03 Projects/Career Strategy/meeting-notes-david-2026-01-16.md`
-   Reason: Related to active project (check date and context)
-
-6. **article-clip-attention-restoration.md**
-   → `05 Resources/Philosophy/Attention/attention-restoration-theory.md`
-   Reason: Reference material, create topic folder if needed
-
-7. **quick-thoughts-2026-01-14.md**
-   → `01 Now/Working memory.md` (append) OR `06 Archive/Quick Thoughts/`
-   Reason: Ephemeral captures - either act on them now or archive
+...
 
 Proceed with this plan? (yes/no/modify)
 ```

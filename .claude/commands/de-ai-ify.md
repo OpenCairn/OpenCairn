@@ -145,19 +145,6 @@ Present two versions:
 
 **On first run**, offer to analyse these sources to build a voice profile. Store patterns for reuse.
 
-## Example Transformation
-
-**Before (AI-generated):**
-"In today's fast-paced world, it's essential to leverage robust systems for managing information. By implementing a comprehensive note-taking methodology, one can effectively enhance productivity and facilitate better decision-making processes."
-
-**After (the user's voice):**
-"Information management systems matter because they reduce decision friction. I use Obsidian with NIPARAS structure - it took 2 hours to set up, now saves ~5 hours/week by making past learning immediately accessible."
-
-**Changes:**
-- Removed: "In today's fast-paced world", "leverage", "robust", "comprehensive", "facilitate"
-- Added: Specific system (Obsidian/NIPARAS), quantified benefit (2h setup, 5h/week saved), outcome focus
-- Restructured: Led with "why" (reduce friction), then "how" (specific implementation), then result
-
 ## Guidelines
 
 - **Preserve ideas, change delivery:** Don't lose good thinking in pursuit of voice
