@@ -132,7 +132,7 @@ After external research (if needed):
 
 *[Searches vault: Grep for "attention restoration", "ART", "Kaplan", "nature", "cognitive fatigue"]*
 
-*[Checks: Health context, Spiritual Practice context, Philosophy context, Travel 2026 resources]*
+*[Checks: Health context, Spiritual Practice context, Philosophy context, Summer Vacation resources]*
 
 "Found several relevant pieces:
 
@@ -141,8 +141,8 @@ After external research (if needed):
 ### Direct Information
 You've referenced attention restoration theory in two contexts:
 
-1. **Spiritual Practice** ([[07 System/Context - Spiritual Practice]]) - Connection between nature immersion and mental clarity, citing your Adelaide/Melbourne trip experiences
-2. **Travel 2026** ([[05 Resources/Travel 2026/Retreat Planning]]) - Rationale for Sri Ramanasramam retreat includes 'deliberate attention restoration environment'
+1. **Spiritual Practice** ([[07 System/Context - Spiritual Practice]]) - Connection between nature immersion and mental clarity, citing your recent trip experiences
+2. **Summer Vacation** ([[05 Resources/Summer Vacation/Retreat Planning]]) - Rationale for meditation retreat includes 'deliberate attention restoration environment'
 
 ### Related Context
 - Your philosophy on walking ([[04 Areas/Health/Movement]]) mentions restoration of mental clarity through outdoor walks

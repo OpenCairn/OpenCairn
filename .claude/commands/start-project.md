@@ -20,7 +20,7 @@ Projects should be explicit from the start. Creating a project properly:
 - Creates the session linkage from day one
 
 **Cornerstones vs Projects:**
-- **Cornerstone:** Large, multi-week or multi-month initiative (e.g., "Travel 2026", "Working Memory Consolidation")
+- **Cornerstone:** Large, multi-week or multi-month initiative (e.g., "Summer Vacation", "Working Memory Consolidation")
 - **Project:** Discrete deliverable, often part of a cornerstone (e.g., "Task System Consolidation" under "Working Memory Consolidation")
 
 ## Instructions
@@ -58,7 +58,7 @@ Ask for deadline/target (optional):
 > "Any deadline or target date? (Leave blank if open-ended)"
 
 Ask about cornerstone linkage:
-> "Is this part of a larger initiative? (e.g., 'Travel 2026', 'Working Memory Consolidation')"
+> "Is this part of a larger initiative? (e.g., 'Summer Vacation', 'Working Memory Consolidation')"
 
 ### 3. Check for conflicts
 
