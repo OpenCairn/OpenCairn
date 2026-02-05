@@ -48,6 +48,12 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
      - Read `$VAULT_PATH/07 System/Claude Corrections Log.md`
      - Identify entries from this week (by date header)
      - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
+   - **Working Memory sweep:**
+     - Read `$VAULT_PATH/01 Now/Working memory.md`
+     - Count items in each section (Fresh Captures, Harrison to Review, etc.)
+     - Flag sections with 10+ unprocessed items
+     - Identify any items that appear to be actionable tasks that should be in WIP or project files
+     - Note items that have routing guidance but haven't been moved yet
 
 3. **Run the weekly synthesis interview:**
 
@@ -165,6 +171,22 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 - [Project D] - Has project file but not in WIP (add or archive?)
 
 **Recommendation:** Clean up discrepancies. Use `/complete-project` for zombie projects.
+
+### Working Memory Sweep
+**Current state:**
+- Fresh Captures: N items
+- Harrison to Review: N items
+- Cornerstone Tasks [CS]: N items
+- Long Poles [LP]: N items
+
+**Stale sections (10+ items):**
+- [Section] - N items, oldest from [date estimate]
+
+**Actionable items that should be routed:**
+- [ ] [Item] → Should be in WIP or [Project]
+- [ ] [Item] → Route to [Area scratchpad]
+
+**Recommendation:** Working Memory is a brain dump inbox, not storage. Process weekly or items become invisible.
 
 ### Claude Corrections Log Review
 **New entries this week:**
