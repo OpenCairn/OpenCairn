@@ -1,27 +1,27 @@
 ---
 name: start-project
-description: Spin up a new project - create file, add to WIP, link to cornerstone
+description: Spin up a new project - create file, add to WIP, link to initiative
 parameters:
   - "[Project Name]" - Name of the project to create
-  - "--cornerstone=[Name]" - Link to existing cornerstone project (optional)
+  - "--initiative=[Name]" - Link to existing initiative project (optional)
   - "--backlog" - Create in Backlog folder instead of active
 ---
 
 # Start Project - New Project Initialisation
 
-You are helping the user spin up a new project. This command creates the project file, adds it to Works in Progress, and optionally links it to a cornerstone project.
+You are helping the user spin up a new project. This command creates the project file, adds it to Works in Progress, and optionally links it to an initiative project.
 
 ## Philosophy
 
 Projects should be explicit from the start. Creating a project properly:
 - Forces clarity on what "done" looks like
 - Makes the commitment visible in Works in Progress
-- Links to broader context if part of a cornerstone
+- Links to broader context if part of an initiative
 - Creates the session linkage from day one
 
-**Cornerstones vs Projects:**
-- **Cornerstone:** Large, multi-week or multi-month initiative (e.g., "Summer Vacation", "Working Memory Consolidation")
-- **Project:** Discrete deliverable, often part of a cornerstone (e.g., "Task System Consolidation" under "Working Memory Consolidation")
+**Initiatives vs Projects:**
+- **Initiative:** Large, multi-week or multi-month effort that contains multiple projects (e.g., "Summer Vacation", "Working Memory Consolidation")
+- **Project:** Discrete deliverable, often part of an initiative (e.g., "Task System Consolidation" under "Working Memory Consolidation")
 
 ## Instructions
 
@@ -57,7 +57,7 @@ Then ask:
 Ask for deadline/target (optional):
 > "Any deadline or target date? (Leave blank if open-ended)"
 
-Ask about cornerstone linkage:
+Ask about initiative linkage:
 > "Is this part of a larger initiative? (e.g., 'Summer Vacation', 'Working Memory Consolidation')"
 
 ### 3. Check for conflicts
@@ -78,7 +78,7 @@ Create at `$VAULT_PATH/03 Projects/[Project Name].md` (or `Backlog/` if `--backl
 
 **Status:** Active | **Target:** [Deadline or "Open-ended"]
 **Created:** [Date]
-**Cornerstone:** [[03 Projects/[Cornerstone Name]]] (if applicable)
+**Initiative:** [[03 Projects/[Initiative Name]]] (if applicable)
 
 ---
 
@@ -135,14 +135,14 @@ Add to **Active** section (or appropriate priority section if specified):
 → [[03 Projects/[Project Name]]]
 ```
 
-If part of a cornerstone, add under that cornerstone's section instead (if it exists in WIP).
+If part of an initiative, add under that initiative's section instead (if it exists in WIP).
 
 Update "Last updated" timestamp.
 
-### 6. Link from cornerstone (if applicable)
+### 6. Link from initiative (if applicable)
 
-If cornerstone specified:
-- Read cornerstone file at `$VAULT_PATH/03 Projects/[Cornerstone Name].md`
+If initiative specified:
+- Read initiative file at `$VAULT_PATH/03 Projects/[Initiative Name].md`
 - Add link to new project in appropriate section:
   ```markdown
   - [[03 Projects/[Project Name]]] - [brief description]
@@ -163,7 +163,7 @@ mkdir -p "$VAULT_PATH/05 Resources/[Project Name]"
 ```
 ✓ Project created: 03 Projects/[Project Name].md
 ✓ Added to Works in Progress
-✓ Linked from cornerstone: [Cornerstone Name] (if applicable)
+✓ Linked from initiative: [Initiative Name] (if applicable)
 ✓ Resources folder created: 05 Resources/[Project Name]/ (if applicable)
 
 Project ready. What's the first action?
@@ -172,7 +172,7 @@ Project ready. What's the first action?
 ## Guidelines
 
 - **Explicit > implicit:** Creating a project forces clarity on scope and done-state
-- **Cornerstones are optional:** Many projects stand alone
+- **Initiatives are optional:** Many projects stand alone
 - **Backlog = not yet started:** Use `--backlog` for ideas not ready to pursue
 - **Minimal ceremony:** Don't over-engineer the project file - it grows organically
 - **Done-state is key:** "What does done look like?" prevents scope creep
@@ -183,7 +183,7 @@ Project ready. What's the first action?
 
 **Use when:**
 - Starting a new discrete body of work
-- Splitting a cornerstone into concrete projects
+- Splitting an initiative into concrete projects
 - Capturing an idea that deserves tracking (use `--backlog`)
 - Work that will span multiple sessions
 
@@ -197,7 +197,7 @@ If unsure whether something is a project or a task: if it needs multiple session
 ## Integration
 
 - **Works in Progress:** Project appears in Active (or Backlog)
-- **Cornerstones:** Linked bidirectionally for navigation
+- **Initiatives:** Linked bidirectionally for navigation
 - **Session summaries:** Session History section captures all work
 - **complete-project:** Eventual counterpart to archive when done
 

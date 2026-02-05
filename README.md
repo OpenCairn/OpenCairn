@@ -32,6 +32,8 @@ Zero reconstruction. Instant flow.
 
 ## How It Works
 
+**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disk. We use it because Claude Code reads and writes those same local files, making your notes and Claude's context the same thing.
+
 Web-based LLMs are like collaborating on a Word doc via email - you send a file, they send edits, you lose track of versions, they forget what you discussed last week.
 
 Claude Code is different. It reads and writes files directly on your disk. **The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files.
@@ -43,8 +45,6 @@ This means:
 - **Context doesn't drift.** Web LLMs compress and summarise behind the scenes. After a few sessions, their memory of your project diverges from reality. Here, Claude reads your actual notes every time. The source of truth is your files.
 
 - **Structure is yours to define.** Want Claude to understand your health history before giving supplement advice? Write a `Context - Health.md` file and link it from `CLAUDE.md`. Claude navigates to what it needs, when it needs it.
-
-Obsidian is just a nice way to view and edit these files. The magic is **local files + an LLM that can actually use them**.
 
 ---
 
@@ -76,6 +76,8 @@ Going on vacation? `/hibernate` before you leave. `/awaken` when you return. Bri
 
 ## Quick Start
 
+**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended)
+
 ```bash
 git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
 cd my-vault
@@ -106,22 +108,68 @@ That's it. All commands derive paths from this one variable.
 
 ## What's Included
 
-**Folder structure (NIPARAS):**
-```
-01 Now/       - Current focus, working memory
-02 Inbox/     - Quick capture, downloads
-03 Projects/  - Sprints with end states
-04 Areas/     - Domains of life (with nested resources)
-05 Resources/ - Generic scrapbook, pre-emergence staging
-06 Archive/   - Completed items, session history
-07 System/    - Context files for Claude
-```
+### Folder Structure (NIPARAS)
 
-**Areas vs Resources:** Areas are domains you actively maintain (Photography, Health, Finances) - each contains its own reference material. Resources is a staging ground for generic stuff that doesn't belong to a specific domain yet. When something accumulates enough mass, it graduates to an Area.
+NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (Projects, Areas, Resources, Archive) by adding three folders: **Now** (active working memory), **Inbox** (capture point), and **System** (meta-documentation and context files for Claude).
 
-**Commands:** `/park`, `/pickup`, `/morning`, `/afternoon`, `/goodnight`, `/weekly-synthesis`, `/hibernate`, `/awaken`, `/thinking-partner`, `/research-assistant`, `/inbox-processor`, `/de-ai-ify`, `/complete-project`, `/archive-sessions`, `/start-project`
+| Folder | Purpose | Examples |
+|--------|---------|----------|
+| **01 Now** | Active working memory - what's in flight right now | Works in Progress, daily scratch notes |
+| **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
+| **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
+| **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
+| **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
+| **06 Archive** | Completed or inactive items | Finished projects, old session logs, historical notes |
+| **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, vault config |
 
-**Scripts:** `.claude/scripts/` contains shell scripts used by commands:
+**Areas vs Resources:** Areas are domains you actively maintain - each contains its own reference material. Resources is a staging ground for generic stuff. When something accumulates enough mass, it graduates to an Area.
+
+### Commands
+
+**Session management:**
+
+| Command | What it does |
+|---------|-------------|
+| `/park` | End a session - documents what you did, captures open loops, archives to session file |
+| `/pickup` | Resume work - interactive menu of recent sessions grouped by project |
+| `/checkpoint` | Mid-session snapshot without ending the session |
+
+**Daily rhythm:**
+
+| Command | What it does |
+|---------|-------------|
+| `/morning` | Start of day - surface landscape, catch gaps, set intention |
+| `/afternoon` | Mid-day check - zoom out, check drift, reprioritise |
+| `/goodnight` | End of day - inventory loops, set tomorrow's queue, close cleanly |
+| `/weekly-synthesis` | Weekly review - aggregate progress, surface patterns |
+
+**Extended breaks:**
+
+| Command | What it does |
+|---------|-------------|
+| `/hibernate` | Save comprehensive state before vacation or long break |
+| `/awaken` | Restore context after returning from extended break |
+
+**Project management:**
+
+| Command | What it does |
+|---------|-------------|
+| `/start-project` | Create a new project - project file, add to WIP, link to parent initiative |
+| `/complete-project` | Archive a finished project - move to archive, update WIP |
+| `/inbox-processor` | Organise inbox captures into NIPARAS structure |
+| `/archive-sessions` | Clean up and organise session files |
+
+**Thinking tools:**
+
+| Command | What it does |
+|---------|-------------|
+| `/thinking-partner` | Explore ideas through questions before jumping to solutions |
+| `/research-assistant` | Deep vault search and synthesis - find what's known before searching externally |
+| `/de-ai-ify` | Remove AI writing patterns and restore your authentic voice |
+
+### Scripts
+
+`.claude/scripts/` contains shell scripts used by commands:
 - `pickup-scan.sh` - Pre-scans vault for `/pickup`, reducing context usage by ~50%
 - `write-session.sh` - Atomic session file writes with flock
 - `add-forward-link.sh` - Bidirectional session linking
