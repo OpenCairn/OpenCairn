@@ -44,6 +44,10 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
      - Long Poles [LP]: `grep -r "\[LP\]" "$VAULT_PATH" --include="*.md" -l`
      - Cornerstones [CS]: `grep -r "\[CS\]" "$VAULT_PATH" --include="*.md" -l`
    - Read the matched files and extract the tagged items for review
+   - **Claude Corrections Log review:**
+     - Read `$VAULT_PATH/07 System/Claude Corrections Log.md`
+     - Identify entries from this week (by date header)
+     - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
 
 3. **Run the weekly synthesis interview:**
 
@@ -161,6 +165,15 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 - [Project D] - Has project file but not in WIP (add or archive?)
 
 **Recommendation:** Clean up discrepancies. Use `/complete-project` for zombie projects.
+
+### Claude Corrections Log Review
+**New entries this week:**
+- [Date] - [Mistake summary] - Lesson: [key takeaway]
+
+**Promote to active recall?**
+- [ ] [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
+
+*Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
 ### Course Corrections Needed
 [What to adjust for next week]
