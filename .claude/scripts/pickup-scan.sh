@@ -1,8 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # pickup-scan.sh - Extract session metadata for /pickup command
 # Outputs TSV format for low-context menu building
 #
-# Requirements: bash 4.2+ (associative arrays), GNU coreutils (date -d)
+# Requirements: bash 4.2+ (associative arrays, lowercase expansion)
+#   macOS users: brew install bash (system bash is 3.2, too old)
 #
 # Usage: pickup-scan.sh [--days=N] [--hidden-file=PATH] [--show-hidden] [SESSION_DIR]
 #
@@ -12,8 +13,30 @@
 #
 # Output format (TSV):
 # DATE	SESSION_NUM	TITLE	TIME	PROJECT	LOOP_COUNT	SUMMARY
+#
+# Platform: Linux, macOS, Windows (Git Bash). Requires bash 4.2+.
 
 set -euo pipefail
+
+# Check bash version (need 4.2+ for associative arrays and ${var,,})
+if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2))); then
+    echo "ERROR: bash 4.2+ required. Current: ${BASH_VERSION}" >&2
+    echo "  Linux: should already have bash 4+." >&2
+    echo "  macOS: brew install bash (system /bin/bash is 3.2)." >&2
+    echo "  Windows: Git Bash includes bash 4+." >&2
+    exit 1
+fi
+
+# --- Portable date arithmetic ---
+# Tries GNU date, BSD date (macOS), python3 fallback
+_date_days_ago() {
+    local days="$1"
+    date -d "$days days ago" +%Y-%m-%d 2>/dev/null \
+        || date -v-${days}d +%Y-%m-%d 2>/dev/null \
+        || python3 -c "from datetime import datetime,timedelta; print((datetime.now()-timedelta(days=${days})).strftime('%Y-%m-%d'))" 2>/dev/null \
+        || { echo "ERROR: Cannot calculate date. Install GNU coreutils or Python 3." >&2; return 1; }
+}
+# --- End portable date ---
 
 # Defaults
 DAYS=10
@@ -62,8 +85,8 @@ if [[ ! -d "$SESSION_DIR" ]]; then
     exit 1
 fi
 
-# Calculate cutoff date
-CUTOFF_DATE=$(date -d "$DAYS days ago" +%Y-%m-%d)
+# Calculate cutoff date (portable)
+CUTOFF_DATE=$(_date_days_ago "$DAYS") || exit 1
 TODAY=$(date +%Y-%m-%d)
 
 # Load hidden entries into arrays

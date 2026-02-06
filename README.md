@@ -81,7 +81,7 @@ Going on vacation? `/hibernate` before you leave. `/awaken` when you return. Bri
 ```bash
 git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
 cd my-vault
-rm -rf .git && git init
+git remote rename origin template
 
 # Set your vault path (add to ~/.bashrc or ~/.zshrc for persistence)
 export VAULT_PATH="$(pwd)"
@@ -102,7 +102,9 @@ echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
 source ~/.bashrc
 ```
 
-That's it. All commands derive paths from this one variable.
+All commands derive paths from this one variable.
+
+**Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template. Your CLAUDE.md and vault content are never touched — only infrastructure files update.
 
 ---
 
@@ -166,6 +168,12 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 | `/thinking-partner` | Explore ideas through questions before jumping to solutions |
 | `/research-assistant` | Deep vault search and synthesis - find what's known before searching externally |
 | `/de-ai-ify` | Remove AI writing patterns and restore your authentic voice |
+
+**Maintenance:**
+
+| Command | What it does |
+|---------|-------------|
+| `/update` | Pull latest commands and scripts from the template repo (vault content never touched) |
 
 ### Scripts
 
