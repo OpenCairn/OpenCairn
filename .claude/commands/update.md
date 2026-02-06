@@ -89,7 +89,7 @@ Compare the user's **actual files on disk** (not committed state) against the te
 
 ```bash
 # Compare working tree against template (catches uncommitted local changes too)
-git diff $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ --stat
+git diff --stat $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/
 ```
 
 If no differences:
@@ -235,7 +235,7 @@ Then restart your terminal or run: source ~/.zshrc
 Updated commands require VAULT_PATH to know where your vault is.
 Run this in PowerShell (one-time):
 
-  [Environment]::SetEnvironmentVariable("VAULT_PATH", "C:\Users\YourName\claude-code-obsidian-template", "User")
+  [Environment]::SetEnvironmentVariable("VAULT_PATH", "C:\Users\YourName\Files", "User")
 
 Replace the path with your actual vault location.
 Then restart your terminal.
