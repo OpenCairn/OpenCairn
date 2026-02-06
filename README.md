@@ -262,4 +262,4 @@ Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidia
 
 ## License
 
-[MIT License](LICENSE)
+[CC BY-NC 4.0](LICENSE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licensing.
