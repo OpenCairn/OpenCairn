@@ -57,7 +57,7 @@ Determine the correct remote name:
 
 Store the remote name as `$REMOTE` for subsequent steps.
 
-### Step 3: Fetch Latest
+### Step 3: Fetch Latest and Detect Branch
 
 ```bash
 git fetch $REMOTE 2>&1
@@ -68,19 +68,28 @@ If fetch fails:
 - **Auth error:** "✗ Repository access denied. The template may have moved — ask Harrison."
 - Abort in all failure cases.
 
-### Step 4: Check Current State
-
+**After fetching**, determine the default branch:
 ```bash
-# Get current local commit for commands (last time they were updated)
-git log -1 --format="%h %s" -- .claude/commands/ .claude/scripts/ 2>/dev/null
-
-# Get latest template commit for commands
-git log -1 --format="%h %s" $REMOTE/main -- .claude/commands/ .claude/scripts/ 2>/dev/null
+# Check which branch exists on the remote (fetch must complete first)
+git rev-parse --verify $REMOTE/main 2>/dev/null && echo "BRANCH=main" || {
+  git rev-parse --verify $REMOTE/master 2>/dev/null && echo "BRANCH=master" || echo "BRANCH_NOT_FOUND"
+}
 ```
 
-Check if there are any differences:
+If neither `main` nor `master` exists, abort:
+```
+✗ Couldn't find main or master branch on remote. The template repo may have changed — ask Harrison.
+```
+
+Store as `$BRANCH`. Use `$REMOTE/$BRANCH` for all subsequent steps.
+
+### Step 4: Compare Working Tree Against Template
+
+Compare the user's **actual files on disk** (not committed state) against the template:
+
 ```bash
-git diff HEAD...$REMOTE/main --stat -- .claude/commands/ .claude/scripts/ 2>/dev/null
+# Compare working tree against template (catches uncommitted local changes too)
+git diff $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ --stat
 ```
 
 If no differences:
@@ -91,15 +100,29 @@ Stop here — nothing to do.
 
 ### Step 5: Preview Changes
 
+Categorise what changed by comparing the working tree against the template:
+
 ```bash
-# Summary of what changed
-git diff HEAD...$REMOTE/main --stat -- .claude/commands/ .claude/scripts/
+# Files that differ between working tree and template
+git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/
+```
 
-# Detect new files (in template but not local)
-git diff HEAD...$REMOTE/main --diff-filter=A --name-only -- .claude/commands/ .claude/scripts/
+Detect files that exist locally but NOT in the template (may be deprecated or user-created):
+```bash
+# Local command/script files
+LOCAL_FILES=$(ls .claude/commands/*.md .claude/scripts/*.sh 2>/dev/null | sort)
 
-# Detect deleted files (in local but removed from template)
-git diff HEAD...$REMOTE/main --diff-filter=D --name-only -- .claude/commands/ .claude/scripts/
+# Template command/script files
+TEMPLATE_FILES=$(git ls-tree -r --name-only $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ | sort)
+
+# Files in local but not in template
+REMOVED_CANDIDATES=$(comm -23 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
+```
+
+Detect files in the template but not locally (new commands/scripts):
+```bash
+# Files in template but not local
+NEW_FILES=$(comm -13 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
 ```
 
 Display a clear summary:
@@ -108,9 +131,18 @@ Template update available:
 
   Updated:  park.md, pickup.md, morning.md (+3 more)
   New:      update.md, weekly.md
-  Removed:  daily-review.md (deprecated)
 
   Total: N files changed
+```
+
+**If removed candidates were detected**, display them separately with a warning:
+```
+  ⚠ These local files don't exist in the template:
+    .claude/commands/daily-review.md
+    .claude/commands/my-custom-thing.md
+
+  These may be deprecated template files OR your own custom commands.
+  They will NOT be auto-deleted. Review and remove manually if unwanted.
 ```
 
 If `--dry-run`: Stop here and display:
@@ -140,10 +172,14 @@ These will be overwritten with the template version. Continue? (y/n)
 Apply the update:
 ```bash
 # Checkout template versions of commands and scripts
-git checkout $REMOTE/main -- .claude/commands/ .claude/scripts/
+git checkout $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/
 
-# Commit the update (changes are already staged by git checkout)
-git commit -m "Update CCO commands from template"
+# Ensure scripts are executable and stage the permission change
+chmod +x .claude/scripts/*.sh 2>/dev/null
+git add .claude/scripts/*.sh
+
+# Commit with template version hash for traceability
+git commit -m "Update CCO commands from template ($(git rev-parse --short $REMOTE/$BRANCH))"
 ```
 
 If the commit fails (nothing to commit), that's fine — files are already updated in the working tree.
@@ -159,12 +195,19 @@ else
 fi
 ```
 
-If VAULT_PATH is not set, display:
+**Detect OS for appropriate instructions:**
+```bash
+uname -s
+```
+
+If VAULT_PATH is not set, display OS-appropriate instructions:
+
+**Linux (uname returns "Linux"):**
 ```
 ⚠ VAULT_PATH is not set in your shell profile.
 
 Updated commands require VAULT_PATH to know where your vault is.
-Add this line to your ~/.bashrc (Linux) or ~/.zshrc (Mac):
+Add this line to your ~/.bashrc:
 
   export VAULT_PATH="$HOME/Files"
 
@@ -172,13 +215,44 @@ Replace "$HOME/Files" with your actual vault path if different.
 Then restart your terminal or run: source ~/.bashrc
 ```
 
+**macOS (uname returns "Darwin"):**
+```
+⚠ VAULT_PATH is not set in your shell profile.
+
+Updated commands require VAULT_PATH to know where your vault is.
+Add this line to your ~/.zshrc:
+
+  export VAULT_PATH="$HOME/Files"
+
+Replace "$HOME/Files" with your actual vault path if different.
+Then restart your terminal or run: source ~/.zshrc
+```
+
+**Windows (uname returns MINGW*, MSYS*, or CYGWIN*, or $OS is "Windows_NT"):**
+```
+⚠ VAULT_PATH is not set.
+
+Updated commands require VAULT_PATH to know where your vault is.
+Run this in PowerShell (one-time):
+
+  [Environment]::SetEnvironmentVariable("VAULT_PATH", "C:\Users\YourName\claude-code-obsidian-template", "User")
+
+Replace the path with your actual vault location.
+Then restart your terminal.
+```
+
 ### Step 8: Display Completion
 
+```bash
+# Get hash for display
+git rev-parse --short $REMOTE/$BRANCH
 ```
-✓ CCO commands updated
 
-  Commands: N updated, M new, K removed
-  Scripts:  N updated, M new, K removed
+```
+✓ CCO commands updated (template <hash>)
+
+  Commands: N updated, M new
+  Scripts:  N updated, M new
   Your CLAUDE.md and vault content were not touched.
 
   Restart Claude Code to use the updated commands.
@@ -203,7 +277,10 @@ Error: [specific error message]
 ## Guidelines
 
 - **Safe by design:** Only `.claude/commands/` and `.claude/scripts/` are ever modified. All other files are outside the checkout path.
-- **Custom commands are preserved:** If the user has added their own commands (not from the template), `git checkout` won't remove them — it only updates files that exist in the template.
+- **Custom commands are preserved:** `git checkout` only updates files that exist in the template. User-created custom commands are never modified or deleted.
+- **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.
+- **Scripts are cross-platform:** All template scripts use portable locking (flock on Linux, mkdir-based on macOS/Windows) and portable date handling. Updates won't break OS-specific functionality.
+- **Version-tracked:** Each update commit includes the template hash (e.g., `a3f8c2d`) for debugging and rollback.
 - **Idempotent:** Running `/update` twice in a row is safe — second run shows "Already up to date."
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
