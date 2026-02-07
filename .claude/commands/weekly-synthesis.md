@@ -35,7 +35,7 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - Get date range for display: e.g., "Week 3, Jan 13-19"
 
 2. **Gather the week's data:**
-   - Read daily reviews from `$VAULT_PATH/06 Archive/Daily Reviews/` for dates from week start to current date
+   - Read daily reports from `$VAULT_PATH/06 Archive/Daily Reports/` for dates from week start to current date
    - Read session summaries from `$VAULT_PATH/06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
@@ -213,10 +213,10 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 **Stop/Delegate:**
 [Things to drop or hand off]
 
-## Daily Reviews This Week
-[Links to daily reviews for drill-down]
-- [[06 Archive/Daily Reviews/YYYY-MM-DD]] - Mon
-- [[06 Archive/Daily Reviews/YYYY-MM-DD]] - Tue
+## Daily Reports This Week
+[Links to daily reports for drill-down]
+- [[06 Archive/Daily Reports/YYYY-MM-DD]] - Mon
+- [[06 Archive/Daily Reports/YYYY-MM-DD]] - Tue
 - etc.
 ```
 

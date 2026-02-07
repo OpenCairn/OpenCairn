@@ -67,10 +67,13 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Search the corrections log file
 
 8. **If pattern detected** (2+ similar mistakes), suggest promotion:
+   - **Default target: `07 System/` context files** — specific operational rules belong near the system they govern (e.g., NAS path rules → `Context - Technical Infrastructure.md`)
+   - **CLAUDE.md only for truly cross-cutting patterns** — habits-of-mind that apply regardless of which system you're working with
    ```
-   This appears to be a recurring pattern. Consider promoting to CLAUDE.md:
+   This appears to be a recurring pattern. Consider promoting:
 
-   [Suggested CLAUDE.md addition]
+   Target: [07 System/Context - X.md] or [CLAUDE.md if cross-cutting]
+   [Suggested addition]
    ```
 
 9. **Confirm capture:**
