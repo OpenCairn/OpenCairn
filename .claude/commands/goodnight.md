@@ -363,6 +363,8 @@ Goodnight.
 
 **Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
 
+**Tomorrow's queue must respect working memory.** When generating tomorrow's queue (Step 5), cross-check every suggested item against corrections applied in Steps 3-4a. Items marked complete during this session MUST NOT reappear as suggestions. This includes "if time" items and hedged suggestions like "or already done?" — if you know it's done, don't mention it.
+
 ## Triggers
 
 This command should trigger when the user says:

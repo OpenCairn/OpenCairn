@@ -38,17 +38,12 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 2. **Load voice profile:**
 
 Check for voice training data:
+- `$VAULT_PATH/07 System/Context - Voice & Writing Style.md` - concrete before/after examples (read this first)
 - `$VAULT_PATH/04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
 - the user's blog posts at `$VAULT_PATH/03 Projects/Blog-Sites/blog/content/posts/`
 - His Obsidian notes (especially in `07 System/` and `03 Projects/`)
 
-Extract patterns:
-- **Sentence structure:** Mix of short declarative and longer analytical
-- **Technical vocabulary:** Comfortable with "attractor state", "value drift", "revealed preferences"
-- **Tone:** Direct, no-nonsense, intellectually honest
-- **Hedging:** Minimal - says "this is wrong" not "this might potentially be suboptimal"
-- **Examples:** Concrete and personal, not generic
-- **Structure:** Thesis-driven, not formula-driven
+Extract patterns from the voice profile (sentence structure, vocabulary, tone, hedging style, examples, structure). The voice context file is the source of truth for these.
 
 3. **Apply transformations:**
 
@@ -67,12 +62,9 @@ Extract patterns:
 - ✅ Build argument logically
 - ✅ End with implication or action
 
-**Adopt the user's patterns:**
-- ✅ Short, punchy sentences for key points
-- ✅ Technical terms used precisely (don't dumb down)
-- ✅ Personal examples from his life ("When I...", "My...")
-- ✅ Economic/systems thinking framing
-- ✅ No em dashes (use hyphens or rewrite)
+**Adopt the user's patterns** (see voice context file for specifics):
+- ✅ Match their sentence structure and vocabulary
+- ✅ Match their tone, hedging style, and register
 - ✅ Active voice, outcome-focused
 
 4. **Rewrite the text:**
