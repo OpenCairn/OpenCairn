@@ -4,7 +4,7 @@
 >
 > **You won't spend 20 minutes reconstructing. Nobody does. The activation energy is too high, the dopamine too low. So you check your phone. Refresh something. The trip sits there unplanned for another week.**
 
-This template fixes that.
+This template fixes that. For the full series on *why* this works: **[hedwards.dev/claude-code-obsidian/](https://hedwards.dev/claude-code-obsidian/)**
 
 ```
 > /pickup
