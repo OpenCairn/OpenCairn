@@ -50,7 +50,7 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
      - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
    - **Working Memory sweep:**
      - Read `$VAULT_PATH/01 Now/Working memory.md`
-     - Count items in each section (Fresh Captures, Harrison to Review, etc.)
+     - Count items in each section (Fresh Captures, To Review, etc.)
      - Flag sections with 10+ unprocessed items
      - Identify any items that appear to be actionable tasks that should be in WIP or project files
      - Note items that have routing guidance but haven't been moved yet
@@ -175,7 +175,7 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 ### Working Memory Sweep
 **Current state:**
 - Fresh Captures: N items
-- Harrison to Review: N items
+- To Review: N items
 - Cornerstone Tasks [CS]: N items
 - Long Poles [LP]: N items
 

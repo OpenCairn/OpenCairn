@@ -65,7 +65,7 @@ git fetch $REMOTE 2>&1
 
 If fetch fails:
 - **Network error:** "✗ Couldn't reach GitHub. Check your internet connection."
-- **Auth error:** "✗ Repository access denied. The template may have moved — ask Harrison."
+- **Auth error:** "✗ Repository access denied. The template may have moved — check the template repo URL."
 - Abort in all failure cases.
 
 **After fetching**, determine the default branch:
@@ -78,7 +78,7 @@ git rev-parse --verify $REMOTE/main 2>/dev/null && echo "BRANCH=main" || {
 
 If neither `main` nor `master` exists, abort:
 ```
-✗ Couldn't find main or master branch on remote. The template repo may have changed — ask Harrison.
+✗ Couldn't find main or master branch on remote. The template repo may have changed — check the template repo URL.
 ```
 
 Store as `$BRANCH`. Use `$REMOTE/$BRANCH` for all subsequent steps.
