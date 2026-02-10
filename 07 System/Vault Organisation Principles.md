@@ -13,9 +13,9 @@ This vault uses a seven-folder structure called NIPARAS:
 | **01 Now** | Active working memory, current focus | Works in Progress, Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
-| **04 Areas** | Domains of life (with nested resources) | Health, Finances, Photography, Worldview |
+| **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
 | **05 Resources** | Generic scrapbook, pre-emergence staging | Journal, recipes, screenshots, misc |
-| **06 Archive** | Completed/inactive items | Old projects, session logs, historical notes |
+| **06 Archive** | Deep freeze for cross-cutting completed projects, historical reference | Old projects spanning multiple areas, session logs, historical notes |
 | **07 System** | Meta-documentation | This file, context files, vault config |
 
 ### The Key Distinction: Projects vs Areas
@@ -53,8 +53,11 @@ Related files live in the relevant Area folder (e.g., travel files in `04 Areas/
 ```
 Idea emerges     → 03 Projects/Backlog/Project Name.md
 Becomes active   → 03 Projects/Project Name.md
-Completes        → 06 Archive/Projects/YYYY/Project Name.md
+Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
+                    06 Archive/Project Name.md                (if cross-cutting)
 ```
+
+**Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects without a natural area home go to `06 Archive/`. This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
 
 **Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks can live as WIP entries without a dedicated page.
 
