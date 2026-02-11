@@ -4,8 +4,6 @@
 >
 > **You won't spend 20 minutes reconstructing. Nobody does. The activation energy is too high, the dopamine too low. So you check your phone. Refresh something. The trip sits there unplanned for another week.**
 
-This template fixes that. For the full series on *why* this works: **[hedwards.dev/claude-code-obsidian/](https://hedwards.dev/claude-code-obsidian/)**
-
 ```
 > /pickup
 
@@ -28,95 +26,77 @@ Ready to continue. What's next?
 
 Zero reconstruction. Instant flow.
 
+22 slash commands, a 7-folder filing system, session chaining, daily rhythms, and context that compounds over weeks and months. Built on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Obsidian](https://obsidian.md/).
+
+For the full series on *why* this works: **[hedwards.dev/claude-code-obsidian/](https://hedwards.dev/claude-code-obsidian/)**
+
+---
+
+## Who This Is For
+
+**Good fit:**
+- You have multiple domains of life you think about seriously
+- You want AI as a long-term thinking partner, not a chat toy
+- You're comfortable with a terminal (Claude Code is a CLI tool)
+- You're willing to spend an hour setting up for long-term payoff
+
+**Less good fit:**
+- You just want quick answers to quick questions
+- You prefer everything to "just work" without configuration
+
+If the terminal part sounds alien, the [setup wizard](https://hedwards.dev/cco-setup/) walks through everything step by step.
+
 ---
 
 ## How It Works
 
-**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disk. We use it because Claude Code reads and writes those same local files, making your notes and Claude's context the same thing.
+**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disk. **Claude Code** reads and writes those same files directly. Your notes and Claude's context are the same thing.
 
-Web-based LLMs are like collaborating on a Word doc via email - you send a file, they send edits, you lose track of versions, they forget what you discussed last week.
+**The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files. Each conversation produces refined thinking that gets written back to your vault, becoming input for the next conversation. Context compounds instead of decaying.
 
-Claude Code is different. It reads and writes files directly on your disk. **The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files.
-
-This means:
-
-- **You control what Claude knows.** Put it in the folder, Claude can read it. Don't put it there, Claude doesn't know it exists. No algorithm deciding what's "relevant".
-
-- **Context doesn't drift.** Web LLMs compress and summarise behind the scenes. After a few sessions, their memory of your project diverges from reality. Here, Claude reads your actual notes every time. The source of truth is your files.
-
-- **Structure is yours to define.** Want Claude to understand your health history before giving supplement advice? Write a `Context - Health.md` file and link it from `CLAUDE.md`. Claude navigates to what it needs, when it needs it.
+This template provides the structure: where files go, how Claude navigates them, and how sessions connect across time.
 
 ---
 
 ## The System
 
-### Park and Pickup
+Four layers, from single sessions up to months-long breaks.
 
-The core mechanic.
+### Session: Park and Pickup
 
-**End of session:** `/park` - Claude documents what you did, captures open loops, archives the session. Confident closure.
+The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea that you can't truly rest while your brain holds onto incomplete loops.
 
-**Next session:** `/pickup` - Interactive menu, grouped by project. Select one, get full context. No reconstruction.
+**End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-### Daily Rhythm
+**Next session:** `/pickup` shows an interactive menu grouped by project. A shell script pre-scans session metadata before Claude loads anything, cutting context usage by about half. Items older than 10 days get staleness warnings. You can hide or snooze sessions you don't need right now - snoozed items resurface automatically on their date.
 
-Structure your day:
+### Day: Morning, Afternoon, Goodnight
 
 | Command | When | What |
 |---------|------|------|
-| `/morning` | Start of day | Surface landscape, catch gaps, set intention |
-| `/afternoon` | Mid-day | Check drift, reprioritise remaining time |
-| `/goodnight` | End of day | Inventory loops, set tomorrow's queue |
+| `/morning` | Start of day | Read the landscape (WIP, tickler, yesterday's loops), catch gaps, optionally build a time-blocked `Today.md` |
+| `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
+| `/goodnight` | End of day | Inventory open loops, set tomorrow's queue, generate daily report, log the session |
 
-### Extended Breaks
+`Today.md` is a plain-text daily plan - viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. `/afternoon` and `/goodnight` read it to track what actually happened.
 
-Going on vacation? `/hibernate` before you leave. `/awaken` when you return. Bridges the gap between sessions and months.
+### Week: Weekly Synthesis
 
----
+`/weekly-synthesis` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, and flags open loops older than 14 days.
 
-## Quick Start
+### Extended Breaks: Hibernate and Awaken
 
-**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended)
-
-```bash
-git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
-cd my-vault
-git remote rename origin template
-
-# Set your vault path (add to ~/.bashrc or ~/.zshrc for persistence)
-export VAULT_PATH="$(pwd)"
-
-# Make scripts executable
-chmod +x .claude/scripts/*.sh
-
-# Edit CLAUDE.md with your details
-claude
-
-> /park    # End your first session
-> /pickup  # See it appear in the menu
-```
-
-**Configuration:** `VAULT_PATH` is the single personalization point. Add to your shell profile:
-```bash
-echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
-source ~/.bashrc
-```
-
-All commands derive paths from this one variable.
-
-**Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template. Your CLAUDE.md and vault content are never touched — only infrastructure files update.
+Going on vacation? `/hibernate` captures a full state snapshot - all active projects, prioritised open loops, deliberate deferrals, recent decisions. `/awaken` restores context when you return weeks or months later and interviews you on what changed while you were away.
 
 ---
 
-## What's Included
-
-### Folder Structure (NIPARAS)
+## Folder Structure (NIPARAS)
 
 NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (Projects, Areas, Resources, Archive) by adding three folders: **Now** (active working memory), **Inbox** (capture point), and **System** (meta-documentation and context files for Claude).
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory - what's in flight right now | Works in Progress, daily scratch notes |
+| **01 Now** | Active working memory - what's in flight right now | Works in Progress, Today (daily plan), scratch notes |
 | **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
 | **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
 | **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
@@ -124,39 +104,87 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 | **06 Archive** | Completed or inactive items | Finished projects, old session logs, historical notes |
 | **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, vault config |
 
-**Areas vs Resources:** Areas are domains you actively maintain - each contains its own reference material. Resources is a staging ground for generic stuff. When something accumulates enough mass, it graduates to an Area.
+**Areas vs Resources (differs from standard PARA):** NIPARAS uses Areas and Resources differently to Tiago Forte's original PARA. Here, **Areas** are domains you actively maintain, each containing its own nested reference material and Archive subfolders. **Resources** is a staging ground for generic stuff that doesn't belong to an Area yet. When something accumulates enough mass, it graduates to an Area. The key shift is that reference material lives *inside* the Area it belongs to, rather than in a separate top-level folder.
 
-### Commands
+**Context navigation** follows a hierarchical lazy-loading pattern - Claude reads `CLAUDE.md` first, follows links to domain hub files (e.g. `Context - Health.md`) when relevant, then drills into specific notes only when needed. Detailed in the [blog series](https://hedwards.dev/hierarchical-context-navigation/).
+
+---
+
+## Quick Start
+
+**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
+
+```bash
+git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
+cd my-vault
+
+# Rename remote to 'template' so /update can pull future changes
+# (leaves 'origin' free for your own repo if you want one)
+git remote rename origin template
+
+# Set your vault path (add to ~/.bashrc or ~/.zshrc for persistence)
+export VAULT_PATH="$(pwd)"
+
+# Make scripts executable
+chmod +x .claude/scripts/*.sh
+```
+
+Then start Claude and personalise:
+
+```bash
+claude
+
+# CLAUDE.md has bracketed placeholders - fill in your name,
+# profession, life context, and communication preferences.
+# Then try the core loop:
+
+> /park    # End your first session
+> /pickup  # See it appear in the menu
+```
+
+If using Obsidian, open it and select `my-vault` as your vault folder.
+
+**Configuration:** `VAULT_PATH` is the single configuration point. Add to your shell profile for persistence:
+```bash
+echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc
+```
+
+**Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
+
+---
+
+## All Commands
 
 **Session management:**
 
 | Command | What it does |
 |---------|-------------|
-| `/park` | End a session - documents what you did, captures open loops, archives to session file |
-| `/pickup` | Resume work - interactive menu of recent sessions grouped by project |
+| `/park` | End a session - documents work, captures open loops, archives with bidirectional links, runs quality gate |
+| `/pickup` | Resume work - project-grouped menu with staleness warnings, hide/snooze, two-stage context loading |
 | `/checkpoint` | Mid-session snapshot without ending the session |
 
 **Daily rhythm:**
 
 | Command | What it does |
 |---------|-------------|
-| `/morning` | Start of day - surface landscape, catch gaps, set intention |
-| `/afternoon` | Mid-day check - zoom out, check drift, reprioritise |
-| `/goodnight` | End of day - inventory loops, set tomorrow's queue, close cleanly |
-| `/weekly-synthesis` | Weekly review - aggregate progress, surface patterns |
+| `/morning` | Start of day - surface landscape, catch gaps, build Today.md |
+| `/afternoon` | Mid-day - check Today.md progress, reprioritise |
+| `/goodnight` | End of day - inventory loops, set tomorrow's queue, daily report |
+| `/weekly-synthesis` | Weekly review - aggregate progress, surface patterns, check WIP integrity |
 
 **Extended breaks:**
 
 | Command | What it does |
 |---------|-------------|
-| `/hibernate` | Save comprehensive state before vacation or long break |
+| `/hibernate` | Save full state before vacation or long break |
 | `/awaken` | Restore context after returning from extended break |
 
 **Project management:**
 
 | Command | What it does |
 |---------|-------------|
-| `/start-project` | Create a new project - project file, add to WIP, link to parent initiative |
+| `/start-project` | Create a new project - hub page, add to WIP, link to parent initiative |
 | `/complete-project` | Archive a finished project - move to archive, update WIP |
 | `/inbox-processor` | Organise inbox captures into NIPARAS structure |
 | `/archive-sessions` | Clean up and organise session files |
@@ -174,15 +202,20 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 | Command | What it does |
 |---------|-------------|
 | `/update` | Pull latest commands and scripts from the template repo (vault content never touched) |
+| `/oops` | Capture a mistake and its lesson - logs to Corrections Log, detects patterns |
 
-### Scripts
+---
 
-`.claude/scripts/` contains shell scripts used by commands:
-- `pickup-scan.sh` - Pre-scans vault for `/pickup`, reducing context usage by ~50%
-- `write-session.sh` - Atomic session file writes with flock
-- `add-forward-link.sh` - Bidirectional session linking
+## Under the Hood
 
-Scripts require `VAULT_PATH` environment variable (set during Quick Start).
+- **Two-stage pickup loading.** A shell script pre-scans session metadata and outputs TSV. Claude reads the summary, not every session file. Cuts pickup context usage by about half.
+- **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
+- **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
+- **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
+- **Tickler system.** `/park` offers to defer open loops to specific future dates. Deferred items surface automatically in `/morning` and `/pickup` when their date arrives.
+- **Corrections log.** `/oops` captures mistakes and lessons. `/weekly-synthesis` reviews for recurring patterns worth promoting to context files. Only get something wrong once.
+
+Scripts live in `.claude/scripts/` and require the `VAULT_PATH` environment variable.
 
 ---
 
@@ -201,64 +234,9 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 
 ## Tips
 
-### Context-Aware Status Line
+**Context-aware status line.** Claude Code's default status line shows absolute tokens. A percentage with colour-coded warnings is more useful - see [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/) for the setup script. Startup commands (`/morning`, `/pickup`, etc.) consume significant context on their own - a fresh session typically starts around 15-20% just from loading context files and command prompts, so your usable working window is smaller than the raw percentage suggests.
 
-Claude Code's default status line shows absolute tokens (`Ctx: 30.7k`). More useful: percentage with colour-coded warnings.
-
-Create `~/.claude/statusline.sh`:
-
-```bash
-#!/bin/bash
-input=$(cat)
-MODEL=$(echo "$input" | jq -r '.model.display_name // .model // "Claude"')
-PERCENT=$(echo "$input" | jq -r '.context_window.used_percentage // 0')
-TOTAL=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
-DURATION_MS=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
-USED=$((TOTAL * PERCENT / 100))
-USED_FMT=$([ "$USED" -ge 1000 ] && awk "BEGIN {printf \"%.0fk\", $USED/1000}" || echo "$USED")
-SESSION_SECS=$((DURATION_MS / 1000))
-
-if [ "$SESSION_SECS" -lt 60 ]; then DURATION="<1m"
-elif [ "$SESSION_SECS" -lt 3600 ]; then DURATION="$((SESSION_SECS / 60))m"
-else DURATION="$((SESSION_SECS / 3600))h$((SESSION_SECS % 3600 / 60))m"; fi
-
-if [ "$PERCENT" -ge 50 ]; then CTX="\033[31m${USED_FMT} (${PERCENT}%)\033[0m"
-elif [ "$PERCENT" -ge 30 ]; then CTX="\033[33m${USED_FMT} (${PERCENT}%)\033[0m"
-else CTX="\033[32m${USED_FMT} (${PERCENT}%)\033[0m"; fi
-
-echo -e "Ctx: ${CTX} | Model: ${MODEL} | Session: ${DURATION}"
-```
-
-Then in `~/.claude/settings.json`:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/statusline.sh"
-  }
-}
-```
-
-Make it executable and ensure `jq` is installed:
-
-```bash
-chmod +x ~/.claude/statusline.sh
-# On Debian/Ubuntu: sudo apt install jq
-# On macOS: brew install jq
-```
-
-Now you see `Ctx: 30.7k (15%)` - green under 30%, yellow 30-50%, red above 50%. Park around 30-40% to stay ahead of context rot. Changes take effect immediately (no restart needed).
-
----
-
-## Philosophy
-
-**Files, not features.** Plain markdown. No plugins, no lock-in.
-
-**Hierarchical context.** Claude reads `CLAUDE.md`, follows links to hub files, then details. Efficient, not brute force.
-
-**Park and pickup.** Explicit session boundaries. Based on Cal Newport's "shutdown complete" ritual.
+**More tips** on context management, workflow patterns, keyboard shortcuts, and MCP servers: [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/)
 
 ---
 
