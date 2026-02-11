@@ -114,12 +114,14 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 > "Want me to build your Today.md?"
 
-**If a stale Today.md exists** (detected in step 2), show the uncompleted items and ask which to carry forward before building. This keeps all Today.md decisions in one place rather than splitting them across steps 2 and 6.
+**If yes:**
 
-**If yes:** Create/overwrite `$VAULT_PATH/01 Now/Today.md` using the timeline format.
+First, if a stale Today.md exists (detected in step 2), show the uncompleted items and ask which to carry forward. This keeps all Today.md decisions in one place rather than splitting them across steps.
+
+Then create/overwrite `$VAULT_PATH/01 Now/Today.md` using the timeline format.
 
 Pull from everything surfaced so far:
-- Items carried forward from yesterday's stale Today.md (user chose in this step)
+- Items carried forward from stale Today.md (if any, user chose just above)
 - Time-sensitive items and appointments mentioned
 - WIP next actions
 - Yesterday's queue (from /goodnight Daily Report)
@@ -142,11 +144,7 @@ Pull from everything surfaced so far:
 4. **Done today** — items move here with `✓` as they're completed
 5. **Notes** — ad-hoc sections as needed (decision trees, context, reminders)
 
-**If a stale Today.md exists from a previous day** (and uncompleted items weren't already handled above):
-- Ask: "Yesterday's Today.md is still here. Replace with today's plan?"
-- Don't silently overwrite — the user may want to review leftovers first
-
-**If no or the day is unstructured:** Skip. Not every day needs a timeline. Open/exploratory days are fine without one.
+**If no or the day is unstructured:** Skip. Not every day needs a timeline. Open/exploratory days are fine without one. (A stale Today.md from yesterday may linger — that's harmless since `/afternoon` and `/goodnight` check dates before reading it.)
 
 **Why this exists:** Today.md is a plain-text replacement for calendar reads/writes via MCP. Calendar API integrations are flaky and brittle. A markdown file is instant to read, trivial to edit mid-session, and always available — no API calls, no auth tokens, no rate limits.
 
