@@ -13,6 +13,8 @@ parameters:
 
 You are ending a work session. Your task is to create a comprehensive session summary that enables confident rest and frictionless pickup.
 
+**⚠ One park at a time.** Do not run `/park` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. Park one session, wait for completion, then park the next.
+
 ## Tier Philosophy
 
 **Two tiers only:**
@@ -246,21 +248,35 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    Use the dedicated script instead of inline bash (prevents permission system corruption):
    ```bash
+   # Same-day link:
    ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>"
+   # Cross-day link (previous session on different day than new session):
+   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
    ```
 
-   **Example:**
+   **Examples:**
    ```bash
+   # Same-day: Session 39 → Session 40, both on Jan 26
    ~/.claude/scripts/add-forward-link.sh \
      "$VAULT_PATH/06 Archive/Claude Sessions/2026-01-26.md" \
      39 40 "Sarath Task Capture"
+
+   # Cross-day: Session 29 on Feb 11 → Session 1 on Feb 12
+   ~/.claude/scripts/add-forward-link.sh \
+     "$VAULT_PATH/06 Archive/Claude Sessions/2026-02-11.md" \
+     29 1 "Morning Check-in" "2026-02-12.md"
    ```
+
+   **IMPORTANT:** When the new session is on a different day than the previous session,
+   you MUST pass the 5th argument (target date file). Without it, the link points to
+   the wrong day's file.
 
    The script handles:
    - File locking (flock) for concurrent safety
    - Idempotency (skips if link already exists)
    - Quick vs Full session detection
    - Correct insertion point finding
+   - Cross-day links via optional 5th argument
    - All guards and validation
 
    **Error handling:** If script fails (file missing, lock timeout, session not found):
