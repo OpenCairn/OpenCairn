@@ -45,13 +45,14 @@ Note roughly how much working time remains today.
 ### 2. Quick Status Check (auto)
 
 Read:
+- **Today.md:** `$VAULT_PATH/01 Now/Today.md` (if it exists and today's date is in the heading) — what was planned for today? What's marked done? What's still open? If the heading has no date or a different date, it's stale — skip it and note: "Today.md is from yesterday — run /morning to refresh or ignore."
 - **Works in Progress:** `$VAULT_PATH/01 Now/Works in Progress.md` - what's meant to be priority?
 - **Today's sessions:** `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` - what's been done so far?
 - **This morning's intention:** Check if `/morning` set a "one thing" for today
 
 ### 3. Present Current State
 
-Display concisely:
+Display concisely. If Today.md exists, use it as the primary view:
 
 ```
 ## Regroup - [Time]
@@ -60,7 +61,12 @@ Display concisely:
 
 **Morning's intention:** [If set, or "None set"]
 
-**Done so far:**
+**Today.md progress:** (if Today.md exists)
+- ✓ [Completed items from timeline]
+- ░░ [Current gap or next block]
+- ▶ [Upcoming items still on timeline]
+
+**Done so far:** (from sessions, may overlap with Today.md)
 - [x] Task 1
 - [x] Task 2
 
@@ -68,6 +74,8 @@ Display concisely:
 - [Project] - [current status]
 - [Project] - [current status]
 ```
+
+If no Today.md exists, skip that section and show the standard view.
 
 ### 4. Drift Check
 
@@ -112,6 +120,8 @@ Consider:
 
 **If priorities significantly shifted:** Update `$VAULT_PATH/01 Now/Works in Progress.md` with new status/priorities.
 
+**If Today.md needs updating:** Edit the timeline — move completed items to "Done today", adjust remaining blocks, add new items that emerged. This keeps the day plan current without rebuilding from scratch.
+
 **If actionable decisions made:** Note them in today's session file if one exists.
 
 ### 7. Close
@@ -153,7 +163,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, today's Claude Sessions
-- **May update:** Works in Progress (if priorities shifted)
+- **Reads from:** Today.md, Works in Progress, today's Claude Sessions
+- **May update:** Today.md (mark done, adjust timeline), Works in Progress (if priorities shifted)
 - **Complements:** `/morning` (start of day), `/goodnight` (end of day), `/park` (end of session)
 - **Not a replacement for:** `/park` (regroup doesn't close sessions, just recalibrates)

@@ -50,6 +50,7 @@ or toward deliberation?]
 <!-- List the hub files Claude should read for different domains -->
 
 **Start here:** `01 Now/Works in Progress.md` - what's actively in flight
+**Today:** `01 Now/Today.md` - today's time-blocked plan (refreshed each morning)
 
 For deeper context on specific domains:
 - **[Domain A]:** `07 System/Context - [Domain A].md`

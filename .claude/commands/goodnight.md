@@ -46,10 +46,11 @@ date +"%I:%M%P" | tr '[:upper:]' '[:lower:]'  # for session timestamp
 ### 2. Gather Today's Activity (auto)
 
 Read and compile:
+- **Today.md:** Read `$VAULT_PATH/01 Now/Today.md` (if it exists) — today's planned timeline, "Done today" items, and any notes sections. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md` for project states
-- **Completed tasks:** Extract from session summaries
-- **Candidate open loops:** Extract all unchecked items (`- [ ]`) from session files
+- **Completed tasks:** Extract from Today.md "Done today" section AND session summaries (deduplicate)
+- **Candidate open loops:** Extract unchecked items (`- [ ]`) from session files, plus any timeline items from Today.md that weren't completed or moved to "Done today"
 
 **Important:** Store this data in working memory - it's a DRAFT inventory, not ground truth.
 
@@ -376,7 +377,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Claude Sessions (today), Works in Progress
+- **Reads from:** Today.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
 - **Updates:** Claude Sessions (marks loops complete, adds goodnight session with bidirectional links), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)

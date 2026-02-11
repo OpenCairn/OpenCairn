@@ -10,7 +10,7 @@ This vault uses a seven-folder structure called NIPARAS:
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory, current focus | Works in Progress, Working memory scratch |
+| **01 Now** | Active working memory, current focus | Works in Progress, Today (daily plan), Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
 | **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
