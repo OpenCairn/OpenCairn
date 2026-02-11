@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Add forward link ("Next session:") to a previous session's Pickup Context
-# Usage: add-forward-link.sh <session-file> <prev-session-num> <new-session-num> <new-session-topic>
+# Usage: add-forward-link.sh <session-file> <prev-session-num> <new-session-num> <new-session-topic> [<target-date-file>]
 #
-# Example:
+# <target-date-file> is the session file where the NEW session lives (for cross-day links).
+# If omitted, assumes same file as <session-file> (same-day link).
+#
+# Examples:
+#   # Same-day link:
 #   add-forward-link.sh "06 Archive/Claude Sessions/2025-03-15.md" 5 6 "API Refactor"
+#   # Cross-day link (prev session on Mar 15, new session on Mar 16):
+#   add-forward-link.sh "06 Archive/Claude Sessions/2025-03-15.md" 5 1 "Morning Check-in" "2025-03-16.md"
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 
@@ -50,6 +56,7 @@ SESSION_FILE="$1"
 PREV_NUM="$2"
 NEW_NUM="$3"
 NEW_TOPIC="$4"
+TARGET_DATE_FILE="${5:-}"
 
 # Validate file exists
 if [ ! -f "$SESSION_FILE" ]; then
@@ -62,7 +69,13 @@ LOCK_DIR="$(dirname "$SESSION_FILE")"
 LOCK_FILE="$LOCK_DIR/.lock"
 
 # Build the link text
-DATE_PART="$(basename "$SESSION_FILE" .md)"
+# If target date file provided (cross-day link), use that for the date part.
+# Otherwise derive from the source file (same-day link).
+if [ -n "$TARGET_DATE_FILE" ]; then
+    DATE_PART="$(basename "$TARGET_DATE_FILE" .md)"
+else
+    DATE_PART="$(basename "$SESSION_FILE" .md)"
+fi
 NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude Sessions/${DATE_PART}#Session ${NEW_NUM} - ${NEW_TOPIC}]]"
 
 # Acquire lock

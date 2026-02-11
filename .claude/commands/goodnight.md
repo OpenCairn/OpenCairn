@@ -165,6 +165,10 @@ Create file at `$VAULT_PATH/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 ```markdown
 # Daily Report - [Day], [Date]
 
+## Today's Plan
+
+[Include the full Today.md timeline code block and Refs line here, verbatim from 01 Now/Today.md. If Today.md doesn't exist or has no date/stale date, omit this section.]
+
 ## Sessions
 - Session 1: [Topic] - [outcome]
 - Session 2: [Topic] - [outcome]
