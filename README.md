@@ -26,7 +26,7 @@ Ready to continue. What's next?
 
 Zero reconstruction. Instant flow.
 
-22 slash commands, a 7-folder filing system, session chaining, daily rhythms, and context that compounds over weeks and months. Built on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Obsidian](https://obsidian.md/).
+21 slash commands, a 7-folder filing system, session chaining, daily rhythms, and context that compounds over weeks and months. Built on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Obsidian](https://obsidian.md/).
 
 For the full series on *why* this works: **[hedwards.dev/claude-code-obsidian/](https://hedwards.dev/claude-code-obsidian/)**
 
@@ -195,6 +195,7 @@ source ~/.bashrc
 |---------|-------------|
 | `/thinking-partner` | Explore ideas through questions before jumping to solutions |
 | `/research-assistant` | Deep vault search and synthesis - find what's known before searching externally |
+| `/patterns` | Find recurring themes, contradictions, and connections across vault files on a topic |
 | `/de-ai-ify` | Remove AI writing patterns and restore your authentic voice |
 
 **Maintenance:**
@@ -203,6 +204,8 @@ source ~/.bashrc
 |---------|-------------|
 | `/update` | Pull latest commands and scripts from the template repo (vault content never touched) |
 | `/oops` | Capture a mistake and its lesson - logs to Corrections Log, detects patterns |
+
+**Aliases:** `/regroup` → `/afternoon`, `/shutdown` → `/goodnight`
 
 ---
 
