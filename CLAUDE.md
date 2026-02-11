@@ -90,6 +90,10 @@ Resources/
     └── map.png
 ```
 
+## Path-Keyed Memories
+
+Claude Code stores memories and corrections in `~/.claude/projects/` keyed to the absolute path of the directory you run it from. If you move your vault to a different path, memories will appear to be lost. They're still at the old path — copy the `.md` files from `~/.claude/projects/<old-path>/memory/` to `~/.claude/projects/<new-path>/memory/` to recover them.
+
 ## Session Management
 
 **At session end:** Use `/park` or cue words like "wrapping up", "done for now", "packing up"
