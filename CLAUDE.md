@@ -20,14 +20,6 @@ personalised responses without you re-explaining context every session.
 
 [1-2 sentences about what you're primarily working on or focused on right now.]
 
-## Current Life Stage
-
-<!-- What's happening in your life right now? Major transitions, projects, deadlines? -->
-
-- **Current focus:** [What's consuming most of your attention?]
-- **Upcoming:** [Any significant near-term events or deadlines?]
-- **Context:** [Anything else Claude should know about your situation?]
-
 ## How I Think
 
 <!-- Help Claude understand your mental models and decision-making style -->
