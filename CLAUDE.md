@@ -96,7 +96,7 @@ This will:
 - Document open loops (so you can rest knowing everything is captured)
 - Enable frictionless resume next session
 
-**To resume:** Run `/pickup` to see recent sessions and select one to continue
+**To resume:** Run `/pickup` to load your current landscape, or just start talking and link relevant files
 
 ## Working With Me
 

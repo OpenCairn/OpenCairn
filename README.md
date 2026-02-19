@@ -68,7 +68,7 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-**Next session:** `/pickup` shows an interactive menu grouped by project. A shell script pre-scans session metadata before Claude loads anything, cutting context usage by about half. Items older than 10 days get staleness warnings. You can hide or snooze sessions you don't need right now - snoozed items resurface automatically on their date.
+**Next session:** `/pickup` reads your Works in Progress and the 1-2 most recent daily reports (produced by `/goodnight`), giving you a concise landscape of what's active, what's open, and what was queued next. Lightweight by design - it reads 3-5 files and completes in one turn, preserving context for actual work.
 
 ### Day: Morning, Afternoon, Goodnight
 
@@ -161,7 +161,7 @@ source ~/.bashrc
 | Command | What it does |
 |---------|-------------|
 | `/park` | End a session - documents work, captures open loops, archives with bidirectional links, runs quality gate |
-| `/pickup` | Resume work - project-grouped menu with staleness warnings, hide/snooze, two-stage context loading |
+| `/pickup` | Resume work - reads WIP and recent daily reports, presents landscape and open loops |
 | `/checkpoint` | Mid-session snapshot without ending the session |
 
 **Daily rhythm:**
@@ -211,7 +211,7 @@ source ~/.bashrc
 
 ## Under the Hood
 
-- **Two-stage pickup loading.** A shell script pre-scans session metadata and outputs TSV. Claude reads the summary, not every session file. Cuts pickup context usage by about half.
+- **Lightweight pickup.** `/pickup` reads Works in Progress and the 1-2 most recent daily reports — already-synthesised context from `/goodnight`. No shell scripts, no session scanning, one turn to orientation.
 - **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
