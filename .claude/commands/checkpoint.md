@@ -120,14 +120,18 @@ Use checkpoint when:
 ### Phase 4: Completion
 
 6. **Log provenance** (automatic, non-blocking, tag-gated):
-   - Same logic as park step 10, **except no OTS stamping** (checkpoint is mid-session — the file will change before day-end, making any OTS proof unverifiable. End-of-day primacy: only `/park` and `/goodnight` stamps matter):
-     - **Gate:** Only log if session has a `**Project:**` link. No project = skip silently.
-     - Hash session file **after** write (step 5), truncate to first 16 hex chars
-     - Check idempotency (grep for existing entry with same tag + session file)
-     - **Skip OTS** — set `OTS_STATUS="—"` unconditionally
-     - Append table row with flock using `$VAULT_PATH/07 System/.provenance-lock`
-     - Sed anchor: `/^|---|---|---|---|---|$/a\`
-   - Non-blocking — checkpoint completes even if provenance fails
+
+   Follow `/provenance` command logic (that command is the **SSOT** — see `provenance.md` for full implementation):
+
+   - **Gate:** Only log if session has a `**Project:**` link. No project = skip silently.
+   - **OTS: No** — checkpoint is mid-session, file will change before day-end. End-of-day primacy: only `/park` and `/goodnight` stamp.
+   - **Non-blocking** — checkpoint completes even if provenance fails.
+
+   Key paths (for quick reference — `/provenance` is SSOT):
+   - Log: `$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md`
+   - Lock: `$VAULT_PATH/06 Archive/Provenance/.lock`
+   - Table format: `| Timestamp | Project | Session | SHA256 (first 16) | OTS |`
+   - Sed anchor: `/^|---|---|---|---|---|$/a\`
 
 7. **Display confirmation:**
    ```

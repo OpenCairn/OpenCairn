@@ -24,7 +24,7 @@ fi
 ### 2. Read Provenance Log
 
 ```bash
-PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
+PROVENANCE_LOG="$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md"
 if [[ ! -f "$PROVENANCE_LOG" ]]; then
   echo "No provenance log found at $PROVENANCE_LOG"
   exit 0
@@ -71,7 +71,7 @@ fi
 
 **3c. OTS verification (if applicable):**
 ```bash
-OTS_FILE="$VAULT_PATH/07 System/Provenance/${SESSION_FILENAME%.md}.ots"
+OTS_FILE="$VAULT_PATH/06 Archive/Provenance/${SESSION_FILENAME%.md}.ots"
 if [[ -f "$OTS_FILE" ]]; then
   # Try to upgrade pending proofs first
   ots upgrade "$OTS_FILE" 2>/dev/null
@@ -143,6 +143,6 @@ If OTS proofs are pending and upgradeable, offer:
 
 ## Integration
 
-- **Reads:** `07 System/AI Provenance Log.md`, session files in `06 Archive/Claude Sessions/`, OTS proofs in `07 System/Provenance/`
+- **Reads:** `06 Archive/Provenance/AI Provenance Log.md`, session files in `06 Archive/Claude Sessions/`, OTS proofs in `06 Archive/Provenance/`
 - **May update:** Provenance Log (if user approves re-hashing or OTS status updates)
 - **Complements:** `/provenance` (creates entries), `/park` `/checkpoint` `/goodnight` (auto-creates entries)

@@ -71,7 +71,7 @@ Cryptographic audit trail for AI collaboration disclosure (journals, legal).
 ```
 Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin blockchain
                                                           ↓
-                                                   07 System/Provenance/DATE.ots
+                                                   06 Archive/Provenance/DATE.ots
 ```
 
 ### Design Decisions
@@ -84,9 +84,13 @@ Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin 
 
 **Non-blocking.** Provenance failures never prevent park/checkpoint/goodnight from completing. The audit trail is valuable but not worth losing session data over.
 
+**Single source of truth.** `provenance.md` is the SSOT for all provenance logic (paths, hashing, OTS, flock, table format). `/park`, `/checkpoint`, and `/goodnight` reference it with key paths inlined for quick access, rather than duplicating the implementation.
+
+**Selective disclosure.** The hash covers the full daily session file (all sessions, all projects). To share provenance for a specific project without exposing unrelated sessions: extract project-tagged sessions into a standalone file at submission time, hash and OTS stamp the extract.
+
 ### OTS verification
 
-`ots verify -f <session-file> <proof.ots>` — the `-f` flag is required because the `.ots` proof was moved from the sessions directory to `07 System/Provenance/`. Without `-f`, ots looks for the target file adjacent to the proof and fails.
+`ots verify -f <session-file> <proof.ots>` — the `-f` flag is required because the `.ots` proof was moved from the sessions directory to `06 Archive/Provenance/`. Without `-f`, ots looks for the target file adjacent to the proof and fails.
 
 For non-final entries of the day (e.g. a park entry that was later followed by goodnight), the OTS proof was overwritten. `/verify-provenance` will show "OTS FAILED" for these entries. This is expected under end-of-day primacy, not a bug.
 
@@ -105,7 +109,7 @@ Two separate lock files prevent deadlock:
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/Claude Sessions/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
-| `07 System/.provenance-lock` | Provenance log writes | All provenance operations |
+| `06 Archive/Provenance/.lock` | Provenance log writes | All provenance operations |
 
 **Why separate locks:** Provenance runs after session writes. If both used the same lock, the provenance step would deadlock waiting for a lock that the same process already holds (write-session.sh acquired it and it's still in scope).
 

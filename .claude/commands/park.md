@@ -319,45 +319,20 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 10. **Log provenance** (automatic, non-blocking, tag-gated):
 
-   **Gate:** Only log if this session has a `**Project:**` link in its Pickup Context. Sessions without a project link (admin, dating, travel planning) are skipped. This keeps the provenance log useful for publication audit trails without noise.
+   Follow `/provenance` command logic (that command is the **SSOT** — see `provenance.md` for full implementation):
 
-   **If gate passes:**
-   1. Extract project tag from the `**Project:**` link (e.g., `[[03 Projects/Computational Photography Publications]]` → `Computational Photography Publications`)
-   2. Hash the session file **after** it has been written (step 8) and forward-linked (step 8a):
-      ```bash
-      SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$TODAY.md"
-      HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
-      SHORT_HASH="${HASH:0:16}"
-      ```
-   3. Check for duplicate entry (idempotency):
-      ```bash
-      PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
-      if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG" 2>/dev/null; then
-        echo "Provenance already logged for this session+tag, skipping"
-        # Skip — don't create duplicate
-      fi
-      ```
-   4. OpenTimestamps (optional, non-blocking):
-      ```bash
-      OTS_STATUS="—"
-      if command -v ots &>/dev/null; then
-        mkdir -p "$VAULT_PATH/07 System/Provenance"
-        if ots stamp "$SESSION_FILE" 2>/dev/null; then
-          mv "${SESSION_FILE}.ots" "$VAULT_PATH/07 System/Provenance/${TODAY}.ots" 2>/dev/null
-          OTS_STATUS="pending"
-        fi
-      fi
-      ```
-   5. Append table row with flock (atomic write, separate lock from session lock):
-      ```bash
-      TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
-      ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
-      flock -w 10 "$VAULT_PATH/07 System/.provenance-lock" bash -c "
-        sed -i '/^|---|---|---|---|---|$/a\\
-      $ROW' '$PROVENANCE_LOG'
-      "
-      ```
-   6. If provenance logging fails (file missing, lock timeout, etc.), continue — don't block park
+   - **Gate:** Only log if this session has a `**Project:**` link in its Pickup Context. Sessions without a project link (admin, dating, travel planning) are skipped.
+   - Extract project tag from the `**Project:**` link (e.g., `[[03 Projects/Computational Photography Publications]]` → `Computational Photography Publications`)
+   - Hash session file **after** it has been written (step 8) and forward-linked (step 8a)
+   - **OTS:** Yes — session-ending stamp.
+   - **Non-blocking** — park completes even if provenance fails.
+
+   Key paths (for quick reference — `/provenance` is SSOT):
+   - Log: `$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md`
+   - OTS proofs: `$VAULT_PATH/06 Archive/Provenance/YYYY-MM-DD.ots`
+   - Lock: `$VAULT_PATH/06 Archive/Provenance/.lock`
+   - Table format: `| Timestamp | Project | Session | SHA256 (first 16) | OTS |`
+   - Sed anchor: `/^|---|---|---|---|---|$/a\`
 
    **Display in completion message (step 11):**
    - If logged: `✓ Provenance: [Project tag] (OTS: pending/—)`
