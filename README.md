@@ -7,21 +7,16 @@
 ```
 > /pickup
 
-Recent Sessions (By Project)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Japan Trip                (4 sessions)
-   Latest: Kyoto logistics       Thu 9:16pm | 3 loops
+Active projects: Japan Trip, Website Redesign
+Last daily report: Thu 9:16pm
 
-> 1
-
-Loading: Kyoto logistics
-
-Open loops:
+Open loops (from Thu):
  [ ] Book ryokan - narrowed to 2 options, need to decide
  [ ] Figure out JR pass vs individual tickets
  [ ] Ask Mike about that ramen place in Osaka
 
-Ready to continue. What's next?
+Tomorrow's queue had "Kyoto logistics" first.
+What would you like to pick up?
 ```
 
 Zero reconstruction. Instant flow.
@@ -139,7 +134,7 @@ claude
 # Then try the core loop:
 
 > /park    # End your first session
-> /pickup  # See it appear in the menu
+> /pickup  # See your landscape and open loops
 ```
 
 If using Obsidian, open it and select `my-vault` as your vault folder.
