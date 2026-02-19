@@ -145,4 +145,4 @@ If OTS proofs are pending and upgradeable, offer:
 
 - **Reads:** `06 Archive/Provenance/AI Provenance Log.md`, session files in `06 Archive/Claude Sessions/`, OTS proofs in `06 Archive/Provenance/`
 - **May update:** Provenance Log (if user approves re-hashing or OTS status updates)
-- **Complements:** `/provenance` (creates entries), `/park` `/checkpoint` `/goodnight` (auto-creates entries)
+- **Complements:** `/provenance` (creates entries)

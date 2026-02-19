@@ -329,42 +329,6 @@ EOF'
 
 If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
 
-### 8a. Log Provenance (automatic, non-blocking, tag-gated)
-
-Follow `/provenance` command logic (that command is the **SSOT** — see `provenance.md` for full implementation):
-
-- **Gate:** Scan today's sessions (from working memory, step 2) for any `**Project:**` links. If any sessions had project links, log one provenance entry per unique project tag.
-- **OTS:** Yes — end-of-day stamp (last stamp wins).
-- **Non-blocking** — goodnight completes even if provenance fails.
-
-Key paths (for quick reference — `/provenance` is SSOT):
-- Log: `$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md`
-- OTS proofs: `$VAULT_PATH/06 Archive/Provenance/YYYY-MM-DD.ots`
-- Lock: `$VAULT_PATH/06 Archive/Provenance/.lock`
-- Table format: `| Timestamp | Project | Session | SHA256 (first 16) | OTS |`
-- Sed anchor: `/^|---|---|---|---|---|$/a\`
-
-Display result in completion message (step 9).
-
-### 8b. Sync Raw Session Transcripts (automatic, non-blocking)
-
-Copy all session `.jsonl` files from the Claude Code project directory to the vault archive.
-
-```bash
-# Project path is derived from $HOME: ~/.claude/projects/-home-<username>/
-CC_PROJECT_DIR="$HOME/.claude/projects/-$(echo "$HOME" | sed 's|^/||;s|/|-|g')/"
-DEST="$VAULT_PATH/06 Archive/Claude Sessions/Raw Transcripts/"
-
-SYNCED=$(rsync -a --update --out-format='%n' --include='*.jsonl' --exclude='*' \
-  "$CC_PROJECT_DIR" "$DEST" 2>/dev/null | wc -l)
-```
-
-- `--update` copies only when source is newer — completed sessions sync once, the active session gets a valid partial copy (append-only JSONL) that updates on the next run
-- `--include/--exclude` filters server-side, no shell glob expansion (ARG_MAX safe at any file count)
-- `--out-format` prints each transferred file; `$SYNCED` captures the count for step 9
-- Project path derived from `$HOME` — works for any user, not hardcoded to harrison
-- Non-blocking — goodnight completes even if sync fails
-
 ### 9. Close
 
 ```
@@ -372,9 +336,6 @@ SYNCED=$(rsync -a --update --out-format='%n' --include='*.jsonl' --exclude='*' \
 ✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md (Session N)
 ✓ Open loops: N items across M projects
 ✓ Tomorrow's #1: [Priority item]
-✓ Provenance logged: [Project tag(s)] (only if any sessions had project links)
-✓ Raw transcripts synced: $SYNCED files (only if $SYNCED > 0)
-
 Goodnight.
 ```
 

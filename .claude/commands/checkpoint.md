@@ -119,31 +119,16 @@ Use checkpoint when:
 
 ### Phase 4: Completion
 
-6. **Log provenance** (automatic, non-blocking, tag-gated):
-
-   Follow `/provenance` command logic (that command is the **SSOT** — see `provenance.md` for full implementation):
-
-   - **Gate:** Only log if session has a `**Project:**` link. No project = skip silently.
-   - **OTS: No** — checkpoint is mid-session, file will change before day-end. End-of-day primacy: only `/park` and `/goodnight` stamp.
-   - **Non-blocking** — checkpoint completes even if provenance fails.
-
-   Key paths (for quick reference — `/provenance` is SSOT):
-   - Log: `$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md`
-   - Lock: `$VAULT_PATH/06 Archive/Provenance/.lock`
-   - Table format: `| Timestamp | Project | Session | SHA256 (first 16) | OTS |`
-   - Sed anchor: `/^|---|---|---|---|---|$/a\`
-
-7. **Display confirmation:**
+6. **Display confirmation:**
    ```
    ✓ Checkpoint saved: 06 Archive/Claude Sessions/YYYY-MM-DD.md
    ✓ Session N - [Topic]
    ✓ Open loops documented: N items
-   ✓ Provenance logged: [Project tag] (only if gate passed)
 
    Session continues. Context preserved.
    ```
 
-8. **Handle --compact flag** (if specified):
+7. **Handle --compact flag** (if specified):
    - After displaying confirmation, run `/compact`
    - The checkpoint in the vault means even after compaction, progress is recoverable via `/pickup`
    - Display:

@@ -317,29 +317,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - If no: Skip (items remain in session only)
    - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
-10. **Log provenance** (automatic, non-blocking, tag-gated):
-
-   Follow `/provenance` command logic (that command is the **SSOT** — see `provenance.md` for full implementation):
-
-   - **Gate:** Only log if this session has a `**Project:**` link in its Pickup Context. Sessions without a project link (admin, dating, travel planning) are skipped.
-   - Extract project tag from the `**Project:**` link (e.g., `[[03 Projects/Computational Photography Publications]]` → `Computational Photography Publications`)
-   - Hash session file **after** it has been written (step 8) and forward-linked (step 8a)
-   - **OTS:** Yes — session-ending stamp.
-   - **Non-blocking** — park completes even if provenance fails.
-
-   Key paths (for quick reference — `/provenance` is SSOT):
-   - Log: `$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md`
-   - OTS proofs: `$VAULT_PATH/06 Archive/Provenance/YYYY-MM-DD.ots`
-   - Lock: `$VAULT_PATH/06 Archive/Provenance/.lock`
-   - Table format: `| Timestamp | Project | Session | SHA256 (first 16) | OTS |`
-   - Sed anchor: `/^|---|---|---|---|---|$/a\`
-
-   **Display in completion message (step 11):**
-   - If logged: `✓ Provenance: [Project tag] (OTS: pending/—)`
-   - If skipped (no project): omit line entirely
-   - If failed: `⚠ Provenance logging failed (not critical)`
-
-11. **Display completion message** (tier-appropriate):
+10. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```
@@ -371,7 +349,7 @@ To pickup: `/pickup` or just start talking and link relevant files
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
-12. **Handle --compact flag** (if specified):
+11. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
    - The park completion message becomes part of the compact summary, providing continuity
