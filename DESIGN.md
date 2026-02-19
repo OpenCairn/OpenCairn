@@ -78,7 +78,7 @@ Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin 
 
 **End-of-day primacy.** Only the last OTS stamp of the day survives. `/checkpoint` hashes and logs but does NOT stamp (the file will change before day-end, making mid-session proofs unverifiable). `/park` and `/goodnight` hash, log, AND stamp. If goodnight runs after park, it overwrites park's `.ots` file. This is intentional — one verifiable proof per day is sufficient for disclosure purposes.
 
-**Tag-gated auto-logging.** Provenance only fires automatically when a session has a `**Project:**` link in its pickup context. Admin, dating, and personal sessions are skipped. This keeps the log useful for publication audit trails without noise. Use `/provenance` manually to force-log any session.
+**Opt-in by default.** Provenance is invoked manually via `/provenance` — it is not auto-called by park/checkpoint/goodnight in the template. Users who want automatic logging can add a provenance step to those commands referencing `provenance.md` as the SSOT. When invoked, it prompts for a project tag to keep the log useful for publication audit trails without noise.
 
 **Idempotent.** Same session + tag combination is never logged twice. Checked via `grep -Fq` (fixed-string match, no regex interpretation).
 
@@ -153,15 +153,13 @@ Level 2: Detail pages       — Projects, areas, specific files. Loaded on deman
 
 Rules that span multiple commands. Violating these causes bugs.
 
-1. **Provenance runs before display.** In park (step 10 → 11), checkpoint (step 6 → 7), and goodnight (step 8a → 9), provenance logging happens before the completion message. The completion message includes provenance status — can't display it before computing it.
+1. **Scoped forward linking.** When inserting "Next session:" links, always scope to the specific previous session's heading block using line-number-based sed. Never use global `sed '/pattern/a ...'` — this matches every session in the file and creates duplicate insertions.
 
-2. **Hash after all writes.** Provenance hashes the session file after it has been fully written AND forward-linked. Hashing before forward-linking means the hash doesn't include the bidirectional links, creating an immediate mismatch on verification.
+2. **Hash after all writes (provenance).** If using `/provenance` (opt-in), hash the session file after it has been fully written AND forward-linked. Hashing before forward-linking means the hash doesn't include the bidirectional links, creating an immediate mismatch on verification.
 
-3. **Scoped forward linking.** When inserting "Next session:" links, always scope to the specific previous session's heading block using line-number-based sed. Never use global `sed '/pattern/a ...'` — this matches every session in the file and creates duplicate insertions.
+3. **Session lock before provenance lock.** When both locks are needed, always acquire the session lock first (via write-session.sh), release it, then acquire the provenance lock. Never hold both simultaneously.
 
-4. **Session lock before provenance lock.** When both locks are needed, always acquire the session lock first (via write-session.sh), release it, then acquire the provenance lock. Never hold both simultaneously.
-
-5. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
+4. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
 
 6. **Checkpoint is a subset of park.** Same session format, no WIP update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
 

@@ -19,10 +19,11 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 4. **Trusted timestamps** — OpenTimestamps proofs anchored to Bitcoin blockchain (optional)
 5. **Audit defence** — if questioned, produce session file + verify hash + OTS proof
 
-## Manual vs Automatic Invocation
+## Invocation
 
-- **Manual (`/provenance`):** Always prompts for tag, always logs. Use when you know a session is worth logging regardless of `**Project:**` link.
-- **Automatic (from `/park`, `/checkpoint`, `/goodnight`):** Tag-gated. Only fires if the session has a `**Project:**` link. No project = skip silently. No user prompt — tag auto-detected from project link.
+Run `/provenance` manually when you want to log a session for audit purposes. Prompts for a project tag, then logs.
+
+This command is **opt-in** — it does not run automatically from `/park`, `/checkpoint`, or `/goodnight`. If you want automatic provenance logging, add a provenance step to those commands referencing this one as the SSOT.
 
 ## Instructions
 
@@ -179,10 +180,10 @@ No journal currently demands cryptographic verification, but having the capabili
 
 - **Creates:** Entries in `06 Archive/Provenance/AI Provenance Log.md`, `.ots` proofs in `06 Archive/Provenance/`
 - **Reads:** Current day's session file from `06 Archive/Claude Sessions/`
-- **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
+- **Called by:** User (manual, `/provenance`). Not auto-invoked by other commands by default.
 - **Verified by:** `/verify-provenance`
 - **Lock file:** `$VAULT_PATH/06 Archive/Provenance/.lock` (separate from session lock)
-- **This command is the SSOT** for provenance logic. Callers reference it, not duplicate it.
+- **This command is the SSOT** for provenance logic. If you add auto-invocation to park/goodnight, reference this command rather than duplicating logic.
 
 ## Example JAMA Derm Disclosure
 
