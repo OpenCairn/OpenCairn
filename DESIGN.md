@@ -58,7 +58,7 @@ All sessions live in `06 Archive/Claude Sessions/YYYY-MM-DD.md`. Multiple sessio
 
 ### Bidirectional linking
 
-`/park` and `/goodnight` create forward links ("Next session:") in the previous session's pickup context, creating a navigable chain. `/pickup` follows these chains to reconstruct continuity. The `add-forward-link.sh` script handles the insertion atomically.
+`/park` and `/goodnight` create forward links ("Next session:") in the previous session's pickup context, creating a navigable chain. The `add-forward-link.sh` script handles the insertion atomically.
 
 **Cross-day links** require a 5th argument to the script (the target date file), because the previous session lives in a different file than the new session.
 

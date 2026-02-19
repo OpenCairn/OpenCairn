@@ -5,8 +5,8 @@
 #   --create: Create new file (use > instead of >>), adds date header automatically
 #
 # Examples:
-#   echo "## Session 5 - Topic (time)" | ~/.claude/scripts/write-session.sh "/path/to/2026-01-28.md"
-#   echo "## Session 1 - Topic (time)" | ~/.claude/scripts/write-session.sh "/path/to/2026-01-28.md" --create
+#   echo "## Session 5 - Topic (time)" | "$VAULT_PATH/.claude/scripts/write-session.sh" "/path/to/2026-01-28.md"
+#   echo "## Session 1 - Topic (time)" | "$VAULT_PATH/.claude/scripts/write-session.sh" "/path/to/2026-01-28.md" --create
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 

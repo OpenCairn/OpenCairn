@@ -5,7 +5,7 @@
 #   item: The tickler item text (should include "- [ ] " prefix and any links)
 #
 # Examples:
-#   ~/.claude/scripts/write-tickler.sh "$VAULT_PATH/01 Now/Tickler.md" "2026-02-09" "- [ ] Task -> [[link]]"
+#   "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "2026-02-09" "- [ ] Task -> [[link]]"
 #
 # Behavior:
 #   - Creates file with template if missing

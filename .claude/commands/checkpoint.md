@@ -101,7 +101,7 @@ Use checkpoint when:
 
    **If session file already exists (append):**
    ```bash
-   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -110,7 +110,7 @@ Use checkpoint when:
 
    **If first session of the day (create):**
    ```bash
-   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
