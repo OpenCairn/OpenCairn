@@ -97,9 +97,9 @@ The corrections log entry follows this exact structure:
 
 - **Be specific:** "Assumed X" not "Made an assumption"
 - **No hedging:** "Forgot to use tool" not "Perhaps could have used tool"
-- **Transferable lessons:** The lesson should help in future similar situations, not just this exact case
-- **Keep it short:** Each field should be 1-2 sentences max
-- **Title is searchable:** Choose words you'd grep for later
+- **Lessons must generalise.** The lesson is the valuable part — it's what makes future sessions smarter. Apply the "different domain" test: would this lesson help in a completely unrelated situation? If it only makes sense in the original context, it's a restatement of the correction, not a principle. Go one level more abstract than the specific mistake. Example: "don't use booking form estimates for arrival times" → "when a cached approximate value and the raw inputs to compute the exact answer are both available, compute from the inputs." The first is a travel tip; the second is a reasoning principle.
+- **Keep it short:** Each field should be 1-2 sentences max. The lesson can be 2-3 sentences if the generalisation needs a concrete anchor.
+- **Title is searchable:** Choose words you'd grep for later. Prefer the abstract pattern over the specific instance: "Grabbed Cached Estimate Instead of Computing From Inputs" over "Used Booking Estimate Instead of Train Schedule"
 
 ## Setup
 
