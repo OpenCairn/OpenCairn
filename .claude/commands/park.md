@@ -147,7 +147,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Full) for step 8a
+     - Store previous session's tier (Quick vs Full) for step 9
 
 7. **Generate session summary** (format varies by tier):
 
@@ -224,7 +224,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-8a. **Add forward link to previous session** (full tier only):
+9. **Add forward link to previous session** (full tier only):
    - **Quick tier:** Skip (no previous session linking done)
    - **Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
@@ -290,7 +290,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
-9. **Update Works in Progress** (conditional on tier):
+10. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
@@ -301,7 +301,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
-9a. **Offer Tickler for date-deferred loops** (Full tier only):
+11. **Offer Tickler for date-deferred loops** (Full tier only):
    - Scan open loops for explicit future dates. Common patterns:
      - "week of [date]" → use that date (if it's a Monday) or the Monday of that week
      - "after [date]" / "from [date]" → use that date
@@ -319,7 +319,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - If no: Skip (items remain in session only)
    - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
-10. **Display completion message** (tier-appropriate):
+12. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```
@@ -351,7 +351,7 @@ To pickup: `/pickup` or just start talking and link relevant files
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
-11. **Handle --compact flag** (if specified):
+13. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
    - The park completion message becomes part of the compact summary, providing continuity
