@@ -83,6 +83,12 @@ Resources/
     └── map.png
 ```
 
+### No Checkboxes in Dashboard Files
+
+`01 Now/Today.md` and `01 Now/Works in Progress.md` are **dashboards**, not task SSOTs. Never use `- [ ]` checkboxes in these files — the canonical checkbox lives in the relevant Project page, Area file, or Tickler. Dashboard files should reference or summarise tasks, not duplicate their completion state.
+
+**Exception:** WIP entries that have no corresponding Project page or Area folder may use checkboxes, since they have no other SSOT.
+
 ## Path-Keyed Memories
 
 Claude Code stores memories and corrections in `~/.claude/projects/` keyed to the absolute path of the directory you run it from. If you move your vault to a different path, memories will appear to be lost. They're still at the old path — copy the `.md` files from `~/.claude/projects/<old-path>/memory/` to `~/.claude/projects/<new-path>/memory/` to recover them.
