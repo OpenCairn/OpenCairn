@@ -71,6 +71,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
 
+   **Do this check INLINE in the main conversation. Do NOT spawn a sub-agent (Task/Explore) for quality checks — the main model already has full context. Delegating duplicates ~50k tokens into a sub-agent for no benefit.**
+
    **This step MUST produce visible output. No silent skipping.**
 
    | Tier | Action |
