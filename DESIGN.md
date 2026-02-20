@@ -125,7 +125,7 @@ Claude Code's Edit tool has no file locking. It reads the file, computes a diff,
 
 ### Portable locking
 
-Scripts use `flock` on Linux/macOS and fall back to `mkdir`-based locking on Windows (Git Bash). The `mkdir` approach is atomic on all filesystems — if the directory already exists, `mkdir` fails, which serves as a lock check.
+Locking logic lives in `lib-lock.sh` and is sourced by all scripts that need it. Uses `flock` on Linux/macOS and falls back to `mkdir`-based locking on Windows (Git Bash). The `mkdir` approach is atomic on all filesystems — if the directory already exists, `mkdir` fails, which serves as a lock check. Both code paths set `trap '_unlock' EXIT` to ensure cleanup on unexpected exit.
 
 ---
 
@@ -161,7 +161,7 @@ Rules that span multiple commands. Violating these causes bugs.
 
 4. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
 
-6. **Checkpoint is a subset of park.** Same session format, no WIP update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
+5. **Checkpoint is a subset of park.** Same session format, no WIP update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
 
 ---
 
