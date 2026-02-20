@@ -144,6 +144,8 @@ Pull from everything surfaced so far:
 4. **Done today** — items move here with `✓` as they're completed
 5. **Notes** — ad-hoc sections as needed (decision trees, context, reminders)
 
+**No checkboxes** — Today.md is a dashboard, not a task SSOT. Use plain text bullets for task summaries. The canonical `- [ ]` checkbox lives in the relevant Project page, Area file, or Tickler.
+
 **If no or the day is unstructured:** Skip. Not every day needs a timeline. Open/exploratory days are fine without one. (A stale Today.md from yesterday may linger — that's harmless since `/afternoon` and `/goodnight` check dates before reading it.)
 
 **Why this exists:** Today.md is a plain-text replacement for calendar reads/writes via MCP. Calendar API integrations are flaky and brittle. A markdown file is instant to read, trivial to edit mid-session, and always available — no API calls, no auth tokens, no rate limits.

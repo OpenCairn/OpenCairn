@@ -2,6 +2,8 @@
 
 *Your days-to-weeks scale mental "RAM" - the Big Rocks currently in flight*
 
+*No checkboxes here — this is a dashboard, not a task SSOT. The canonical `- [ ]` lives in the relevant Project page, Area file, or Tickler. Exception: WIP entries with no Project page or Area folder may use checkboxes.*
+
 Last updated: [DATE]
 
 ---
