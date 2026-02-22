@@ -121,7 +121,7 @@ Claude Code's Edit tool has no file locking. It reads the file, computes a diff,
 
 ### Portable locking
 
-Scripts use `flock` on Linux/macOS and fall back to `mkdir`-based locking on Windows (Git Bash). The `mkdir` approach is atomic on all filesystems — if the directory already exists, `mkdir` fails, which serves as a lock check.
+Locking logic lives in `lib-lock.sh` and is sourced by all scripts that need it. Uses `flock` on Linux/macOS and falls back to `mkdir`-based locking on Windows (Git Bash). The `mkdir` approach is atomic on all filesystems — if the directory already exists, `mkdir` fails, which serves as a lock check. Both code paths set `trap '_unlock' EXIT` to ensure cleanup on unexpected exit.
 
 ---
 

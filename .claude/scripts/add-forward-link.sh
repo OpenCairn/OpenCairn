@@ -15,37 +15,8 @@
 
 set -euo pipefail
 
-# --- Portable file locking ---
-_lock() {
-    _LOCK_FILE="$1"
-    local timeout="${2:-10}"
-    if command -v flock &>/dev/null; then
-        exec 9>"$_LOCK_FILE"
-        flock -w "$timeout" 9 || { echo "Lock timeout after ${timeout}s" >&2; return 1; }
-    else
-        _LOCK_DIR="${_LOCK_FILE}.d"
-        local waited=0
-        while ! mkdir "$_LOCK_DIR" 2>/dev/null; do
-            if [ "$waited" -ge "$timeout" ]; then
-                echo "Lock timeout after ${timeout}s" >&2
-                return 1
-            fi
-            sleep 1
-            waited=$((waited + 1))
-        done
-        trap '_unlock' EXIT
-    fi
-}
-
-_unlock() {
-    if command -v flock &>/dev/null; then
-        exec 9>&- 2>/dev/null || true
-    else
-        rm -rf "${_LOCK_DIR:-}" 2>/dev/null || true
-        trap - EXIT
-    fi
-}
-# --- End portable locking ---
+# --- Portable file locking (shared library) ---
+source "$(dirname "$0")/lib-lock.sh"
 
 if [ $# -lt 4 ]; then
     echo "Usage: $0 <session-file> <prev-session-num> <new-session-num> <new-session-topic>"
@@ -82,7 +53,7 @@ NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude Sessions/${DATE_PART}#Se
 _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock" >&2; exit 1; }
 
 # Find previous session heading
-PREV_HEADING=$(grep -n "^## Session ${PREV_NUM} - " "$SESSION_FILE" | head -1 | cut -d: -f1)
+PREV_HEADING=$({ grep -n "^## Session ${PREV_NUM} - " "$SESSION_FILE" || true; } | head -1 | cut -d: -f1)
 if [ -z "$PREV_HEADING" ]; then
     echo "Could not find Session ${PREV_NUM} heading"
     _unlock
@@ -90,7 +61,7 @@ if [ -z "$PREV_HEADING" ]; then
 fi
 
 # Find session block boundaries
-NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
+NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | { grep -n "^## Session " || true; } | head -1 | cut -d: -f1)
 if [ -n "$NEXT_HEADING" ]; then
     END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
 else
@@ -115,7 +86,7 @@ if echo "$SESSION_LINE" | grep -q "\[Q\]$"; then
     #
     # Find the last metadata line or insert after summary if no metadata
     INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-        grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" | tail -1 | cut -d: -f1)
+        { grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" || true; } | tail -1 | cut -d: -f1)
 
     if [ -n "$INSERT_AFTER" ]; then
         INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
@@ -125,7 +96,7 @@ if echo "$SESSION_LINE" | grep -q "\[Q\]$"; then
 else
     # Full session: find the last Pickup Context metadata line
     INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-        grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" | tail -1 | cut -d: -f1)
+        { grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" || true; } | tail -1 | cut -d: -f1)
 
     if [ -z "$INSERT_AFTER" ]; then
         echo "Could not find insertion point in Session ${PREV_NUM}"
@@ -135,11 +106,21 @@ else
     INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
 fi
 
+# Preserve original file permissions (GNU stat on Linux/Git Bash, BSD stat on macOS)
+ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
+
 # Insert the forward link using awk (more robust than sed append)
-awk -v line="$INSERT_LINE" -v text="$NEW_SESSION_LINK" '
-    NR == line { print; print text; next }
+# Use ENVIRON instead of -v to avoid backslash interpretation in topic names
+export _AWK_LINE="$INSERT_LINE"
+export _AWK_TEXT="$NEW_SESSION_LINK"
+awk '
+    NR == ENVIRON["_AWK_LINE"]+0 { print; print ENVIRON["_AWK_TEXT"]; next }
     { print }
 ' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
+unset _AWK_LINE _AWK_TEXT
+
+# Restore permissions if they changed
+chmod "$ORIG_PERMS" "$SESSION_FILE"
 
 _unlock
 

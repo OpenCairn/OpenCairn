@@ -16,6 +16,9 @@ Thumbs.db
 # Claude Code internal
 .claude/plans/
 .claude/todos/
+.claude/settings.json
+.claude/settings.local.json
+.claude/hooks/
 
 # Temporary files
 *.tmp
