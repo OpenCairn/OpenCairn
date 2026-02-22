@@ -288,6 +288,27 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
+8b. **Check for stranded work product in Claude-internal files** (Full tier only):
+   - **Quick tier:** Skip
+   - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
+     ```bash
+     # Check for plan files modified today
+     find ~/.claude/plans/ -type f -newermt "$(date +%Y-%m-%d)" 2>/dev/null
+     ```
+   - If any files found, check whether their content has been migrated to the vault:
+     - Read the plan file(s)
+     - Compare against the relevant vault project doc
+     - If the vault doc is stale or missing the plan content: **migrate it now** (update the vault file with the plan content before completing the park)
+   - Display result:
+     ```
+     ✓ No stranded work product in ~/.claude/plans/
+     ```
+     or:
+     ```
+     🔧 Migrated plan content to vault: [vault file path]
+     ```
+   - **Why this exists:** Work product written to `~/.claude/plans/` has been stranded there multiple times. These files don't sync, aren't visible in Obsidian, and effectively don't exist outside the session.
+
 9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
@@ -317,54 +338,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - If no: Skip (items remain in session only)
    - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
-10. **Log provenance** (automatic, non-blocking, tag-gated):
-
-   **Gate:** Only log if this session has a `**Project:**` link in its Pickup Context. Sessions without a project link (admin, dating, travel planning) are skipped. This keeps the provenance log useful for publication audit trails without noise.
-
-   **If gate passes:**
-   1. Extract project tag from the `**Project:**` link (e.g., `[[03 Projects/Computational Photography Publications]]` → `Computational Photography Publications`)
-   2. Hash the session file **after** it has been written (step 8) and forward-linked (step 8a):
-      ```bash
-      SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$TODAY.md"
-      HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
-      SHORT_HASH="${HASH:0:16}"
-      ```
-   3. Check for duplicate entry (idempotency):
-      ```bash
-      PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
-      if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG" 2>/dev/null; then
-        echo "Provenance already logged for this session+tag, skipping"
-        # Skip — don't create duplicate
-      fi
-      ```
-   4. OpenTimestamps (optional, non-blocking):
-      ```bash
-      OTS_STATUS="—"
-      if command -v ots &>/dev/null; then
-        mkdir -p "$VAULT_PATH/07 System/Provenance"
-        if ots stamp "$SESSION_FILE" 2>/dev/null; then
-          mv "${SESSION_FILE}.ots" "$VAULT_PATH/07 System/Provenance/${TODAY}.ots" 2>/dev/null
-          OTS_STATUS="pending"
-        fi
-      fi
-      ```
-   5. Append table row with flock (atomic write, separate lock from session lock):
-      ```bash
-      TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
-      ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
-      flock -w 10 "$VAULT_PATH/07 System/.provenance-lock" bash -c "
-        sed -i '/^|---|---|---|---|---|$/a\\
-      $ROW' '$PROVENANCE_LOG'
-      "
-      ```
-   6. If provenance logging fails (file missing, lock timeout, etc.), continue — don't block park
-
-   **Display in completion message (step 11):**
-   - If logged: `✓ Provenance: [Project tag] (OTS: pending/—)`
-   - If skipped (no project): omit line entirely
-   - If failed: `⚠ Provenance logging failed (not critical)`
-
-11. **Display completion message** (tier-appropriate):
+10. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```

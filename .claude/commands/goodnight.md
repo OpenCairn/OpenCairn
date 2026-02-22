@@ -325,21 +325,27 @@ EOF'
 
 **Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
 
+### 7d. Check for Stranded Work Product
+
+Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
+
+```bash
+find ~/.claude/plans/ -type f -newermt "$(date +%Y-%m-%d)" 2>/dev/null
+```
+
+If any files found:
+1. Read each plan file
+2. Identify the corresponding vault project doc
+3. If vault doc is stale or missing the plan content, **migrate it now**
+4. Display: `🔧 Migrated plan content to vault: [path]`
+
+If none found: `✓ No stranded work product in ~/.claude/plans/`
+
+**Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
+
 ### 8. Update Works in Progress
 
 If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
-
-### 8a. Log Provenance (automatic, non-blocking, tag-gated)
-
-- Same logic as park step 10:
-  - **Gate:** Scan today's sessions (from working memory, step 2) for any `**Project:**` links. If any sessions had project links, log one provenance entry per unique project tag.
-  - Hash session file **after** goodnight session is written (step 7c), truncate to first 16 hex chars
-  - Check idempotency per project tag (grep for existing entry)
-  - OpenTimestamps: if `ots` available, stamp session file, move `.ots` to `07 System/Provenance/` as `DATE.ots` (one per day, last stamp wins — end-of-day primacy). Checkpoint does NOT stamp (mid-session OTS is unverifiable after file grows).
-  - Append table row with flock using `$VAULT_PATH/07 System/.provenance-lock`
-  - Sed anchor: `/^|---|---|---|---|---|$/a\`
-- Non-blocking — goodnight completes even if provenance fails
-- Display result in completion message (step 9)
 
 ### 9. Close
 
@@ -348,7 +354,6 @@ If any project status changed significantly today, update `$VAULT_PATH/01 Now/Wo
 ✓ Session logged: 06 Archive/Claude Sessions/YYYY-MM-DD.md (Session N)
 ✓ Open loops: N items across M projects
 ✓ Tomorrow's #1: [Priority item]
-✓ Provenance logged: [Project tag(s)] (only if any sessions had project links)
 
 Goodnight.
 ```
