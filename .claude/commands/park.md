@@ -195,7 +195,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -204,7 +204,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Creating new file (first session of the day):**
    ```bash
-   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
@@ -249,20 +249,20 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    Use the dedicated script instead of inline bash (prevents permission system corruption):
    ```bash
    # Same-day link:
-   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>"
+   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>"
    # Cross-day link (previous session on different day than new session):
-   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
+   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
    ```
 
    **Examples:**
    ```bash
    # Same-day: Session 39 → Session 40, both on Jan 26
-   ~/.claude/scripts/add-forward-link.sh \
+   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
      "$VAULT_PATH/06 Archive/Claude Sessions/2026-01-26.md" \
      39 40 "Sarath Task Capture"
 
    # Cross-day: Session 29 on Feb 11 → Session 1 on Feb 12
-   ~/.claude/scripts/add-forward-link.sh \
+   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
      "$VAULT_PATH/06 Archive/Claude Sessions/2026-02-11.md" \
      29 1 "Morning Check-in" "2026-02-12.md"
    ```
@@ -311,7 +311,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Ask: "Add these to Tickler for auto-resurface?"
      - If yes: Use the write-tickler script for each item:
        ```bash
-       ~/.claude/scripts/write-tickler.sh "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
+       "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
        ```
        The script handles: file creation, date header creation/ordering, flock-based locking
      - If no: Skip (items remain in session only)
