@@ -386,10 +386,7 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Tickler: N items added for [dates] (if any date-deferred loops were added)
   [OR omit this line if no tickler items added]
 
-**Time-aware closing (check hour from step 1):**
-- Before 12pm: "Day mapped. Go get it."
-- 12pm-6pm: "Parked. Pick up when ready."
-- After 6pm: "Shutdown complete. You can rest."
+**Closing:** "Parked. Pick up when ready."
 
 To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
