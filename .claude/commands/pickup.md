@@ -41,7 +41,7 @@ You are helping the user pickup a previous work session with full context.
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
    - **Run the pickup scanner shell script** to extract metadata efficiently:
      ```bash
-     ~/.claude/scripts/pickup-scan.sh --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
+     "$VAULT_PATH/.claude/scripts/pickup-scan.sh" --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
      ```
      (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `$VAULT_PATH/06 Archive/Claude Sessions`)
    - The script outputs TSV with columns: `DATE`, `SESSION_NUM`, `TITLE`, `TIME`, `PROJECT`, `LOOP_COUNT`, `SUMMARY`
@@ -406,11 +406,11 @@ Ready to continue. What's next?
 
 ### Context Efficiency (Two-Stage Loading)
 - **Problem solved:** Reading all session files (~400KB+) for menu building consumed 50-80% of context before work began
-- **Solution:** Shell script (`~/.claude/scripts/pickup-scan.sh`) extracts metadata outside Claude's context
+- **Solution:** Shell script (`"$VAULT_PATH/.claude/scripts/pickup-scan.sh"`) extracts metadata outside Claude's context
 - **Stage 1 (menu building):** Shell script scans files, outputs ~40KB TSV metadata
 - **Stage 2 (session loading):** Only selected session file is read by Claude
 - **Result:** ~10x reduction in context usage for pickup
-- **Shell script location:** `~/.claude/scripts/pickup-scan.sh`
+- **Shell script location:** `"$VAULT_PATH/.claude/scripts/pickup-scan.sh"`
 - **If script missing or fails:** Warn user that context usage will be high, then fall back to direct file reading. This works but defeats the context efficiency benefit.
 
 ## Integration with Claude Code
