@@ -7,16 +7,21 @@
 ```
 > /pickup
 
-Active projects: Japan Trip, Website Redesign
-Last daily report: Thu 9:16pm
+Recent Sessions (By Project)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Japan Trip                (4 sessions)
+   Latest: Kyoto logistics       Thu 9:16pm | 3 loops
 
-Open loops (from Thu):
+> 1
+
+Loading: Kyoto logistics
+
+Open loops:
  [ ] Book ryokan - narrowed to 2 options, need to decide
  [ ] Figure out JR pass vs individual tickets
  [ ] Ask Mike about that ramen place in Osaka
 
-Tomorrow's queue had "Kyoto logistics" first.
-What would you like to pick up?
+Ready to continue. What's next?
 ```
 
 Zero reconstruction. Instant flow.
@@ -63,7 +68,7 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-**Next session:** `/pickup` reads your Works in Progress and the 1-2 most recent daily reports (produced by `/goodnight`), giving you a concise landscape of what's active, what's open, and what was queued next. Lightweight by design - it reads 3-5 files and completes in one turn, preserving context for actual work.
+**Next session:** `/pickup` shows an interactive menu grouped by project. A shell script pre-scans session metadata before Claude loads anything, cutting context usage by about half. Items older than 10 days get staleness warnings. You can hide or snooze sessions you don't need right now - snoozed items resurface automatically on their date.
 
 ### Day: Morning, Afternoon, Goodnight
 
@@ -134,7 +139,7 @@ claude
 # Then try the core loop:
 
 > /park    # End your first session
-> /pickup  # See your landscape and open loops
+> /pickup  # See it appear in the menu
 ```
 
 If using Obsidian, open it and select `my-vault` as your vault folder.
@@ -156,7 +161,7 @@ source ~/.bashrc
 | Command | What it does |
 |---------|-------------|
 | `/park` | End a session - documents work, captures open loops, archives with bidirectional links, runs quality gate |
-| `/pickup` | Resume work - reads WIP and recent daily reports, presents landscape and open loops |
+| `/pickup` | Resume work - project-grouped menu with staleness warnings, hide/snooze, two-stage context loading |
 | `/checkpoint` | Mid-session snapshot without ending the session |
 
 **Daily rhythm:**
@@ -206,7 +211,7 @@ source ~/.bashrc
 
 ## Under the Hood
 
-- **Lightweight pickup.** `/pickup` reads Works in Progress and the 1-2 most recent daily reports — already-synthesised context from `/goodnight`. No shell scripts, no session scanning, one turn to orientation.
+- **Two-stage pickup loading.** A shell script pre-scans session metadata and outputs TSV. Claude reads the summary, not every session file. Cuts pickup context usage by about half.
 - **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.

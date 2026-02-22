@@ -70,10 +70,10 @@ User wants to find something in the vault.
 ### Pattern 4: Session Continuation
 User is picking up previous work.
 
-1. `/pickup` loads WIP and recent daily reports for orientation
-2. User indicates what they want to work on
-3. Read the relevant project file and any files mentioned
-4. Continue from where they left off
+1. `/pickup` command loads the session context
+2. Read the linked project file
+3. Read any files mentioned in "Files Updated"
+4. Continue from "Resume Context"
 
 ---
 
