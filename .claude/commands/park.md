@@ -71,8 +71,6 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
 
-   **Do this check INLINE in the main conversation. Do NOT spawn a sub-agent (Task/Explore) for quality checks — the main model already has full context. Delegating duplicates ~50k tokens into a sub-agent for no benefit.**
-
    **This step MUST produce visible output. No silent skipping.**
 
    | Tier | Action |
@@ -140,14 +138,14 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 6. **Find previous session and check for continuation** (conditional on tier):
    - **Quick tier:** Skip previous session linking (saves read overhead)
    - **Full tier:**
-     - Check if this session is continuing a previous one (the user may have indicated this at session start, e.g. "continuing from yesterday's session on X")
+     - Check if this session is continuing a previous one (from `/pickup` context)
      - If continuing: Store continuation link for inclusion in summary
      - Find the most recent session by searching:
        1. Today's file: `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md`
        2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Full) for step 9
+     - Store previous session's tier (Quick vs Full) for step 8a
 
 7. **Generate session summary** (format varies by tier):
 
@@ -197,7 +195,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -206,7 +204,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Creating new file (first session of the day):**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
@@ -224,7 +222,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-9. **Add forward link to previous session** (full tier only):
+8a. **Add forward link to previous session** (full tier only):
    - **Quick tier:** Skip (no previous session linking done)
    - **Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
@@ -251,20 +249,20 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    Use the dedicated script instead of inline bash (prevents permission system corruption):
    ```bash
    # Same-day link:
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>"
+   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>"
    # Cross-day link (previous session on different day than new session):
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
+   ~/.claude/scripts/add-forward-link.sh "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
    ```
 
    **Examples:**
    ```bash
    # Same-day: Session 39 → Session 40, both on Jan 26
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
+   ~/.claude/scripts/add-forward-link.sh \
      "$VAULT_PATH/06 Archive/Claude Sessions/2026-01-26.md" \
      39 40 "Sarath Task Capture"
 
    # Cross-day: Session 29 on Feb 11 → Session 1 on Feb 12
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
+   ~/.claude/scripts/add-forward-link.sh \
      "$VAULT_PATH/06 Archive/Claude Sessions/2026-02-11.md" \
      29 1 "Morning Check-in" "2026-02-12.md"
    ```
@@ -285,12 +283,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Log warning but don't fail the park
      - Set `forward_link_failed = true` for completion message
 
-   - **If this session also continues a specific previous session** (indicated by user at session start):
+   - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
-10. **Update Works in Progress** (conditional on tier):
+9. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
@@ -301,7 +299,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
-11. **Offer Tickler for date-deferred loops** (Full tier only):
+9a. **Offer Tickler for date-deferred loops** (Full tier only):
    - Scan open loops for explicit future dates. Common patterns:
      - "week of [date]" → use that date (if it's a Monday) or the Monday of that week
      - "after [date]" / "from [date]" → use that date
@@ -313,13 +311,60 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Ask: "Add these to Tickler for auto-resurface?"
      - If yes: Use the write-tickler script for each item:
        ```bash
-       "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
+       ~/.claude/scripts/write-tickler.sh "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
        ```
        The script handles: file creation, date header creation/ordering, flock-based locking
      - If no: Skip (items remain in session only)
    - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
-12. **Display completion message** (tier-appropriate):
+10. **Log provenance** (automatic, non-blocking, tag-gated):
+
+   **Gate:** Only log if this session has a `**Project:**` link in its Pickup Context. Sessions without a project link (admin, dating, travel planning) are skipped. This keeps the provenance log useful for publication audit trails without noise.
+
+   **If gate passes:**
+   1. Extract project tag from the `**Project:**` link (e.g., `[[03 Projects/Computational Photography Publications]]` → `Computational Photography Publications`)
+   2. Hash the session file **after** it has been written (step 8) and forward-linked (step 8a):
+      ```bash
+      SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$TODAY.md"
+      HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
+      SHORT_HASH="${HASH:0:16}"
+      ```
+   3. Check for duplicate entry (idempotency):
+      ```bash
+      PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
+      if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG" 2>/dev/null; then
+        echo "Provenance already logged for this session+tag, skipping"
+        # Skip — don't create duplicate
+      fi
+      ```
+   4. OpenTimestamps (optional, non-blocking):
+      ```bash
+      OTS_STATUS="—"
+      if command -v ots &>/dev/null; then
+        mkdir -p "$VAULT_PATH/07 System/Provenance"
+        if ots stamp "$SESSION_FILE" 2>/dev/null; then
+          mv "${SESSION_FILE}.ots" "$VAULT_PATH/07 System/Provenance/${TODAY}.ots" 2>/dev/null
+          OTS_STATUS="pending"
+        fi
+      fi
+      ```
+   5. Append table row with flock (atomic write, separate lock from session lock):
+      ```bash
+      TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+      ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
+      flock -w 10 "$VAULT_PATH/07 System/.provenance-lock" bash -c "
+        sed -i '/^|---|---|---|---|---|$/a\\
+      $ROW' '$PROVENANCE_LOG'
+      "
+      ```
+   6. If provenance logging fails (file missing, lock timeout, etc.), continue — don't block park
+
+   **Display in completion message (step 11):**
+   - If logged: `✓ Provenance: [Project tag] (OTS: pending/—)`
+   - If skipped (no project): omit line entirely
+   - If failed: `⚠ Provenance logging failed (not critical)`
+
+11. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```
@@ -346,12 +391,12 @@ Quick park complete. Minimal overhead for trivial task.
 - 12pm-6pm: "Parked. Pick up when ready."
 - After 6pm: "Shutdown complete. You can rest."
 
-To pickup: `/pickup` or just start talking and link relevant files
+To pickup: `claude` (will show recent sessions) or `/pickup`
 ```
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
-13. **Handle --compact flag** (if specified):
+12. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
    - The park completion message becomes part of the compact summary, providing continuity
@@ -367,11 +412,11 @@ To pickup: `/pickup` or just start talking and link relevant files
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
-- **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. If the user indicates they're continuing a specific earlier session, "Continues:" appears in new session and "Continued in:" is appended to the original - tracking project threads across time
+- **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude Sessions/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
-- **Four-part quality check:** Lint (syntax), Refactor (content quality), Verify (session accuracy), Proofread (language). All four categories checked for Full tier.
+- **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` when context is heavy and you want to continue working. Parks the session, then compacts. The park summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation

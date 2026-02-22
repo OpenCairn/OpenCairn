@@ -5,7 +5,7 @@
 #   item: The tickler item text (should include "- [ ] " prefix and any links)
 #
 # Examples:
-#   "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "2026-02-09" "- [ ] Task -> [[link]]"
+#   ~/.claude/scripts/write-tickler.sh "$VAULT_PATH/01 Now/Tickler.md" "2026-02-09" "- [ ] Task -> [[link]]"
 #
 # Behavior:
 #   - Creates file with template if missing
@@ -16,8 +16,37 @@
 
 set -euo pipefail
 
-# --- Portable file locking (shared library) ---
-source "$(dirname "$0")/lib-lock.sh"
+# --- Portable file locking ---
+_lock() {
+    _LOCK_FILE="$1"
+    local timeout="${2:-10}"
+    if command -v flock &>/dev/null; then
+        exec 9>"$_LOCK_FILE"
+        flock -w "$timeout" 9 || { echo "Lock timeout after ${timeout}s" >&2; return 1; }
+    else
+        _LOCK_DIR="${_LOCK_FILE}.d"
+        local waited=0
+        while ! mkdir "$_LOCK_DIR" 2>/dev/null; do
+            if [ "$waited" -ge "$timeout" ]; then
+                echo "Lock timeout after ${timeout}s" >&2
+                return 1
+            fi
+            sleep 1
+            waited=$((waited + 1))
+        done
+        trap '_unlock' EXIT
+    fi
+}
+
+_unlock() {
+    if command -v flock &>/dev/null; then
+        exec 9>&- 2>/dev/null || true
+    else
+        rm -rf "${_LOCK_DIR:-}" 2>/dev/null || true
+        trap - EXIT
+    fi
+}
+# --- End portable locking ---
 
 if [ $# -lt 3 ]; then
     echo "Usage: $0 <tickler-file> <date> <item>"

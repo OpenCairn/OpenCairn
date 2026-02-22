@@ -19,11 +19,10 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 4. **Trusted timestamps** — OpenTimestamps proofs anchored to Bitcoin blockchain (optional)
 5. **Audit defence** — if questioned, produce session file + verify hash + OTS proof
 
-## Invocation
+## Manual vs Automatic Invocation
 
-Run `/provenance` manually when you want to log a session for audit purposes. Prompts for a project tag, then logs.
-
-This command is **opt-in** — it does not run automatically from `/park`, `/checkpoint`, or `/goodnight`. If you want automatic provenance logging, add a provenance step to those commands referencing this one as the SSOT.
+- **Manual (`/provenance`):** Always prompts for tag, always logs. Use when you know a session is worth logging regardless of `**Project:**` link.
+- **Automatic (from `/park`, `/checkpoint`, `/goodnight`):** Tag-gated. Only fires if the session has a `**Project:**` link. No project = skip silently. No user prompt — tag auto-detected from project link.
 
 ## Instructions
 
@@ -77,22 +76,11 @@ If no session file exists yet, display "No session file to hash" and exit.
 - **Edit** → user provides replacement tag → proceed
 - **Skip** → abort without logging
 
-### 4. Key Paths
-
-These are the canonical paths for all provenance operations. This command is the **single source of truth** — `/park`, `/checkpoint`, and `/goodnight` reference this command rather than duplicating logic.
-
-```bash
-PROVENANCE_LOG="$VAULT_PATH/06 Archive/Provenance/AI Provenance Log.md"
-PROVENANCE_DIR="$VAULT_PATH/06 Archive/Provenance"
-PROVENANCE_LOCK="$VAULT_PATH/06 Archive/Provenance/.lock"
-# Table format: | Timestamp | Project | Session | SHA256 (first 16) | OTS |
-# Sed anchor for appending rows: /^|---|---|---|---|---|$/a\
-```
-
-### 5. Check Idempotency
+### 4. Check Idempotency
 
 Before logging, check if this session + tag combination already exists:
 ```bash
+PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
 if [[ ! -f "$PROVENANCE_LOG" ]]; then
   echo "Provenance log not found at $PROVENANCE_LOG — skipping"
   exit 0
@@ -104,25 +92,22 @@ if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG"; then
 fi
 ```
 
-### 6. Compute Hash, Stamp, and Append (atomic)
+### 5. Compute Hash, Stamp, and Append (atomic)
 
-**6a. Hash the session file:**
+**5a. Hash the session file:**
 ```bash
 HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
 SHORT_HASH="${HASH:0:16}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 ```
 
-**6b. OpenTimestamps (optional, non-blocking):**
-
-Only stamp on session-ending commands (`/park`, `/goodnight`). `/checkpoint` skips OTS because the file will change before day-end, making mid-session proofs unverifiable (end-of-day primacy).
-
+**5b. OpenTimestamps (optional, non-blocking):**
 ```bash
 OTS_STATUS="—"
-if [[ "$SKIP_OTS" != "true" ]] && command -v ots &>/dev/null; then
-  mkdir -p "$PROVENANCE_DIR"
+if command -v ots &>/dev/null; then
+  mkdir -p "$VAULT_PATH/07 System/Provenance"
   if ots stamp "$SESSION_FILE" 2>/dev/null; then
-    mv "${SESSION_FILE}.ots" "$PROVENANCE_DIR/${TODAY}.ots" 2>/dev/null
+    mv "${SESSION_FILE}.ots" "$VAULT_PATH/07 System/Provenance/${TODAY}.ots" 2>/dev/null
     OTS_STATUS="pending"
   fi
 fi
@@ -132,11 +117,11 @@ The `.ots` proof is initially "pending" — it becomes "confirmed" after ~2 hour
 
 If `ots` is not installed or network is unavailable, skip silently (`OTS_STATUS` stays `—`).
 
-**6c. Append table row with flock:**
+**5c. Append table row with flock:**
 ```bash
 ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
 
-flock -w 10 "$PROVENANCE_LOCK" bash -c "
+flock -w 10 "$VAULT_PATH/07 System/.provenance-lock" bash -c "
   sed -i '/^|---|---|---|---|---|$/a\\
 $ROW' '$PROVENANCE_LOG'
 "
@@ -144,7 +129,7 @@ $ROW' '$PROVENANCE_LOG'
 
 **Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude Sessions/.lock`) to avoid deadlock.
 
-### 7. Display Confirmation
+### 6. Display Confirmation
 
 ```
 ✓ Provenance logged
@@ -153,7 +138,7 @@ $ROW' '$PROVENANCE_LOG'
   Hash: [first 16 chars]...
   OTS: [pending/—]
 
-Full log: 06 Archive/Provenance/AI Provenance Log.md
+Full log: 07 System/AI Provenance Log.md
 ```
 
 ## Guidelines
@@ -166,24 +151,13 @@ Full log: 06 Archive/Provenance/AI Provenance Log.md
 - **OTS is best-effort:** Requires network access to Bitcoin calendar servers. Graceful degradation if offline or `ots` not installed.
 - **Session file must exist:** If no session file yet (early in day), skip gracefully
 
-## Selective Disclosure
-
-The hash covers the entire daily session file (all sessions, all projects). To share provenance for a specific project without exposing unrelated sessions (e.g. dating chats):
-
-1. At submission time, extract the project-tagged sessions into a standalone file
-2. Hash and OTS stamp the extract
-3. Share the extract — the original full-file OTS proof provides backbone evidence of the timeline
-
-No journal currently demands cryptographic verification, but having the capability is the point.
-
 ## Integration
 
-- **Creates:** Entries in `06 Archive/Provenance/AI Provenance Log.md`, `.ots` proofs in `06 Archive/Provenance/`
+- **Creates:** Entries in `07 System/AI Provenance Log.md`, `.ots` proofs in `07 System/Provenance/`
 - **Reads:** Current day's session file from `06 Archive/Claude Sessions/`
-- **Called by:** User (manual, `/provenance`). Not auto-invoked by other commands by default.
+- **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
 - **Verified by:** `/verify-provenance`
-- **Lock file:** `$VAULT_PATH/06 Archive/Provenance/.lock` (separate from session lock)
-- **This command is the SSOT** for provenance logic. If you add auto-invocation to park/goodnight, reference this command rather than duplicating logic.
+- **Lock file:** `$VAULT_PATH/07 System/.provenance-lock` (separate from session lock)
 
 ## Example JAMA Derm Disclosure
 

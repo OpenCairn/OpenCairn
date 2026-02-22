@@ -101,7 +101,7 @@ Use checkpoint when:
 
    **If session file already exists (append):**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -110,7 +110,7 @@ Use checkpoint when:
 
    **If first session of the day (create):**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
+   cat << 'EOF' | ~/.claude/scripts/write-session.sh "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
@@ -119,16 +119,27 @@ Use checkpoint when:
 
 ### Phase 4: Completion
 
-6. **Display confirmation:**
+6. **Log provenance** (automatic, non-blocking, tag-gated):
+   - Same logic as park step 10, **except no OTS stamping** (checkpoint is mid-session — the file will change before day-end, making any OTS proof unverifiable. End-of-day primacy: only `/park` and `/goodnight` stamps matter):
+     - **Gate:** Only log if session has a `**Project:**` link. No project = skip silently.
+     - Hash session file **after** write (step 5), truncate to first 16 hex chars
+     - Check idempotency (grep for existing entry with same tag + session file)
+     - **Skip OTS** — set `OTS_STATUS="—"` unconditionally
+     - Append table row with flock using `$VAULT_PATH/07 System/.provenance-lock`
+     - Sed anchor: `/^|---|---|---|---|---|$/a\`
+   - Non-blocking — checkpoint completes even if provenance fails
+
+7. **Display confirmation:**
    ```
    ✓ Checkpoint saved: 06 Archive/Claude Sessions/YYYY-MM-DD.md
    ✓ Session N - [Topic]
    ✓ Open loops documented: N items
+   ✓ Provenance logged: [Project tag] (only if gate passed)
 
    Session continues. Context preserved.
    ```
 
-7. **Handle --compact flag** (if specified):
+8. **Handle --compact flag** (if specified):
    - After displaying confirmation, run `/compact`
    - The checkpoint in the vault means even after compaction, progress is recoverable via `/pickup`
    - Display:

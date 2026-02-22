@@ -45,7 +45,7 @@ date +"%Y-%m-%d"       # for file paths if needed
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
 - **Stale Today.md:** Check `$VAULT_PATH/01 Now/Today.md` — if it exists, check the heading for a date. If the heading has no date (template placeholder) or a date that doesn't match today, it's stale. Note the uncompleted items in your working memory for step 6 (don't present a decision here — keep the landscape survey read-only). If the file is just the empty template, note it and move on.
-- **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show any items where date header <= today (YYYY-MM-DD format). Flag overdue items (date < today). These are deferred tasks that have resurfaced.
+- **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Yesterday's open loops:** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file, extract open loops
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
@@ -76,29 +76,46 @@ Good morning. Here's your landscape:
 
 If a section is empty, skip it. Keep it scannable.
 
-### 3. Catch Gaps (quick prompt)
+### 3. Catch Gaps + Open Space (single prompt)
 
-Ask:
-> "Anything from yesterday that didn't get captured? Things you did or thought about that aren't in there?"
-
-- If yes: capture briefly, ask where it should go (WIP, project file, just noted)
-- If no: move on
-
-### 4. Open Space (adaptive)
-
-Ask:
-> "What's on your mind this morning?"
+Ask both questions together — don't force two round trips:
+> "Anything from yesterday that didn't get captured? And what's on your mind this morning?"
 
 **If "nothing" or minimal:** Move to step 5, keep it quick.
 
-**If stuff comes up:** Let it flow. Don't rush. This is generative space.
+**If stuff comes up:** Let it flow. Don't rush. This is generative space. Let the user dump everything before you respond. The user will often also respond to the landscape from step 2 in the same message (marking items done, rescheduling, adding context). Treat all of this as input to step 4.
 
-After the dump, ask:
-> "Any of that actionable, or just needed to be said?"
+### 4. Capture Gate (MANDATORY — do not skip or defer)
 
-- **Actionable:** "Want to add that to WIP / a project / today's focus?"
-- **Insight worth keeping:** "Want me to add that to your journal?"
-- **Just venting:** "Got it. Acknowledged." (no artifact needed)
+**After** the user finishes their response (whether it's brain dump items, landscape corrections, scheduling decisions, or all three), and **before** moving to step 5:
+
+**Capture means writing to a file, not acknowledging in conversation.** If it's not in a file, it's not captured. Discussing an item, triaging it, or giving an opinion about it is not capturing it.
+
+For every item the user mentioned:
+
+1. **Triage each item into one of these categories:**
+   - **Status update** (e.g. "Tentrem done", "train booked") → Mark done in Tickler/WIP/project file. Trace references — a status change may touch multiple files.
+   - **Reschedule** (e.g. "do this on the 26th", "next week") → Move to appropriate Tickler date or update project file
+   - **Actionable task** → Write to the appropriate file (Tickler for date-specific, project file for project-scoped, WIP for new workstreams)
+   - **Decision (resolved)** → Write the decision + rationale to the relevant project file or WIP
+   - **Decision (open)** → Write to relevant project's "Open Decisions" section or WIP
+   - **Research/idea** → Write to the relevant project or area file
+   - **Just venting** → Don't write. But this category should be rare — most things people say in the morning are at least "note-worthy"
+
+2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 7. Do not hold them in conversational memory.
+
+3. **Confirm with a receipt.** After writing, show the user a summary:
+   ```
+   Captured:
+   - [item] → [file path or section]
+   - [item] → [file path or section]
+   - [item] → acknowledged (no file needed)
+   ```
+   The user should be able to glance at this and verify nothing was dropped.
+
+**Silence is agreement, not dismissal.** When the user responds to a landscape summary or brain dump triage, they will often only comment on items they want to change or clarify. Items they don't mention are agreed-as-presented — they still need to be captured/actioned. Do NOT interpret "user didn't comment on this item" as "user doesn't care about this item" or "this item can be dropped." The default for an uncontested item is: proceed as proposed.
+
+**Why this gate exists:** The failure mode is: user dumps 10 items, Claude discusses all 10 intelligently, user assumes they're captured, they're not. Conversation is volatile memory. Files are the system of record. The gap between "discussed" and "captured" is where trust erodes.
 
 ### 5. Set Intention (optional closer)
 
@@ -127,7 +144,7 @@ Pull from everything surfaced so far:
 - Yesterday's queue (from /goodnight Daily Report)
 - Tickler items due today
 - The "one thing" from step 5
-- Anything the user mentioned in steps 3-4
+- Anything the user mentioned in step 3
 
 **Today.md format:**
 
@@ -152,13 +169,11 @@ Pull from everything surfaced so far:
 
 ### 7. Output (conditional)
 
+**Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for Today.md and any additional generative content — not for deferred captures.
+
 **Most days with Today.md:** The Today.md file is the artifact. No additional output needed.
 
-**If actionable items surfaced but no Today.md:**
-- Update `$VAULT_PATH/01 Now/Works in Progress.md` with new items or status
-- Or update relevant project file
-
-**If generative/insight content:**
+**If generative/insight content** (beyond what was captured in step 4):
 - Append to today's journal at `$VAULT_PATH/05 Resources/Journal/YYYY-MM-DD.md`
 - Or create morning note at `$VAULT_PATH/06 Archive/Morning Notes/YYYY-MM-DD.md` (create directory if needed)
 
@@ -187,7 +202,7 @@ You're clear. Go.
 - **Today.md is the artifact when needed:** For structured days, Today.md is the output. For open/exploratory days, the conversation itself is the routine — no file needed.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
 - **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
-- **Routing over capturing:** If something comes up, help route it to the right place (WIP, project, journal) rather than creating new systems.
+- **Capture means file writes:** If something comes up, write it to the right place (WIP, project, journal, Tickler) immediately. Don't just discuss routing — do the routing. Don't create new systems or files when an existing one fits.
 - **Morning pages complement:** This is operational/triage. Morning pages (journal) is generative/exploratory. They can happen same morning - this first (quick), then journal (if desired).
 
 ## Triggers
