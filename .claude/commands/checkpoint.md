@@ -119,22 +119,11 @@ Use checkpoint when:
 
 ### Phase 4: Completion
 
-6. **Log provenance** (automatic, non-blocking, tag-gated):
-   - Same logic as park step 10, **except no OTS stamping** (checkpoint is mid-session — the file will change before day-end, making any OTS proof unverifiable. End-of-day primacy: only `/park` and `/goodnight` stamps matter):
-     - **Gate:** Only log if session has a `**Project:**` link. No project = skip silently.
-     - Hash session file **after** write (step 5), truncate to first 16 hex chars
-     - Check idempotency (grep for existing entry with same tag + session file)
-     - **Skip OTS** — set `OTS_STATUS="—"` unconditionally
-     - Append table row with flock using `$VAULT_PATH/07 System/.provenance-lock`
-     - Sed anchor: `/^|---|---|---|---|---|$/a\`
-   - Non-blocking — checkpoint completes even if provenance fails
-
-7. **Display confirmation:**
+6. **Display confirmation:**
    ```
    ✓ Checkpoint saved: 06 Archive/Claude Sessions/YYYY-MM-DD.md
    ✓ Session N - [Topic]
    ✓ Open loops documented: N items
-   ✓ Provenance logged: [Project tag] (only if gate passed)
 
    Session continues. Context preserved.
    ```
