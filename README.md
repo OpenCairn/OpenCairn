@@ -110,24 +110,25 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 **Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
 
 ```bash
-git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git my-vault
-cd my-vault
+git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git ~/Files
+cd ~/Files
 
 # Rename remote to 'template' so /update can pull future changes
 # (leaves 'origin' free for your own repo if you want one)
 git remote rename origin template
 
-# Set your vault path (add to ~/.bashrc or ~/.zshrc for persistence)
-export VAULT_PATH="$(pwd)"
-
 # Make scripts executable
 chmod +x .claude/scripts/*.sh
+
+# Add to your shell profile (~/.bashrc or ~/.zshrc):
+export VAULT_PATH="$HOME/Files"
+alias cc='cd ~/Files && claude'
 ```
 
 Then start Claude and personalise:
 
 ```bash
-claude
+cc   # or: cd ~/Files && claude
 
 # CLAUDE.md has bracketed placeholders - fill in your name,
 # profession, life context, and communication preferences.
@@ -137,13 +138,7 @@ claude
 > /pickup  # See your landscape and open loops
 ```
 
-If using Obsidian, open it and select `my-vault` as your vault folder.
-
-**Configuration:** `VAULT_PATH` is the single configuration point. Add to your shell profile for persistence:
-```bash
-echo 'export VAULT_PATH=/path/to/your/vault' >> ~/.bashrc  # or ~/.zshrc
-source ~/.bashrc
-```
+If using Obsidian, open it and select `~/Files` as your vault folder.
 
 **Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
 
