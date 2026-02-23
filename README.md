@@ -1,4 +1,27 @@
-# Claude Code + Obsidian Template
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
+    <img alt="OpenCairn" src="assets/logo-light.svg" width="120">
+  </picture>
+</p>
+
+<h1 align="center">OpenCairn</h1>
+
+<p align="center"><em>Park. Pickup. Flow.</em></p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="License: CC BY-NC 4.0"></a>&nbsp;
+  <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
+</p>
+
+21 slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
+
+<p align="center">
+  <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
+</p>
+
+---
 
 > **It's Sunday afternoon. You sit down to continue planning that Japan trip you were excited about on Thursday. You open your laptop and... nothing. Where were you? Which hotels were you comparing? What did you decide about the Kyoto day trips?**
 >
@@ -20,10 +43,6 @@ What would you like to pick up?
 ```
 
 Zero reconstruction. Instant flow.
-
-21 slash commands, a 7-folder filing system, session chaining, daily rhythms, and context that compounds over weeks and months. Built on [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Obsidian](https://obsidian.md/).
-
-For the full series on *why* this works: **[hedwards.dev/claude-code-obsidian/](https://hedwards.dev/claude-code-obsidian/)**
 
 ---
 
@@ -110,7 +129,7 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 **Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
 
 ```bash
-git clone https://github.com/harrisonaedwards/claude-code-obsidian-template.git ~/Files
+git clone https://github.com/OpenCairn/OpenCairn.git ~/Files
 cd ~/Files
 
 # Rename remote to 'template' so /update can pull future changes

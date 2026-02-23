@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" width="200" height="240">
+  <!-- OpenCairn logo – dark stones for light backgrounds -->
+  <!-- Five stacked stones with slight rotation for natural look -->
+
+  <!-- Stone 5 (base) -->
+  <ellipse cx="100" cy="208" rx="65" ry="22" transform="rotate(-2 100 208)" fill="#1a1a1a"/>
+
+  <!-- Stone 4 -->
+  <ellipse cx="96" cy="162" rx="52" ry="19" transform="rotate(2.5 96 162)" fill="#1a1a1a"/>
+
+  <!-- Stone 3 -->
+  <ellipse cx="105" cy="122" rx="40" ry="16" transform="rotate(-1.5 105 122)" fill="#1a1a1a"/>
+
+  <!-- Stone 2 -->
+  <ellipse cx="98" cy="88" rx="29" ry="13" transform="rotate(2 98 88)" fill="#1a1a1a"/>
+
+  <!-- Stone 1 (top) -->
+  <ellipse cx="101" cy="60" rx="18" ry="10" transform="rotate(-1 101 60)" fill="#1a1a1a"/>
+</svg>

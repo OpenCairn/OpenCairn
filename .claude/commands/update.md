@@ -35,7 +35,7 @@ If not a git repo, abort:
 If you copied files instead of cloning, you can fix this:
   cd /path/to/your/vault
   git init
-  git remote add template https://github.com/harrisonaedwards/claude-code-obsidian-template.git
+  git remote add template https://github.com/OpenCairn/OpenCairn.git
   git fetch template
 Then run /update again.
 ```
@@ -48,10 +48,10 @@ git remote -v
 ```
 
 Determine the correct remote name:
-1. If any remote URL contains `claude-code-obsidian-template` → use that remote name (usually `origin` for direct clones, or `template` if added separately)
+1. If any remote URL contains `OpenCairn` → use that remote name (usually `origin` for direct clones, or `template` if added separately)
 2. If no remote points to the template → add it:
    ```bash
-   git remote add template https://github.com/harrisonaedwards/claude-code-obsidian-template.git
+   git remote add template https://github.com/OpenCairn/OpenCairn.git
    ```
    Then use `template`
 
