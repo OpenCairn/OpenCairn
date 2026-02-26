@@ -41,11 +41,10 @@ Extract from each row:
 - **Logged hash** (first 16 hex chars, may be wrapped in backticks)
 - **OTS status** (`pending`, `confirmed`, or `—`)
 
-### 3. Verify Each Entry
+For each entry in the log, perform steps 3–5:
 
-For each entry, perform three checks:
+### 3. Check File Existence
 
-**3a. File existence:**
 ```bash
 SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$SESSION_FILENAME"
 if [[ ! -f "$SESSION_FILE" ]]; then
@@ -54,7 +53,7 @@ if [[ ! -f "$SESSION_FILE" ]]; then
 fi
 ```
 
-**3b. Hash verification:**
+### 4. Verify Hash
 ```bash
 CURRENT_HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
 CURRENT_SHORT="${CURRENT_HASH:0:16}"
@@ -69,7 +68,7 @@ else
 fi
 ```
 
-**3c. OTS verification (if applicable):**
+### 5. Verify OTS Proofs (if applicable)
 ```bash
 OTS_FILE="$VAULT_PATH/07 System/Provenance/${SESSION_FILENAME%.md}.ots"
 if [[ -f "$OTS_FILE" ]]; then
@@ -98,7 +97,7 @@ else
 fi
 ```
 
-### 4. Display Summary
+### 6. Display Summary
 
 ```
 ## Provenance Verification Report
@@ -122,7 +121,7 @@ Entries checked: N
 - 2026-01-15.md (Project: Travel 2026) — file may have been archived or deleted
 ```
 
-### 5. Offer Fixes (optional)
+### 7. Offer Fixes (optional)
 
 If mismatches found, offer:
 > "Hash mismatches mean session files were edited after provenance was logged. Options:

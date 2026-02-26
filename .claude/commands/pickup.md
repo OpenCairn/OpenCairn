@@ -17,7 +17,7 @@ You are helping the user pickup a previous work session with full context.
 
 ## Instructions
 
-0. **Resolve Vault Path**
+1. **Resolve Vault Path**
 
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
@@ -31,12 +31,12 @@ You are helping the user pickup a previous work session with full context.
 
    If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
-1. **Check current date and time** using bash `date` command:
+2. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get current timestamp: `date +"%s"` (Unix timestamp for age calculations)
    - Use these to calculate how long ago each session was
 
-2. **Parse parameters and scan for sessions using shell script:**
+3. **Parse parameters and scan for sessions using shell script:**
    - Check for parameters: `--days=N`, `--project=NAME`, `--with-loops`, `--hibernate=DATE`, `--all`, `--show-hidden`
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
    - **Run the pickup scanner shell script** to extract metadata efficiently:
@@ -50,10 +50,10 @@ You are helping the user pickup a previous work session with full context.
    - Apply additional filters on the parsed data:
      - If `--project=NAME`: Keep only sessions where PROJECT contains NAME (case-insensitive)
      - If `--with-loops`: Keep only sessions where LOOP_COUNT > 0
-   - Calculate session age from DATE field: "2 hours ago", "yesterday", "3 days ago" using current time from step 1
+   - Calculate session age from DATE field: "2 hours ago", "yesterday", "3 days ago" using current time from step 2
    - Flag stale loops based on date: 7+ days = ⚠️, 30+ days = 🔴
 
-2a. **Hidden/snoozed entries (handled by shell script):**
+4. **Hidden/snoozed entries (handled by shell script):**
    - The shell script handles filtering based on `.pickup-hidden` file
    - File format: one entry per line, lines starting with `#` are comments
      - Project names: `Website Redesign` (hides entire project cluster)
@@ -63,23 +63,23 @@ You are helping the user pickup a previous work session with full context.
    - **Snooze cleanup:** After displaying menu, remove expired snooze lines from `.pickup-hidden` using flock
    - If `--show-hidden` passed to script, hidden/snoozed entries are included in output
 
-2b. **Check Works in Progress staleness:**
+5. **Check Works in Progress staleness:**
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
    - If > 10 days old, prepare staleness warning to display with menu
    - If > 30 days old, prepare critical staleness warning
 
-2c. **Check Tickler for due items:**
+6. **Check Tickler for due items:**
    - Read `$VAULT_PATH/01 Now/Tickler.md` (if file doesn't exist, skip this step)
    - Parse date headers (format: `## YYYY-MM-DD`)
-   - For each date header where date <= today (from step 1):
+   - For each date header where date <= today (from step 2):
      - Extract all unchecked items (`- [ ]`) under that header
      - Note if date is past (not today) — these are overdue
      - Store for display in tickler banner
    - If any items due, prepare tickler banner to display before menu
 
-3. **Group sessions by project:**
+7. **Group sessions by project:**
    - Extract `**Project:**` link from each session (if present)
    - Group sessions sharing the same project link
    - Sessions without project links remain standalone
@@ -90,7 +90,7 @@ You are helping the user pickup a previous work session with full context.
      - Time since last activity (from most recent session)
    - Sort project groups by most recent activity (not alphabetically)
 
-4. **Display interactive menu** (project-grouped by default):
+8. **Display interactive menu** (project-grouped by default):
    - **Default view:** By Project (clusters related sessions)
    - **Alternative view:** Flat/chronological (traditional, accessed via 'v')
    - **Pagination threshold:** Show first 15 entries by default
@@ -214,7 +214,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
 
 **Note:** In flat view, only sessions from today show loop counts. Older sessions omit loops since they're historical snapshots - use project view to see current project state.
 
-5. **Wait for user selection** (or if no input needed, continue automatically):
+9. **Wait for user selection** (or if no input needed, continue automatically):
    - **Number (1-99):** Select that project/session
      - In project view: Expands to show all sessions in that project (never auto-loads)
      - In expanded/flat view: Loads that specific session
@@ -227,11 +227,11 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
    - **'m':** Show next page (when paginated)
    - **'f':** Prompt for filter criteria and re-display
    - **'s':** Prompt for keyword and show matching sessions
-   - **'h':** Enter hide mode (see step 5a)
-   - **'z':** Enter snooze mode (see step 5c)
+   - **'h':** Enter hide mode (see step 10)
+   - **'z':** Enter snooze mode (see step 12)
    - **'u':** Unhide/unsnooze - show hidden entries and allow restoring them
 
-5a. **Hide mode** (when 'h' selected):
+10. **Hide mode** (when 'h' selected):
    - Display current menu with selection prompts
    - User enters numbers (comma-separated or space-separated) of entries to hide
    - For each selected entry:
@@ -242,7 +242,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
    - Re-display menu with hidden entries removed
    - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
 
-5b. **Unhide mode** (when 'u' selected):
+11. **Unhide mode** (when 'u' selected):
    - Read `.pickup-hidden` file
    - Display numbered list of currently hidden/snoozed entries (show snooze dates)
    - User enters numbers to restore (unhide/unsnooze)
@@ -250,14 +250,14 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
    - Remove selected lines from `.pickup-hidden` (exact line match)
    - Re-display main menu with restored entries visible
 
-5c. **Snooze mode** (when 'z' selected):
+12. **Snooze mode** (when 'z' selected):
    - Display current menu with selection prompts
    - User enters numbers (comma-separated or space-separated) of entries to snooze
    - Prompt for duration. Accept flexible formats:
      - Relative: `2d` (2 days), `1w` (1 week), `3d` (3 days)
      - Absolute: `2026-01-28` or `28 Jan` or `Jan 28`
      - Natural: `tomorrow`, `until Wednesday`, `until next Monday` (always forward-looking - if today is Thursday, "until Wednesday" = next Wednesday, 6 days out; if today IS Wednesday, "until Wednesday" = next Wednesday, 7 days out)
-   - Calculate the resurface date from current date (step 1)
+   - Calculate the resurface date from current date (step 2)
    - **Validation:** If calculated date is today or in the past, warn and prompt for new duration
    - **Dedup check:** Before appending, check if entry already exists in `.pickup-hidden`:
      - If permanently hidden: Ask "Already hidden. Convert to snooze until [DATE]?"
@@ -272,7 +272,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
    - Re-display menu with snoozed entries removed
    - Confirm: "Snoozed [ITEM NAMES] until [DATE]. They'll resurface automatically."
 
-6. **Load selected session context (deferred loading):**
+13. **Load selected session context (deferred loading):**
    - **IMPORTANT:** This is the first time the full session file is read. Menu building used only TSV metadata.
    - **If project selected (from project view):**
      - Expand to show all sessions in that project (using TSV data, still no file read)
@@ -292,7 +292,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - Remember: "This session continues [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
      - This will be used by `/park` to create bidirectional continuation links
 
-7. **Display session context:**
+14. **Display session context:**
 
 **When loading a session:**
 ```
@@ -317,7 +317,7 @@ Files updated: /path/to/file.md, /path/to/other.md
 Ready to continue. What's next?
 ```
 
-8. **Auto-load relevant context files:**
+15. **Auto-load relevant context files:**
    - Always load: `~/CLAUDE.md`
    - If project linked: Read the project hub file (check both locations):
      - `$VAULT_PATH/03 Projects/[Project Name].md` (active projects)
@@ -330,7 +330,7 @@ Ready to continue. What's next?
       ✓ 07 System/Context - [Related Domain].md
      ```
 
-9. **Prompt for next action:**
+16. **Prompt for next action:**
    - Present the most logical next step based on "Resume Context"
    - Ask: "Ready to continue. What's next?" or "Should I proceed with [suggested next action]?"
 
@@ -385,7 +385,7 @@ Ready to continue. What's next?
 - **Auto-extend window after breaks:** If no sessions in last 10 days, automatically extend to 30 days and notify user
 - **No sessions found:** If no sessions in extended window, suggest `/awaken` or starting fresh
 - **Session ordering:** Display most recent first (reverse chronological)
-- **Age display:** Show relative time ("2 hours ago", "yesterday", "3 days ago") using current time from step 1
+- **Age display:** Show relative time ("2 hours ago", "yesterday", "3 days ago") using current time from step 2
 - **Open loop counting:** Only count unchecked items (`- [ ]`), ignore completed ones (`- [x]`)
 - **Open loop age tracking:**
   - Calculate days since session date for all unchecked loops

@@ -65,12 +65,12 @@ Wait for response.
 
 **If the user provides completions:**
 1. Update your working memory (mark those items as completed in your draft)
-2. **Update session files immediately** (see Step 3a)
-3. Then proceed to Step 4 with the corrected data
+2. **Update session files immediately** (see Step 4)
+3. Then proceed to Step 5 with the corrected data
 
-**If the user says "no" or "nothing":** Proceed to Step 4 with original data.
+**If the user says "no" or "nothing":** Proceed to Step 5 with original data.
 
-### 3a. Update Session Files for Completed Loops
+### 4. Update Session Files for Completed Loops
 
 When the user reports a loop is complete, update the source session file:
 
@@ -88,7 +88,7 @@ When the user reports a loop is complete, update the source session file:
 
 **Why update immediately:** Prevents the same loop from appearing as open in future `/goodnight`, `/pickup`, or `/weekly-synthesis` runs.
 
-### 4. Present Status Report
+### 5. Present Status Report
 
 **Now** display the report using your corrected working memory:
 
@@ -117,18 +117,18 @@ When the user reports a loop is complete, update the source session file:
 
 **Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
 
-### 4a. Mid-Flow Corrections
+### 6. Mid-Flow Corrections
 
 **If the user corrects you during the report** ("actually that's done", "I finished that earlier"):
 
 1. **Acknowledge immediately:** "Got it, marking that complete."
-2. **Update session file** (same process as Step 3a)
+2. **Update session file** (same process as Step 4)
 3. **Update your working memory** - do NOT re-read session files (you'll get stale data)
 4. **Continue with corrected state** - don't re-display the whole report
 
 **Critical:** Once the user tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
 
-### 4b. Additional Captures (brief, optional)
+### 7. Additional Captures (brief, optional)
 
 Ask:
 > "Anything else not captured? New blockers, decisions made, or items to add?"
@@ -136,7 +136,7 @@ Ask:
 - If yes: add to inventory (but don't add to session files - these go in the daily report)
 - If no: proceed
 
-### 5. Set Tomorrow's Queue
+### 8. Set Tomorrow's Queue
 
 Ask:
 > "What's the priority order for tomorrow?"
@@ -158,7 +158,7 @@ If the user doesn't have strong opinions, suggest based on:
 - Blocked items need unblocking
 - High-momentum items worth continuing
 
-### 6. Generate Daily Report
+### 9. Generate Daily Report
 
 Create file at `$VAULT_PATH/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
@@ -211,17 +211,17 @@ Ensure directory exists first:
 mkdir -p "$VAULT_PATH/06 Archive/Daily Reports"
 ```
 
-### 7. Log Goodnight Session with Bidirectional Links
+### 10. Log Goodnight Session with Bidirectional Links
 
 Append a session entry for the goodnight session itself to today's session file.
 
-#### 7a. Find Previous Session and Determine Next Session Number
+### 11. Find Previous Session and Determine Next Session Number
 
 1. Read today's session file to find the last session number
 2. New session number = last + 1
 3. Store previous session's heading for forward linking
 
-#### 7b. Add Forward Link to Previous Session (with guards)
+### 12. Add Forward Link to Previous Session (with guards)
 
 **GUARD 1 - Idempotency check:**
 ```bash
@@ -296,7 +296,7 @@ if [ "$NEXT_COUNT" -gt 1 ]; then
 fi
 ```
 
-#### 7c. Append Goodnight Session Entry
+### 13. Append Goodnight Session Entry
 
 Use flock for concurrent safety:
 
@@ -325,7 +325,7 @@ EOF'
 
 **Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
 
-### 7d. Check for Stranded Work Product
+### 14. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
@@ -343,11 +343,11 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 8. Update Works in Progress
+### 15. Update Works in Progress
 
 If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
 
-### 9. Close
+### 16. Close
 
 ```
 ✓ Report saved: 06 Archive/Daily Reports/YYYY-MM-DD.md
@@ -380,13 +380,13 @@ Goodnight.
 **The flow:**
 1. Read session files once (Step 2) - populate working memory
 2. Ask about completions BEFORE presenting (Step 3) - update working memory AND files
-3. Present from working memory (Step 4) - never re-read files mid-flow
-4. Handle mid-flow corrections (Step 4a) - update working memory AND files
-5. Generate daily report from working memory (Step 6)
+3. Present from working memory (Step 5) - never re-read files mid-flow
+4. Handle mid-flow corrections (Step 6) - update working memory AND files
+5. Generate daily report from working memory (Step 9)
 
 **Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
 
-**Tomorrow's queue must respect working memory.** When generating tomorrow's queue (Step 5), cross-check every suggested item against corrections applied in Steps 3-4a. Items marked complete during this session MUST NOT reappear as suggestions. This includes "if time" items and hedged suggestions like "or already done?" — if you know it's done, don't mention it.
+**Tomorrow's queue must respect working memory.** When generating tomorrow's queue (Step 8), cross-check every suggested item against corrections applied in Steps 3-6. Items marked complete during this session MUST NOT reappear as suggestions. This includes "if time" items and hedged suggestions like "or already done?" — if you know it's done, don't mention it.
 
 ## Triggers
 
