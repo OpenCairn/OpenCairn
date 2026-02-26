@@ -145,7 +145,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Full) for step 8a
+     - Store previous session's tier (Quick vs Full) for step 9
 
 7. **Generate session summary** (format varies by tier):
 
@@ -222,7 +222,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-8a. **Add forward link to previous session** (full tier only):
+9. **Add forward link to previous session** (full tier only):
    - **Quick tier:** Skip (no previous session linking done)
    - **Full tier:**
      - If no previous session found in step 6, skip forward linking (first session ever)
@@ -288,17 +288,18 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
-8b. **Check for stranded work product in Claude-internal files** (Full tier only):
+10. **Check for stranded work product in Claude-internal files** (Full tier only):
    - **Quick tier:** Skip
    - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
      ```bash
      # Check for plan files modified today
      find ~/.claude/plans/ -type f -newermt "$(date +%Y-%m-%d)" 2>/dev/null
      ```
-   - If any files found, check whether their content has been migrated to the vault:
-     - Read the plan file(s)
-     - Compare against the relevant vault project doc
-     - If the vault doc is stale or missing the plan content: **migrate it now** (update the vault file with the plan content before completing the park)
+   - If any files found, **individually assess each file** — do not batch-dismiss:
+     - Read each plan file
+     - **Subagent files** (pattern `*-agent-*.md`) often contain standalone reference material distinct from the main plan — assess separately, not as "part of" the main plan's migration
+     - Compare each file's content against the relevant vault project doc
+     - If the vault doc is stale or missing the content: **migrate it now** (update the vault file before completing the park)
    - Display result:
      ```
      ✓ No stranded work product in ~/.claude/plans/
@@ -309,7 +310,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      ```
    - **Why this exists:** Work product written to `~/.claude/plans/` has been stranded there multiple times. These files don't sync, aren't visible in Obsidian, and effectively don't exist outside the session.
 
-9. **Update Works in Progress** (conditional on tier):
+11. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
@@ -320,7 +321,27 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
-9a. **Offer Tickler for date-deferred loops** (Full tier only):
+12. **Trace reference graph for status changes** (Full tier only):
+   - **Quick tier:** Skip
+   - **Full tier:** Review the session for any status changes — tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, etc.
+   - For each status change identified:
+     1. Identify the key identifier (project name, booking number, feature name, account name, etc.)
+     2. Grep the vault for that identifier: `grep -r "identifier" "$VAULT_PATH/" --include="*.md" -l`
+     3. Exclude archive/session files (these are historical records, not living docs)
+     4. Read and update every living document that references the changed item
+   - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, Today.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
+   - Display result:
+     ```
+     ✓ Reference graph: No status changes to trace
+     ```
+     or:
+     ```
+     ✓ Reference graph: [N] files updated for [identifier] status change
+     - [file1] - [what changed]
+     - [file2] - [what changed]
+     ```
+
+13. **Offer Tickler for date-deferred loops** (Full tier only):
    - Scan open loops for explicit future dates. Common patterns:
      - "week of [date]" → use that date (if it's a Monday) or the Monday of that week
      - "after [date]" / "from [date]" → use that date
@@ -338,7 +359,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - If no: Skip (items remain in session only)
    - **Don't prompt if:** No date-tagged loops found, or Quick tier
 
-10. **Display completion message** (tier-appropriate):
+14. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```
@@ -357,6 +378,8 @@ Quick park complete. Minimal overhead for trivial task.
   [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
   [OR if no previous session: "✓ No previous session to link (first session)"]
 ✓ Project updated: [Project Name] (if applicable)
+✓ Reference graph: N files updated for [identifier] (if any status changes traced)
+  [OR "No status changes to trace" if none]
 ✓ Tickler: N items added for [dates] (if any date-deferred loops were added)
   [OR omit this line if no tickler items added]
 
@@ -367,7 +390,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
 
-12. **Handle --compact flag** (if specified):
+15. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
    - The park completion message becomes part of the compact summary, providing continuity

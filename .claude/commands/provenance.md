@@ -92,16 +92,14 @@ if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG"; then
 fi
 ```
 
-### 5. Compute Hash, Stamp, and Append (atomic)
-
-**5a. Hash the session file:**
+### 5. Hash the Session File
 ```bash
 HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
 SHORT_HASH="${HASH:0:16}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 ```
 
-**5b. OpenTimestamps (optional, non-blocking):**
+### 6. OpenTimestamps (optional, non-blocking)
 ```bash
 OTS_STATUS="—"
 if command -v ots &>/dev/null; then
@@ -117,7 +115,7 @@ The `.ots` proof is initially "pending" — it becomes "confirmed" after ~2 hour
 
 If `ots` is not installed or network is unavailable, skip silently (`OTS_STATUS` stays `—`).
 
-**5c. Append table row with flock:**
+### 7. Append Table Row
 ```bash
 ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
 
@@ -129,7 +127,7 @@ $ROW' '$PROVENANCE_LOG'
 
 **Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude Sessions/.lock`) to avoid deadlock.
 
-### 6. Display Confirmation
+### 8. Display Confirmation
 
 ```
 ✓ Provenance logged
