@@ -73,15 +73,8 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 6. **Update Works in Progress:**
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
-   - Remove project from "Active" section
-   - Add to "Recently Completed" section at bottom:
-     ```markdown
-     - **[Project Name]** — [Date] ([Outcome])
-       - [Brief result/accomplishment]
-       - [[06 Archive/Projects/YYYY/Project Name]]
-     ```
+   - Remove project from its current section (Active, Maintenance, Backlog, etc.)
    - Update "Last updated" timestamp
-   - Keep Recently Completed limited to last 10 items (archive older ones)
 
 7. **Create completion record in session file:**
    - If current session file exists for today, append brief note:
@@ -112,7 +105,7 @@ Project completion complete. Well done.
 - **Completion ≠ success:** Abandoned projects are valid completions. Acknowledging abandonment is better than indefinite limbo.
 - **Outcomes:** Be honest - "Completed successfully", "Abandoned (lost interest)", "Superseded by X", "Merged into Y"
 - **Archive by year:** Keeps archive organised and searchable
-- **Recently Completed visible:** Last 10 completed projects stay in WIP for context before being fully archived
+- **Session archive is the completion log:** Completed projects are recorded in session logs, not in WIP
 - **Preserve history:** Project file stays intact, just moved. All decisions and work documented.
 - **Psychology matters:** Explicit completion provides closure and allows celebration
 
@@ -135,7 +128,7 @@ If unsure, ask the user: "Is this project truly complete, or just on hold?"
 ## Integration
 
 - **Works in Progress:** Keeps active list clean and accurate
-- **Weekly synthesis:** Can review Recently Completed for patterns
+- **Weekly synthesis:** Can review session archive for completion patterns
 - **Session summaries:** Searchable record of when projects ended
 - **Archive:** Long-term storage of all project history
 
