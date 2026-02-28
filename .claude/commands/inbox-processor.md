@@ -147,7 +147,7 @@ Item → Is it COMPLETED/INACTIVE?
 ## Frequency
 
 Run inbox processing:
-- Weekly (Sunday/Monday) as part of weekly synthesis
+- Weekly (Sunday/Monday) as part of weekly review
 - When inbox gets >10-15 items
 - Before starting deep work on a project (clear the decks)
 - Whenever the user explicitly requests it
@@ -155,7 +155,7 @@ Run inbox processing:
 ## Integration with Other Commands
 
 - **After capture sessions:** When you've clipped many articles/notes, process them
-- **Before /weekly-synthesis:** Clean inbox so weekly review has clear boundaries
+- **Before /weekly-review:** Clean inbox so weekly review has clear boundaries
 - **Complements /research-assistant:** Organised resources are easier to search
 
 This creates a **clear separation between capture (fast) and organisation (thoughtful)**.

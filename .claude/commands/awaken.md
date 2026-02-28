@@ -218,7 +218,7 @@ This is fine - life happens. Priorities may have shifted more than expected.
 - **After extended break:** Run `/awaken` as first command when returning to work
 - **Complements /pickup:** If break was short (< 2 weeks), `/pickup` may suffice. Use `/awaken` for month+ gaps.
 - **Updates hibernate snapshot:** Creates bidirectional record (snapshot → awaken summary)
-- **Feeds into /weekly-synthesis:** First weekly synthesis post-return can reference awaken summary
+- **Feeds into /weekly-review:** First weekly review post-return can reference awaken summary
 
 ## Difference from `/pickup`
 

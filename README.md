@@ -15,7 +15,7 @@
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
-21 slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
+22 slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
 
 <p align="center">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
@@ -94,9 +94,13 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 `Today.md` is a plain-text daily plan - viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. `/afternoon` and `/goodnight` read it to track what actually happened.
 
-### Week: Weekly Synthesis
+### Week: Weekly Review
 
-`/weekly-synthesis` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, and flags open loops older than 14 days.
+`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, flags open loops older than 14 days, and runs vault maintenance (WIP pruning, projects folder hygiene, tickler past-due scan).
+
+### Quarter: Quarterly Review
+
+`/quarterly-review` is the deepest pass. Strategic alignment (are you working on the right things?), context file accuracy audit (are the `07 System/Context - *.md` files still true?), vault-wide broken link scan, CRM completeness check, and orphaned file detection. Too heavy for weekly, but accumulates real debt if never done.
 
 ### Extended Breaks: Hibernate and Awaken
 
@@ -165,54 +169,80 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 ## All Commands
 
-**Session management:**
-
-| Command | What it does |
-|---------|-------------|
-| `/park` | End a session - documents work, captures open loops, archives with bidirectional links, runs quality gate |
-| `/pickup` | Resume work - reads WIP and recent daily reports, presents landscape and open loops |
-| `/checkpoint` | Mid-session snapshot without ending the session |
-
 **Daily rhythm:**
 
 | Command | What it does |
 |---------|-------------|
-| `/morning` | Start of day - surface landscape, catch gaps, build Today.md |
-| `/afternoon` | Mid-day - check Today.md progress, reprioritise |
-| `/goodnight` | End of day - inventory loops, set tomorrow's queue, daily report |
-| `/weekly-synthesis` | Weekly review - aggregate progress, surface patterns, check WIP integrity |
+| `/morning` | Start-of-day check-in. Surfaces active projects, tickler items, yesterday's open loops, overnight queue. Helps plan the day and captures anything from overnight thinking. |
+| `/afternoon` | Mid-day recalibration. Checks whether you've drifted from priorities, helps reprioritise remaining time. Quick 2-5 min reset. |
+| `/goodnight` | End-of-day report. Inventories the day's work, captures open loops, sets tomorrow's priority queue, checks for stranded work product. |
+
+**Session lifecycle:**
+
+| Command | What it does |
+|---------|-------------|
+| `/pickup` | Session start. Interactive menu showing recent sessions grouped by project, with snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. Args: `--days=N`, `--project=NAME`, `--with-loops`, `--all`. |
+| `/checkpoint` | Alias for `/park --compact`. Full bookkeeping (quality gate, WIP, links, reference graph, tickler), then `/compact` to reclaim context window. Session continues after. |
+| `/park` | Session capture (Cal Newport "shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`, `--compact`. |
+
+> **Checkpoint vs Park:** Both run identical bookkeeping — quality gate, WIP update, bidirectional links, reference graph tracing, stranded work product check, tickler. The difference is what happens after: `/park` ends the session; `/checkpoint` compacts context and keeps going. `/checkpoint` is equivalent to `/park --compact`.
 
 **Extended breaks:**
 
 | Command | What it does |
 |---------|-------------|
-| `/hibernate` | Save full state before vacation or long break |
-| `/awaken` | Restore context after returning from extended break |
+| `/hibernate` | Pre-break snapshot before travel or sabbatical. Captures all active projects, open loops, and context into a durable snapshot file. Interactive interview about break duration and return priorities. |
+| `/awaken` | Post-break context restoration. Loads the hibernate snapshot, runs a reorientation interview, updates project statuses with post-break reality. Args: `--date=YYYY-MM-DD`. |
 
-**Project management:**
-
-| Command | What it does |
-|---------|-------------|
-| `/start-project` | Create a new project - hub page, add to WIP, link to parent initiative |
-| `/complete-project` | Archive a finished project - move to archive, update WIP |
-| `/inbox-processor` | Organise inbox captures into NIPARAS structure |
-| `/archive-sessions` | Clean up and organise session files |
-
-**Thinking tools:**
+**Project lifecycle:**
 
 | Command | What it does |
 |---------|-------------|
-| `/thinking-partner` | Explore ideas through questions before jumping to solutions |
-| `/research-assistant` | Deep vault search and synthesis - find what's known before searching externally |
-| `/patterns` | Find recurring themes, contradictions, and connections across vault files on a topic |
-| `/de-ai-ify` | Remove AI writing patterns and restore your authentic voice |
+| `/start-project` | Creates a new project file with goal/status/next actions, adds to Works in Progress, optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
+| `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves to archive, removes from WIP, logs completion. Args: optional project name. |
 
-**Maintenance:**
+**Reviews:**
 
 | Command | What it does |
 |---------|-------------|
-| `/update` | Pull latest commands and scripts from the template repo (vault content never touched) |
-| `/oops` | Capture a mistake and its lesson - logs to Corrections Log, detects patterns |
+| `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, vault maintenance, corrections log review. Generates a review file. |
+| `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, plus vault-wide maintenance (broken links, CRM completeness, orphaned files). |
+
+**Learning loops:**
+
+| Command | What it does |
+|---------|-------------|
+| `/oops` | Captures a mistake. Extracts what went wrong, the correction, and the transferable lesson. Appends to Claude Corrections Log. Checks for patterns warranting promotion to CLAUDE.md. |
+| `/win` | Captures a success. Extracts what went well, why, and the transferable pattern. Appends to Claude Wins Log. The counterpart to `/oops`. |
+
+**Research & thinking:**
+
+| Command | What it does |
+|---------|-------------|
+| `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
+| `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
+| `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
+
+**Utilities:**
+
+| Command | What it does |
+|---------|-------------|
+| `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
+| `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
+| `/archive-sessions` | Organises old session files from the flat sessions directory into year-based subdirectories. Args: `--older-than=N`, `--year=YYYY`, `--dry-run`. |
+
+**Provenance & audit:**
+
+| Command | What it does |
+|---------|-------------|
+| `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. |
+| `/verify-provenance` | Verifies integrity of the provenance log by recomputing hashes and comparing against logged values. Reports matches, mismatches, and OTS status. |
+
+**Infrastructure:**
+
+| Command | What it does |
+|---------|-------------|
+| `/update` | Pulls latest OpenCairn commands/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 
 **Aliases:** `/regroup` → `/afternoon`, `/shutdown` → `/goodnight`
 
@@ -225,7 +255,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
 - **Tickler system.** `/park` offers to defer open loops to specific future dates. Deferred items surface automatically in `/morning` and `/pickup` when their date arrives. Once pulled into a planning document (weekly plan, project page), that document becomes SSOT and the Tickler copy is deleted.
-- **Corrections log.** `/oops` captures mistakes and lessons. `/weekly-synthesis` reviews for recurring patterns worth promoting to context files. Only get something wrong once.
+- **Corrections log.** `/oops` captures mistakes and lessons. `/weekly-review` reviews for recurring patterns worth promoting to context files. Only get something wrong once.
 
 Scripts live in `.claude/scripts/` and require the `VAULT_PATH` environment variable.
 
