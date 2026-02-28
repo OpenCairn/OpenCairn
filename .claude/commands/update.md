@@ -1,14 +1,14 @@
 ---
 name: update
-description: Update CCO commands and scripts from the template repository
+description: Update OpenCairn commands and scripts from the template repository
 parameters:
   - "--dry-run" - Preview changes without applying them
   - "--force" - Skip confirmation prompt
 ---
 
-# Update - CCO Template Sync
+# Update - OpenCairn Template Sync
 
-You are updating the user's CCO commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts) — vault content and CLAUDE.md are never touched.
+You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts) — vault content and CLAUDE.md are never touched.
 
 ## What Gets Updated
 
@@ -179,7 +179,7 @@ chmod +x .claude/scripts/*.sh 2>/dev/null
 git add .claude/scripts/*.sh
 
 # Commit with template version hash for traceability
-git commit -m "Update CCO commands from template ($(git rev-parse --short $REMOTE/$BRANCH))"
+git commit -m "Update OpenCairn commands from template ($(git rev-parse --short $REMOTE/$BRANCH))"
 ```
 
 If the commit fails (nothing to commit), that's fine — files are already updated in the working tree.
@@ -249,7 +249,7 @@ git rev-parse --short $REMOTE/$BRANCH
 ```
 
 ```
-✓ CCO commands updated (template <hash>)
+✓ OpenCairn commands updated (template <hash>)
 
   Commands: N updated, M new
   Scripts:  N updated, M new

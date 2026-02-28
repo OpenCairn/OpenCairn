@@ -1,6 +1,6 @@
-# CCO Design Document
+# OpenCairn Design Document
 
-Cross-cutting architecture and design decisions for the Claude Code + Obsidian (CCO) template. Individual commands document their own logic — this doc explains *why* things work the way they do and how the pieces connect.
+Cross-cutting architecture and design decisions for the OpenCairn (Claude Code + Obsidian) template. Individual commands document their own logic — this doc explains *why* things work the way they do and how the pieces connect.
 
 ---
 

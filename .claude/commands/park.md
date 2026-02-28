@@ -1,19 +1,21 @@
 ---
 name: park
 aliases: [shutdown-complete]
-description: End session with Cal Newport "shutdown complete" - document work, open loops, enable frictionless pickup
+description: Capture session — end it, or checkpoint and keep working. Full bookkeeping either way.
 parameters:
   - "--quick" - Minimal parking (one-line log entry, for trivial sessions)
   - "--full" - Comprehensive parking (default for anything worth documenting)
   - "--auto" - Auto-detect tier based on session characteristics (default)
-  - "--compact" - Run /compact after parking (Full tier only, for heavy context sessions)
+  - "--compact" - Run /compact after saving, then continue working (Full tier only)
 ---
 
-# Park - Session Parking
+# Park - Session Capture
 
-You are ending a work session. Your task is to create a comprehensive session summary that enables confident rest and frictionless pickup.
+You are capturing a work session — either ending it or saving a mid-session checkpoint. The bookkeeping is identical either way: quality gate, WIP update, bidirectional links, reference graph tracing, stranded work product check, tickler. The only difference is the closing message.
 
-**⚠ One park at a time.** Do not run `/park` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. Park one session, wait for completion, then park the next.
+**Checkpoint mode:** If triggered by checkpoint/save/waypoint phrases, or with `--compact`, the session continues after capture. Checkpoint cue words also imply `--compact`. Closing message says "Progress saved. Session continues." instead of "Parked. Pick up when ready."
+
+**⚠ One capture at a time.** Do not run `/park` or `/checkpoint` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. Capture one session, wait for completion, then capture the next.
 
 ## Tier Philosophy
 
@@ -62,7 +64,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - If `--quick` or `--full`: Use explicit tier
    - Display tier selection:
      ```
-     Parking tier: [Quick/Full] (auto-detected)
+     Capture tier: [Quick/Full] (auto-detected)
      ```
 
 3. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
@@ -383,9 +385,10 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Tickler: N items added for [dates] (if any date-deferred loops were added)
   [OR omit this line if no tickler items added]
 
-**Closing:** "Parked. Pick up when ready."
+**Closing (session ending):** "Parked. Pick up when ready."
+**Closing (checkpoint / --compact):** "Progress saved. Session continues."
 
-To pickup: `claude` (will show recent sessions) or `/pickup`
+To pickup later: `claude` (will show recent sessions) or `/pickup`
 ```
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
@@ -393,12 +396,12 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 15. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
-   - The park completion message becomes part of the compact summary, providing continuity
-   - User can then continue typing in the compacted conversation
+   - The session summary becomes part of the compact summary, providing continuity
+   - Session continues — user keeps working in the compacted conversation
 
 ## Guidelines
 
-- **Park ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
+- **Capture ALL sessions:** Use `/park` (or `/checkpoint` mid-session) for every session, even quick tasks. The system auto-detects appropriate tier.
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
 - **Explicit override available:** Use `--quick` or `--full` to override auto-detection
@@ -411,7 +414,7 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude Sessions/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
-- **Compact integration:** Use `--compact` when context is heavy and you want to continue working. Parks the session, then compacts. The park summary in the compacted conversation provides continuity without needing /pickup.
+- **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **Tickler integration:** When open loops have explicit future dates ("week of Feb 9", "after travel"), offer to add them to `01 Now/Tickler.md`. This ensures date-deferred work resurfaces automatically via /morning and /pickup. Don't add everything — only loops with clear "not now, but on X date" intent.
@@ -430,6 +433,8 @@ To pickup: `claude` (will show recent sessions) or `/pickup`
 ## Cue Word Detection
 
 This command should also trigger automatically when the user uses these phrases:
+
+**Session ending:**
 - "bedtime"
 - "wrapping up"
 - "done for tonight"
@@ -437,10 +442,17 @@ This command should also trigger automatically when the user uses these phrases:
 - "shutdown complete"
 - "park"
 
-When triggered by cue words, acknowledge and proceed with session summary generation.
+**Checkpoint (session continues + compact):**
+- "checkpoint"
+- "save progress"
+- "plant a flag"
+- "capture this"
+- "don't want to lose this"
+
+When triggered by cue words, acknowledge and proceed with session capture. Use the cue word category to determine behaviour: session-ending cue words close out; checkpoint cue words imply `--compact` (full bookkeeping, compact context, session continues).
 
 ## Cal Newport Philosophy
 
-The goal is Cal Newport's "shutdown complete" ritual - explicit acknowledgement of open loops so the mind can truly rest. Every incomplete task is captured in a trusted system, eliminating mental residue.
+The goal is Cal Newport's "shutdown complete" ritual — explicit acknowledgement of open loops so the mind can truly rest, or so you can compact context and keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
 
-**For completed work:** Park it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.
+**For completed work:** Capture it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.

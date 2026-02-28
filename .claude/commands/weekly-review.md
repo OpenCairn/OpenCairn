@@ -1,15 +1,15 @@
 ---
-name: weekly-synthesis
-description: Weekly patterns review - aggregate progress, insights, and alignment
+name: weekly-review
+description: Weekly patterns review - aggregate progress, insights, alignment, and vault maintenance
 ---
 
-# Weekly Synthesis - Patterns Over Time
+# Weekly Review - Patterns Over Time
 
-You are facilitating the user's weekly synthesis. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
+You are facilitating the user's weekly review. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
 
 ## Philosophy
 
-Weekly synthesis creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities.
+The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, realign effort with priorities, and keep the vault structurally healthy.
 
 ## Instructions
 
@@ -54,8 +54,33 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
      - Flag sections with 10+ unprocessed items
      - Identify any items that appear to be actionable tasks that should be in WIP or project files
      - Note items that have routing guidance but haven't been moved yet
+   - **Vault maintenance metrics:**
+     - WIP line count: `wc -l "$VAULT_PATH/01 Now/Works in Progress.md"`
+     - WIP session links: `grep -c "06 Archive/Claude Sessions" "$VAULT_PATH/01 Now/Works in Progress.md"`
+     - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "$VAULT_PATH/01 Now/Works in Progress.md"`
+     - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
+     - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
+   - **Projects folder audit:**
+     - List top-level: `ls "$VAULT_PATH/03 Projects/"`
+     - List Cold/: `ls "$VAULT_PATH/03 Projects/Cold/" 2>/dev/null`
+     - List Backlog/: `ls "$VAULT_PATH/03 Projects/Backlog/" 2>/dev/null`
+     - Cross-reference with WIP sections — flag tier mismatches (e.g., Active project with file in Cold/, Backlog WIP entry with file in root)
+   - **Tickler hygiene:**
+     - Read `$VAULT_PATH/01 Now/Tickler.md` (if it exists)
+     - Flag items with dates that have passed (past-due and unactioned)
+   - **CRM name scan** (if `$VAULT_PATH/07 System/CRM/` exists):
+     - Read CRM index to get list of known names
+     - Extract names from this week's session files:
+       ```bash
+       # Find name-shaped strings in this week's sessions
+       find "$VAULT_PATH/06 Archive/Claude Sessions/" -name "*.md" -newermt "$(date -d 'last monday' +%Y-%m-%d)" -exec \
+         grep -oh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
+       # Note: Includes false positives (section headers, tool names).
+       # Cross-reference against CRM — flag names that appear 2+ times but aren't in CRM.
+       ```
+     - Present candidates to user — **don't auto-add**
 
-3. **Run the weekly synthesis interview:**
+3. **Run the weekly review interview:**
 
 **Collect - What happened:**
 - "What were the major accomplishments this week?"
@@ -86,12 +111,12 @@ Weekly synthesis creates the crucial link between tactical execution (daily/sess
    - If not, create it: `mkdir -p "$VAULT_PATH/06 Archive/Weekly Reviews"`
    - This prevents first-run failures
 
-5. **Generate weekly synthesis:**
+5. **Generate weekly review:**
 
 Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
 
 ```markdown
-# Weekly Synthesis - Week [NN], [Date Range]
+# Weekly Review - Week [NN], [Date Range]
 
 ## Major Accomplishments
 [Bullet list of significant progress, completions, milestones]
@@ -188,6 +213,26 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 **Recommendation:** Working Memory is a brain dump inbox, not storage. Process weekly or items become invisible.
 
+### Vault Maintenance
+
+**WIP Health:**
+- Line count: N lines (target: <300; flag if >300)
+- Session links: N total across all projects (heaviest: [Project] with M links)
+- Completed/strikethrough items still present: N
+- Stale Active projects (Last: 14+ days ago): [list any]
+- **Action needed:** [Trim session links to 3-5 per project / Remove N completed items / Demote stale projects / No action needed]
+
+**Projects Folder Hygiene:**
+- Tier mismatches: [Active WIP projects with files in Cold/ or Backlog/, or vice versa]
+- Projects that should move to Cold/ (inactive, not archived): [list any]
+- Projects that graduated to Active but file is still in Backlog/: [list any]
+- **Action needed:** [Move X to Cold/ / Move Y to root / No action needed]
+
+**Tickler Hygiene:**
+- Past-due items: N
+- [List each past-due item with original date]
+- **Action needed:** [Complete, reschedule, or drop each item]
+
 ### Claude Corrections Log Review
 **New entries this week:**
 - [Date] - [Mistake summary] - Lesson: [key takeaway]
@@ -196,6 +241,12 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 - [ ] [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
 
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
+
+### CRM Candidates
+**New names this week (not in CRM, mentioned 2+ times):**
+- [Name] - appeared N times - Context: [which sessions/projects]
+
+**Action needed:** Review and add to CRM if worth tracking. False positives (section headers, tool names) can be ignored.
 
 ### Course Corrections Needed
 [What to adjust for next week]
@@ -230,24 +281,51 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
      - **Zombie projects:** In WIP but no file activity in 30+ days and no session references
      - **Missing files:** In WIP but project file doesn't exist
      - **Orphaned files:** Project files exist but not in WIP
-   - Include in synthesis output under "Alignment Check"
+   - Include in review output under "Alignment Check"
 
-7. **Update Works in Progress** (if needed):
+7. **Vault maintenance pass:**
+   This is the weekly hygiene sweep. The vault accumulates structural debt through daily use — session links pile up, completed items linger, projects drift between tiers. Catching it weekly prevents the kind of 420→236 line emergency refactor that shouldn't be necessary.
+
+   **WIP pruning:**
+   - If WIP exceeds 300 lines, flag for pruning
+   - Trim session links to **3-5 most recent per project** (session history lives in the session archive, not WIP)
+   - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern) — these are historical records, not active tasks
+   - Remove resolved open decisions (strikethrough decisions that were answered)
+   - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — either demote or nudge
+
+   **Projects folder hygiene:**
+   - Cross-reference WIP sections with `03 Projects/` folder structure:
+     - Active/Big Rock WIP entries should have project files in `03 Projects/` root (not in `Cold/` or `Backlog/`)
+     - Backlog WIP entries should have files in `03 Projects/Cold/` or `03 Projects/Backlog/`
+     - Completed projects should be in `06 Archive/`
+   - Flag and fix tier mismatches — move project files to match their WIP status
+   - Check for project files that exist in `03 Projects/` but have no WIP entry (orphans — add to WIP or archive)
+
+   **Tickler hygiene:**
+   - Read `$VAULT_PATH/01 Now/Tickler.md`
+   - Identify items with dates that have already passed
+   - For each past-due item: recommend complete, reschedule (with new date), or drop
+   - Clean up completed tickler items that were already pulled into weekly plans
+
+   **Execute fixes** with user confirmation for anything destructive (file moves, deletions). Pruning WIP content and trimming session links can proceed automatically.
+
+8. **Update Works in Progress** (if needed):
    - Archive completed projects to `06 Archive/`
    - Update project statuses based on weekly progress
    - Add new projects if they emerged this week
    - Address integrity issues flagged in step 6
 
-8. **Display confirmation:**
+9. **Display confirmation:**
 
 ```
-✓ Weekly synthesis saved to: 06 Archive/Weekly Reviews/YYYY-Wnn.md
+✓ Weekly review saved to: 06 Archive/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
+✓ Vault maintenance: [N issues found and fixed / No issues]
 ✓ Next week's focus: [Top 2-3 priorities]
 
-Weekly synthesis complete.
+Weekly review complete.
 
-Recommended: Review this synthesis at start of next week to set the week's direction.
+Recommended: Skim this review at the start of next week to set the week's direction.
 ```
 
 ## Guidelines

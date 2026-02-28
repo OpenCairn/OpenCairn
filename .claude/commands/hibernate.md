@@ -42,7 +42,7 @@ This is the "big picture" complement to session-level parking.
    - `$VAULT_PATH/01 Now/Works in Progress.md` - active projects
    - Recent session files (last 10 days) - recent work
    - Last daily review (if exists) - recent progress
-   - Last weekly synthesis (if exists) - patterns and insights
+   - Last weekly review (if exists) - patterns and insights
 
 3. **Extract active state:**
    - All projects listed as "Active" in Works in Progress
@@ -116,13 +116,13 @@ This is the "big picture" complement to session-level parking.
 
 ## Recent Decisions & Insights
 
-[Key decisions from last weekly synthesis or recent sessions that provide context]
+[Key decisions from last weekly review or recent sessions that provide context]
 
 ## Session Links
 
 **Last session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
 **Last daily review:** [[06 Archive/Daily Reviews/YYYY-MM-DD]]
-**Last weekly synthesis:** [[06 Archive/Weekly Reviews/YYYY-Wnn]]
+**Last weekly review:** [[06 Archive/Weekly Reviews/YYYY-Wnn]]
 
 ---
 

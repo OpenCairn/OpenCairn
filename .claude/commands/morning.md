@@ -46,6 +46,12 @@ Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
 - **Stale Today.md:** Check `$VAULT_PATH/01 Now/Today.md` — if it exists, check the heading for a date. If the heading has no date (template placeholder) or a date that doesn't match today, it's stale. Note the uncompleted items in your working memory for step 6 (don't present a decision here — keep the landscape survey read-only). If the file is just the empty template, note it and move on.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
+- **Tickler→This Week migration:** If `$VAULT_PATH/01 Now/This Week.md` exists, parse its date range from the heading (e.g. "28 Feb – 7 Mar 2026"). Check Tickler for unchecked items with date headers falling within that range that aren't already represented in This Week.md. If any found, flag them:
+  ```
+  **Tickler items for this week not yet in This Week.md:**
+  - [Item] (tickler date: YYYY-MM-DD)
+  ```
+  In step 4 (Capture Gate), offer to add them to the appropriate day in This Week.md. Per SSOT rules: once an item moves to This Week.md, delete it from Tickler — This Week becomes the canonical location.
 - **Yesterday's open loops:** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file, extract open loops
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
@@ -216,7 +222,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, Today.md (stale check), Tickler, recent Claude Sessions, Daily Reports
+- **Reads from:** Works in Progress, Today.md (stale check), Tickler, This Week.md (tickler migration check), recent Claude Sessions, Daily Reports
 - **May create:** Today.md (daily plan)
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)

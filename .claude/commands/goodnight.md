@@ -86,7 +86,7 @@ When the user reports a loop is complete, update the source session file:
    ✓ Marked complete: "LOOP_TEXT" (in Session N)
    ```
 
-**Why update immediately:** Prevents the same loop from appearing as open in future `/goodnight`, `/pickup`, or `/weekly-synthesis` runs.
+**Why update immediately:** Prevents the same loop from appearing as open in future `/goodnight`, `/pickup`, or `/weekly-review` runs.
 
 ### 5. Present Status Report
 
