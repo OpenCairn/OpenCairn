@@ -331,7 +331,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      2. Grep the vault for that identifier: `grep -r "identifier" "$VAULT_PATH/" --include="*.md" -l`
      3. Exclude archive/session files (these are historical records, not living docs)
      4. Read and update every living document that references the changed item
-   - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, Today.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
+   - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
    - Display result:
      ```
      ✓ Reference graph: No status changes to trace

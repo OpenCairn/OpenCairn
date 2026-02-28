@@ -44,7 +44,7 @@ date +"%Y-%m-%d"       # for file paths if needed
 
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
-- **Stale Today.md:** Check `$VAULT_PATH/01 Now/Today.md` — if it exists, check the heading for a date. If the heading has no date (template placeholder) or a date that doesn't match today, it's stale. Note the uncompleted items in your working memory for step 6 (don't present a decision here — keep the landscape survey read-only). If the file is just the empty template, note it and move on.
+- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling 7-day window, not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration:** If `$VAULT_PATH/01 Now/This Week.md` exists, parse its date range from the heading (e.g. "28 Feb – 7 Mar 2026"). Check Tickler for unchecked items with date headers falling within that range that aren't already represented in This Week.md. If any found, flag them:
   ```
@@ -131,53 +131,101 @@ Ask:
 - If they have one: note it, offer to add to WIP or just hold it
 - If skip: that's fine, some days are exploratory
 
-### 6. Build Today.md (optional artifact)
+### 6. Update This Week.md (optional)
 
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
 
-> "Want me to build your Today.md?"
+> "Want me to update today's section in This Week.md?"
 
 **If yes:**
 
-First, if a stale Today.md exists (detected in step 2), show the uncompleted items and ask which to carry forward. This keeps all Today.md decisions in one place rather than splitting them across steps.
+If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Then create/overwrite `$VAULT_PATH/01 Now/Today.md` using the timeline format.
+Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the full visual timeline format — the same at-a-glance layout formerly used in the daily plan:
 
-Pull from everything surfaced so far:
-- Items carried forward from stale Today.md (if any, user chose just above)
-- Time-sensitive items and appointments mentioned
+````
+## [Day] [DD] [Mon]
+
+```
+┄┄ morning (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+HH:MM   ██ Scheduled block (duration)
+        ┊ Sub-item detail
+~HH:MM  ░░ Open/flexible time
+        ┊ Option 1
+        ┊ Option 2
+┄┄ afternoon (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+HH:MM   ████████ Longer scheduled block
+~HH:MM  ░░ Admin batch
+        ┊ Task 1
+        ┊ Task 2
+┄┄ evening (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+HH:MM   ░░ Wind down
+┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+```
+
+### Done today
+- [x] Completed item — detail
+- [x] Another completed item
+````
+
+**Timeline format reference:**
+- `██` = scheduled block with duration: `09:00 ██ Dentist (1h)`
+- `████████` = longer blocks use more block chars, roughly proportional
+- `░░` = open/flexible time: `░░ open — 90 min`
+- `▓▓` = tentative/pending: `?? ▓▓ Dinner with Sam (pending)`
+- `┊` = sub-items within a block
+- `┄┄` = section dividers (morning/afternoon/evening)
+- `[x]` prefix = completed items in the timeline (standard Obsidian checkbox)
+- `~` prefix = approximate time
+
+Pull items from:
+- Items carried forward from stale This Week.md (if any, noted in step 2)
+- Time-sensitive items and appointments
 - WIP next actions
 - Yesterday's queue (from /goodnight Daily Report)
 - Tickler items due today
 - The "one thing" from step 5
 - Anything the user mentioned in step 3
 
-**Today.md format:**
+Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`). Detailed completion notes go in the "Done today" subsection under today's day heading.
 
-1. **Heading** with today's date: `# Today — [Day] [DD] [Mon] [YYYY]`
-2. **Timeline** — visual time-blocked schedule in a code block:
-   - `██` = scheduled block with duration: `09:00 ██ Dentist (1h)`
-   - `████████` = longer blocks use more block chars, roughly proportional to duration
-   - `░░` = gap or open time: `░░ open — 90 min`
-   - `▓▓` = tentative/pending: `?? ▓▓ Dinner with Sam (pending)`
-   - `┊` = sub-items within a block: `┊ 15:15 Prep slides`
-   - `┄┄` = day start/end boundaries
-   - `LATE` = end-of-day items without fixed times
-3. **Refs** — one-liner linking timeline items to project/area files via `[[wikilinks]]`
-4. **Done today** — items move here with `✓` as they're completed
-5. **Notes** — ad-hoc sections as needed (decision trees, context, reminders)
+**Future days** in the same file stay simple — just task lists under the `## ` heading, no timeline code block. They get expanded with the full timeline format when that day becomes "today" via /morning.
 
-**No checkboxes** — Today.md is a dashboard, not a task SSOT. Use plain text bullets for task summaries. The canonical `- [ ]` checkbox lives in the relevant Project page, Area file, or Tickler.
+**Refs** section at bottom of the file — `[[wikilinks]]` linking timeline items to project/area files.
 
-**If no or the day is unstructured:** Skip. Not every day needs a timeline. Open/exploratory days are fine without one. (A stale Today.md from yesterday may linger — that's harmless since `/afternoon` and `/goodnight` check dates before reading it.)
+**Creation:** If This Week.md is stale or missing:
+> "This Week.md is [stale/missing]. Want me to create one for this week?"
 
-**Why this exists:** Today.md is a plain-text replacement for calendar reads/writes via MCP. Calendar API integrations are flaky and brittle. A markdown file is instant to read, trivial to edit mid-session, and always available — no API calls, no auth tokens, no rate limits.
+If yes — and if replacing a stale file, first show unchecked items from the old This Week.md and ask which to carry forward into the new week. Then create `$VAULT_PATH/01 Now/This Week.md` — rolling 7-day window. Today gets the full timeline (including carried-forward items); future days get simple task lists:
+
+````
+# This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
+
+## [Today] [DD] [Mon]
+[Full timeline code block as above]
+
+## [Day+1] [DD] [Mon]
+- Task 1
+- Task 2
+
+## [Day+2] [DD] [Mon]
+- Task 1
+
+[... 7 days total]
+
+## Refs
+- [[wikilinks to relevant project/area files]]
+````
+
+Rolling 7 days from today — each /morning recalculates.
+
+**If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
 ### 7. Output (conditional)
 
-**Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for Today.md and any additional generative content — not for deferred captures.
+**Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for This Week.md and any additional generative content — not for deferred captures.
 
-**Most days with Today.md:** The Today.md file is the artifact. No additional output needed.
+**Most days with This Week.md:** The updated This Week.md is the artifact. No additional output needed.
 
 **If generative/insight content** (beyond what was captured in step 4):
 - Append to today's journal at `$VAULT_PATH/05 Resources/Journal/YYYY-MM-DD.md`
@@ -191,7 +239,7 @@ Short and light:
 ```
 ✓ Landscape reviewed
 ✓ [X items captured / Nothing new]
-✓ Today.md built (or "Open day — no plan needed")
+✓ This Week.md updated (or "Open day — no plan needed")
 ✓ Focus: [One thing] (or "Open day")
 
 Have a good one.
@@ -205,7 +253,7 @@ You're clear. Go.
 ## Guidelines
 
 - **Adaptive duration:** Can be 2 minutes or 20. Follow the energy, don't force.
-- **Today.md is the artifact when needed:** For structured days, Today.md is the output. For open/exploratory days, the conversation itself is the routine — no file needed.
+- **This Week.md is the artifact when needed:** For structured days, update today's section in This Week.md. For open/exploratory days, the conversation itself is the routine — no file update needed.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
 - **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Capture means file writes:** If something comes up, write it to the right place (WIP, project, journal, Tickler) immediately. Don't just discuss routing — do the routing. Don't create new systems or files when an existing one fits.
@@ -222,8 +270,8 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, Today.md (stale check), Tickler, This Week.md (tickler migration check), recent Claude Sessions, Daily Reports
-- **May create:** Today.md (daily plan)
+- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, recent Claude Sessions, Daily Reports
+- **May create/update:** This Week.md (weekly plan with day sections)
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
