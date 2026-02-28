@@ -224,7 +224,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 - **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
-- **Tickler system.** `/park` offers to defer open loops to specific future dates. Deferred items surface automatically in `/morning` and `/pickup` when their date arrives.
+- **Tickler system.** `/park` offers to defer open loops to specific future dates. Deferred items surface automatically in `/morning` and `/pickup` when their date arrives. Once pulled into a planning document (weekly plan, project page), that document becomes SSOT and the Tickler copy is deleted.
 - **Corrections log.** `/oops` captures mistakes and lessons. `/weekly-synthesis` reviews for recurring patterns worth promoting to context files. Only get something wrong once.
 
 Scripts live in `.claude/scripts/` and require the `VAULT_PATH` environment variable.

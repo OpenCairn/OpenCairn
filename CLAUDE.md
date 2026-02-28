@@ -89,6 +89,10 @@ Resources/
 
 **Exception:** WIP entries that have no corresponding Project page or Area folder may use checkboxes, since they have no other SSOT.
 
+### Tickler SSOT Transfer
+
+Tickler is a time-deferred queue, not a persistent SSOT. When items are pulled from Tickler into a planning document (a weekly plan, project page, etc.), **the planning document becomes SSOT** for those items. Delete the Tickler copy immediately to prevent duplicate checkboxes across the vault. The Tickler's job is done once the item surfaces and lands in a plan.
+
 ## Path-Keyed Memories
 
 Claude Code stores memories and corrections in `~/.claude/projects/` keyed to the absolute path of the directory you run it from. If you move your vault to a different path, memories will appear to be lost. They're still at the old path — copy the `.md` files from `~/.claude/projects/<old-path>/memory/` to `~/.claude/projects/<new-path>/memory/` to recover them.
