@@ -46,6 +46,13 @@ mkdir -p "$LOCK_DIR"
 _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock" >&2; exit 1; }
 
 if [ "$CREATE_MODE" = "true" ]; then
+    # Safety check: refuse to truncate a file that already has content
+    if [ -s "$SESSION_FILE" ]; then
+        echo "ERROR: --create would truncate non-empty file: $SESSION_FILE" >&2
+        echo "File has $(wc -l < "$SESSION_FILE") lines. Use append mode (omit --create) instead." >&2
+        _unlock
+        exit 1
+    fi
     DATE_PART="$(basename "$SESSION_FILE" .md)"
     printf "# Claude Session - %s\n\n%s\n" "$DATE_PART" "$CONTENT" > "$SESSION_FILE"
 else
