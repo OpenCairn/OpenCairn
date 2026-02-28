@@ -59,6 +59,7 @@ Once actioned, either:
 - Delete the item (if done)
 - Move to WIP (if it needs ongoing tracking)
 - Reschedule (move to a future date header)
+- Move to a planning document (if pulled into a weekly plan, project page, etc. — the planning document becomes SSOT, delete from Tickler)
 
 **Overdue items:** If a date passes without action, the item keeps surfacing (with "overdue" warning). Either do it, reschedule it, or delete it — do not let stale ticklers accumulate.
 
