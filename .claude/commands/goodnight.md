@@ -212,17 +212,77 @@ Ensure directory exists first:
 mkdir -p "$VAULT_PATH/06 Archive/Daily Reports"
 ```
 
-### 10. Log Goodnight Session with Bidirectional Links
+### 10. Clean Up This Week.md (today → tomorrow)
+
+After the daily report is saved, clean up This Week.md so it's a forward-looking planning document, not a historical record.
+
+**1. Route undone items from all past day sections.**
+
+Before collapsing, scan today's section — and any earlier days that are still verbose — for `- [ ]` items. For each:
+- **Has a natural future day?** → Move to that day's section.
+- **Priority item that should happen tomorrow?** → Add to tomorrow's section in the appropriate time block.
+- **Low priority / no deadline?** → Move to the Backlog section at the top of This Week.md.
+- **Already appears in a future day?** → Delete the duplicate from today, don't move.
+
+Also check for sub-sections scoped to a future day. Move the entire sub-section to the appropriate future day before collapsing.
+
+**2. Collapse past day sections.**
+
+After all undone items have been routed, collapse today's section — and any earlier days in This Week.md that are still verbose — to a one-line summary + link:
+
+```markdown
+## [emoji] [Day] [Date] — [Theme] ✅
+[One sentence: what happened, what didn't, key outcome.] [[06 Archive/Daily Reports/YYYY-MM-DD|Full report]]
+```
+
+Sweep all past days, not just today. Earlier days may still be verbose if a previous `/goodnight` run predates this step or was interrupted. Any day before tomorrow should be a one-liner.
+
+Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in the routing above — route it before collapsing.
+
+**3. Build tomorrow's visual schedule.**
+
+Replace tomorrow's day section with the full visual timeline format (same as `/morning` uses). Integrate rolled-over priority items alongside existing scheduled items:
+
+````
+## [Day] [DD] [Mon]
+
+```
+┄┄ morning (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+HH:MM   ██ Scheduled block
+        ┊ Sub-item detail
+~HH:MM  ░░ Open/flexible time
+        ┊ Task 1
+        ┊ Task 2
+┄┄ afternoon (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+~HH:MM  ░░ Task batch
+        ┊ Task 1
+        ┊ Task 2
+┄┄ evening (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+HH:MM   ██ Evening commitment
+~HH:MM  ░░ Computer tasks
+        ┊ Task 1
+        ┊ Task 2
+┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+```
+````
+
+**Timeline format:** `██` = scheduled, `░░` = flexible, `▓▓` = tentative, `┊` = sub-items, `~` = approximate time.
+
+Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline code block.
+
+**Why this matters:** This Week.md is a planning document. Past days should be minimal (summary + link). Future days should be actionable and current. Building the visual schedule at goodnight means `/morning` has less work to do and the user can glance at tomorrow's plan before bed.
+
+### 11. Log Goodnight Session with Bidirectional Links
 
 Append a session entry for the goodnight session itself to today's session file.
 
-### 11. Find Previous Session and Determine Next Session Number
+### 12. Find Previous Session and Determine Next Session Number
 
 1. Read today's session file to find the last session number
 2. New session number = last + 1
 3. Store previous session's heading for forward linking
 
-### 12. Add Forward Link to Previous Session (with guards)
+### 13. Add Forward Link to Previous Session (with guards)
 
 **GUARD 1 - Idempotency check:**
 ```bash
@@ -297,7 +357,7 @@ if [ "$NEXT_COUNT" -gt 1 ]; then
 fi
 ```
 
-### 13. Append Goodnight Session Entry
+### 14. Append Goodnight Session Entry
 
 Use flock for concurrent safety:
 
@@ -326,7 +386,7 @@ EOF'
 
 **Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
 
-### 14. Check for Stranded Work Product
+### 15. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
@@ -344,11 +404,11 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 15. Update Works in Progress
+### 16. Update Works in Progress
 
 If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
 
-### 16. Close
+### 17. Close
 
 ```
 ✓ Report saved: 06 Archive/Daily Reports/YYYY-MM-DD.md
@@ -402,6 +462,6 @@ This command should trigger when the user says:
 
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (marks loops complete, adds goodnight session with bidirectional links), This Week.md (marks completed items `[x]`), Works in Progress (if needed)
+- **Updates:** Claude Sessions (marks loops complete, adds goodnight session with bidirectional links), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
