@@ -148,18 +148,19 @@ Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/exp
 
 ```
 ┄┄ morning (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   ██ Scheduled block (duration)
-        ┊ Sub-item detail
+HH:MM   [ ] ██ Scheduled block (duration)
+        [ ] Sub-item detail
 ~HH:MM  ░░ Open/flexible time
-        ┊ Option 1
-        ┊ Option 2
+        [ ] Option 1
+        [ ] Option 2
 ┄┄ afternoon (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   ████████ Longer scheduled block
+HH:MM   [ ] ████████ Longer scheduled block (3h)
+        [ ] Task within it
 ~HH:MM  ░░ Admin batch
-        ┊ Task 1
-        ┊ Task 2
+        [ ] Task 1
+        [ ] Task 2
 ┄┄ evening (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   ░░ Wind down
+HH:MM   [ ] ██ Evening event
 ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
 ```
 
@@ -169,14 +170,16 @@ HH:MM   ░░ Wind down
 ````
 
 **Timeline format reference:**
-- `██` = scheduled block with duration: `09:00 ██ Dentist (1h)`
-- `████████` = longer blocks use more block chars, roughly proportional
+- `██` = scheduled block with duration: `09:00 [ ] ██ Dentist (1h)`
+- `████████` = longer blocks use more block chars, roughly proportional: `14:00 [ ] ████████ Workshop (3h)`
 - `░░` = open/flexible time: `░░ open — 90 min`
 - `▓▓` = tentative/pending: `?? ▓▓ Dinner with Sam (pending)`
-- `┊` = sub-items within a block
+- `[ ]` = checkbox on every actionable item (sub-items and standalone tasks)
 - `┄┄` = section dividers (morning/afternoon/evening)
 - `[x]` prefix = completed items in the timeline (standard Obsidian checkbox)
 - `~` prefix = approximate time
+
+**Every actionable item gets a `[ ]` checkbox.** This includes scheduled blocks — `[ ] ██ Dentist (1h)`. The `██`/`████████` chars indicate duration, the `[ ]` makes it checkable. `░░` headers are the only lines without checkboxes (they're time containers, not tasks).
 
 Pull items from:
 - Items carried forward from stale This Week.md (if any, noted in step 2)
