@@ -284,7 +284,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
    - Extract key information from the session section:
      - Session date and number (for continuation tracking)
      - Full summary (not truncated)
-     - Open loops with full text (unchecked items from Next Steps section)
+     - Open loops with full text (plain bullet items under "Next Steps / Open Loops" heading — these are a historical record; check This Week.md/Tickler for current task state)
      - Files that were created/updated
      - Resume context (from Pickup Context section)
      - Related project
@@ -386,7 +386,7 @@ Ready to continue. What's next?
 - **No sessions found:** If no sessions in extended window, suggest `/awaken` or starting fresh
 - **Session ordering:** Display most recent first (reverse chronological)
 - **Age display:** Show relative time ("2 hours ago", "yesterday", "3 days ago") using current time from step 2
-- **Open loop counting:** Only count unchecked items (`- [ ]`), ignore completed ones (`- [x]`)
+- **Open loop counting:** Count plain bullet items (`- `) under "Next Steps / Open Loops" heading. For backward compatibility with older sessions, also count `- [ ]` items. Ignore `- [x]` (completed in old format)
 - **Open loop age tracking:**
   - Calculate days since session date for all unchecked loops
   - Flag stale (10-29 days): ⚠️ warning in menu

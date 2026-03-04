@@ -52,7 +52,7 @@ Read and present:
   - [Item] (tickler date: YYYY-MM-DD)
   ```
   In step 4 (Capture Gate), offer to add them to the appropriate day in This Week.md. Per SSOT rules: once an item moves to This Week.md, delete it from Tickler — This Week becomes the canonical location.
-- **Yesterday's open loops:** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file, extract open loops
+- **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 
@@ -68,9 +68,9 @@ Good morning. Here's your landscape:
 - [ ] [Item] → [[context link]]
 - [ ] [Another item] (⚠️ overdue) → [[context link]]
 
-**Open loops from yesterday:**
-- [ ] Item 1
-- [ ] Item 2
+**From yesterday's sessions (context only):**
+- [Topic 1] - [brief summary]
+- [Topic 2] - [brief summary]
 
 **Last night's queue:** (from /goodnight)
 - [Item you queued at bedtime]
