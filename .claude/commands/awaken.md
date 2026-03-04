@@ -138,22 +138,31 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 
 ### Immediate Next Actions
 
-- [ ] [First thing to do]
-- [ ] [Second thing to do]
-- [ ] [Third thing to do]
+- [First thing to do]
+- [Second thing to do]
+- [Third thing to do]
+
+**Note:** These actions are also routed to This Week.md/Tickler as the SSOT. The list above is a point-in-time record.
 
 ### Session Link
 
 **First session post-return:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]
 ```
 
-9. **Update Works in Progress:**
+9. **Route Immediate Next Actions to SSOT:**
+   - For each action in "Immediate Next Actions":
+     - If This Week.md exists and is current → add to today's or tomorrow's section
+     - If This Week.md is stale/missing → add to Tickler with today's date
+   - Dedup check: grep target file before writing. Skip if already present.
+   - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes.
+
+10. **Update Works in Progress:**
    - Update "Last updated" timestamp
    - Update project statuses with post-break reality
    - Remove 🛌 emoji from active projects
    - Archive completed/dropped projects
 
-10. **Display completion message:**
+11. **Display completion message:**
 
 ```
 ✓ Hibernate snapshot loaded from: [Date]

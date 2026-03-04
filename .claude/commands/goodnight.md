@@ -50,7 +50,7 @@ Read and compile:
 - **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` for today's date
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md` for project states
 - **Completed tasks:** Extract from This Week.md today's section (checked items) AND session summaries (deduplicate)
-- **Candidate open loops:** Extract unchecked items (`- [ ]`) from session files, plus unchecked items from today's day section in This Week.md
+- **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
 **Important:** Store this data in working memory - it's a DRAFT inventory, not ground truth.
 
@@ -70,24 +70,19 @@ Wait for response.
 
 **If the user says "no" or "nothing":** Proceed to Step 5 with original data.
 
-### 4. Update Files for Completed Loops
+### 4. Update SSOT Files for Completed Loops
 
-When the user reports a loop is complete, update **both** the source session file and This Week.md:
+When the user reports a loop is complete, update the SSOT files (not session docs — those are historical records with plain bullets):
 
-1. **Locate the specific session** containing the loop (you have this from Step 2)
-2. **Update session file** (flock for safe editing):
-   ```bash
-   flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c "
-     sed -i 's/^- \\[ \\] EXACT_LOOP_TEXT$/- [x] EXACT_LOOP_TEXT/' '$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md'
-   "
-   ```
-3. **Update This Week.md:** If This Week.md is current (checked in step 2) and the completed item appears as unchecked in today's day section, mark it `[x]` there too. Use the Edit tool (no flock needed — single-writer context).
+1. **Update This Week.md:** If This Week.md is current and the completed item appears as unchecked in today's day section, mark it `[x]`. Use the Edit tool.
+2. **Update Tickler.md:** If the completed item appears in Tickler, delete the line.
+3. **Update project file:** If the item is scoped to a project, mark it complete in the project file.
 4. **Confirm the update:** Display brief acknowledgement:
    ```
-   ✓ Marked complete: "LOOP_TEXT" (in Session N + This Week.md)
+   ✓ Marked complete: "LOOP_TEXT" (in This Week.md / Tickler / Project)
    ```
 
-**Why update immediately:** Prevents the same loop from appearing as open in future `/morning`, `/goodnight`, `/pickup`, or `/weekly-review` runs. Updating This Week.md keeps it consistent — /morning won't show stale unchecked items tomorrow.
+**Why update immediately:** Prevents the same loop from appearing as open in future `/morning`, `/goodnight`, `/pickup`, or `/weekly-review` runs.
 
 ### 5. Present Status Report
 
@@ -106,14 +101,14 @@ When the user reports a loop is complete, update **both** the source session fil
 
 ### Open Loops (by project)
 **[Project A]**
-- [ ] Loop 1
-- [ ] Loop 2
+- Loop 1
+- Loop 2
 
 **[Project B]**
-- [ ] Loop 1
+- Loop 1
 
 **Unassigned**
-- [ ] Orphan loop
+- Orphan loop
 ```
 
 **Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
@@ -181,14 +176,14 @@ Create file at `$VAULT_PATH/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 ## Open Loops
 
 ### [Project A]
-- [ ] Loop 1
-- [ ] Loop 2
+- Loop 1
+- Loop 2
 
 ### [Project B]
-- [ ] Loop 1
+- Loop 1
 
 ### Unassigned
-- [ ] Orphan loop
+- Orphan loop
 
 ## Tomorrow's Queue
 1. **[Priority 1]** - [why]
@@ -375,7 +370,7 @@ flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c 'cat >> "$VAULT_PA
 - [Any significant decisions made during close-out]
 
 ### Next Steps / Open Loops
-- [ ] [Remaining items for tomorrow]
+- [Remaining items for tomorrow]
 
 ### Files Updated
 - [List any files modified during goodnight]
@@ -464,6 +459,6 @@ This command should trigger when the user says:
 
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (marks loops complete, adds goodnight session with bidirectional links), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Works in Progress (if needed)
+- **Updates:** Claude Sessions (adds goodnight session with bidirectional links), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)

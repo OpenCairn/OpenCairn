@@ -76,8 +76,8 @@ This is the "big picture" complement to session-level parking.
 **Status:** [Current state from Works in Progress]
 **Last activity:** [Date from WIP]
 **Open loops:**
-- [ ] [Open loop from sessions or WIP]
-- [ ] [Another open loop]
+- [Open loop from sessions or WIP]
+- [Another open loop]
 
 **Resume context:** [One sentence about where to pick up]
 **Links:** [[03 Projects/Project Name]]
@@ -88,13 +88,13 @@ This is the "big picture" complement to session-level parking.
 ## Open Loops Across All Work
 
 **High priority (time-sensitive):**
-- [ ] [Item with deadline or urgency]
+- [Item with deadline or urgency]
 
 **Medium priority (important but not urgent):**
-- [ ] [Item that matters but can wait]
+- [Item that matters but can wait]
 
 **Low priority (nice to have):**
-- [ ] [Item that could be dropped if needed]
+- [Item that could be dropped if needed]
 
 ## Deliberate Deferrals
 

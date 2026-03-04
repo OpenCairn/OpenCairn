@@ -235,8 +235,12 @@ find "$SESSION_DIR" -maxdepth 2 -name "????-??-??.md" -type f 2>/dev/null | whil
         next
     }
 
-    # Count open loops
+    # Count open loops — old format (- [ ] item) and new format (- item, plain bullets)
     in_loops && /^- \[ \]/ {
+        loop_count++
+        next
+    }
+    in_loops && /^- [^\[]/ {
         loop_count++
         next
     }

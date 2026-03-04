@@ -95,9 +95,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Remove dead/orphaned content created then abandoned
 
    **VERIFY** - Session summary accuracy (if updating an already-parked session):
-   - Do open loops still reflect reality? (If user completed something mid-conversation, tick it off)
+   - Do open loops still reflect reality? (If user completed something mid-conversation, remove it from the list)
    - Does pickup context still match? (If "ready for upload" is now uploaded, update the line)
-   - Were any "Next Steps" completed during the session that need marking done?
+   - Were any "Next Steps" completed during the session? Remove them from the list (they're no longer open)
 
    **PROOFREAD** - Language and consistency:
    - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
@@ -169,8 +169,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 [Bullet list of important realisations, architectural choices, or decisions made]
 
 ### Next Steps / Open Loops
-- [ ] Specific actionable item with clear next action
-- [ ] Another open loop that needs attention
+- Specific actionable item with clear next action
+- Another open loop that needs attention
 [Each item should be actionable and specific enough to resume without re-reading entire conversation]
 
 ### Files Created
@@ -343,23 +343,39 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - [file2] - [what changed]
      ```
 
-13. **Offer Tickler for date-deferred loops** (Full tier only):
-   - Scan open loops for explicit future dates. Common patterns:
-     - "week of [date]" → use that date (if it's a Monday) or the Monday of that week
-     - "after [date]" / "from [date]" → use that date
-     - "[month] [day]" or "[day] [month]" → parse to YYYY-MM-DD
-     - "next week" → use next Monday
-     - "next month" → use 1st of next month
-   - If any loops have future dates:
-     - List them with parsed dates
-     - Ask: "Add these to Tickler for auto-resurface?"
-     - If yes: Use the write-tickler script for each item:
-       ```bash
-       "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
-       ```
-       The script handles: file creation, date header creation/ordering, flock-based locking
-     - If no: Skip (items remain in session only)
-   - **Don't prompt if:** No date-tagged loops found, or Quick tier
+13. **Route ALL open loops to SSOT** (Full tier only):
+   - **Quick tier:** Skip
+   - Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
+
+   **Routing logic (applied to each open loop):**
+
+   1. **Parse for date patterns** (reuse existing date parsing):
+      - "week of [date]" → that Monday
+      - "after [date]" / "from [date]" → that date
+      - "[month] [day]" or "[day] [month]" → YYYY-MM-DD
+      - "next week" → next Monday
+      - "next month" → 1st of next month
+
+   2. **If explicit future date found** → Tickler via write-tickler script:
+      ```bash
+      "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
+      ```
+
+   3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text]`
+
+   4. **If no date + session has a Project link** → update that project file's next action section, or add to the project's WIP entry under **Next:**
+
+   5. **If no date + no project + This Week.md stale/missing** → Tickler with tomorrow's date via write-tickler script
+
+   **Dedup check:** Before writing to any target file, grep for the item text (or a distinctive substring). If already present, skip. Items may have been manually added during the session.
+
+   **After routing, display brief summary:**
+   ```
+   ✓ Routed: [item] → This Week (Thu)
+   ✓ Routed: [item] → Tickler (2026-03-15)
+   ✓ Routed: [item] → Project: [Name]
+   ✓ Skipped (already present): [item]
+   ```
 
 14. **Display completion message** (tier-appropriate):
 
@@ -382,8 +398,8 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Project updated: [Project Name] (if applicable)
 ✓ Reference graph: N files updated for [identifier] (if any status changes traced)
   [OR "No status changes to trace" if none]
-✓ Tickler: N items added for [dates] (if any date-deferred loops were added)
-  [OR omit this line if no tickler items added]
+✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
+  [OR "✓ No open loops to route" if none]
 
 **Closing (session ending):** "Parked. Pick up when ready."
 **Closing (checkpoint / --compact):** "Progress saved. Session continues."
@@ -405,7 +421,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
 - **Explicit override available:** Use `--quick` or `--full` to override auto-detection
-- **Completed work has no open loops:** For finished sessions, write "None - work completed" or list completed checkboxes
+- **Completed work has no open loops:** For finished sessions, write "None - work completed" (no bullets needed)
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional - local time is more meaningful than forcing Australian time
@@ -417,7 +433,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
-- **Tickler integration:** When open loops have explicit future dates ("week of Feb 9", "after travel"), offer to add them to `01 Now/Tickler.md`. This ensures date-deferred work resurfaces automatically via /morning and /pickup. Don't add everything — only loops with clear "not now, but on X date" intent.
+- **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick tier skips
 - **Project linking rules:**

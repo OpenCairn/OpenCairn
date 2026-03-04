@@ -86,7 +86,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 - "What were the major accomplishments this week?"
 - "Which projects moved forward? Which stalled?"
 - "Time allocation: Where did the bulk of hours go?"
-- **Check for aged open loops:** Scan all sessions in the week for unchecked items, flag any that have been open 14+ days
+- **Check for aged open loops:** Scan Tickler.md for items with dates 14+ days old, and check WIP for projects with stale "Last" timestamps. Session files are historical records — open loops live in SSOT (This Week.md, Tickler, project files)
 - **Scratchpad sweep:** Scan all `Scratchpad.md` files in `04 Areas/` for items that have been sitting unprocessed. Flag any that are 14+ days old or have grown stale. Scratchpads are inboxes, not permanent homes.
 
 **Reflect - What matters:**
