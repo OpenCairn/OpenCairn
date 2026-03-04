@@ -33,11 +33,11 @@ fi
 
 If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
-### 1. Check current time
+### 1. Check current date/time
 
 ```bash
-date +"%H:%M"  # current time
-date +"%A"     # day of week
+date +"%A, %d %b %Y — %H:%M %Z"  # full date, time, and timezone
+date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
 Note roughly how much working time remains today.
@@ -55,7 +55,7 @@ Read:
 Display concisely. If This Week.md exists and is current, use today's day section (with its timeline) as the primary view:
 
 ```
-## Regroup - [Time]
+## Regroup — [HH:MM TZ] — [Day], [DD] [Mon] [YYYY]
 
 **Time remaining:** ~[N] hours of working time
 
