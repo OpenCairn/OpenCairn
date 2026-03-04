@@ -267,6 +267,16 @@ HH:MM   [ ] ██ Evening commitment
 
 Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline code block.
 
+**4. Maintain rolling 7-day horizon.**
+
+After collapsing and building tomorrow's schedule, check that This Week.md has day sections covering at least 7 days from tomorrow. Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). If fewer than 7 days of coverage exist from tomorrow forward:
+
+1. Run `date -d "+N days" +"%A %d %b"` for each missing day to get correct day-date mappings
+2. Add empty day sections after the last existing day, before the `---` / Refs / Pending decisions sections
+3. Format: `## [Day] [DD] [Mon]` with no content (just the heading) — they'll be populated as items get routed to them
+
+This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
+
 **Why this matters:** This Week.md is a planning document. Past days should be minimal (summary + link). Future days should be actionable and current. Building the visual schedule at goodnight means `/morning` has less work to do and the user can glance at tomorrow's plan before bed.
 
 ### 11. Log Goodnight Session with Bidirectional Links
