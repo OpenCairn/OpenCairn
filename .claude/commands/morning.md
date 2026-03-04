@@ -222,6 +222,13 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 Rolling 7 days from today — each /morning recalculates.
 
+**Extending an existing This Week.md:** Even when NOT creating a new file, check the rolling window. Count future day headings from today. If fewer than 7 days of coverage exist:
+1. Run `date -d "+N days" +"%A %d %b"` for each missing day
+2. Add empty day sections after the last existing day, before `---` / Refs / Pending decisions
+3. Format: `## [Day] [DD] [Mon]` — just headings, populated later as items route to them
+
+This prevents the file from shrinking as `/goodnight` collapses past days.
+
 **If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
 ### 7. Output (conditional)
