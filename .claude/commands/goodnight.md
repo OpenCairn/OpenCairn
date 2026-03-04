@@ -65,7 +65,7 @@ Wait for response.
 
 **If the user provides completions:**
 1. Update your working memory (mark those items as completed in your draft)
-2. **Update session files immediately** (see Step 4)
+2. **Update SSOT files immediately** (see Step 4) — This Week.md, Tickler, project files
 3. Then proceed to Step 5 with the corrected data
 
 **If the user says "no" or "nothing":** Proceed to Step 5 with original data.
@@ -118,7 +118,7 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 **If the user corrects you during the report** ("actually that's done", "I finished that earlier"):
 
 1. **Acknowledge immediately:** "Got it, marking that complete."
-2. **Update session file and This Week.md** (same process as Step 4)
+2. **Update SSOT files** (same process as Step 4) — This Week.md, Tickler, project files
 3. **Update your working memory** - do NOT re-read session files (you'll get stale data)
 4. **Continue with corrected state** - don't re-display the whole report
 
@@ -269,11 +269,13 @@ Slot items based on context: physical errands → morning, messages/sends → af
 
 **4. Maintain rolling 7-day horizon.**
 
-After collapsing and building tomorrow's schedule, check that This Week.md has day sections covering at least 7 days from tomorrow. Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). If fewer than 7 days of coverage exist from tomorrow forward:
+After collapsing and building tomorrow's schedule, ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m-%d"` (i.e. today + 7 calendar days). Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). For any missing days:
 
 1. Run `date -d "+N days" +"%A %d %b"` for each missing day to get correct day-date mappings
-2. Add empty day sections after the last existing day, before the `---` / Refs / Pending decisions sections
-3. Format: `## [Day] [DD] [Mon]` with no content (just the heading) — they'll be populated as items get routed to them
+2. Add new day sections after the last existing day, before the `---` / Refs / Pending decisions sections
+3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete them from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
+4. Format for days with no Tickler items: `## [Day] [DD] [Mon]` with no content (just the heading)
+5. **Update the file heading** date range to match the new end date: `# This Week — [start] – [new end] [YYYY]`
 
 This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
 
@@ -285,16 +287,20 @@ Append a session entry for the goodnight session itself to today's session file.
 
 ### 12. Find Previous Session and Determine Next Session Number
 
-1. Read today's session file to find the last session number
-2. New session number = last + 1
-3. Store previous session's heading for forward linking
+Extract the last session number mechanically — do NOT count by reading:
+```bash
+PREV_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
+NEW_NUM=$((PREV_NUM + 1))
+echo "Previous: $PREV_NUM, New: $NEW_NUM"
+```
+Store previous session's heading for forward linking.
 
 ### 13. Add Forward Link to Previous Session (with guards)
 
 **GUARD 1 - Idempotency check:**
 ```bash
-# Check if forward link already exists
-if grep -q "\\*\\*Next session:\\*\\*.*#Session $NEW_NUM - Goodnight" "$SESSION_FILE"; then
+# Check if forward link already exists (match session number, not title — title may vary)
+if grep -q "\\*\\*Next session:\\*\\*.*#Session $NEW_NUM " "$SESSION_FILE"; then
   echo "Forward link already exists, skipping"
   # Skip insertion
 fi
@@ -325,7 +331,7 @@ flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" bash -c '
 
   # Find insertion point (after last metadata line in previous session)
   INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-    grep -n "^\*\*\(Project\|Continues\|Previous session\):\*\*" | tail -1 | cut -d: -f1)
+    grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\):\*\*" | tail -1 | cut -d: -f1)
 
   # Fallback for Quick sessions (no metadata lines)
   if [ -z "$INSERT_AFTER" ]; then
@@ -366,10 +372,12 @@ fi
 
 ### 14. Append Goodnight Session Entry
 
-Use flock for concurrent safety:
+**Do NOT use heredoc inside flock — nested quoting is fragile.** Instead, use the Write or Edit tool to append the session entry directly, or write to a temp file and use flock for the append:
 
 ```bash
-flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c 'cat >> "$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md" << '\''EOF'\''
+# Write session entry to temp file first (no quoting issues)
+cat > /tmp/goodnight_session.md << 'EOF'
+
 
 ## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
 
@@ -388,8 +396,15 @@ flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" -c 'cat >> "$VAULT_PA
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
 **Previous session:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N-1 - Previous Title]]
-EOF'
+EOF
+
+# Append atomically under lock
+flock -w 10 "$VAULT_PATH/06 Archive/Claude Sessions/.lock" bash -c \
+  'cat /tmp/goodnight_session.md >> "'"$SESSION_FILE"'"'
+rm -f /tmp/goodnight_session.md
 ```
+
+**Preferred method:** Use the Edit/Write tool to append (no shell quoting issues at all). Only use bash+flock if concurrent writes are a real risk (multiple Claude instances).
 
 **Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
 

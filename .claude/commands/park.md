@@ -128,7 +128,17 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 ### Phase 3: Document and Archive
 
 5. **Determine session metadata:**
-   - Session number for today (check existing file at `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` to find last session number, or start at 1)
+   - Session number for today — extract mechanically, do NOT count by reading:
+     ```bash
+     SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
+     if [ -f "$SESSION_FILE" ]; then
+       LAST_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
+       NEW_NUM=$((LAST_NUM + 1))
+     else
+       NEW_NUM=1
+     fi
+     echo "Session number: $NEW_NUM"
+     ```
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
    - Related project (if applicable):

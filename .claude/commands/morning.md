@@ -222,10 +222,12 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 Rolling 7 days from today — each /morning recalculates.
 
-**Extending an existing This Week.md:** Even when NOT creating a new file, check the rolling window. Count future day headings from today. If fewer than 7 days of coverage exist:
+**Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Check the rolling window. Ensure day sections exist through at least `date -d "+7 days" +"%Y-%m-%d"` (today + 7 calendar days). For any missing days:
 1. Run `date -d "+N days" +"%A %d %b"` for each missing day
-2. Add empty day sections after the last existing day, before `---` / Refs / Pending decisions
-3. Format: `## [Day] [DD] [Mon]` — just headings, populated later as items route to them
+2. Add new day sections after the last existing day, before `---` / Refs / Pending decisions
+3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
+4. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
+5. **Update the file heading** date range to match the new end date
 
 This prevents the file from shrinking as `/goodnight` collapses past days.
 
