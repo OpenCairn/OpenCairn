@@ -36,8 +36,8 @@ If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` w
 ### 1. Check current date/time
 
 ```bash
-date +"%A, %d %b %Y"  # friendly display
-date +"%Y-%m-%d"       # for file paths if needed
+date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
+date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
 ### 2. Surface the Landscape (auto, ~1 min)
@@ -58,7 +58,9 @@ Read and present:
 
 Present concisely:
 ```
-Good morning. Here's your landscape:
+Good morning. **[HH:MM TZ] — [Day], [DD] [Mon] [YYYY]**
+
+Here's your landscape:
 
 **Active projects:**
 - [Project] - [status/next action]

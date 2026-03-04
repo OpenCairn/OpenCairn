@@ -38,9 +38,8 @@ If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` w
 ### 1. Check current date/time
 
 ```bash
-date +"%A, %d %b %Y"  # friendly display
-date +"%Y-%m-%d"       # for file paths
-date +"%I:%M%P" | tr '[:upper:]' '[:lower:]'  # for session timestamp
+date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
+date +"%Y-%m-%d"                   # for file paths and session timestamp
 ```
 
 ### 2. Gather Today's Activity (auto)
@@ -89,7 +88,7 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 **Now** display the report using your corrected working memory:
 
 ```
-## Today's Report - [Day, Date]
+## Today's Report — [Day], [DD] [Mon] [YYYY] — [HH:MM TZ]
 
 **Sessions:** N
 **Projects touched:** [list]
