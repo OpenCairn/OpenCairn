@@ -44,7 +44,7 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
-- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 9 day sections: 2 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
+- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration:** If `$VAULT_PATH/01 Now/This Week.md` exists, parse its date range from the heading (e.g. "28 Feb – 7 Mar 2026"). Check Tickler for unchecked items with date headers falling within that range that aren't already represented in This Week.md. If any found, flag them:
   ```
@@ -222,16 +222,16 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 - [[wikilinks to relevant project/area files]]
 ````
 
-Rolling window: 2 past + today + 6 future = 9 sections max. Each /morning trims and extends.
+Rolling window: 3 past + today + 6 future = 10 sections max. Each /morning trims and extends.
 
 **Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Two operations, in order: trim old days, then extend the window.
 
-**a) Trim old day sections:** Before extending, delete any day sections whose date is more than 2 calendar days before today. Past days are already archived in Daily Reports — keeping them past 2 days adds clutter without value. Mechanically:
+**a) Trim old day sections:** Before extending, delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value. Mechanically:
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
-2. For each day section, compute: `today_date - section_date`. If > 2 calendar days, delete the heading and all content until the next `## ` heading.
-3. Keep yesterday and the day before for quick reference. Today and future days are never trimmed.
+2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
+3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 
-**b) Ensure 6 upcoming days exist:** After trimming, ensure day sections exist for today + 6 calendar days ahead (7 total including today). This gives a rolling window of at most 9 sections: 2 past + today + 6 future. For any missing days:
+**b) Ensure 6 upcoming days exist:** After trimming, ensure day sections exist for today + 6 calendar days ahead (7 total including today). This gives a rolling window of at most 10 sections: 3 past + today + 6 future. For any missing days:
 1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
 2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
 3. **Remove day sections beyond the 6-day window:** If any day sections exist with dates more than 6 calendar days after today, delete them (heading + content until next `## ` heading)
