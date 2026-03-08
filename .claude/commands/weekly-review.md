@@ -243,6 +243,13 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 - [List each past-due item with original date]
 - **Action needed:** [Complete, reschedule, or drop each item]
 
+**This Week.md Hygiene:**
+- Completed backlog items purged: N `[x]` lines removed
+- Stale trailing sections flagged: [list any sections where >75% content is resolved/done/strikethrough]
+  - **User decision needed:** Keep or delete each flagged section
+- Header metadata check: [Status/Location lines current | Flagged as stale — currently says "X", daily reports show "Y"]
+  - **User decision needed:** Update if flagged
+
 ### Claude Corrections Log Review
 **New entries this week:**
 - [Date] - [Mistake summary] - Lesson: [key takeaway]
@@ -301,7 +308,13 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
    - For each past-due item: recommend complete, reschedule (with new date), or drop
    - Clean up completed tickler items that were already pulled into weekly plans
 
-   **Execute fixes** with user confirmation for anything destructive (file moves, deletions). Pruning WIP content and trimming session links can proceed automatically.
+   **This Week.md hygiene (auto-fix + confirm):**
+   - Read `$VAULT_PATH/01 Now/This Week.md`
+   - **Purge completed backlog items (auto-fix):** Delete all `- [x]` lines from the Backlog section. These are done — keeping them adds visual noise. `- [ ]` items are untouched.
+   - **Audit trailing sections for staleness (confirm with user):** Scan any sections after the last day section (e.g., Pending decisions, Reply tracker, Refs). Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion to user — don't auto-delete, since these are structural sections the user may want to keep.
+   - **Update header metadata (confirm with user):** Check the `**Status:**` and `**Location:**` lines against the most recent daily report. If they reference a location or context that's no longer current (e.g., still says "Shenzhen" when daily reports show "Shanghai"), flag for user to update. Don't auto-rewrite — the user knows their current situation better.
+
+   **Execute fixes** with user confirmation for anything destructive (file moves, deletions). Pruning WIP content, trimming session links, and purging completed backlog items from This Week.md can proceed automatically.
 
 8. **Update Works in Progress** (if needed):
    - Update project statuses based on weekly progress
