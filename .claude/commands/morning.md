@@ -44,7 +44,7 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
-- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling 7-day window, not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
+- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 9 day sections: 2 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration:** If `$VAULT_PATH/01 Now/This Week.md` exists, parse its date range from the heading (e.g. "28 Feb – 7 Mar 2026"). Check Tickler for unchecked items with date headers falling within that range that aren't already represented in This Week.md. If any found, flag them:
   ```
@@ -201,7 +201,7 @@ Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Ta
 **Creation:** If This Week.md is stale or missing:
 > "This Week.md is [stale/missing]. Want me to create one for this week?"
 
-If yes — and if replacing a stale file, first show unchecked items from the old This Week.md and ask which to carry forward into the new week. Then create `$VAULT_PATH/01 Now/This Week.md` — rolling 7-day window. Today gets the full timeline (including carried-forward items); future days get simple task lists:
+If yes — and if replacing a stale file, first show unchecked items from the old This Week.md and ask which to carry forward into the new week. Then create `$VAULT_PATH/01 Now/This Week.md` — today + 6 future days (7 sections). Today gets the full timeline (including carried-forward items); future days get simple task lists:
 
 ````
 # This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
@@ -237,7 +237,7 @@ Rolling window: 2 past + today + 6 future = 9 sections max. Each /morning trims 
 3. **Remove day sections beyond the 6-day window:** If any day sections exist with dates more than 6 calendar days after today, delete them (heading + content until next `## ` heading)
 4. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
 5. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
-6. **Update the file heading** date range to match the new end date
+6. **Update the file heading** date range: set start date to the earliest remaining day section, end date to the latest
 
 This keeps the file compact: old days are trimmed, the future window stays consistent, and `/goodnight` collapse is no longer the only mechanism for clearing past days.
 
