@@ -224,14 +224,22 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 Rolling 7 days from today — each /morning recalculates.
 
-**Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Check the rolling window. Ensure day sections exist through at least `date -d "+7 days" +"%Y-%m-%d"` (today + 7 calendar days). For any missing days:
-1. Run `date -d "+N days" +"%A %d %b"` for each missing day
-2. Add new day sections after the last existing day, before `---` / Refs / Pending decisions
-3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
-4. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
-5. **Update the file heading** date range to match the new end date
+**Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Two operations, in order: trim old days, then extend the window.
 
-This prevents the file from shrinking as `/goodnight` collapses past days.
+**a) Trim old day sections:** Before extending, delete any day sections whose date is more than 2 calendar days before today. Past days are already archived in Daily Reports — keeping them past 2 days adds clutter without value. Mechanically:
+1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
+2. For each day section, compute: `today_date - section_date`. If > 2 calendar days, delete the heading and all content until the next `## ` heading.
+3. Keep yesterday and the day before for quick reference. Today and future days are never trimmed.
+
+**b) Ensure 6 upcoming days exist:** After trimming, ensure day sections exist for today + 6 calendar days ahead (7 total including today). This gives a rolling window of at most 9 sections: 2 past + today + 6 future. For any missing days:
+1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
+2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
+3. **Remove day sections beyond the 6-day window:** If any day sections exist with dates more than 6 calendar days after today, delete them (heading + content until next `## ` heading)
+4. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
+5. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
+6. **Update the file heading** date range to match the new end date
+
+This keeps the file compact: old days are trimmed, the future window stays consistent, and `/goodnight` collapse is no longer the only mechanism for clearing past days.
 
 **If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
