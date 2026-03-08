@@ -222,7 +222,7 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 - [[wikilinks to relevant project/area files]]
 ````
 
-Rolling 7 days from today — each /morning recalculates.
+Rolling window: 2 past + today + 6 future = 9 sections max. Each /morning trims and extends.
 
 **Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Two operations, in order: trim old days, then extend the window.
 
