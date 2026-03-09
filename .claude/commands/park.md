@@ -482,3 +482,7 @@ When triggered by cue words, acknowledge and proceed with session capture. Use t
 The goal is Cal Newport's "shutdown complete" ritual — explicit acknowledgement of open loops so the mind can truly rest, or so you can compact context and keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
 
 **For completed work:** Capture it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

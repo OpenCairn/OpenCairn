@@ -303,3 +303,7 @@ Run quarterly, typically:
 - **Feeds into annual review:** (If the user implements one)
 - **Complements /weekly-review:** Weekly handles tactical maintenance; quarterly handles strategic + deep structural
 - **Informs context files:** The primary mechanism for keeping `07 System/Context - *.md` files accurate
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

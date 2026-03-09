@@ -191,3 +191,7 @@ for the session file name and Obsidian will find it in the new location.
 - Dry-run available for validation
 
 This keeps the archive manageable as it grows to thousands of sessions over years.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

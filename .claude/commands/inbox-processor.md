@@ -159,3 +159,7 @@ Run inbox processing:
 - **Complements /research-assistant:** Organised resources are easier to search
 
 This creates a **clear separation between capture (fast) and organisation (thoughtful)**.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

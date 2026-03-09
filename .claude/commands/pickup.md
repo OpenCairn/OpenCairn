@@ -428,3 +428,7 @@ This command enables:
 Combined with `/park`, this creates the bulletproof **park and pickup system**.
 
 **Reads from:** Claude Sessions, Works in Progress, Tickler
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

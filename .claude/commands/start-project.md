@@ -201,3 +201,7 @@ If unsure whether something is a project or a task: if it needs multiple session
 - **Session summaries:** Session History section captures all work
 - **complete-project:** Eventual counterpart to archive when done
 
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
+

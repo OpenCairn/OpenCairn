@@ -257,3 +257,7 @@ If the user starts tracking explicit goals in the vault:
 - Compare weekly effort to goal progress
 - Flag misalignments ("You spent 40% of time on X, but it's not in your top 3 goals")
 - Suggest reallocation or goal updates
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
