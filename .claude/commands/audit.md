@@ -10,7 +10,7 @@ You are auditing an implementation. This applies to anything with logic and stru
 
 ## Philosophy
 
-**Zoom out before zooming in.** Most review effort goes to implementation details (step 4), but steps 1-3 are higher leverage and get skipped by default. A perfectly implemented wrong approach is still wrong.
+**Zoom out before zooming in.** Most review effort goes to implementation details (Layer 4), but Layers 1-3 are higher leverage and get skipped by default. A perfectly implemented wrong approach is still wrong.
 
 **Iterate until clean.** Every fix changes the system — re-audit after each fix. A single-pass audit is just a bug report. Keep going until a full pass finds nothing.
 
@@ -95,6 +95,7 @@ Theory vs. reality. Can you verify it runs?
 - **Severity is implicit in the layer:** Don't add separate severity labels — Layer 1 findings are inherently more important than Layer 4.
 - **Don't pad:** If the implementation is solid, say so. "Clean pass" is a valid audit result.
 - **Scope to what was asked:** Audit the target, not the surrounding codebase. Flag adjacent concerns briefly if they're blocking, but don't expand scope without asking.
+- **Earn the clean pass:** Layer 1-3 findings are uncomfortable but high-value — they mean the approach itself may be wrong. A clean pass at these layers must be earned by articulating *why* the approach is right, not assumed by jumping to implementation details.
 
 ---
 
