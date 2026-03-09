@@ -96,7 +96,27 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
    - Update header metadata: check `**Status:**` and `**Location:**` lines against the most recent daily report. Flag if stale.
 
-8. **Vault Consistency Checks**
+8. **Claude Memory Audit**
+
+   Claude Code's auto-memory (`~/.claude/projects/*/memory/MEMORY.md` and any topic files alongside it) accumulates observations across sessions. Left unchecked, it drifts — stale entries, duplicated context already in the vault, vague impressions that degrade Claude's focus.
+
+   **Gather:**
+   - Locate the active memory directory: `ls ~/.claude/projects/*/memory/` — find the one matching the current working directory's path encoding
+   - Read all `.md` files in that directory
+   - Read `CLAUDE.md` from the vault root (needed for duplicate detection)
+   - Count total entries/lines across all memory files
+
+   **Flag for user review:**
+   - **Stale entries:** Memories about completed projects, resolved decisions, or outdated state
+   - **Vault duplicates:** Memories that restate what's already in CLAUDE.md or files loaded in earlier hygiene steps (WIP, Tickler, This Week, Working Memory) — the vault is the source of truth, not memory
+   - **Vague impressions:** Entries that lack specificity ("user prefers X" without concrete mechanism) — these waste context window without adding value
+   - **Contradictions:** Entries that conflict with current vault content or CLAUDE.md
+
+   **Confirm with user:**
+   - Present each flagged entry with recommendation (delete / update / keep)
+   - Don't auto-delete — memory entries may contain context the user values that isn't obvious from vault content alone
+
+9. **Vault Consistency Checks**
 
    **Broken wikilinks:**
    ```bash
@@ -116,7 +136,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - "PGD" → deprecated, should be PGT-M
    Report instances for user review — don't auto-fix terminology.
 
-9. **Write Hygiene Report**
+10. **Write Hygiene Report**
 
    Write all findings to `$VAULT_PATH/01 Now/Hygiene Report.md` (overwrite if exists):
 
@@ -157,6 +177,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Stale trailing sections: [list or "none"]
    - Header metadata: [current / flagged]
 
+   ## Claude Memory
+   - Total entries/lines: N across M files
+   - Stale entries: [list or "none"]
+   - Vault duplicates: [list or "none"]
+   - Vague/low-value entries: [list or "none"]
+   - Contradictions: [list or "none"]
+
    ## Vault Consistency
    - Broken wikilinks: [list or "none"]
    - Orphaned files: [list or "none"]
@@ -169,7 +196,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [ ] [Each item requiring user confirmation]
    ```
 
-10. **Display confirmation:**
+11. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 01 Now/Hygiene Report.md
