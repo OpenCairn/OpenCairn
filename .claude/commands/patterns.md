@@ -46,3 +46,7 @@ Find patterns, themes, and connections across files related to a topic.
 ```
 
 5. **Be concise** - This is for quick pattern recognition, not comprehensive summaries. Aim for actionable insights.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

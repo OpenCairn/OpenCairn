@@ -132,3 +132,6 @@ If unsure, ask the user: "Is this project truly complete, or just on hold?"
 - **Session summaries:** Searchable record of when projects ended
 - **Archive:** Long-term storage of all project history
 
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

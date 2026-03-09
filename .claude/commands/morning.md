@@ -193,6 +193,8 @@ Pull items from:
 - The "one thing" from step 5
 - Anything the user mentioned in step 3
 
+**Move, not copy.** When an item from the Backlog section is scheduled into today's timeline, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
+
 Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`). Detailed completion notes go in the "Done today" subsection under today's day heading.
 
 **Future days** in the same file stay simple — just task lists under the `## ` heading, no `### Morning/Afternoon/Evening` sub-sections. They get expanded with the full timeline format when that day becomes "today" via /morning.
@@ -298,3 +300,7 @@ This command should trigger when the user says:
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

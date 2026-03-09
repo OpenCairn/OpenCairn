@@ -124,3 +124,7 @@ After external research (if needed):
 - **Avoid redundant capture:** If info already exists in vault, link to it rather than duplicating
 - **Update suggestions:** If research reveals gaps, suggest where new info should go
 
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
+

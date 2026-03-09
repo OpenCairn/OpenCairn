@@ -171,3 +171,7 @@ To restore context on return: `/awaken` or `/pickup --hibernate=2026-01-17`
 | Temporal | Session-to-session | Weeks/months apart |
 
 Both complement each other. Park handles continuity; hibernate handles discontinuity.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

@@ -191,3 +191,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 - **Standalone:** Run mid-week for a quick cleanup
 - **Pre-review:** Run before `/weekly-review` — the review will consume the hygiene report
 - **Weekly-review fallback:** If `/weekly-review` finds no hygiene report, it suggests running `/weekly-hygiene` first
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

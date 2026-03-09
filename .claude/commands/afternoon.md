@@ -166,3 +166,7 @@ This command should trigger when the user says:
 - **May update:** This Week.md (mark done, add tasks), Works in Progress (if priorities shifted)
 - **Complements:** `/morning` (start of day), `/goodnight` (end of day), `/park` (end of session)
 - **Not a replacement for:** `/park` (regroup doesn't close sessions, just recalibrates)
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

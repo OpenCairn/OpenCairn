@@ -161,3 +161,7 @@ Use de-AI-ify:
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
 
 This ensures **the user's authentic voice in all published work**.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

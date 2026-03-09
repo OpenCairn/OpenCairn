@@ -240,3 +240,7 @@ This is fine - life happens. Priorities may have shifted more than expected.
 | Frequency | Daily/session | Extended breaks only |
 
 Use `/pickup` for yesterday. Use `/awaken` for months ago.
+
+---
+
+**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
