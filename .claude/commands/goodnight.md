@@ -263,7 +263,7 @@ Replace tomorrow's day section with the full timeline format (same as `/morning`
 
 **Timeline format:** Bold entire line = items longer than 1 hour (`- [ ] **14:00–17:00 Workshop (3h)**`), normal weight = 1 hour or under (`- [ ] 09:00 Call (30m)`), duration in parentheses, `### Morning/Afternoon/Evening` section dividers, plain text lines (no checkbox) = time container headers, `~` = approximate time, `(tentative)` suffix for unconfirmed items. Every actionable item gets a `- [ ]` checkbox.
 
-Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline code block.
+Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline.
 
 **4. Maintain rolling 7-day horizon.**
 
