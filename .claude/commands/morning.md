@@ -110,7 +110,7 @@ For every item the user mentioned:
    - **Research/idea** → Write to the relevant project or area file
    - **Just venting** → Don't write. But this category should be rare — most things people say in the morning are at least "note-worthy"
 
-2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 7. Do not hold them in conversational memory.
+2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 6. Do not hold them in conversational memory.
 
 3. **Confirm with a receipt.** After writing, show the user a summary:
    ```
@@ -125,15 +125,7 @@ For every item the user mentioned:
 
 **Why this gate exists:** The failure mode is: user dumps 10 items, Claude discusses all 10 intelligently, user assumes they're captured, they're not. Conversation is volatile memory. Files are the system of record. The gap between "discussed" and "captured" is where trust erodes.
 
-### 5. Set Intention (optional closer)
-
-Ask:
-> "What's your one thing for today? Or skip if you'd rather stay open."
-
-- If they have one: note it, offer to add to WIP or just hold it
-- If skip: that's fine, some days are exploratory
-
-### 6. Update This Week.md (optional)
+### 5. Update This Week.md (optional)
 
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
 
@@ -190,7 +182,6 @@ Pull items from:
 - WIP next actions
 - Yesterday's queue (from /goodnight Daily Report)
 - Tickler items due today
-- The "one thing" from step 5
 - Anything the user mentioned in step 3
 
 **Move, not copy.** When an item from the Backlog section is scheduled into today's timeline, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
@@ -246,7 +237,7 @@ This keeps the file compact: old days are trimmed, the future window stays consi
 
 **If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
-### 7. Output (conditional)
+### 6. Output (conditional)
 
 **Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for This Week.md and any additional generative content — not for deferred captures.
 
@@ -258,7 +249,7 @@ This keeps the file compact: old days are trimmed, the future window stays consi
 
 **If nothing:** Just close cleanly.
 
-### 8. Close
+### 7. Close
 
 Short and light:
 ```
