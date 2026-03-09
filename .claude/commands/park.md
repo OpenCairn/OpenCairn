@@ -100,12 +100,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Were any "Next Steps" completed during the session? Remove them from the list (they're no longer open)
 
    **PROOFREAD** - Language and consistency:
-   - American → Australian/British English (organise, categorise, prioritise, realise, analyse, summarise, colour, favour)
+   - **Spelling localisation:** Use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling (organise, categorise, prioritise, realise, analyse, summarise, colour, favour). If `en_US`: normalise to American spelling. If no locale set: skip spelling normalisation.
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice
 
-   **Scope:** Check ALL files modified during the session, not just vault files. If the session touched repo files (e.g. `~/repos/OpenCairn/`), command files (`~/.claude/commands/`), or scripts, include those in the quality gate. Spelling conventions (AU English) apply primarily to vault prose; command/script files get lint and refactor checks but spelling is less critical there.
+   **Scope:** Check ALL files modified during the session, not just vault files. If the session touched repo files (e.g. `~/repos/OpenCairn/`), command files (`~/.claude/commands/`), or scripts, include those in the quality gate. Spelling localisation applies primarily to vault prose; command/script files get lint and refactor checks but spelling is less critical there.
 
    **Fix any issues found automatically.**
 
