@@ -38,7 +38,9 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
    **Hygiene report:**
    - Check if `$VAULT_PATH/01 Now/Hygiene Report.md` exists
-   - If it exists, read it — its findings will populate the Vault Maintenance section of the review output
+   - If it exists, parse the `**Generated:**` timestamp and compare to current time:
+     - **Fresh (≤20h old):** Read and incorporate — no warning
+     - **Stale (>20h old):** Warn: "Hygiene report is N days/hours old — vault state may have changed. Consider re-running `/weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
    - If it does not exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
@@ -172,6 +174,8 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
 ### Vault Maintenance
+*Hygiene report from: YYYY-MM-DD HH:MM (fresh / N days stale — re-run recommended / not found)*
+
 [Populated from Hygiene Report if available — see `/weekly-hygiene`]
 
 [Summary of hygiene findings: WIP health, tier mismatches, tickler items, broken links, etc.]
