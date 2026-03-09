@@ -1,17 +1,18 @@
 ---
 name: quarterly-review
-description: Quarterly deep review - strategic alignment, vault structural health, and context file accuracy
+description: Quarterly deep review - strategic alignment, landscape scan, vault structural health, and context file accuracy
 ---
 
 # Quarterly Review - Deep Maintenance and Strategic Check
 
-You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction, vault structural health, and context file accuracy. Things that are too heavy for weekly but accumulate debt if never done.
+You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction, external landscape awareness, vault structural health, and context file accuracy. Things that are too heavy for weekly but accumulate debt if never done.
 
 ## Philosophy
 
-Quarterly review serves two purposes:
+Quarterly review serves three purposes:
 1. **Strategic alignment** — Are the projects and priorities from 3 months ago still the right ones? What emerged that wasn't planned? What was planned but never started?
-2. **Vault deep maintenance** — Structural debt that accumulates slowly: context files drifting from reality, broken wikilinks, CRM gaps, orphaned files in areas that nobody visits weekly.
+2. **Landscape scan** — What exists externally that you should know about? Patterns, tools, and architecture from teams and practitioners doing similar work.
+3. **Vault deep maintenance** — Structural debt that accumulates slowly: context files drifting from reality, broken wikilinks, CRM gaps, orphaned files in areas that nobody visits weekly.
 
 ## Instructions
 
@@ -62,9 +63,44 @@ Quarterly review serves two purposes:
 - "What needs to start now to be ready on time? (Long Poles)"
 - "What should you stop doing?"
 
+4. **Landscape Scan — What exists that you should know about:**
+
+   Use web search and scraping to check these specific sources. The goal is patterns and architecture, not a tool-adoption spree — "how did they solve X?" over "should I switch to Y?"
+
+   **Claude Code ecosystem:**
+   - https://github.com/hesreallyhim/awesome-claude-code — curated skills, hooks, slash commands, agent orchestrators, plugins
+   - https://github.com/rohitg00/awesome-claude-code-toolkit — comprehensive toolkit (agents, skills, commands, plugins, hooks, rules, templates, MCP configs)
+   - https://github.com/travisvn/awesome-claude-skills — skills and workflow customisation
+   - https://code.claude.com/docs — official docs (new features, patterns since last quarter)
+
+   **Obsidian + Claude PKM systems** (direct OpenCairn comparables):
+   - https://github.com/ballred/obsidian-claude-pkm — starter kit with agents, skills, auto-commit hooks, goal hierarchy
+   - https://github.com/ArtemXTech/claude-code-obsidian-starter — another starter kit with skills for projects, tasks, daily routines
+
+   **Practitioner writeups** (people building similar systems):
+   - Search for recent posts on Claude Code + PKM workflows, Obsidian + AI second brain patterns
+   - Obie Fernandez's "Personal CTO Operating System with Claude Code" (Medium)
+   - Matt Stockton's "How Claude Code Became My Knowledge Management System"
+
+   **Docs-for-AI / knowledge structuring:**
+   - Mintlify — docs-as-code with AI search, structuring for dual human/AI consumption
+   - Documentation.AI — AI agents for documentation structure and maintenance
+   - GitBook — docs-as-code with AI features
+
+   **PKM landscape:**
+   - PKM Weekly newsletter (https://www.pkmweekly.com/) — weekly digest of the space
+   - AFFiNE, Tana — AI-native alternatives to Obsidian worth monitoring
+
+   For each relevant finding:
+   - What does it do?
+   - What problem does it solve that OpenCairn currently handles manually (or doesn't handle)?
+   - Classify: **adopt** (use directly), **adapt** (extract the pattern for OpenCairn), or **note** (interesting, not actionable now)
+
+   If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on — don't block the review. Flag it in the Sources list updates section so the command file gets cleaned up.
+
 ### Part 2: Vault Deep Maintenance
 
-4. **Context file accuracy audit:**
+5. **Context file accuracy audit:**
    - Read each `07 System/Context - *.md` file
    - For each file, check:
      - Are factual claims still accurate? (job title, location, hardware specs, active subscriptions)
@@ -74,7 +110,7 @@ Quarterly review serves two purposes:
    - Flag inaccuracies and propose corrections
    - **Ask the user to confirm** corrections before applying (context files are high-trust, wrong corrections are worse than stale content)
 
-5. **Vault-wide broken link scan:**
+6. **Vault-wide broken link scan:**
    ```bash
    # Extract all wikilinks and check if targets exist
    grep -roh '\[\[[^]]*\]\]' "$VAULT_PATH" --include="*.md" | \
@@ -92,14 +128,14 @@ Quarterly review serves two purposes:
      - **Typos** — fix the link
    - Fix automatically where unambiguous, ask user for ambiguous cases
 
-6. **CRM health review** (if CRM exists):
+7. **CRM health review** (if CRM exists):
    - Read CRM index and range files
    - Check if existing CRM entries have stale information (old roles, old contact details, outdated context)
    - Review CRM candidate sections from this quarter's weekly reviews — anyone flagged multiple weeks but never added?
    - Flag stale entries and persistent gaps
    - **Don't auto-modify** — present findings and let user decide
 
-7. **Orphaned file scan:**
+8. **Orphaned file scan:**
    - Find files in `04 Areas/` and `05 Resources/` not linked from any other file:
      ```bash
      # List all .md files in Areas and Resources
@@ -115,7 +151,7 @@ Quarterly review serves two purposes:
    - Orphans are candidates for: linking from a parent, archiving, or deleting
    - Present list to user for triage
 
-8. **Archive/folder structure review:**
+9. **Archive/folder structure review:**
    - Check `03 Projects/` tier alignment with WIP (extends the weekly check but more thoroughly):
      - Every Active/Big Rock WIP entry should have a project file in `03 Projects/` root
      - Every Backlog WIP entry should have a file in `03 Projects/Cold/`
@@ -126,12 +162,12 @@ Quarterly review serves two purposes:
 
 ### Part 3: Output
 
-9. **Ensure output directory exists:**
+10. **Ensure output directory exists:**
    ```bash
    mkdir -p "$VAULT_PATH/06 Archive/Quarterly Reviews"
    ```
 
-10. **Generate quarterly review:**
+11. **Generate quarterly review:**
 
 Create a file at `$VAULT_PATH/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
@@ -163,6 +199,21 @@ Create a file at `$VAULT_PATH/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 ### Kill List
 Projects to explicitly abandon rather than let linger:
 - [ ] [Project] — Reason to kill
+
+## Landscape Scan
+**Sources checked:** [list of repos, articles, tools reviewed]
+
+### Adopt (use directly)
+- [Tool/pattern] — [what it does, why it's relevant]
+
+### Adapt (extract the pattern)
+- [Pattern] — [how to apply it to the vault/OpenCairn]
+
+### Note (interesting, not actionable now)
+- [Thing] — [why it's interesting, when it might become relevant]
+
+### Sources list updates
+- [Any new sources to add or stale ones to remove for next quarter's scan]
 
 ## Vault Health
 
@@ -207,17 +258,18 @@ Projects to explicitly abandon rather than let linger:
 - ...
 ```
 
-11. **Execute maintenance fixes:**
+12. **Execute maintenance fixes:**
     - Apply context file corrections (user-confirmed)
     - Fix unambiguous broken links
     - Move tier-mismatched project files
     - Archive/delete user-approved orphans
     - **All destructive actions require user confirmation**
 
-12. **Display confirmation:**
+13. **Display confirmation:**
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
+✓ Landscape scan: N sources checked, M findings
 ✓ Context files audited: N files, M issues found
 ✓ Broken links: N fixed, M remaining
 ✓ CRM: N new candidates, M stale entries
@@ -234,6 +286,8 @@ Quarterly review complete.
 - **Don't try to do everything.** If the vault is large, prioritise by impact. Fix context files and broken links first. Orphan scan is lower priority.
 - **Connect to weekly reviews.** Reference weekly review insights rather than re-deriving everything from session logs.
 - **Honest strategic assessment.** The quarterly check is where you surface uncomfortable truths about priority drift.
+- **Landscape scan is research, not shopping.** The goal is patterns and architecture insights, not a tool-adoption spree. "How did they solve X?" is more valuable than "should I switch to Y?"
+- **Update the source list.** If a source goes stale or a new one emerges, update the scan's source list in the command file itself so next quarter's scan stays current.
 - **Natural language.** Write in the user's voice — analytical, outcome-focused, honest.
 
 ## Frequency
