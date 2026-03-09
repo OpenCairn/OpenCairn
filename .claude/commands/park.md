@@ -78,7 +78,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    | Tier | Action |
    |------|--------|
    | Quick | Display: `⏭ Quality check: Skipped (Quick tier)` and proceed |
-   | Full | Check all modified files + vault-wide broken link scan |
+   | Full | Check all modified files (vault AND repo) + vault-wide broken link scan |
 
    **Four categories of checks (Full tier):**
 
@@ -104,6 +104,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice
+
+   **Scope:** Check ALL files modified during the session, not just vault files. If the session touched repo files (e.g. `~/repos/OpenCairn/`), command files (`~/.claude/commands/`), or scripts, include those in the quality gate. Spelling conventions (AU English) apply primarily to vault prose; command/script files get lint and refactor checks but spelling is less critical there.
 
    **Fix any issues found automatically.**
 
