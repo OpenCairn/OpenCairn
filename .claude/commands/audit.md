@@ -16,11 +16,11 @@ You are auditing an implementation. This applies to anything with logic and stru
 
 ## Instructions
 
-### Phase 1: Identify the Target
+### Phase 1: Identify and Scope the Target
 
-1. **If the user specified what to audit**, load it.
-2. **If not**, ask: "What should I audit?" — don't guess.
-3. **Read the full implementation** before forming opinions. No drive-by observations.
+1. **If the user specified what to audit**, load it. **If not**, ask: "What should I audit?" — don't guess.
+2. **If the target is too large to read in full** (a whole repo, a multi-file system, a complex process), ask the user to narrow scope or state which parts to prioritise. An audit that silently skips things is worse than a scoped audit that's honest about its boundaries.
+3. **Read the full implementation within scope** before forming opinions. No drive-by observations.
 
 ### Phase 2: Five-Layer Audit
 
@@ -67,26 +67,26 @@ Now zoom in. Evaluate the actual work product.
 Theory vs. reality. Can you verify it runs?
 
 - For code: run it, run tests, check for obvious runtime failures
-- For plans: trace through a concrete scenario end-to-end — does it hold up?
-- For processes: simulate the first execution — where does someone get stuck?
+- For plans: pick one concrete scenario and trace through every step — narrate what happens, what each actor does, where they get the information they need. Does it hold up?
+- For processes: simulate the first real execution the same way — who does what, in what order, with what inputs? Where does someone get stuck or confused?
 - For config: validate syntax, check that referenced paths/services exist
 
 ### Phase 3: Report Findings
 
-4. **Present findings by layer**, not as a flat list. This makes severity obvious — a Layer 1 finding ("wrong approach") outranks ten Layer 4 findings ("minor bugs").
+1. **Present findings by layer**, not as a flat list. This makes severity obvious — a Layer 1 finding ("wrong approach") outranks ten Layer 4 findings ("minor bugs").
 
-5. **For each finding, state:**
+2. **For each finding, state:**
    - What's wrong (specific, no hedging)
    - Why it matters (consequence if left unfixed)
    - Suggested fix (concrete, not "consider improving")
 
-6. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents."
+3. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents."
 
 ### Phase 4: Fix and Re-audit
 
-7. **If fixes are possible and authorised**, make them.
-8. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
-9. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
+1. **If fixes are possible and authorised**, make them.
+2. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
+3. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
 
 ## Guidelines
 
