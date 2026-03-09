@@ -235,34 +235,33 @@ Nothing with `- [ ]` should remain in any collapsed section. If it does, somethi
 
 **3. Build tomorrow's visual schedule.**
 
-Replace tomorrow's day section with the full visual timeline format (same as `/morning` uses). Integrate rolled-over priority items alongside existing scheduled items:
+Replace tomorrow's day section with the full timeline format (same as `/morning` uses). Integrate rolled-over priority items alongside existing scheduled items:
 
 ````
 ## [Day] [DD] [Mon]
 
-```
-┄┄ morning (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ██ Scheduled block
-        [ ] Sub-item detail
-~HH:MM  ░░ Open/flexible time
-        [ ] Task 1
-        [ ] Task 2
-┄┄ afternoon (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ████████ Longer block (3h)
-        [ ] Task within it
-~HH:MM  ░░ Task batch
-        [ ] Task 1
-        [ ] Task 2
-┄┄ evening (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ██ Evening commitment
-~HH:MM  ░░ Computer tasks
-        [ ] Task 1
-        [ ] Task 2
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-```
+### Morning (HH:MM–HH:MM)
+- [ ] **HH:MM Scheduled block (1h30m)**
+  - [ ] Sub-item detail
+- Flexible time
+  - [ ] Task 1
+  - [ ] Task 2
+
+### Afternoon (HH:MM–HH:MM)
+- [ ] **HH:MM–HH:MM Longer block (3h)**
+  - [ ] Task within it
+- Task batch
+  - [ ] Task 1
+  - [ ] Task 2
+
+### Evening (HH:MM–)
+- [ ] **HH:MM Evening commitment (2h)**
+- Computer tasks
+  - [ ] Task 1
+  - [ ] Task 2
 ````
 
-**Timeline format:** `██` = scheduled, `████████` = longer (proportional), `░░` = flexible, `▓▓` = tentative, `[ ]` = checkbox on every actionable item, `~` = approximate time. Every actionable item gets a `[ ]` checkbox, including scheduled blocks — `[ ] ██ Meeting (1h)`. `░░` headers are the only lines without checkboxes (time containers, not tasks).
+**Timeline format:** Bold entire line = items longer than 1 hour (`- [ ] **14:00–17:00 Workshop (3h)**`), normal weight = 1 hour or under (`- [ ] 09:00 Call (30m)`), duration in parentheses, `### Morning/Afternoon/Evening` section dividers, plain text lines (no checkbox) = time container headers, `~` = approximate time, `(tentative)` suffix for unconfirmed items. Every actionable item gets a `- [ ]` checkbox.
 
 Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline code block.
 

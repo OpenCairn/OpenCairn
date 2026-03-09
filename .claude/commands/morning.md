@@ -143,28 +143,28 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the full visual timeline format — the same at-a-glance layout formerly used in the daily plan:
+Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
 
 ````
 ## [Day] [DD] [Mon]
 
-```
-┄┄ morning (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ██ Scheduled block (duration)
-        [ ] Sub-item detail
-~HH:MM  ░░ Open/flexible time
-        [ ] Option 1
-        [ ] Option 2
-┄┄ afternoon (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ████████ Longer scheduled block (3h)
-        [ ] Task within it
-~HH:MM  ░░ Admin batch
-        [ ] Task 1
-        [ ] Task 2
-┄┄ evening (HH:MM–HH:MM) ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-HH:MM   [ ] ██ Evening event
-┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-```
+### Morning (HH:MM–HH:MM)
+- [ ] **HH:MM Scheduled block (1h30m)**
+  - [ ] Sub-item detail
+- [ ] HH:MM Quick task (20m)
+- Flexible time
+  - [ ] Option 1
+  - [ ] Option 2
+
+### Afternoon (HH:MM–HH:MM)
+- [ ] **HH:MM–HH:MM Longer scheduled block (3h)**
+  - [ ] Task within it
+- Admin batch
+  - [ ] Task 1
+  - [ ] Task 2
+
+### Evening (HH:MM–)
+- [ ] **HH:MM Evening event (2h)**
 
 ### Done today
 - [x] Completed item — detail
@@ -172,16 +172,17 @@ HH:MM   [ ] ██ Evening event
 ````
 
 **Timeline format reference:**
-- `██` = scheduled block with duration: `09:00 [ ] ██ Dentist (1h)`
-- `████████` = longer blocks use more block chars, roughly proportional: `14:00 [ ] ████████ Workshop (3h)`
-- `░░` = open/flexible time: `░░ open — 90 min`
-- `▓▓` = tentative/pending: `?? ▓▓ Dinner with Sam (pending)`
-- `[ ]` = checkbox on every actionable item (sub-items and standalone tasks)
-- `┄┄` = section dividers (morning/afternoon/evening)
-- `[x]` prefix = completed items in the timeline (standard Obsidian checkbox)
-- `~` prefix = approximate time
+- **Bold entire line** = scheduled item longer than 1 hour: `- [ ] **14:00–17:00 Workshop (3h)**`
+- Normal weight = items 1 hour or under: `- [ ] 09:30 Quick call (15m)`
+- Duration in parentheses after every scheduled item: `(1h)`, `(30m)`, `(2h30m)`
+- Time prefix = scheduled at a specific time: `- [ ] 09:00 Dentist (1h)`
+- No time prefix = flexible/unscheduled: `- [ ] Reply to email (10m)`
+- Plain text (no checkbox) = time container headers: `- Flexible time`, `- Admin batch`
+- `~` prefix = approximate time: `- [ ] ~14:00 Delivery window (30m)`
+- `### Morning / Afternoon / Evening` = section dividers with time ranges
+- Tentative items get `(tentative)` suffix: `- [ ] 19:00 Dinner with Sam (tentative)`
 
-**Every actionable item gets a `[ ]` checkbox.** This includes scheduled blocks — `[ ] ██ Dentist (1h)`. The `██`/`████████` chars indicate duration, the `[ ]` makes it checkable. `░░` headers are the only lines without checkboxes (they're time containers, not tasks).
+**Every actionable item gets a `- [ ]` checkbox.** Time container headers (plain `- ` lines grouping flexible tasks) are the only lines without checkboxes.
 
 Pull items from:
 - Items carried forward from stale This Week.md (if any, noted in step 2)
@@ -194,7 +195,7 @@ Pull items from:
 
 Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`). Detailed completion notes go in the "Done today" subsection under today's day heading.
 
-**Future days** in the same file stay simple — just task lists under the `## ` heading, no timeline code block. They get expanded with the full timeline format when that day becomes "today" via /morning.
+**Future days** in the same file stay simple — just task lists under the `## ` heading, no `### Morning/Afternoon/Evening` sub-sections. They get expanded with the full timeline format when that day becomes "today" via /morning.
 
 **Refs** section at bottom of the file — `[[wikilinks]]` linking timeline items to project/area files.
 
@@ -207,7 +208,7 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 # This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
 
 ## [Today] [DD] [Mon]
-[Full timeline code block as above]
+[Full timeline with ### Morning/Afternoon/Evening sections as above]
 
 ## [Day+1] [DD] [Mon]
 - Task 1

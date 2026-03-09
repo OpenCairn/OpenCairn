@@ -63,7 +63,6 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 
 **This Week.md — today's timeline:** (if This Week.md current)
 - [x] [Completed items from timeline]
-- ░░ [Current gap or next block]
 - ▶ [Upcoming items still on timeline]
 
 **Done so far:** (from sessions, may overlap with This Week.md)
