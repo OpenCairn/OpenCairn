@@ -1,6 +1,6 @@
 ---
 name: weekly-review
-description: Weekly patterns review - aggregate progress, insights, alignment, and vault maintenance
+description: Weekly patterns review - aggregate progress, insights, and alignment
 ---
 
 # Weekly Review - Patterns Over Time
@@ -9,7 +9,7 @@ You are facilitating the user's weekly review. This is a higher-altitude review 
 
 ## Philosophy
 
-The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, realign effort with priorities, and keep the vault structurally healthy.
+The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities. Vault structural maintenance is handled by `/weekly-hygiene` — this command focuses on reflection and planning.
 
 ## Instructions
 
@@ -34,52 +34,28 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - Calculate week end: current date
    - Get date range for display: e.g., "Week 3, Jan 13-19"
 
-2. **Gather the week's data:**
+2. **Check for Hygiene Report and gather the week's data:**
+
+   **Hygiene report:**
+   - Check if `$VAULT_PATH/01 Now/Hygiene Report.md` exists
+   - If it exists, read it — its findings will populate the Vault Maintenance section of the review output
+   - If it does not exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
+
+   **Week's activity data:**
    - Read daily reports from `$VAULT_PATH/06 Archive/Daily Reports/` for dates from week start to current date
    - Read session summaries from `$VAULT_PATH/06 Archive/Claude Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
-   - Find all Scratchpad.md files: `find "$VAULT_PATH" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
-   - **Sweep for tagged tasks:**
-     - Long Poles [LP]: `grep -r "\[LP\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
-     - Cornerstones [CS]: `grep -r "\[CS\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+
+   **Sweep for tagged tasks:**
+   - Long Poles [LP]: `grep -r "\[LP\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+   - Cornerstones [CS]: `grep -r "\[CS\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
    - Read the matched files and extract the tagged items for review
-   - **Claude Corrections Log review:**
-     - Read `$VAULT_PATH/07 System/Claude Corrections Log.md`
-     - Identify entries from this week (by date header)
-     - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
-   - **Working Memory sweep:**
-     - Read `$VAULT_PATH/01 Now/Working memory.md`
-     - Count items in each section (Fresh Captures, To Review, etc.)
-     - Flag sections with 10+ unprocessed items
-     - Identify any items that appear to be actionable tasks that should be in WIP or project files
-     - Note items that have routing guidance but haven't been moved yet
-   - **Vault maintenance metrics:**
-     - WIP line count: `wc -l "$VAULT_PATH/01 Now/Works in Progress.md"`
-     - WIP session links: `grep -c "06 Archive/Claude Sessions" "$VAULT_PATH/01 Now/Works in Progress.md"`
-     - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "$VAULT_PATH/01 Now/Works in Progress.md"`
-     - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
-     - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
-   - **Projects folder audit:**
-     - List top-level: `ls "$VAULT_PATH/03 Projects/"`
-     - List Cold/: `ls "$VAULT_PATH/03 Projects/Cold/" 2>/dev/null`
-     - List Backlog/: `ls "$VAULT_PATH/03 Projects/Backlog/" 2>/dev/null`
-     - Cross-reference with WIP sections — flag tier mismatches (e.g., Active project with file in Cold/, Backlog WIP entry with file in root)
-   - **Tickler hygiene:**
-     - Read `$VAULT_PATH/01 Now/Tickler.md` (if it exists)
-     - Flag items with dates that have passed (past-due and unactioned)
-   - **CRM name scan** (if `$VAULT_PATH/07 System/CRM/` exists):
-     - Read CRM index to get list of known names
-     - Extract names from this week's session files:
-       ```bash
-       # Find name-shaped strings in this week's sessions
-       # Use $WEEK_START from step 1 (not hardcoded day-of-week)
-       find "$VAULT_PATH/06 Archive/Claude Sessions/" -name "*.md" -newermt "$WEEK_START" -exec \
-         grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
-       # Note: Includes false positives (section headers, tool names).
-       # Cross-reference against CRM — flag names that appear 2+ times but aren't in CRM.
-       ```
-     - Present candidates to user — **don't auto-add**
+
+   **Claude Corrections Log review:**
+   - Read `$VAULT_PATH/07 System/Claude Corrections Log.md`
+   - Identify entries from this week (by date header)
+   - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
 
 3. **Run the weekly review interview:**
 
@@ -89,8 +65,7 @@ Analyze the week's data through these lenses. If the user is available for inter
 - "What were the major accomplishments this week?"
 - "Which projects moved forward? Which stalled?"
 - "Time allocation: Where did the bulk of hours go?"
-- **Check for aged open loops:** Scan Tickler.md for items with dates 14+ days old, and check WIP for projects with stale "Last" timestamps. Session files are historical records — open loops live in SSOT (This Week.md, Tickler, project files)
-- **Scratchpad sweep:** Scan all `Scratchpad.md` files found in step 2 for items that have been sitting unprocessed. Flag any that are 14+ days old or have grown stale. Scratchpads are inboxes, not permanent homes.
+- If hygiene report exists, reference its open loop / scratchpad / tickler findings here rather than re-gathering
 
 **Reflect - What matters:**
 - "Key insights or learning from this week?"
@@ -175,13 +150,6 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 **Recommendation:** These have lingered for 2+ weeks. Either act or explicitly drop.
 
-### Scratchpad Sweep
-**Scratchpads with unprocessed items:**
-- `01 Now/Scratchpad.md` - N items, oldest from [date]
-- `04 Areas/[Area]/Scratchpad.md` - N items, oldest from [date]
-
-**Action needed:** Route items to proper homes or delete. Scratchpads are inboxes, not storage.
-
 ### Long Poles [LP] & Cornerstones [CS]
 
 **Long Poles** - Need lead time, can't be rushed:
@@ -194,62 +162,6 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 **Review:** Are LP items getting attention early enough? Are CS blockers being addressed?
 
-### Works in Progress Integrity Check
-**Zombie projects (in WIP but inactive 30+ days):**
-- [Project A] - Last activity: N days ago. Complete or drop?
-- [Project B] - Last activity: N days ago. Complete or drop?
-
-**Missing files:**
-- [Project C] - Listed in WIP but project file doesn't exist
-
-**Orphaned files:**
-- [Project D] - Has project file but not in WIP (add or archive?)
-
-**Recommendation:** Clean up discrepancies. Use `/complete-project` for zombie projects.
-
-### Working Memory Sweep
-**Current state:**
-- Fresh Captures: N items
-- To Review: N items
-- Cornerstone Tasks [CS]: N items
-- Long Poles [LP]: N items
-
-**Stale sections (10+ items):**
-- [Section] - N items, oldest from [date estimate]
-
-**Actionable items that should be routed:**
-- [ ] [Item] → Should be in WIP or [Project]
-- [ ] [Item] → Route to [Area scratchpad]
-
-**Recommendation:** Working Memory is a brain dump inbox, not storage. Process weekly or items become invisible.
-
-### Vault Maintenance
-
-**WIP Health:**
-- Line count: N lines (target: <300; flag if >300)
-- Session links: N total across all projects (heaviest: [Project] with M links)
-- Completed/strikethrough items still present: N
-- Stale Active projects (Last: 14+ days ago): [list any]
-- **Action needed:** [Trim session links to 3-5 per project / Remove N completed items / Demote stale projects / No action needed]
-
-**Projects Folder Hygiene:**
-- Tier mismatches: [Active WIP projects with files in Cold/ or Backlog/, or vice versa]
-- Projects that should move to Cold/ (inactive, not archived): [list any]
-- Projects that graduated to Active but file is still in Backlog/: [list any]
-- **Action needed:** [Move X to Cold/ / Move Y to root / No action needed]
-
-**Tickler Hygiene:**
-- Past-due items: N
-- [List each past-due item with original date]
-- **Action needed:** [Complete, reschedule, or drop each item]
-
-**This Week.md Hygiene:**
-- Completed backlog items purged: N `[x]` lines removed
-- Stale trailing sections flagged: [list any sections where >75% content is resolved/done/strikethrough]
-  - **User decision needed:** Keep or delete each flagged section
-- Header metadata check: [Status/Location lines current | Flagged as stale — currently says "X", daily reports show "Y"]
-  - **User decision needed:** Update if flagged
-
 ### Claude Corrections Log Review
 **New entries this week:**
 - [Date] - [Mistake summary] - Lesson: [key takeaway]
@@ -259,11 +171,12 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
-### CRM Candidates
-**New names this week (not in CRM, mentioned 2+ times):**
-- [Name] - appeared N times - Context: [which sessions/projects]
+### Vault Maintenance
+[Populated from Hygiene Report if available — see `/weekly-hygiene`]
 
-**Action needed:** Review and add to CRM if worth tracking. False positives (section headers, tool names) can be ignored.
+[Summary of hygiene findings: WIP health, tier mismatches, tickler items, broken links, etc.]
+
+*If no hygiene report: "No hygiene report available — run `/weekly-hygiene` for vault maintenance."*
 
 ### Course Corrections Needed
 [What to adjust for next week]
@@ -288,44 +201,18 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 - etc.
 ```
 
-6. **Include WIP integrity findings from step 2 in the review output.** Step 2 already gathered zombie projects, missing files, orphaned files, and tier mismatches — include those findings in the "Works in Progress Integrity Check" section of the review.
+6. **Populate Vault Maintenance section from hygiene report.** If the hygiene report exists (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
-7. **Execute vault maintenance fixes** based on findings from step 2.
-
-   Step 2 already gathered WIP metrics, projects folder audit, tickler hygiene, and staleness data. This step is the action phase — apply fixes:
-
-   **WIP pruning (auto-fix):**
-   - Trim session links to **3-5 most recent per project** (session history lives in the session archive, not WIP)
-   - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern)
-   - Remove resolved open decisions (strikethrough decisions that were answered)
-   - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — either demote or nudge (confirm with user)
-
-   **Projects folder hygiene (confirm with user):**
-   - Move project files to match their WIP tier (e.g., Cold/ file for Active project → move to root)
-   - Archive completed project files to `06 Archive/`
-
-   **Tickler hygiene (confirm with user):**
-   - For each past-due item: recommend complete, reschedule (with new date), or drop
-   - Clean up completed tickler items that were already pulled into weekly plans
-
-   **This Week.md hygiene (auto-fix + confirm):**
-   - Read `$VAULT_PATH/01 Now/This Week.md`
-   - **Purge completed backlog items (auto-fix):** Delete all `- [x]` lines from the Backlog section. These are done — keeping them adds visual noise. `- [ ]` items are untouched.
-   - **Audit trailing sections for staleness (confirm with user):** Scan any sections after the last day section (e.g., Pending decisions, Reply tracker, Refs). Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion to user — don't auto-delete, since these are structural sections the user may want to keep.
-   - **Update header metadata (confirm with user):** Check the `**Status:**` and `**Location:**` lines against the most recent daily report. If they reference a location or context that's no longer current (e.g., still says "Shenzhen" when daily reports show "Shanghai"), flag for user to update. Don't auto-rewrite — the user knows their current situation better.
-
-   **Execute fixes** with user confirmation for anything destructive (file moves, deletions). Pruning WIP content, trimming session links, and purging completed backlog items from This Week.md can proceed automatically.
-
-8. **Update Works in Progress** (if needed):
+7. **Update Works in Progress** (if needed):
    - Update project statuses based on weekly progress
    - Add new projects if they emerged this week
 
-9. **Display confirmation:**
+8. **Display confirmation:**
 
 ```
 ✓ Weekly review saved to: 06 Archive/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
-✓ Vault maintenance: [N issues found and fixed / No issues]
+✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
 ✓ Next week's focus: [Top 2-3 priorities]
 
 Weekly review complete.
@@ -352,6 +239,7 @@ Run this weekly, typically:
 
 ## Integration with Other Commands
 
+- **Consumes `/weekly-hygiene`:** Reads the hygiene report for vault maintenance findings — no need to re-gather
 - **Synthesizes daily reviews:** Aggregates daily patterns into weekly insights
 - **Informs project planning:** Identifies what needs attention, what to drop
 - **Feeds into monthly/quarterly reviews:** (If the user implements those)
