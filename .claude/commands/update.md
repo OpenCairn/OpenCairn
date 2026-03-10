@@ -255,6 +255,10 @@ git rev-parse --short $REMOTE/$BRANCH
   Scripts:  N updated, M new
   Your CLAUDE.md and vault content were not touched.
 
+  📋 Release notes: https://github.com/OpenCairn/OpenCairn/releases
+     Some updates change file paths or vault structure.
+     Check the latest release notes for any manual migration steps.
+
   Restart Claude Code to use the updated commands.
   (Just exit and re-launch)
 ```
