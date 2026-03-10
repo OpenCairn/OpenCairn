@@ -102,7 +102,7 @@ Claude Code stores memories and corrections in `~/.claude/projects/` keyed to th
 **At session end:** Use `/park` or cue words like "wrapping up", "done for now", "packing up"
 
 This will:
-- Write session summary to `06 Archive/Claude Sessions/YYYY-MM-DD.md`
+- Write session summary to `06 Archive/Claude/Sessions/YYYY-MM-DD.md`
 - Document open loops (so you can rest knowing everything is captured)
 - Enable frictionless resume next session
 

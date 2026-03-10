@@ -42,7 +42,7 @@ fi
 
 ```bash
 TODAY=$(date +"%Y-%m-%d")
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$TODAY.md"
+SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Sessions/$TODAY.md"
 ```
 
 Check if session file exists:
@@ -125,7 +125,7 @@ $ROW' '$PROVENANCE_LOG'
 "
 ```
 
-**Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude Sessions/.lock`) to avoid deadlock.
+**Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude/Sessions/.lock`) to avoid deadlock.
 
 ### 8. Display Confirmation
 
@@ -152,7 +152,7 @@ Full log: 07 System/AI Provenance Log.md
 ## Integration
 
 - **Creates:** Entries in `07 System/AI Provenance Log.md`, `.ots` proofs in `07 System/Provenance/`
-- **Reads:** Current day's session file from `06 Archive/Claude Sessions/`
+- **Reads:** Current day's session file from `06 Archive/Claude/Sessions/`
 - **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
 - **Verified by:** `/verify-provenance`
 - **Lock file:** `$VAULT_PATH/07 System/.provenance-lock` (separate from session lock)

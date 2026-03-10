@@ -52,12 +52,12 @@ Read and present:
   - [Item] (tickler date: YYYY-MM-DD)
   ```
   In step 4 (Capture Gate), offer to add them to the appropriate day in This Week.md. Per SSOT rules: once an item moves to This Week.md, delete it from Tickler — This Week becomes the canonical location.
-- **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude Sessions/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
-- **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
+- **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude/Sessions/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
+- **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 - **Review staleness:** Check when the last weekly review and quarterly review were run:
   ```bash
-  ls -1t "$VAULT_PATH/06 Archive/Weekly Reviews/"*.md 2>/dev/null | head -1
+  ls -1t "$VAULT_PATH/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | head -1
   ls -1t "$VAULT_PATH/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | head -1
   ```
   Weekly review files are `YYYY-Wnn.md` (ISO week number). Quarterly files are `YYYY-QN.md`. Convert the most recent filename of each type to a date and calculate days elapsed. Flag if weekly review is >10 days old or quarterly review is >100 days old. Show each overdue review individually — don't mention reviews that are current. If a review directory is empty or missing, skip that review type entirely (don't flag a cadence the user hasn't started).

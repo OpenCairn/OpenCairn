@@ -46,7 +46,7 @@ For each entry in the log, perform steps 3–5:
 ### 3. Check File Existence
 
 ```bash
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/$SESSION_FILENAME"
+SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Sessions/$SESSION_FILENAME"
 if [[ ! -f "$SESSION_FILE" ]]; then
   echo "MISSING: $SESSION_FILENAME"
   # Record as MISSING, continue to next entry
@@ -142,7 +142,7 @@ If OTS proofs are pending and upgradeable, offer:
 
 ## Integration
 
-- **Reads:** `07 System/AI Provenance Log.md`, session files in `06 Archive/Claude Sessions/`, OTS proofs in `07 System/Provenance/`
+- **Reads:** `07 System/AI Provenance Log.md`, session files in `06 Archive/Claude/Sessions/`, OTS proofs in `07 System/Provenance/`
 - **May update:** Provenance Log (if user approves re-hashing or OTS status updates)
 - **Complements:** `/provenance` (creates entries), `/park` `/checkpoint` `/goodnight` (auto-creates entries)
 

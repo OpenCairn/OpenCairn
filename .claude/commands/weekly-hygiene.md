@@ -27,7 +27,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Gather:**
    - WIP line count: `wc -l "$VAULT_PATH/01 Now/Works in Progress.md"`
-   - WIP session links: `grep -c "06 Archive/Claude Sessions" "$VAULT_PATH/01 Now/Works in Progress.md"`
+   - WIP session links: `grep -c "06 Archive/Claude/Sessions" "$VAULT_PATH/01 Now/Works in Progress.md"`
    - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
    - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "$VAULT_PATH/01 Now/Works in Progress.md"`
    - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
@@ -81,7 +81,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read CRM index to get list of known names
    - Extract names from recent session files:
      ```bash
-     find "$VAULT_PATH/06 Archive/Claude Sessions/" -name "*.md" -mtime -7 -exec \
+     find "$VAULT_PATH/06 Archive/Claude/Sessions/" -name "*.md" -mtime -7 -exec \
        grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
      ```
    - Flag names that appear 2+ times but aren't in CRM — **don't auto-add**, present candidates to user
@@ -138,7 +138,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 10. **Write Hygiene Report**
 
-   Write all findings to `$VAULT_PATH/01 Now/Hygiene Report.md` (overwrite if exists):
+   Write all findings to `$VAULT_PATH/06 Archive/Claude/Hygiene Report.md` (overwrite if exists):
 
    ```markdown
    # Vault Hygiene Report
@@ -199,7 +199,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 11. **Display confirmation:**
 
     ```
-    ✓ Hygiene report saved to: 01 Now/Hygiene Report.md
+    ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Report.md
     ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge)
     ✓ Items needing user decision: M
 
