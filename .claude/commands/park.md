@@ -49,7 +49,13 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Store these for use in metadata and file paths
    - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
-2. **Detect session tier** (unless explicit parameter provided):
+2. **Check for merge-continuation** before creating a new session:
+   - Ask: "Is this work a direct continuation of a recently parked session — same task, just finishing a loose end?"
+   - If yes: **don't create a new session entry.** Instead, update the existing session's Files Created/Updated lists, summary, and (if needed) Next Steps/Open Loops and Pickup Context. Use flock-protected Bash edits (not the Edit tool — race condition risk with parallel parks). Then skip to Step 15 (completion message) with: `✓ Merged into Session N — [what was added]`
+   - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
+   - If not a continuation, proceed normally:
+
+3. **Detect session tier** (unless explicit parameter provided):
    - **Quick tier** triggers when ALL of:
      - Conversation < 10 turns AND
      - No files created/updated AND
@@ -67,11 +73,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      Capture tier: [Quick/Full] (auto-detected)
      ```
 
-3. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
+4. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
 
 ### Phase 2: Quality Assurance
 
-4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
+5. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
 
    **This step MUST produce visible output. No silent skipping.**
 
@@ -125,11 +131,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - [specific fix 2]
    ```
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until one of the above outputs appears in your response. If you find yourself writing session metadata without having displayed a quality check result, STOP and return to this step.
+   **⛔ CHECKPOINT:** You cannot proceed to Step 6 until one of the above outputs appears in your response. If you find yourself writing session metadata without having displayed a quality check result, STOP and return to this step.
 
 ### Phase 3: Document and Archive
 
-5. **Determine session metadata:**
+6. **Determine session metadata:**
    - Session number for today — extract mechanically, do NOT count by reading:
      ```bash
      SESSION_FILE="$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md"
@@ -149,7 +155,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **Never link to:** WIP sections, Resources, or Archive (see Guidelines for rationale)
    - **Quick tier:** Skip project detection (just use topic)
 
-6. **Find previous session and check for continuation** (conditional on tier):
+7. **Find previous session and check for continuation** (conditional on tier):
    - **Quick tier:** Skip previous session linking (saves read overhead)
    - **Full tier:**
      - Check if this session is continuing a previous one (from `/pickup` context)
@@ -159,9 +165,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Full) for step 9
+     - Store previous session's tier (Quick vs Full) for step 10
 
-7. **Generate session summary** (format varies by tier):
+8. **Generate session summary** (format varies by tier):
 
 **Quick Tier Format:**
 ```markdown
@@ -198,7 +204,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 **Project:** [[03 Projects/Project Name]] (if applicable)
 ```
 
-8. **Write the summary** (with file locking for concurrent safety):
+9. **Write the summary** (with file locking for concurrent safety):
    - **CRITICAL: Use the write-session script, NOT inline flock or the Edit tool**
    - Inline flock commands corrupt `settings.local.json` (the entire command including session content gets saved as a permission pattern)
    - The script handles locking, file creation, and atomic writes
@@ -236,10 +242,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-9. **Add forward link to previous session** (full tier only):
+10. **Add forward link to previous session** (full tier only):
    - **Quick tier:** Skip (no previous session linking done)
    - **Full tier:**
-     - If no previous session found in step 6, skip forward linking (first session ever)
+     - If no previous session found in step 7, skip forward linking (first session ever)
      - **CRITICAL: Use Bash with flock for editing previous session file**
 
    **GUARD 1 - Self-reference check (REQUIRED):**
@@ -302,7 +308,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Format: `**Continued in:** [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
-10. **Check for stranded work product in Claude-internal files** (Full tier only):
+11. **Check for stranded work product in Claude-internal files** (Full tier only):
    - **Quick tier:** Skip
    - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
      ```bash
@@ -324,7 +330,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      ```
    - **Why this exists:** Work product written to `~/.claude/plans/` has been stranded there multiple times. These files don't sync, aren't visible in Obsidian, and effectively don't exist outside the session.
 
-11. **Update Works in Progress** (conditional on tier):
+12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
    - Read `$VAULT_PATH/01 Now/Works in Progress.md`
@@ -335,7 +341,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Add link to session: `→ [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
-12. **Trace reference graph for status changes** (Full tier only):
+13. **Trace reference graph for status changes** (Full tier only):
    - **Quick tier:** Skip
    - **Full tier:** Review the session for any status changes — tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, etc.
    - For each status change identified:
@@ -355,7 +361,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - [file2] - [what changed]
      ```
 
-13. **Route ALL open loops to SSOT** (Full tier only):
+14. **Route ALL open loops to SSOT** (Full tier only):
    - **Quick tier:** Skip
    - Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
 
@@ -389,7 +395,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ✓ Skipped (already present): [item]
    ```
 
-14. **Display completion message** (tier-appropriate):
+15. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
 ```
@@ -419,9 +425,9 @@ Quick park complete. Minimal overhead for trivial task.
 To pickup later: `claude` (will show recent sessions) or `/pickup`
 ```
 
-**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 4 - go back and complete it before finishing the park.
+**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.
 
-15. **Handle --compact flag** (if specified):
+16. **Handle --compact flag** (if specified):
    - Only applies to Full tier (Quick sessions don't need compacting)
    - After displaying completion message, run the built-in `/compact` command
    - The session summary becomes part of the compact summary, providing continuity
@@ -429,7 +435,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 
 ## Guidelines
 
-- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. **Mechanism:** Before running the park flow, check: "Is this work a direct continuation of a session I already parked today?" If yes, use the Edit tool to update that session's Files Created/Updated lists and (if needed) its summary, then stop — don't create a new session entry.
+- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
 - **Capture ALL sessions:** Use `/park` (or `/checkpoint` mid-session) for every session, even quick tasks. The system auto-detects appropriate tier.
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
@@ -441,7 +447,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
 - **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude Sessions/.lock`) protects both writes and edits
-- **Quality gate is mandatory:** Step 4 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
+- **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
