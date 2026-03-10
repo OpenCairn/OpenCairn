@@ -36,7 +36,7 @@ Quarterly review serves three purposes:
 
 2. **Gather quarterly data:**
    - Read current `01 Now/Works in Progress.md`
-   - Read weekly reviews from `06 Archive/Weekly Reviews/` for the quarter
+   - Read weekly reviews from `06 Archive/Claude/Weekly Reviews/` for the quarter
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
    - Read all `07 System/Context - *.md` files
    - Read CRM index: `07 System/CRM/` (if exists)
@@ -158,7 +158,7 @@ Quarterly review serves three purposes:
      - Every completed/abandoned project should be in `06 Archive/`
    - Check for oversized files (>500 lines) that should be split
    - Check for near-empty files (<5 lines) that should be merged or deleted
-   - Check `06 Archive/Claude Sessions/` — are daily session files reasonably sized? Flag any anomalies.
+   - Check `06 Archive/Claude/Sessions/` — are daily session files reasonably sized? Flag any anomalies.
 
 ### Part 3: Output
 
@@ -254,7 +254,7 @@ Projects to explicitly abandon rather than let linger:
 - [Thing to drop]
 
 ## Weekly Reviews This Quarter
-- [[06 Archive/Weekly Reviews/YYYY-Wnn]] — Week N
+- [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]] — Week N
 - ...
 ```
 

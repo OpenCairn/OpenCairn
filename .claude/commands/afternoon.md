@@ -47,7 +47,7 @@ Note roughly how much working time remains today.
 Read:
 - **This Week.md:** `$VAULT_PATH/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
 - **Works in Progress:** `$VAULT_PATH/01 Now/Works in Progress.md` - what's meant to be priority?
-- **Today's sessions:** `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md` - what's been done so far?
+- **Today's sessions:** `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md` - what's been done so far?
 - **This morning's intention:** Check if `/morning` set a "one thing" for today
 
 ### 3. Present Current State

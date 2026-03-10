@@ -48,7 +48,7 @@ Use this search strategy:
 - Search for both technical terms and natural language
 
 **c) Check session summaries:**
-- `06 Archive/Claude Sessions/` - Have we discussed this before?
+- `06 Archive/Claude/Sessions/` - Have we discussed this before?
 - `06 Archive/Daily Reviews/` - Any relevant daily insights?
 
 **d) Explore connected notes:**

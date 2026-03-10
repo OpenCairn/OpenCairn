@@ -37,15 +37,15 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 2. **Check for Hygiene Report and gather the week's data:**
 
    **Hygiene report:**
-   - Check if `$VAULT_PATH/01 Now/Hygiene Report.md` exists
+   - Check if `$VAULT_PATH/06 Archive/Claude/Hygiene Report.md` exists
    - If it exists, parse the `**Generated:**` timestamp and compare to current time:
      - **Fresh (≤20h old):** Read and incorporate — no warning
      - **Stale (>20h old):** Warn: "Hygiene report is N days/hours old — vault state may have changed. Consider re-running `/weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
    - If it does not exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
-   - Read daily reports from `$VAULT_PATH/06 Archive/Daily Reports/` for dates from week start to current date
-   - Read session summaries from `$VAULT_PATH/06 Archive/Claude Sessions/` for the same date range
+   - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from week start to current date
+   - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Sessions/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
@@ -87,13 +87,13 @@ Analyze the week's data through these lenses. If the user is available for inter
 - "Anything to stop doing or delegate?"
 
 4. **Ensure directory exists:**
-   - Check if `$VAULT_PATH/06 Archive/Weekly Reviews/` directory exists
-   - If not, create it: `mkdir -p "$VAULT_PATH/06 Archive/Weekly Reviews"`
+   - Check if `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "$VAULT_PATH/06 Archive/Claude/Weekly Reviews"`
    - This prevents first-run failures
 
 5. **Generate weekly review:**
 
-Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
+Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
 
 ```markdown
 # Weekly Review - Week [NN], [Date Range]
@@ -200,8 +200,8 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 
 ## Daily Reports This Week
 [Links to daily reports for drill-down]
-- [[06 Archive/Daily Reports/YYYY-MM-DD]] - Mon
-- [[06 Archive/Daily Reports/YYYY-MM-DD]] - Tue
+- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Mon
+- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Tue
 - etc.
 ```
 
@@ -214,7 +214,7 @@ Create a file at `$VAULT_PATH/06 Archive/Weekly Reviews/YYYY-Wnn.md` (using ISO 
 8. **Display confirmation:**
 
 ```
-✓ Weekly review saved to: 06 Archive/Weekly Reviews/YYYY-Wnn.md
+✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
 ✓ Next week's focus: [Top 2-3 priorities]

@@ -43,7 +43,7 @@ You are helping the user pickup a previous work session with full context.
      ```bash
      "$VAULT_PATH/.claude/scripts/pickup-scan.sh" --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
      ```
-     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `$VAULT_PATH/06 Archive/Claude Sessions`)
+     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `$VAULT_PATH/06 Archive/Claude/Sessions`)
    - The script outputs TSV with columns: `DATE`, `SESSION_NUM`, `TITLE`, `TIME`, `PROJECT`, `LOOP_COUNT`, `SUMMARY`
    - **Parse the TSV output** to build session list (this is ~10x smaller than reading full files)
    - If no sessions found in default window (10 days), re-run with `--days=30`
@@ -238,7 +238,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - If project: Add project name to `.pickup-hidden`
      - If standalone session: Add `YYYY-MM-DD#Session N - Title` to `.pickup-hidden`
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions
-   - Append to `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
+   - Append to `$VAULT_PATH/06 Archive/Claude/Sessions/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with hidden entries removed
    - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
 
@@ -268,7 +268,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - If standalone session: Add `YYYY-MM-DD#Session N - Title|until:YYYY-MM-DD`
    - **Case preservation:** Use original case from session/project name (matching is case-insensitive, but file entries preserve original)
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions with concurrent sessions
-   - Append to `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden` (create if doesn't exist)
+   - Append to `$VAULT_PATH/06 Archive/Claude/Sessions/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with snoozed entries removed
    - Confirm: "Snoozed [ITEM NAMES] until [DATE]. They'll resurface automatically."
 
@@ -279,7 +279,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - User then selects specific session to load
      - Do NOT auto-load most recent - always let user choose
    - **If specific session selected (from expanded/flat view):**
-     - **NOW read the full session file:** `$VAULT_PATH/06 Archive/Claude Sessions/YYYY-MM-DD.md`
+     - **NOW read the full session file:** `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md`
      - Navigate to the specific session section (`## Session N - Title`)
    - Extract key information from the session section:
      - Session date and number (for continuation tracking)
@@ -289,7 +289,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - Resume context (from Pickup Context section)
      - Related project
    - **Store continuation context in conversation:**
-     - Remember: "This session continues [[06 Archive/Claude Sessions/YYYY-MM-DD#Session N - Topic]]"
+     - Remember: "This session continues [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]]"
      - This will be used by `/park` to create bidirectional continuation links
 
 14. **Display session context:**
@@ -348,7 +348,7 @@ Ready to continue. What's next?
 
 ### Hide/Unhide Feature
 - **Purpose:** Declutter the pickup menu by hiding completed projects or irrelevant sessions
-- **Hidden file location:** `$VAULT_PATH/06 Archive/Claude Sessions/.pickup-hidden`
+- **Hidden file location:** `$VAULT_PATH/06 Archive/Claude/Sessions/.pickup-hidden`
 - **Hiding is non-destructive:** Session files remain intact, just filtered from display
 - **Project-level hiding:** Hiding a project hides all its sessions
 - **Session-level hiding:** Can hide individual standalone sessions
