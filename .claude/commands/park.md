@@ -429,6 +429,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 
 ## Guidelines
 
+- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. **Mechanism:** Before running the park flow, check: "Is this work a direct continuation of a session I already parked today?" If yes, use the Edit tool to update that session's Files Created/Updated lists and (if needed) its summary, then stop — don't create a new session entry.
 - **Capture ALL sessions:** Use `/park` (or `/checkpoint` mid-session) for every session, even quick tasks. The system auto-detects appropriate tier.
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
