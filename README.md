@@ -15,7 +15,7 @@
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
-22 slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
+Slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
 
 <p align="center">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
@@ -82,7 +82,7 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-**Next session:** `/pickup` reads your Works in Progress and the 1-2 most recent daily reports (produced by `/goodnight`), giving you a concise landscape of what's active, what's open, and what was queued next. Lightweight by design - it reads 3-5 files and completes in one turn, preserving context for actual work.
+**Next session:** `/pickup` uses a shell script to extract session metadata as compact TSV, then builds an interactive project-grouped menu. Only the selected session is read in full — menu browsing costs almost nothing. Supports hide, snooze (with auto-resurface), staleness warnings, and tickler surfacing.
 
 ### Day: Morning, Afternoon, Goodnight
 
@@ -96,7 +96,7 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 ### Week: Weekly Review
 
-`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, flags open loops older than 14 days, and runs vault maintenance (WIP pruning, projects folder hygiene, tickler past-due scan).
+`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, and flags open loops older than 14 days. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
 
 ### Quarter: Quarterly Review
 
@@ -182,10 +182,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | Command | What it does |
 |---------|-------------|
 | `/pickup` | Session start. Interactive menu showing recent sessions grouped by project, with snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. Args: `--days=N`, `--project=NAME`, `--with-loops`, `--all`. |
-| `/checkpoint` | Alias for `/park --compact`. Full bookkeeping (quality gate, WIP, links, reference graph, tickler), then `/compact` to reclaim context window. Session continues after. |
 | `/park` | Session capture (Cal Newport "shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`, `--compact`. |
-
-> **Checkpoint vs Park:** Both run identical bookkeeping — quality gate, WIP update, bidirectional links, reference graph tracing, stranded work product check, tickler. The difference is what happens after: `/park` ends the session; `/checkpoint` compacts context and keeps going. `/checkpoint` is equivalent to `/park --compact`.
 
 **Extended breaks:**
 
@@ -205,7 +202,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 | Command | What it does |
 |---------|-------------|
-| `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, vault maintenance, corrections log review. Generates a review file. |
+| `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
 | `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, plus vault-wide maintenance (broken links, CRM completeness, orphaned files). |
 
 **Learning loops:**
@@ -230,11 +227,13 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
 | `/archive-sessions` | Organises old session files from the flat sessions directory into year-based subdirectories. Args: `--older-than=N`, `--year=YYYY`, `--dry-run`. |
+| `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
 
-**Provenance & audit:**
+**Audit & provenance:**
 
 | Command | What it does |
 |---------|-------------|
+| `/audit` | Rigorous five-layer evaluation of any implementation (code, config, plans, processes). Layers: approach → environment → migration → implementation → execution. Iterates until clean. |
 | `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. |
 | `/verify-provenance` | Verifies integrity of the provenance log by recomputing hashes and comparing against logged values. Reports matches, mismatches, and OTS status. |
 
@@ -244,13 +243,11 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 |---------|-------------|
 | `/update` | Pulls latest OpenCairn commands/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 
-**Aliases:** `/regroup` → `/afternoon`, `/shutdown` → `/goodnight`
-
 ---
 
 ## Under the Hood
 
-- **Lightweight pickup.** `/pickup` reads Works in Progress and the 1-2 most recent daily reports — already-synthesised context from `/goodnight`. No shell scripts, no session scanning, one turn to orientation.
+- **Two-stage pickup.** `/pickup` uses a shell script to extract session metadata as TSV (~10x smaller than reading full files), then builds an interactive project-grouped menu. Only the selected session is read in full — menu browsing costs almost nothing. Supports hide, snooze (with auto-resurface), staleness warnings, and tickler surfacing.
 - **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
