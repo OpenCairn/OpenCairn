@@ -54,7 +54,7 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
 
 ### Session file format
 
-All sessions live in `06 Archive/Claude Sessions/YYYY-MM-DD.md`. Multiple sessions per day append to the same file. Each session gets a `## Session N` heading with summary, decisions, open loops, files touched, and pickup context.
+All sessions live in `06 Archive/Claude/Sessions/YYYY-MM-DD.md`. Multiple sessions per day append to the same file. Each session gets a `## Session N` heading with summary, decisions, open loops, files touched, and pickup context.
 
 ### Bidirectional linking
 
@@ -104,7 +104,7 @@ Two separate lock files prevent deadlock:
 
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
-| `06 Archive/Claude Sessions/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
+| `06 Archive/Claude/Sessions/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
 | `07 System/.provenance-lock` | Provenance log writes | All provenance operations |
 
 **Why separate locks:** Provenance runs after session writes. If both used the same lock, the provenance step would deadlock waiting for a lock that the same process already holds (write-session.sh acquired it and it's still in scope).
