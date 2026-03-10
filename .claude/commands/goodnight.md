@@ -94,9 +94,9 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 **Projects touched:** [list]
 
 ### Completed
-- [x] Task 1 (session)
-- [x] Task 2 (session)
-- [x] Task 3 (marked done just now)
+- ✓ Task 1 (session)
+- ✓ Task 2 (session)
+- ✓ Task 3 (marked done just now)
 
 ### Open Loops (by project)
 **[Project A]**
@@ -162,15 +162,15 @@ Create file at `$VAULT_PATH/06 Archive/Daily Reports/YYYY-MM-DD.md`:
 
 ## Today's Plan
 
-[Include today's day section from This Week.md here (the `## [Day] [DD] [Mon]` heading and all items under it), verbatim. If This Week.md doesn't exist or today falls outside the date range, omit this section.]
+[Include today's day section from This Week.md here (the `## [Day] [DD] [Mon]` heading and all items under it). Convert any `- [ ]` to plain `- ` bullets and any `- [x]` to `- ✓` — the daily report is an archival record, not a task SSOT. Checkboxes live in This Week.md, project files, and Tickler only. If This Week.md doesn't exist or today falls outside the date range, omit this section.]
 
 ## Sessions
 - Session 1: [Topic] - [outcome]
 - Session 2: [Topic] - [outcome]
 
 ## Completed
-- [x] Task 1
-- [x] Task 2
+- ✓ Task 1
+- ✓ Task 2
 
 ## Open Loops
 
