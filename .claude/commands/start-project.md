@@ -118,7 +118,7 @@ Project initialised.
 
 ## Session History
 
-- [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - [Topic]]] (created)
+- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - [Topic]]] (created)
 ```
 
 ### 5. Update Works in Progress

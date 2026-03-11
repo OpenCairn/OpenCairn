@@ -120,7 +120,7 @@ This is the "big picture" complement to session-level parking.
 
 ## Session Links
 
-**Last session:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]]
+**Last session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]
 **Last daily review:** [[06 Archive/Daily Reviews/YYYY-MM-DD]]
 **Last weekly review:** [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]]
 

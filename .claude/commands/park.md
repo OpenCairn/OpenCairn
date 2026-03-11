@@ -138,7 +138,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 6. **Determine session metadata:**
    - Session number for today — extract mechanically, do NOT count by reading:
      ```bash
-     SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md"
+     SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
      if [ -f "$SESSION_FILE" ]; then
        LAST_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
        NEW_NUM=$((LAST_NUM + 1))
@@ -161,7 +161,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Check if this session is continuing a previous one (from `/pickup` context)
      - If continuing: Store continuation link for inclusion in summary
      - Find the most recent session by searching:
-       1. Today's file: `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md`
+       1. Today's file: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
        2. If no sessions today: Check yesterday, then up to 10 days back
        3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
      - Extract title and file path for backlink and forward linking
@@ -199,8 +199,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 ### Pickup Context
 **For next session:** [One clear sentence about where to pick up - the very next action to take]
-**Previous session:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N-1 - Topic]]
-**Continues:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
+**Previous session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N-1 - Topic]]
+**Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
 **Project:** [[03 Projects/Project Name]] (if applicable)
 ```
 
@@ -215,7 +215,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md"
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -224,7 +224,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Creating new file (first session of the day):**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md" --create
+   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
@@ -278,12 +278,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ```bash
    # Same-day: Session 39 → Session 40, both on Jan 26
    "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
-     "$VAULT_PATH/06 Archive/Claude/Sessions/2026-01-26.md" \
+     "$VAULT_PATH/06 Archive/Claude/Session Logs/2026-01-26.md" \
      39 40 "Sarath Task Capture"
 
    # Cross-day: Session 29 on Feb 11 → Session 1 on Feb 12
    "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
-     "$VAULT_PATH/06 Archive/Claude/Sessions/2026-02-11.md" \
+     "$VAULT_PATH/06 Archive/Claude/Session Logs/2026-02-11.md" \
      29 1 "Morning Check-in" "2026-02-12.md"
    ```
 
@@ -305,7 +305,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
-     - Format: `**Continued in:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
+     - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the same script with appropriate arguments
 
 11. **Check for stranded work product in Claude-internal files** (Full tier only):
@@ -338,7 +338,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
      - **Next:** [Next action from open loops]
-     - Add link to session: `→ [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N]]`
+     - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
    - Update "Last updated" timestamp at top of file with current date/time
 
 13. **Trace reference graph for status changes** (Full tier only):
@@ -376,7 +376,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    2. **If explicit future date found** → Tickler via write-tickler script:
       ```bash
-      "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]]"
+      "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]"
       ```
 
    3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text]`
@@ -400,7 +400,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 **Quick tier:**
 ```
 ⏭ Quality check: Skipped (Quick tier)
-✓ Session logged: 06 Archive/Claude/Sessions/YYYY-MM-DD.md
+✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
 
 Quick park complete. Minimal overhead for trivial task.
 ```
@@ -408,7 +408,7 @@ Quick park complete. Minimal overhead for trivial task.
 **Full tier:**
 ```
 ✓ Quality check: N files, M issues fixed [OR "no issues"]
-✓ Session summary saved to: 06 Archive/Claude/Sessions/YYYY-MM-DD.md
+✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
 ✓ Open loops documented: N items
 ✓ Bidirectional links added (previous ↔ next)
   [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
@@ -446,7 +446,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional — local time is more meaningful than forcing the home timezone
 - **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
 - **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
-- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude/Sessions/.lock`) protects both writes and edits
+- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude/Session Logs/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.

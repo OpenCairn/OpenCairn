@@ -52,7 +52,7 @@ Read and present:
   - [Item] (tickler date: YYYY-MM-DD)
   ```
   In step 4 (Capture Gate), offer to add them to the appropriate day in This Week.md. Per SSOT rules: once an item moves to This Week.md, delete it from Tickler — This Week becomes the canonical location.
-- **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude/Sessions/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
+- **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 - **Review staleness:** Check when the last weekly review and quarterly review were run:

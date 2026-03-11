@@ -146,7 +146,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 
 ### Session Link
 
-**First session post-return:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]]
+**First session post-return:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]
 ```
 
 9. **Route Immediate Next Actions to SSOT:**

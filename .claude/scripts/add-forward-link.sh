@@ -7,9 +7,9 @@
 #
 # Examples:
 #   # Same-day link:
-#   add-forward-link.sh "06 Archive/Claude/Sessions/2025-03-15.md" 5 6 "API Refactor"
+#   add-forward-link.sh "06 Archive/Claude/Session Logs/2025-03-15.md" 5 6 "API Refactor"
 #   # Cross-day link (prev session on Mar 15, new session on Mar 16):
-#   add-forward-link.sh "06 Archive/Claude/Sessions/2025-03-15.md" 5 1 "Morning Check-in" "2025-03-16.md"
+#   add-forward-link.sh "06 Archive/Claude/Session Logs/2025-03-15.md" 5 1 "Morning Check-in" "2025-03-16.md"
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 
@@ -47,7 +47,7 @@ if [ -n "$TARGET_DATE_FILE" ]; then
 else
     DATE_PART="$(basename "$SESSION_FILE" .md)"
 fi
-NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Sessions/${DATE_PART}#Session ${NEW_NUM} - ${NEW_TOPIC}]]"
+NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Session Logs/${DATE_PART}#Session ${NEW_NUM} - ${NEW_TOPIC}]]"
 
 # Acquire lock
 _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock" >&2; exit 1; }

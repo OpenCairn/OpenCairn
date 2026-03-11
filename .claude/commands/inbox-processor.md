@@ -47,7 +47,7 @@ For each item, determine the appropriate home using NIPARAS logic:
 - **Is this system documentation?** → `07 System/`
 
 **Additional routing rules:**
-- Session notes → `06 Archive/Claude/Sessions/`
+- Session notes → `06 Archive/Claude/Session Logs/`
 - Daily reflections → `06 Archive/Daily Reviews/`
 - Blog drafts → `03 Projects/Blog-Sites/blog/content/posts/`
 - Screenshots/images → Keep with related topic (never separate by filetype!)

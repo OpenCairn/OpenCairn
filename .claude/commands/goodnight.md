@@ -46,7 +46,7 @@ date +"%Y-%m-%d"                   # for file paths and session timestamp
 
 Read and compile:
 - **This Week.md:** Read `$VAULT_PATH/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
-- **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md` for today's date
+- **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md` for project states
 - **Completed tasks:** Extract from This Week.md today's section (checked items) AND session summaries (deduplicate)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
@@ -197,7 +197,7 @@ Create file at `$VAULT_PATH/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 
 ---
 *Links:*
-- Sessions: [[06 Archive/Claude/Sessions/YYYY-MM-DD]]
+- Sessions: [[06 Archive/Claude/Session Logs/YYYY-MM-DD]]
 - Previous: [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
 ```
 
@@ -308,7 +308,7 @@ fi
 
 ```bash
 # Entire operation wrapped in single flock - calculate and insert atomically
-flock -w 10 "$VAULT_PATH/06 Archive/Claude/Sessions/.lock" bash -c '
+flock -w 10 "$VAULT_PATH/06 Archive/Claude/Session Logs/.lock" bash -c '
   SESSION_FILE="'"$SESSION_FILE"'"
   PREV_NUM="'"$PREV_NUM"'"
   NEW_SESSION_LINK="'"$NEW_SESSION_LINK"'"
@@ -344,9 +344,9 @@ flock -w 10 "$VAULT_PATH/06 Archive/Claude/Sessions/.lock" bash -c '
 
 **Variable setup before flock:**
 ```bash
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md"
+SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
 PREV_NUM=3  # Previous session number
-NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session 4 - Goodnight: Topic]]"
+NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session 4 - Goodnight: Topic]]"
 ```
 
 **GUARD 3 - Post-insertion validation:**
@@ -391,11 +391,11 @@ cat > /tmp/goodnight_session.md << 'EOF'
 
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
-**Previous session:** [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N-1 - Previous Title]]
+**Previous session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N-1 - Previous Title]]
 EOF
 
 # Append atomically under lock
-flock -w 10 "$VAULT_PATH/06 Archive/Claude/Sessions/.lock" bash -c \
+flock -w 10 "$VAULT_PATH/06 Archive/Claude/Session Logs/.lock" bash -c \
   'cat /tmp/goodnight_session.md >> "'"$SESSION_FILE"'"'
 rm -f /tmp/goodnight_session.md
 ```
@@ -430,7 +430,7 @@ If any project status changed significantly today, update `$VAULT_PATH/01 Now/Wo
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
-✓ Session logged: 06 Archive/Claude/Sessions/YYYY-MM-DD.md (Session N)
+✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
 ✓ Open loops: N items across M projects
 ✓ Tomorrow's #1: [Priority item]
 
@@ -445,7 +445,7 @@ Goodnight.
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
-- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `$VAULT_PATH/06 Archive/Claude/Sessions/.lock`
+- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `$VAULT_PATH/06 Archive/Claude/Session Logs/.lock`
 - **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 
 ### Working Memory Model (Critical)
