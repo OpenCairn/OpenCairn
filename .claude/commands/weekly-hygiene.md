@@ -116,7 +116,27 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Present each flagged entry with recommendation (delete / update / keep)
    - Don't auto-delete — memory entries may contain context the user values that isn't obvious from vault content alone
 
-9. **Vault Consistency Checks**
+9. **Claude Plan File Cleanup**
+
+   Claude Code generates ephemeral plan files in `~/.claude/plans/`. Work product should be migrated to the vault by `/park` or `/goodnight` before session end — old plan files are structural clutter. Auto-fix is appropriate here despite the general "deletions require confirmation" guideline — these are ephemeral Claude internals, not vault content.
+
+   **Gather:**
+   ```bash
+   # Total before cleanup
+   find ~/.claude/plans/ -name "*.md" -type f 2>/dev/null | wc -l
+   # Stale (7+ days old)
+   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 2>/dev/null | wc -l
+   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 -exec ls -la {} + 2>/dev/null
+   ```
+
+   **Auto-fix:**
+   - Delete plan files older than 7 days
+   ```bash
+   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 -delete 2>/dev/null
+   ```
+   - Remaining count = total minus deleted
+
+10. **Vault Consistency Checks**
 
    **Broken wikilinks:**
    ```bash
@@ -136,7 +156,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - "PGD" → deprecated, should be PGT-M
    Report instances for user review — don't auto-fix terminology.
 
-10. **Write Hygiene Report**
+11. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Write all findings to `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -185,6 +205,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Vague/low-value entries: [list or "none"]
    - Contradictions: [list or "none"]
 
+   ## Claude Plan Files
+   - Stale files deleted (7+ days old): N
+   - Remaining files: M
+
    ## Vault Consistency
    - Broken wikilinks: [list or "none"]
    - Orphaned files: [list or "none"]
@@ -197,11 +221,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [ ] [Each item requiring user confirmation]
    ```
 
-11. **Display confirmation:**
+12. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
-    ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge)
+    ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, plan file cleanup)
     ✓ Items needing user decision: M
 
     Vault hygiene complete. Run /weekly-review to incorporate findings into your weekly reflection.
