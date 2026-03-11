@@ -31,7 +31,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%Y-W%V"` (for file naming: YYYY-Wnn.md)
    - Find the previous weekly review: `ls -1 "$VAULT_PATH/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
-   - **Review period starts** at the day after the previous review's last covered date (parse from the file's date range header), or Monday of the current ISO week if no previous review exists. Store as `PERIOD_START`.
+   - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
    - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
    - This command can be run on any day of the week, at any cadence (4-12 days between reviews is normal). Do not assume Sunday-to-Sunday cycles.
@@ -46,7 +46,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - If no reports exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
-   - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from week start to current date
+   - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
    - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Session Logs/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
@@ -95,10 +95,10 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 5. **Generate weekly review:**
 
-Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using ISO week number from step 1):
+Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename):
 
 ```markdown
-# Weekly Review - Week [NN], [Date Range]
+# Weekly Review — [Date Range]
 
 ## Synthesis
 **The week:** [One-line summary of what the week was about and what got done]
@@ -187,7 +187,7 @@ Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (usi
 ### Course Corrections Needed
 [What to adjust for next week]
 
-## Next Week's Focus
+## What's Next
 
 **Big Rocks (Priority 1):**
 - [ ] Most important thing
@@ -200,7 +200,7 @@ Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (usi
 **Stop/Delegate:**
 [Things to drop or hand off]
 
-## Daily Reports This Week
+## Daily Reports
 [Links to daily reports for drill-down]
 - [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Mon
 - [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Tue
@@ -219,7 +219,7 @@ Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (usi
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
-✓ Next week's focus: [Top 2-3 priorities]
+✓ What's next: [Top 2-3 priorities]
 
 Weekly review complete.
 
@@ -248,7 +248,7 @@ Run whenever the user requests it. Typical cadence is every 4-12 days — there 
 - **Feeds into monthly/quarterly reviews:** (If the user implements those)
 - **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)
 
-This creates a **weekly rhythm** that prevents value drift and ensures high-level course correction.
+This creates a **review rhythm** that prevents value drift and ensures high-level course correction.
 
 ## Goal Alignment (Optional Enhancement)
 
