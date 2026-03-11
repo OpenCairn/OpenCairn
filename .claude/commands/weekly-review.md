@@ -27,12 +27,14 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
    If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
 
-1. **Check current date and calculate week boundaries** using bash `date` command:
+1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%Y-W%V"` (for file naming: YYYY-Wnn.md)
-   - Calculate week start (store as `WEEK_START`): `date -d "$([ $(date +%u) -eq 1 ] && echo today || echo 'last monday')" +%Y-%m-%d`
-   - Calculate week end: current date
-   - Get date range for display: e.g., "Week 3, Jan 13-19"
+   - Find the previous weekly review: `ls -1 "$VAULT_PATH/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
+   - **Review period starts** at the day after the previous review's last covered date (parse from the file's date range header), or Monday of the current ISO week if no previous review exists. Store as `PERIOD_START`.
+   - **Review period ends** at the current date.
+   - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
+   - This command can be run on any day of the week, at any cadence (4-12 days between reviews is normal). Do not assume Sunday-to-Sunday cycles.
 
 2. **Check for Hygiene Report and gather the week's data:**
 
@@ -61,7 +63,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
 3. **Run the weekly review interview:**
 
-Analyze the week's data through these lenses. If the user is available for interactive review, ask the questions directly. Otherwise, auto-generate answers from the gathered data and present for validation.
+Before diving into the lenses below, ask the user once whether they want interactive mode (walk through each lens together) or auto-generate mode (compile answers from data, present for validation). One question upfront — don't re-ask per section.
 
 **Collect - What happened:**
 - "What were the major accomplishments this week?"
@@ -236,10 +238,7 @@ Recommended: Skim this review at the start of next week to set the week's direct
 
 ## Frequency
 
-Run this weekly, typically:
-- Sunday evening (week review and next week planning)
-- Monday morning (week ahead orientation)
-- Or whenever the user explicitly requests it
+Run whenever the user requests it. Typical cadence is every 4-12 days — there is no fixed day-of-week requirement. The review period adapts to cover whatever time has elapsed since the last review.
 
 ## Integration with Other Commands
 
