@@ -37,15 +37,15 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 2. **Check for Hygiene Report and gather the week's data:**
 
    **Hygiene report:**
-   - Check if `$VAULT_PATH/06 Archive/Claude/Hygiene Report.md` exists
-   - If it exists, parse the `**Generated:**` timestamp and compare to current time:
-     - **Fresh (≤20h old):** Read and incorporate — no warning
-     - **Stale (>20h old):** Warn: "Hygiene report is N days/hours old — vault state may have changed. Consider re-running `/weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
-   - If it does not exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
+   - Look for the latest file in `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/` (sorted by filename descending)
+   - If a report exists, parse the week number from its filename (e.g., `2026-W10.md` → W10) and compare to the current ISO week (`date +%G-W%V`):
+     - **Current week:** Read and incorporate — no warning
+     - **Previous week or older:** Warn: "Latest hygiene report is from [week] — vault state may have changed. Consider re-running `/weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
+   - If no reports exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
    - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from week start to current date
-   - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Sessions/` for the same date range
+   - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Session Logs/` for the same date range
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
@@ -174,7 +174,7 @@ Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (usi
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
 ### Vault Maintenance
-*Hygiene report from: YYYY-MM-DD HH:MM (fresh / N days stale — re-run recommended / not found)*
+*Hygiene report from: YYYY-Wnn (current week / stale — re-run recommended / not found)*
 
 [Populated from Hygiene Report if available — see `/weekly-hygiene`]
 
@@ -205,7 +205,7 @@ Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (usi
 - etc.
 ```
 
-6. **Populate Vault Maintenance section from hygiene report.** If the hygiene report exists (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
+6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
 7. **Update Works in Progress** (if needed):
    - Update project statuses based on weekly progress

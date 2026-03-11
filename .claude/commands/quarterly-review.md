@@ -158,7 +158,7 @@ Quarterly review serves three purposes:
      - Every completed/abandoned project should be in `06 Archive/`
    - Check for oversized files (>500 lines) that should be split
    - Check for near-empty files (<5 lines) that should be merged or deleted
-   - Check `06 Archive/Claude/Sessions/` — are daily session files reasonably sized? Flag any anomalies.
+   - Check `06 Archive/Claude/Session Logs/` — are daily session files reasonably sized? Flag any anomalies.
 
 ### Part 3: Output
 

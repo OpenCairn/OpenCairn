@@ -71,7 +71,7 @@ if [[ -z "$SESSION_DIR" ]]; then
     if [[ -n "${CLAUDE_SESSION_DIR:-}" ]]; then
         SESSION_DIR="$CLAUDE_SESSION_DIR"
     elif [[ -n "${VAULT_PATH:-}" ]]; then
-        SESSION_DIR="$VAULT_PATH/06 Archive/Claude/Sessions"
+        SESSION_DIR="$VAULT_PATH/06 Archive/Claude/Session Logs"
     else
         echo "ERROR: No session directory specified." >&2
         echo "Set VAULT_PATH or CLAUDE_SESSION_DIR environment variable, or pass directory as argument." >&2

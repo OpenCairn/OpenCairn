@@ -45,7 +45,7 @@ Session files should be easily accessible while actively relevant (last 90 days)
    - `--dry-run`: Show moves without executing
 
 3. **Scan session files:**
-   - List all files in `$VAULT_PATH/06 Archive/Claude/Sessions/`
+   - List all files in `$VAULT_PATH/06 Archive/Claude/Session Logs/`
    - Filter to `YYYY-MM-DD.md` pattern (exclude subdirectories)
    - For each file:
      - Extract date from filename
@@ -54,21 +54,21 @@ Session files should be easily accessible while actively relevant (last 90 days)
 
 4. **Create year directories:**
    - For each year found in files-to-archive:
-     - Create directory: `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY/`
+     - Create directory: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/`
      - Use `mkdir -p` (safe if exists)
 
 5. **Move files** (or display if dry-run):
    - For each file marked for archival:
-     - Source: `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY-MM-DD.md`
-     - Destination: `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY/YYYY-MM-DD.md`
+     - Source: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+     - Destination: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md`
      - If dry-run: Display "Would move: [source] → [dest]"
      - If live: Move file
    - Preserve file permissions and timestamps
 
 6. **Update daily/weekly review links** (optional, advanced):
    - Scan daily reviews and weekly syntheses
-   - Update links from `[[06 Archive/Claude/Sessions/YYYY-MM-DD#...]]`
-   - To: `[[06 Archive/Claude/Sessions/YYYY/YYYY-MM-DD#...]]`
+   - Update links from `[[06 Archive/Claude/Session Logs/YYYY-MM-DD#...]]`
+   - To: `[[06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD#...]]`
    - **Note:** This is optional - Obsidian often finds moved files automatically
 
 7. **Display summary:**
@@ -81,13 +81,13 @@ Threshold: Sessions older than 90 days (before 2025-10-18)
 
 Would move:
   2024:
-    - 2024-12-15.md → 06 Archive/Claude/Sessions/2024/
-    - 2024-12-16.md → 06 Archive/Claude/Sessions/2024/
+    - 2024-12-15.md → 06 Archive/Claude/Session Logs/2024/
+    - 2024-12-16.md → 06 Archive/Claude/Session Logs/2024/
     ... (127 files)
 
   2025 (through October):
-    - 2025-01-01.md → 06 Archive/Claude/Sessions/2025/
-    - 2025-01-02.md → 06 Archive/Claude/Sessions/2025/
+    - 2025-01-01.md → 06 Archive/Claude/Session Logs/2025/
+    - 2025-01-02.md → 06 Archive/Claude/Session Logs/2025/
     ... (289 files)
 
 Total: 416 files to archive
@@ -103,14 +103,14 @@ Archive Sessions
 Threshold: Sessions older than 90 days (before 2025-10-18)
 
 Archiving sessions...
-  Created: 06 Archive/Claude/Sessions/2024/
-  Created: 06 Archive/Claude/Sessions/2025/
+  Created: 06 Archive/Claude/Session Logs/2024/
+  Created: 06 Archive/Claude/Session Logs/2025/
 
   Moved 127 files to 2024/
   Moved 289 files to 2025/
 
 ✓ Total archived: 416 files
-✓ Directories: 06 Archive/Claude/Sessions/2024/, 2025/
+✓ Directories: 06 Archive/Claude/Session Logs/2024/, 2025/
 ✓ Recent sessions (last 90 days): 47 files remain in main directory
 
 Archive complete.
@@ -178,11 +178,11 @@ for the session file name and Obsidian will find it in the new location.
 - Already in subdirectories are skipped
 
 **Directories created:**
-- `$VAULT_PATH/06 Archive/Claude/Sessions/YYYY/`
+- `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/`
 
 **Link format preserved:**
-- `[[06 Archive/Claude/Sessions/YYYY-MM-DD#Session 1]]` (old)
-- `[[06 Archive/Claude/Sessions/YYYY/YYYY-MM-DD#Session 1]]` (new)
+- `[[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session 1]]` (old)
+- `[[06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD#Session 1]]` (new)
 - Obsidian auto-updates or finds via search
 
 **Safety:**

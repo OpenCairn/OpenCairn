@@ -43,4 +43,4 @@
 
 ## Session History
 
-- [[06 Archive/Claude/Sessions/YYYY-MM-DD#Session N - Topic]]
+- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]
