@@ -306,7 +306,13 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **If this session also continues a specific previous session** (from `/pickup`):
      - Add "Continued in:" link to the original session as well (if different from immediate previous)
      - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
-     - Use the same script with appropriate arguments
+     - Use the forward-link script with `--continued-in`:
+       ```bash
+       # Same-day:
+       "$VAULT_PATH/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>"
+       # Cross-day:
+       "$VAULT_PATH/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>" "<target-date>.md"
+       ```
 
 11. **Check for stranded work product in Claude-internal files** (Full tier only):
    - **Quick tier:** Skip
