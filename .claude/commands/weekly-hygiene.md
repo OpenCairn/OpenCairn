@@ -40,7 +40,30 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Confirm with user:**
    - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — recommend demote or nudge
 
-2. **Projects Folder Audit**
+2. **WIP ↔ This Week Reconciliation**
+
+   WIP is the canonical project dashboard; This Week is the tactical weekly view with higher-frequency updates. Items completed in This Week but not reflected in WIP create stale priors for every session that reads WIP.
+
+   **Gather:**
+   - Read `$VAULT_PATH/01 Now/Works in Progress.md` (already loaded from step 1)
+   - Read `$VAULT_PATH/01 Now/This Week.md`
+   - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending, in a `**Next:**` action, or as an unchecked `[ ]` item
+   - For each `**Next:**` action in WIP, check whether any date reference has passed (e.g., "train task Sat 7 Mar" when today is 14 Mar)
+   - For relative-time framing in WIP Next actions ("sleep on it", "tomorrow", "tonight"), flag if 2+ days have elapsed since the `**Last:**` date
+
+   **Auto-fix:**
+   - Update WIP entries to reflect completions confirmed in This Week (strike through items, update status lines, remove from Next actions)
+   - Remove stale date parentheticals from Next actions
+   - Update relative-time framing to direct action framing when 2+ days have passed (e.g., "Sleep on draft then send" → "Send draft (ready, slept on since [date])")
+
+   **Cross-reference sweep:**
+   - For each status change (battery disconnect, order placed, task completed), grep the vault for other files containing the stale value
+   - Update cross-references in live files (project pages, area files, vehicle docs, etc.)
+   - Leave Archive/, Session Logs/, and .stversions/ untouched — those are historical records or Syncthing versions
+
+   **Report:** List each reconciliation applied (file, old → new), plus any cross-reference updates in other files.
+
+3. **Projects Folder Audit**
 
    **Gather:**
    - List top-level: `ls "$VAULT_PATH/03 Projects/"`
@@ -52,7 +75,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Move project files to match their WIP tier
    - Archive completed project files to `06 Archive/`
 
-3. **Tickler Hygiene**
+4. **Tickler Hygiene**
 
    **Gather:**
    - Read `$VAULT_PATH/01 Now/Tickler.md` (if it exists)
@@ -61,7 +84,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Confirm with user:**
    - For each past-due item: recommend complete, reschedule (with new date), or drop
 
-4. **Working Memory Sweep**
+5. **Working Memory Sweep**
 
    **Gather:**
    - Read `$VAULT_PATH/01 Now/Working memory.md`
@@ -70,13 +93,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Identify any items that appear to be actionable tasks that should be in WIP or project files
    - Note items that have routing guidance but haven't been moved yet
 
-5. **Scratchpad Sweep**
+6. **Scratchpad Sweep**
 
    **Gather:**
    - Find all Scratchpad.md files: `find "$VAULT_PATH" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
    - Flag items that have been sitting unprocessed (14+ days old or grown stale)
 
-6. **CRM Name Scan** (if `$VAULT_PATH/07 System/CRM/` exists)
+7. **CRM Name Scan** (if `$VAULT_PATH/07 System/CRM/` exists)
 
    - Read CRM index to get list of known names
    - Extract names from recent session files:
@@ -86,7 +109,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      ```
    - Flag names that appear 2+ times but aren't in CRM — **don't auto-add**, present candidates to user
 
-7. **This Week.md Hygiene**
+8. **This Week.md Hygiene**
 
    **Auto-fix:**
    - Read `$VAULT_PATH/01 Now/This Week.md`
@@ -96,7 +119,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
    - Update header metadata: check `**Status:**` and `**Location:**` lines against the most recent daily report. Flag if stale.
 
-8. **Claude Memory Audit**
+9. **Claude Memory Audit**
 
    Claude Code's auto-memory (`~/.claude/projects/*/memory/MEMORY.md` and any topic files alongside it) accumulates observations across sessions. Left unchecked, it drifts — stale entries, duplicated context already in the vault, vague impressions that degrade Claude's focus.
 
@@ -116,7 +139,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Present each flagged entry with recommendation (delete / update / keep)
    - Don't auto-delete — memory entries may contain context the user values that isn't obvious from vault content alone
 
-9. **Claude Plan File Cleanup**
+10. **Claude Plan File Cleanup**
 
    Claude Code generates ephemeral plan files in `~/.claude/plans/`. Work product should be migrated to the vault by `/park` or `/goodnight` before session end — old plan files are structural clutter. Auto-fix is appropriate here despite the general "deletions require confirmation" guideline — these are ephemeral Claude internals, not vault content.
 
@@ -136,7 +159,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    - Remaining count = total minus deleted
 
-10. **Vault Consistency Checks**
+11. **Vault Consistency Checks**
 
    If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
 
@@ -179,7 +202,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. Report instances for user review — don't auto-fix.
 
-11. **Write Hygiene Report**
+12. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Write all findings to `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -196,6 +219,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Completed items removed: N
    - Session links trimmed: N
    - Stale Active projects (Last: 14+ days ago): [list or "none"]
+
+   ## WIP ↔ This Week Reconciliation
+   - Stale WIP items updated: N
+   - Cross-reference updates: N files
+   - [List each: file, old → new]
 
    ## Projects Folder
    - Tier mismatches: [list or "none"]
@@ -252,7 +280,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [ ] [Each item requiring user confirmation]
    ```
 
-12. **Display confirmation:**
+13. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
