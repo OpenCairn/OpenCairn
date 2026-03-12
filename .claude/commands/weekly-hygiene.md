@@ -138,23 +138,43 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 10. **Vault Consistency Checks**
 
-   **Broken wikilinks:**
+   If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
+
+   **Unresolved (broken) links:**
+   ```bash
+   # CLI (preferred): queries Obsidian's index directly
+   obsidian unresolved counts format=tsv 2>/dev/null
+   ```
+   If CLI unavailable, fall back to grep:
    ```bash
    grep -roh '\[\[.*\]\]' "$VAULT_PATH" --include="*.md" \
      -not -path "*/.stversions/*" -not -path "*/06 Archive/*" \
      | sed 's/\[\[//;s/\]\]//' | sed 's/|.*//' | sed 's/#.*//' \
      | sort -u
    ```
-   For each link target, check whether a matching .md file exists in the vault. Report broken links with their source files.
+   For each link target, check whether a matching .md file exists in the vault.
 
-   **Orphaned .md files:**
-   Find files in `03 Projects/` and `04 Areas/` not linked from any other .md file (excluding Archives, .stversions, system files). These may be forgotten or need linking from a hub.
+   **Orphaned files** (no incoming links):
+   ```bash
+   # CLI (preferred)
+   obsidian orphans 2>/dev/null | grep -E "^(03 Projects|04 Areas)/"
+   ```
+   If CLI unavailable, find files in `03 Projects/` and `04 Areas/` not linked from any other .md file (excluding Archives, .stversions, system files).
 
-   **Terminology consistency (lightweight):**
-   Check for known ambiguous terms in recently modified files (last 7 days):
-   - "PGS" without context qualifier → should specify genomics vs IVF
-   - "PGD" → deprecated, should be PGT-M
-   Report instances for user review — don't auto-fix terminology.
+   **Dead-end files** (no outgoing links — CLI only, skip if unavailable):
+   ```bash
+   obsidian deadends 2>/dev/null | grep -E "^(03 Projects|04 Areas)/" | head -20
+   ```
+   Files with content but no links to anything else — may need connecting to the graph.
+
+   **Vault structural metrics** (CLI only, report in hygiene output):
+   ```bash
+   obsidian tasks todo total 2>/dev/null      # open tasks vault-wide
+   obsidian tags counts sort=count 2>/dev/null | head -10  # top tags
+   obsidian orphans total 2>/dev/null          # total orphan count
+   obsidian unresolved total 2>/dev/null       # total broken link count
+   obsidian deadends total 2>/dev/null         # total dead-end count
+   ```
 
 11. **Write Hygiene Report**
 
@@ -210,9 +230,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Remaining files: M
 
    ## Vault Consistency
-   - Broken wikilinks: [list or "none"]
-   - Orphaned files: [list or "none"]
-   - Terminology flags: [list or "none"]
+   - Unresolved (broken) links: N total — [list top 10 or "none"]
+   - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
+   - Dead-end files (03 Projects/ & 04 Areas/): [list top 10 or "none"]
+
+   ## Vault Structural Metrics (CLI)
+   - Open tasks: N
+   - Orphan count (vault-wide): N
+   - Unresolved link count: N
+   - Dead-end count: N
+   - Top tags: [top 5 with counts]
 
    ## Actions Taken (Auto-fix)
    - [List all automatic fixes applied]
