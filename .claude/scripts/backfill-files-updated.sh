@@ -82,6 +82,31 @@ fi
 # Check if the section contains "None" (with possible surrounding text)
 SECTION_CONTENT=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE")
 
+# Dedup: remove lines from FILE_LIST whose file path already appears in the section
+# Extract just the path portion (everything between "- " and " - ") from existing entries
+DEDUPED_LIST=""
+while IFS= read -r line; do
+    # Extract the file path from "- path/to/file - description"
+    FILE_PATH=$(echo "$line" | sed -n 's/^- \([^ ]*\).*/\1/p')
+    if [ -n "$FILE_PATH" ]; then
+        # Normalise: strip common prefixes for comparison (~/Files/, full absolute paths)
+        NORM_PATH=$(echo "$FILE_PATH" | sed 's|^~/Files/||; s|^/home/[^/]*/Files/||')
+        # Check if this normalised path already appears in existing section content
+        if echo "$SECTION_CONTENT" | sed 's|^- ~/Files/||; s|^- /home/[^/]*/Files/||; s|^- ||' | grep -qF "$NORM_PATH"; then
+            continue  # skip duplicate
+        fi
+    fi
+    DEDUPED_LIST="${DEDUPED_LIST:+$DEDUPED_LIST
+}$line"
+done <<< "$FILE_LIST"
+
+if [ -z "$DEDUPED_LIST" ]; then
+    echo "All files already listed, nothing to backfill"
+    _unlock
+    exit 0
+fi
+FILE_LIST="$DEDUPED_LIST"
+
 # Preserve original file permissions
 ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
 
