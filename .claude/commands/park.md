@@ -401,6 +401,22 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ✓ Skipped (already present): [item]
    ```
 
+14a. **Backfill "Files Updated" in session log** (Full tier only):
+   - **Quick tier:** Skip
+   - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
+   - Collect all files modified during steps 12-14 (WIP update, reference graph tracing, open loop routing)
+   - Use the backfill-files-updated script:
+     ```bash
+     printf -- '- 01 Now/Works in Progress.md - [what changed]\n- 01 Now/This Week.md - [what changed]\n' | \
+       "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
+     ```
+     Where `N` is the current session number. The script handles:
+     - File locking (flock) for concurrent safety
+     - Replacing "None" if that's the current content, or appending after existing entries
+     - Finding the correct section boundary within the session block
+   - Only include files actually modified — if steps 12-14 didn't touch a file, don't list it
+   - **Why this exists:** The session log is written at step 9 before steps 12-14 run, so "Files Updated" is always incomplete without this backfill. This was caught by audit — sessions were reporting "Files Updated: None" when WIP, This Week, and project files had all been modified.
+
 15. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
@@ -468,7 +484,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
   - **No canonical home?** Create a project or area file rather than linking to WIP
   - **Working in Resources?** That's a signal it should graduate to an Area
   - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
-- **File lists:** Only list files that were actually created/updated, not files that were just read
+- **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9.
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 
 ## Cue Word Detection
