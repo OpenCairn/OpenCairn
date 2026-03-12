@@ -109,7 +109,7 @@ if echo "$SESSION_LINE" | grep -q "\[Q\]$"; then
     #
     # Find the last metadata line or insert after summary if no metadata
     INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-        { grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\):\*\*" || true; } | tail -1 | cut -d: -f1)
+        { grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\|Next session\|Continued in\):\*\*" || true; } | tail -1 | cut -d: -f1)
 
     if [ -n "$INSERT_AFTER" ]; then
         INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
@@ -119,7 +119,7 @@ if echo "$SESSION_LINE" | grep -q "\[Q\]$"; then
 else
     # Full session: find the last Pickup Context metadata line
     INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-        { grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\):\*\*" || true; } | tail -1 | cut -d: -f1)
+        { grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\|Next session\|Continued in\):\*\*" || true; } | tail -1 | cut -d: -f1)
 
     if [ -z "$INSERT_AFTER" ]; then
         echo "Could not find insertion point in Session ${PREV_NUM}"
