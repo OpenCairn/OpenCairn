@@ -176,6 +176,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    obsidian deadends total 2>/dev/null         # total dead-end count
    ```
 
+   **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
+   Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. Report instances for user review — don't auto-fix.
+
 11. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
@@ -233,6 +236,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Unresolved (broken) links: N total — [list top 10 or "none"]
    - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
    - Dead-end files (03 Projects/ & 04 Areas/): [list top 10 or "none"]
+   - Terminology flags: [list or "none"] (if _terminology-checks.md exists)
 
    ## Vault Structural Metrics (CLI)
    - Open tasks: N
