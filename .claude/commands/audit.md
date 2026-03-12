@@ -52,6 +52,7 @@ Change always meets existing reality. What's already there?
 - Are there consumers/dependents that expect the current interface/format/behavior?
 - Is there data, state, or configuration that needs to carry forward?
 - For plans/processes: what habits, expectations, or workflows does this disrupt?
+- For content edits (docs, notes, config values): grep for key identifiers that changed (names, dates, refs, amounts) across the wider repository. For each hit, assess whether it's a stale cross-reference (update it), a historical record of what was actually said/sent (leave it), or a different context that happens to share the identifier (leave it). Stale cross-references are the most common Layer 3 miss in non-code edits.
 
 #### Layer 4: Is the implementation correct?
 
