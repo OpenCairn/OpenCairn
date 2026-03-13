@@ -46,9 +46,8 @@ Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
 - **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 5. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 5. If the file doesn't exist, skip.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
-- **Tickler→This Week migration (automatic):** If `$VAULT_PATH/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup. Show what was migrated in the landscape output under "Coming up this week" so the user sees the full picture.
-
-  **Important:** The landscape display must reflect the *post-migration* state. After migration, show upcoming items from This Week.md (not Tickler) in the "Coming up this week" section. This prevents the misleading "Nothing due today / next: [item in 6 days]" pattern where upcoming items are invisible.
+- **Tickler→This Week migration (automatic):** If `$VAULT_PATH/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup.
+- **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `$VAULT_PATH/06 Archive/Claude/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Tomorrow's Queue from last night:** Check `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
@@ -73,9 +72,9 @@ Here's your landscape:
 - [ ] [Item] → [[context link]]
 - [ ] [Another item] (⚠️ overdue) → [[context link]]
 
-**Coming up this week:** (migrated from Tickler → This Week.md)
-- [Item] — [Day] [DD] [Mon]
-- [Item] — [Day] [DD] [Mon]
+**Coming up this week:** (from This Week.md future days)
+- [Day] [DD]: [Item], [Item]
+- [Day] [DD]: [Item]
 
 **From yesterday's sessions (context only):**
 - [Topic 1] - [brief summary]
@@ -239,7 +238,7 @@ Rolling window: 3 past + today + 6 future = 10 sections max. Each /morning trims
 1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
 2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
 3. **Remove day sections beyond the 6-day window:** If any day sections exist with dates more than 6 calendar days after today, delete them (heading + content until next `## ` heading)
-4. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
+4. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Note: step 2 may have already migrated items for *existing* day sections — this step only handles *newly created* sections.
 5. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
 6. **Update the file heading** date range: set start date to the earliest remaining day section, end date to the latest
 
