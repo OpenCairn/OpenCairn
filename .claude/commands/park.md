@@ -11,7 +11,7 @@ parameters:
 
 # Park - Session Capture
 
-You are capturing a work session — either ending it or saving a mid-session checkpoint. The bookkeeping is identical either way: quality gate, WIP update, bidirectional links, reference graph tracing, stranded work product check, tickler. The only difference is the closing message.
+You are capturing a work session — either ending it or saving a mid-session checkpoint. The bookkeeping is identical either way: quality gate, WIP update, continuation links, reference graph tracing, stranded work product check, tickler. The only difference is the closing message.
 
 **Checkpoint mode:** If triggered by checkpoint/save/waypoint phrases, or with `--compact`, the session continues after capture. Checkpoint cue words also imply `--compact`. Closing message says "Progress saved. Session continues." instead of "Parked. Pick up when ready."
 
@@ -21,7 +21,7 @@ You are capturing a work session — either ending it or saving a mid-session ch
 
 **Two tiers only:**
 - **Quick** - Genuinely trivial sessions (<5 min, no files touched, just a question answered). One line is enough.
-- **Full** - Everything else. If it's worth documenting at all, do it properly. Includes bidirectional links, pickup context, key insights, open loops.
+- **Full** - Everything else. If it's worth documenting at all, do it properly. Includes pickup context, key insights, open loops, continuation links.
 
 The old "standard" tier was a false economy - saving 30 seconds of processing time but losing context that might be valuable later is bad math.
 
@@ -41,7 +41,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      echo "VAULT_PATH=$VAULT_PATH"
    fi
    ```
-   If error, abort. **Use `$VAULT_PATH` for all file operations below.**
+   If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All code examples below use `{VAULT}` as a placeholder — substitute the resolved path before executing. Do NOT use `$VAULT_PATH` in later Bash tool calls — shell state does not persist between calls, so the variable will be empty.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
@@ -138,7 +138,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 6. **Determine session metadata:**
    - Session number for today — extract mechanically, do NOT count by reading:
      ```bash
-     SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+     SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
      if [ -f "$SESSION_FILE" ]; then
        LAST_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
        NEW_NUM=$((LAST_NUM + 1))
@@ -150,22 +150,16 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
    - Related project (if applicable):
-     - **Finite work** → `$VAULT_PATH/03 Projects/[Project Name].md` (or `Backlog/`)
-     - **Ongoing area work** → `$VAULT_PATH/04 Areas/[path]/[name].md`
+     - **Finite work** → `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/`)
+     - **Ongoing area work** → `{VAULT}/04 Areas/[path]/[name].md`
      - **Never link to:** WIP sections, Resources, or Archive (see Guidelines for rationale)
    - **Quick tier:** Skip project detection (just use topic)
 
-7. **Find previous session and check for continuation** (conditional on tier):
-   - **Quick tier:** Skip previous session linking (saves read overhead)
+7. **Check for continuation** (conditional on tier):
+   - **Quick tier:** Skip
    - **Full tier:**
      - Check if this session is continuing a previous one (from `/pickup` context)
-     - If continuing: Store continuation link for inclusion in summary
-     - Find the most recent session by searching:
-       1. Today's file: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
-       2. If no sessions today: Check yesterday, then up to 10 days back
-       3. Also check year subdirectories: `Claude Sessions/YYYY/*.md` (for cross-year boundaries)
-     - Extract title and file path for backlink and forward linking
-     - Store previous session's tier (Quick vs Full) for step 10
+     - If continuing: Store continuation link for inclusion in summary (the `**Continues:**` line in Pickup Context)
 
 8. **Generate session summary** (format varies by tier):
 
@@ -199,7 +193,6 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 ### Pickup Context
 **For next session:** [One clear sentence about where to pick up - the very next action to take]
-**Previous session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N-1 - Topic]]
 **Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
 **Project:** [[03 Projects/Project Name]] (if applicable)
 ```
@@ -215,7 +208,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
    ## Session N - [Topic] ([Time])
 
    [Session content here]
@@ -224,7 +217,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Creating new file (first session of the day):**
    ```bash
-   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/write-session.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --create
+   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --create
    ## Session 1 - [Topic] ([Time])
 
    [Session content here]
@@ -242,77 +235,20 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-10. **Add forward link to previous session** (full tier only):
-   - **Quick tier:** Skip (no previous session linking done)
-   - **Full tier:**
-     - If no previous session found in step 7, skip forward linking (first session ever)
-     - **CRITICAL: Use Bash with flock for editing previous session file**
-
-   **GUARD 1 - Self-reference check (REQUIRED):**
-   Before any forward linking, verify we're not linking a session to itself:
-   - If previous session heading == current session heading, skip with warning:
-     `⚠ Detected self-reference attempt, skipping forward link`
-   - This can occur when context compaction causes session number confusion
-
-   **GUARD 2 - Idempotency check (REQUIRED):**
-   Before inserting, check if a "Next session:" link already exists in the previous session's Pickup Context:
-   ```bash
-   # Check if forward link to this specific session already exists
-   if grep -q "\\*\\*Next session:\\*\\*.*#Session $CURRENT_NUM - " "$PREV_FILE"; then
-     echo "Forward link already exists, skipping"
-     # Skip insertion entirely - do NOT proceed to sed
-   fi
-   ```
-
-   **✓ USE THE FORWARD-LINK SCRIPT:**
-
-   Use the dedicated script instead of inline bash (prevents permission system corruption):
-   ```bash
-   # Same-day link:
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>"
-   # Cross-day link (previous session on different day than new session):
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" "<session-file>" <prev-num> <new-num> "<new-topic>" "<target-date>.md"
-   ```
-
-   **Examples:**
-   ```bash
-   # Same-day: Session 39 → Session 40, both on Jan 26
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
-     "$VAULT_PATH/06 Archive/Claude/Session Logs/2026-01-26.md" \
-     39 40 "Sarath Task Capture"
-
-   # Cross-day: Session 29 on Feb 11 → Session 1 on Feb 12
-   "$VAULT_PATH/.claude/scripts/add-forward-link.sh" \
-     "$VAULT_PATH/06 Archive/Claude/Session Logs/2026-02-11.md" \
-     29 1 "Morning Check-in" "2026-02-12.md"
-   ```
-
-   **IMPORTANT:** When the new session is on a different day than the previous session,
-   you MUST pass the 5th argument (target date file). Without it, the link points to
-   the wrong day's file.
-
-   The script handles:
-   - File locking (flock) for concurrent safety
-   - Idempotency (skips if link already exists)
-   - Quick vs Full session detection
-   - Correct insertion point finding
-   - Cross-day links via optional 5th argument
-   - All guards and validation
-
-   **Error handling:** If script fails (file missing, lock timeout, session not found):
-     - Log warning but don't fail the park
-     - Set `forward_link_failed = true` for completion message
-
-   - **If this session also continues a specific previous session** (from `/pickup`):
-     - Add "Continued in:" link to the original session as well (if different from immediate previous)
+10. **Add continuation link** (full tier only, only if continuing previous work):
+   - **Quick tier:** Skip
+   - **Only fires if this session continues a specific previous session** (from `/pickup` context). If not a continuation, skip this step entirely.
+   - Do NOT add chronological "Next session:" links — sessions are already in order in the file. Only topical continuation links carry information.
+   - Add "Continued in:" link to the original session being continued:
      - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
      - Use the forward-link script with `--continued-in`:
        ```bash
        # Same-day:
-       "$VAULT_PATH/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>"
+       "{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>"
        # Cross-day:
-       "$VAULT_PATH/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>" "<target-date>.md"
+       "{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>" "<target-date>.md"
        ```
+   - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
 
 11. **Check for stranded work product in Claude-internal files** (Full tier only):
    - **Quick tier:** Skip
@@ -339,7 +275,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
-   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
+   - Read `{VAULT}/01 Now/Works in Progress.md`
    - Find the relevant project section
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
@@ -352,7 +288,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Full tier:** Review the session for any status changes — tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, etc.
    - For each status change identified:
      1. Identify the key identifier (project name, booking number, feature name, account name, etc.)
-     2. Grep the vault for that identifier: `grep -r "identifier" "$VAULT_PATH/" --include="*.md" -l`
+     2. Grep the vault for that identifier: `grep -r "identifier" "{VAULT}/" --include="*.md" -l`
      3. Exclude archive/session files (these are historical records, not living docs)
      4. Read and update every living document that references the changed item
    - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
@@ -382,7 +318,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    2. **If explicit future date found** → Tickler via write-tickler script:
       ```bash
-      "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]"
+      "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]"
       ```
 
    3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text]`
@@ -408,7 +344,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Use the backfill-files-updated script:
      ```bash
      printf -- '- 01 Now/Works in Progress.md - [what changed]\n- 01 Now/This Week.md - [what changed]\n' | \
-       "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
+       "{VAULT}/.claude/scripts/backfill-files-updated.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
      ```
      Where `N` is the current session number. The script handles:
      - File locking (flock) for concurrent safety
@@ -432,9 +368,7 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
 ✓ Open loops documented: N items
-✓ Bidirectional links added (previous ↔ next)
-  [OR if forward_link_failed: "⚠ Forward link to previous session failed (session still saved)"]
-  [OR if no previous session: "✓ No previous session to link (first session)"]
+✓ Continuation link added: [Original Session] (only if this session continues previous work)
 ✓ Project updated: [Project Name] (if applicable)
 ✓ Reference graph: N files updated for [identifier] (if any status changes traced)
   [OR "No status changes to trace" if none]
@@ -466,9 +400,8 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional — local time is more meaningful than forcing the home timezone
-- **Bidirectional linking:** Full tier adds "Next session:" to the previous session when parking, creating true bidirectional session chains. Additionally, when `/pickup` loads a specific session to continue, "Continues:" appears in new session and "Continued in:" is appended to original - tracking project threads across time
-- **Scoped forward linking is critical:** When adding "Next session:" links, ALWAYS scope the insertion to the specific previous session's block. Never use global sed patterns that match all `**Project:**` lines in the file - this causes duplicate insertions across all sessions. Use line-number-based insertion with explicit session heading anchoring. **The shortcut sed pattern is ALWAYS wrong** - if you find yourself writing `sed '/pattern/a ...'` without line number constraints, stop and use the documented flock+line-number approach instead.
-- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`$VAULT_PATH/06 Archive/Claude/Session Logs/.lock`) protects both writes and edits
+- **Continuation linking only:** Do NOT add chronological "Next session:" or "Previous session:" links — sessions are in chronological order in the file, so these are redundant. The only cross-session links that carry information are topical: `**Continues:**` (in the new session, pointing to the session being continued) and `**Continued in:**` (added to the original session, pointing forward to the continuation). These are triggered by `/pickup` loading a specific session to continue.
+- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`{VAULT}/06 Archive/Claude/Session Logs/.lock`) protects both writes and edits
 - **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.

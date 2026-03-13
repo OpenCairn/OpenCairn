@@ -271,102 +271,33 @@ Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m
 
 1. Run `date -d "+N days" +"%A %d %b"` for each missing day to get correct day-date mappings
 2. Add new day sections after the last existing day, before the `---` / Refs / Pending decisions sections
-3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete them from Tickler (This Week.md becomes SSOT per Tickler transfer rules)
+3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete them from Tickler (This Week.md becomes SSOT per Tickler transfer rules). **Deduplicate against Backlog:** After migrating each Tickler item, check whether a matching item already exists in the Backlog section of This Week.md (same task, possibly different phrasing). If so, delete the Backlog copy — the day section is now SSOT.
 4. Format for days with no Tickler items: `## [Day] [DD] [Mon]` with no content (just the heading)
 5. **Update the file heading** date range to match the new end date: `# This Week — [start] – [new end] [YYYY]`
 
 This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
 
-### 14. Log Goodnight Session with Bidirectional Links
+### 14. Log Goodnight Session
 
 Append a session entry for the goodnight session itself to today's session file.
 
-### 15. Find Previous Session and Determine Next Session Number
+### 15. Determine Next Session Number
 
 Extract the last session number mechanically — do NOT count by reading:
 ```bash
 PREV_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
 NEW_NUM=$((PREV_NUM + 1))
-echo "Previous: $PREV_NUM, New: $NEW_NUM"
-```
-Store previous session's heading for forward linking.
-
-### 16. Add Forward Link to Previous Session (with guards)
-
-**GUARD 1 - Idempotency check:**
-```bash
-# Check if forward link already exists (match session number, not title — title may vary)
-if grep -q "\\*\\*Next session:\\*\\*.*#Session $NEW_NUM " "$SESSION_FILE"; then
-  echo "Forward link already exists, skipping"
-  # Skip insertion
-fi
+echo "New session number: $NEW_NUM"
 ```
 
-**GUARD 2 - Scoped insertion (find previous session's block):**
+**Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
+1. Read its summary and completions from the session file
+2. Update your working memory (add to completed list, adjust session count)
+3. **Patch the daily report** (Step 9 output already on disk) — update session count, add the missed session(s) to the session list, add any completions to the Completed section
 
-**CRITICAL: All line calculations MUST happen inside the flock** to prevent race conditions.
+This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
 
-```bash
-# Entire operation wrapped in single flock - calculate and insert atomically
-flock -w 10 "$VAULT_PATH/06 Archive/Claude/Session Logs/.lock" bash -c '
-  SESSION_FILE="'"$SESSION_FILE"'"
-  PREV_NUM="'"$PREV_NUM"'"
-  NEW_SESSION_LINK="'"$NEW_SESSION_LINK"'"
-
-  # Find previous session heading line number
-  PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
-  [ -z "$PREV_HEADING" ] && exit 1
-
-  # Find next session heading (or EOF)
-  NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
-  if [ -n "$NEXT_HEADING" ]; then
-    END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
-  else
-    END_LINE=$(wc -l < "$SESSION_FILE")
-  fi
-
-  # Find insertion point (after last metadata line in previous session)
-  INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-    grep -n "^\*\*\(Project\|Continues\|Previous session\|For next session\):\*\*" | tail -1 | cut -d: -f1)
-
-  # Fallback for Quick sessions (no metadata lines)
-  if [ -z "$INSERT_AFTER" ]; then
-    INSERT_AFTER=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | \
-      grep -n "." | tail -1 | cut -d: -f1)
-  fi
-
-  INSERT_LINE=$((PREV_HEADING + INSERT_AFTER - 1))
-
-  # Insert
-  sed -i "${INSERT_LINE}a\\${NEW_SESSION_LINK}" "$SESSION_FILE"
-'
-```
-
-**Variable setup before flock:**
-```bash
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
-PREV_NUM=3  # Previous session number
-NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session 4 - Goodnight: Topic]]"
-```
-
-**GUARD 3 - Post-insertion validation:**
-After insertion, verify no duplicates were created. This runs outside the flock (read-only check):
-```bash
-# Fresh read to check for duplicates
-PREV_HEADING=$(grep -n "^## Session $PREV_NUM - " "$SESSION_FILE" | tail -1 | cut -d: -f1)
-NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | grep -n "^## Session " | head -1 | cut -d: -f1)
-if [ -n "$NEXT_HEADING" ]; then
-  END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
-else
-  END_LINE=$(wc -l < "$SESSION_FILE")
-fi
-NEXT_COUNT=$(sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -c "^\*\*Next session:\*\*")
-if [ "$NEXT_COUNT" -gt 1 ]; then
-  echo "⚠ WARNING: Previous session has $NEXT_COUNT 'Next session:' links - manual review needed"
-fi
-```
-
-### 17. Append Goodnight Session Entry
+### 16. Append Goodnight Session Entry
 
 **Do NOT use heredoc inside flock — nested quoting is fragile.** Instead, use the Write or Edit tool to append the session entry directly, or write to a temp file and use flock for the append:
 
@@ -391,7 +322,6 @@ cat > /tmp/goodnight_session.md << 'EOF'
 
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
-**Previous session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N-1 - Previous Title]]
 EOF
 
 # Append atomically under lock
@@ -402,9 +332,7 @@ rm -f /tmp/goodnight_session.md
 
 **Preferred method:** Use the Edit/Write tool to append (no shell quoting issues at all). Only use bash+flock if concurrent writes are a real risk (multiple Claude instances).
 
-**Critical:** Always add the "Next session" link to the previous session BEFORE appending the new session. This maintains bidirectional linking.
-
-### 18. Check for Stranded Work Product
+### 17. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
@@ -422,11 +350,11 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 19. Update Works in Progress
+### 18. Update Works in Progress
 
 If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
 
-### 20. Close
+### 19. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
@@ -446,7 +374,6 @@ Goodnight.
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
 - **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `$VAULT_PATH/06 Archive/Claude/Session Logs/.lock`
-- **Scoped forward linking:** When adding "Next session:" links, always scope to specific session block. Never use global patterns that match all sessions.
 
 ### Working Memory Model (Critical)
 
@@ -480,7 +407,7 @@ This command should trigger when the user says:
 
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (adds goodnight session with bidirectional links), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
+- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
 
