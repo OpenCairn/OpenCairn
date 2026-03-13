@@ -159,6 +159,7 @@ Use de-AI-ify:
 - **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
 - **Before blog publishing:** Final voice check on posts
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
+- **With /reply:** `/reply` runs the de-AI-ify checklist automatically as an integrated voice check with silent fixes. Use standalone `/de-ai-ify` when the user wants a deeper pass with before/after presentation on a draft that still feels off.
 
 This ensures **the user's authentic voice in all published work**.
 
