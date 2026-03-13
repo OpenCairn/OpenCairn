@@ -132,7 +132,7 @@ Within a session, `/reply` carries forward context from previous drafts and the 
 - **Reference class calibration.** If prior sent messages exist in the thread, calibrate from those.
 - **Long threads.** Last message not from the user is the one to reply to; everything else is context.
 - **CRM miss is fine.** Not every reply is to someone in the vault. Note it and proceed.
-- **Batch mode.** Multiple messages to reply to → run claims inventory before drafting any.
+- **Batch mode.** 3+ messages to reply to → run claims inventory before drafting any.
 - **Research proportionality.** Quick lookups within `/reply` are fine. Substantial research → suggest `/research-assistant` first.
 
 ---
