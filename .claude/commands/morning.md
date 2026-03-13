@@ -44,7 +44,7 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Read and present:
 - **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md`, show Active section
-- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 5. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 5. If the file doesn't exist, skip.
+- **This Week.md freshness:** Check `$VAULT_PATH/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
 - **Tickler items due:** Read `$VAULT_PATH/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration (automatic):** If `$VAULT_PATH/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup.
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
@@ -210,7 +210,7 @@ Pull items from:
 - Time-sensitive items and appointments
 - WIP next actions
 - Yesterday's queue (from /goodnight Daily Report)
-- Tickler items due today
+- Today's items already in This Week.md (migrated from Tickler in steps 2/5)
 - Anything the user mentioned in step 3
 
 **Move, not copy.** When an item from the Backlog section is scheduled into today's timeline, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
