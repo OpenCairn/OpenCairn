@@ -134,7 +134,27 @@ For every item the user mentioned:
 
 **Why this gate exists:** The failure mode is: user dumps 10 items, Claude discusses all 10 intelligently, user assumes they're captured, they're not. Conversation is volatile memory. Files are the system of record. The gap between "discussed" and "captured" is where trust erodes.
 
-### 5. Update This Week.md (optional)
+### 5. Maintain This Week.md window
+
+This step runs every morning regardless of whether the user wants a timeline for today. It keeps the rolling window current.
+
+If This Week.md doesn't exist, skip this step (step 6 will offer to create it if needed).
+
+**Trim old day sections:** Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
+1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
+2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
+3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
+
+**Extend the window:** Ensure day sections exist for today + 6 calendar days ahead (7 total including today). Rolling window: 3 past + today + 6 future = 10 sections max.
+1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
+2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
+3. Remove day sections beyond the 6-day window (heading + content until next `## ` heading)
+4. Format for days with no content: `## [Day] [DD] [Mon]` — just the heading
+5. Update the file heading date range: set start date to the earliest remaining day section, end date to the latest
+
+**Populate new days from Tickler:** For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Step 2 handles migration for *existing* day sections — this only covers *newly created* ones.
+
+### 6. Update today's timeline (optional)
 
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
 
@@ -225,28 +245,9 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 - [[wikilinks to relevant project/area files]]
 ````
 
-Rolling window: 3 past + today + 6 future = 10 sections max. Each /morning trims and extends.
-
-**Extending an existing This Week.md (ALWAYS — even if user skips today's timeline):** Two operations, in order: trim old days, then extend the window.
-
-**a) Trim old day sections:** Before extending, delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value. Mechanically:
-1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
-2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
-3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
-
-**b) Ensure 6 upcoming days exist:** After trimming, ensure day sections exist for today + 6 calendar days ahead (7 total including today). This gives a rolling window of at most 10 sections: 3 past + today + 6 future. For any missing days:
-1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
-2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
-3. **Remove day sections beyond the 6-day window:** If any day sections exist with dates more than 6 calendar days after today, delete them (heading + content until next `## ` heading)
-4. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Note: step 2 may have already migrated items for *existing* day sections — this step only handles *newly created* sections.
-5. Format for days with no Tickler items: `## [Day] [DD] [Mon]` — just the heading
-6. **Update the file heading** date range: set start date to the earliest remaining day section, end date to the latest
-
-This keeps the file compact: old days are trimmed, the future window stays consistent, and `/goodnight` collapse is no longer the only mechanism for clearing past days.
-
 **If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
-### 6. Output (conditional)
+### 7. Output (conditional)
 
 **Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for This Week.md and any additional generative content — not for deferred captures.
 
@@ -258,7 +259,7 @@ This keeps the file compact: old days are trimmed, the future window stays consi
 
 **If nothing:** Just close cleanly.
 
-### 7. Close
+### 8. Close
 
 Short and light:
 ```
