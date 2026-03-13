@@ -87,12 +87,13 @@ SECTION_CONTENT=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SE
 DEDUPED_LIST=""
 while IFS= read -r line; do
     # Extract the file path from "- path/to/file - description"
-    FILE_PATH=$(echo "$line" | sed -n 's/^- \([^ ]*\).*/\1/p')
+    FILE_PATH=$(echo "$line" | sed -n 's/^- \(.*\) - .*/\1/p')
     if [ -n "$FILE_PATH" ]; then
         # Normalise: strip common prefixes for comparison (~/Files/, full absolute paths)
         NORM_PATH=$(echo "$FILE_PATH" | sed 's|^~/Files/||; s|^/home/[^/]*/Files/||')
         # Check if this normalised path already appears in existing section content
-        if echo "$SECTION_CONTENT" | sed 's|^- ~/Files/||; s|^- /home/[^/]*/Files/||; s|^- ||' | grep -qF "$NORM_PATH"; then
+        # Extract just file paths from existing entries (everything between "- " and " - ")
+        if echo "$SECTION_CONTENT" | sed -n 's|^- \(.*\) - .*|\1|p' | sed 's|^~/Files/||; s|^/home/[^/]*/Files/||' | grep -qxF "$NORM_PATH"; then
             continue  # skip duplicate
         fi
     fi
