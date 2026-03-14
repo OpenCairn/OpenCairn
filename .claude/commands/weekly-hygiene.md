@@ -119,9 +119,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
    - Update header metadata: check `**Status:**` and `**Location:**` lines against the most recent daily report. Flag if stale.
 
-9. **Claude Memory Audit**
+9. **Claude Memory Audit & Migration**
 
-   Claude Code's auto-memory (`~/.claude/projects/*/memory/MEMORY.md` and any topic files alongside it) accumulates observations across sessions. Left unchecked, it drifts — stale entries, duplicated context already in the vault, vague impressions that degrade Claude's focus.
+   Claude Code's auto-memory (`~/.claude/projects/*/memory/MEMORY.md` and any topic files alongside it) accumulates observations across sessions. The vault is the canonical home for persistent knowledge — memory should be a temporary landing zone, not a permanent silo. Left unchecked, valuable lessons get trapped in a Claude-internal folder invisible to Obsidian search, backlinks, and the user's normal workflows.
 
    **Gather:**
    - Locate the active memory directory: `ls ~/.claude/projects/*/memory/` — find the one matching the current working directory's path encoding
@@ -129,15 +129,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read `CLAUDE.md` from the vault root (needed for duplicate detection)
    - Count total entries/lines across all memory files
 
-   **Flag for user review:**
-   - **Stale entries:** Memories about completed projects, resolved decisions, or outdated state
-   - **Vault duplicates:** Memories that restate what's already in CLAUDE.md or files loaded in earlier hygiene steps (WIP, Tickler, This Week, Working Memory) — the vault is the source of truth, not memory
-   - **Vague impressions:** Entries that lack specificity ("user prefers X" without concrete mechanism) — these waste context window without adding value
-   - **Contradictions:** Entries that conflict with current vault content or CLAUDE.md
+   **For each memory entry, classify:**
+   - **Migrate to vault:** The memory contains a lesson, workflow insight, or reference that belongs near the relevant vault content (e.g., a workflow correction belongs near the workflow doc, a project lesson belongs in the project file). Propose the specific vault destination — verify the target file exists before proposing (if it's been moved/deleted, find the current location or flag for user).
+   - **Keep in memory:** The memory is about Claude's behaviour but too granular or context-dependent for CLAUDE.md (e.g., "when user says X, they mean Y in this repo"). If it's a general behaviour rule, it belongs in CLAUDE.md's "Working With Me" section, not memory. Genuine keeps should be rare.
+   - **Delete:** Stale (completed project, resolved decision), duplicated in vault/CLAUDE.md, vague/unactionable, or contradicts current vault content.
 
    **Confirm with user:**
-   - Present each flagged entry with recommendation (delete / update / keep)
-   - Don't auto-delete — memory entries may contain context the user values that isn't obvious from vault content alone
+   - Present each entry with its classification and recommended action
+   - For migrations: show the proposed vault destination and how the content would be integrated (appended to existing doc, new section, etc.)
+   - Don't auto-delete or auto-migrate — memory entries may contain context the user values that isn't obvious from vault content alone
+   - After user confirms migrations: move content to vault, delete the memory file, update MEMORY.md index
 
 10. **Claude Plan File Cleanup**
 
@@ -251,10 +252,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Claude Memory
    - Total entries/lines: N across M files
-   - Stale entries: [list or "none"]
-   - Vault duplicates: [list or "none"]
-   - Vague/low-value entries: [list or "none"]
-   - Contradictions: [list or "none"]
+   - Migrate to vault: [list with destination, or "none"]
+   - Keep in memory: [list with reason, or "none"]
+   - Delete: [list with reason, or "none"]
+   - Migrated this sweep: [list of entry → vault path, or "none"]
 
    ## Claude Plan Files
    - Stale files deleted (7+ days old): N
