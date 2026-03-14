@@ -281,6 +281,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
      - **Next:** [Next action from open loops]
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
+     - **FIFO cap at 7:** After adding the new link, count standalone session link lines (lines whose only content is `→ [[06 Archive/Claude/Session Logs/...]]`) between **Last:** and **Next:** in this WIP entry. If there are more than 7, remove the oldest by date until exactly 7 remain. Session history lives in the archive; WIP links are convenience pointers, not the record of truth.
    - Update "Last updated" timestamp at top of file with current date/time
 
 13. **Trace reference graph for status changes** (Full tier only):

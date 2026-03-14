@@ -31,11 +31,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
    - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "$VAULT_PATH/01 Now/Works in Progress.md"`
    - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
+   - Per-entry line count (excluding session link lines starting with →): flag entries exceeding 30 lines
 
    **Auto-fix:**
    - Trim session links to **3–5 most recent per project** (session history lives in the archive, not WIP)
    - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern)
    - Remove resolved open decisions (strikethrough decisions that were answered)
+   - Collapse resolved inline narratives: when a paragraph or sub-section contains 3+ items all marked ✅/resolved/completed, replace with a single summary line referencing the linked project/area file
+   - Per-entry line budget: when a single WIP entry exceeds 30 lines (excluding session links), collapse verbose sub-sections to summary + link. Prioritise collapsing: duplicated detail (confirmation numbers, prices, addresses already in linked files), resolved narratives, sub-topics that have their own WIP entry
+   - Detect sub-entry sprawl: when a WIP entry contains dedicated sub-topic headings, per-sub-topic session links, or content that duplicates a separate WIP entry, collapse to a cross-reference
 
    **Confirm with user:**
    - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — recommend demote or nudge
@@ -264,6 +268,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Completed items removed: N
    - Session links trimmed: N
    - Stale Active projects (Last: 14+ days ago): [list or "none"]
+   - Entries exceeding 30-line budget: [list or "none"]
+   - Narratives collapsed: N
 
    ## WIP ↔ This Week Reconciliation
    - Stale WIP items updated: N
