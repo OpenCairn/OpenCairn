@@ -140,25 +140,29 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Don't auto-delete or auto-migrate — memory entries may contain context the user values that isn't obvious from vault content alone
    - After user confirms migrations: move content to vault, delete the memory file, update MEMORY.md index
 
-10. **Claude Plan File Cleanup**
+10. **Claude Internal File Cleanup**
 
-   Claude Code generates ephemeral plan files in `~/.claude/plans/`. Work product should be migrated to the vault by `/park` or `/goodnight` before session end — old plan files are structural clutter. Auto-fix is appropriate here despite the general "deletions require confirmation" guideline — these are ephemeral Claude internals, not vault content.
+   Claude Code generates ephemeral files across several internal directories. These accumulate indefinitely with no built-in retention. Work product in plans should be migrated to the vault by `/park` or `/goodnight` before session end. Other directories (`debug/`, `paste-cache/`, `shell-snapshots/`, `telemetry/`) contain session logs, clipboard caches, environment snapshots, and failed telemetry events — none are read back after the session that created them.
+
+   Auto-fix is appropriate here despite the general "deletions require confirmation" guideline — these are ephemeral Claude internals, not vault content.
 
    **Gather:**
    ```bash
-   # Total before cleanup
-   find ~/.claude/plans/ -name "*.md" -type f 2>/dev/null | wc -l
-   # Stale (7+ days old)
-   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 2>/dev/null | wc -l
-   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 -exec ls -la {} + 2>/dev/null
+   # Count total and stale (7+ days) for each directory
+   for dir in plans debug paste-cache shell-snapshots telemetry; do
+     total=$(find ~/.claude/$dir/ -type f 2>/dev/null | wc -l)
+     stale=$(find ~/.claude/$dir/ -type f -mtime +7 2>/dev/null | wc -l)
+     echo "$dir: $total total, $stale stale (7+ days)"
+   done
    ```
 
    **Auto-fix:**
-   - Delete plan files older than 7 days
    ```bash
-   find ~/.claude/plans/ -name "*.md" -type f -mtime +7 -delete 2>/dev/null
+   for dir in plans debug paste-cache shell-snapshots telemetry; do
+     find ~/.claude/$dir/ -type f -mtime +7 -delete 2>/dev/null
+   done
    ```
-   - Remaining count = total minus deleted
+   Report per-directory counts (deleted and remaining).
 
 11. **Vault Consistency Checks**
 
@@ -203,7 +207,47 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. Report instances for user review — don't auto-fix.
 
-12. **Write Hygiene Report**
+12. **Context File Staleness Detection**
+
+   Context files (`$VAULT_PATH/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
+
+   **Gather:**
+   - List all context files and their last-modified dates:
+     ```bash
+     find "$VAULT_PATH/07 System/" -name "Context - *.md" -type f -exec stat -c '%Y %n' {} +
+     ```
+   - For each file, scan for temporal markers in three categories. Grep extracts candidate lines; **Claude classifies contextually** (bash can't distinguish historical facts from stale future claims).
+
+     **Category A — Explicit dates:**
+     ```bash
+     grep -nE "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+20[2-3][0-9]|20[2-3][0-9]-(0[1-9]|1[0-2])" "$FILE"
+     ```
+     Claude flags lines where the date is past AND the framing is forward-looking ("upcoming", "planned", "starting", "will"). Historical references ("Started September 2025") are not flagged.
+
+     **Category B — Relative-time markers:**
+     ```bash
+     grep -niE "\b(currently|right now|at the moment|these days|lately|recently|about to|planning to|transitioning|in progress|waiting for|not yet|haven't yet|still [a-z]+ing|upcoming|soon)\b" "$FILE"
+     ```
+     Flag all matches every week as a low-priority verification checklist — no file-age threshold. Present as: "These claims exist in your context files — still true?"
+
+     **Category C — Dates approaching expiry:**
+     Dates within 30 days of today. Early warning for content about to need updating.
+
+   - Skip files with zero temporal markers across all categories (inherently stable).
+
+   **Classify each flagged file:**
+   - **Expired:** Category A markers where the date is past and framing is forward-looking.
+   - **Verify:** Category B markers — quick confirmation checklist.
+   - **Approaching expiry:** Category A/C markers with dates in the next 30 days.
+
+   **Confirm with user:**
+   - Present each flagged file with its classification and the specific lines triggering the flag
+   - For Expired: recommend the user review and update or archive the stale section
+   - For Verify: present as a quick scan checklist — "still true?"
+   - For Approaching expiry: note the expiry window so the user can plan the update
+   - Do not auto-edit context files — these are high-value prose documents where mechanical changes risk destroying nuance
+
+13. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Write all findings to `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -257,9 +301,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Delete: [list with reason, or "none"]
    - Migrated this sweep: [list of entry → vault path, or "none"]
 
-   ## Claude Plan Files
-   - Stale files deleted (7+ days old): N
-   - Remaining files: M
+   ## Claude Internal Files
+   - Plans: N stale deleted, M remaining
+   - Debug logs: N stale deleted, M remaining
+   - Paste cache: N stale deleted, M remaining
+   - Shell snapshots: N stale deleted, M remaining
+   - Telemetry: N stale deleted, M remaining
 
    ## Vault Consistency
    - Unresolved (broken) links: N total — [list top 10 or "none"]
@@ -274,6 +321,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Dead-end count: N
    - Top tags: [top 5 with counts]
 
+   ## Context File Staleness
+   - Files scanned: N
+   - Inherently stable (no temporal markers): N
+   - Expired (past-date forward-looking claims): [list with file, line, and marker, or "none"]
+   - Verify (relative-time claims): [list with file, line, and marker, or "none"]
+   - Approaching expiry (dates within 30 days): [list with file, line, and date, or "none"]
+
    ## Actions Taken (Auto-fix)
    - [List all automatic fixes applied]
 
@@ -281,11 +335,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [ ] [Each item requiring user confirmation]
    ```
 
-13. **Display confirmation:**
+14. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
-    ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, plan file cleanup)
+    ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, internal file cleanup)
     ✓ Items needing user decision: M
 
     Vault hygiene complete. Run /weekly-review to incorporate findings into your weekly reflection.
