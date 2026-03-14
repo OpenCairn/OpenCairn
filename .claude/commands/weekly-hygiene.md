@@ -216,7 +216,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      ```bash
      find "$VAULT_PATH/07 System/" -name "Context - *.md" -type f -exec stat -c '%Y %n' {} +
      ```
-   - For each file, scan for temporal markers in three categories. Grep extracts candidate lines; **Claude classifies contextually** (bash can't distinguish historical facts from stale future claims).
+   - For each file found above, scan for temporal markers in three categories. Grep extracts candidate lines; **Claude classifies contextually** (bash can't distinguish historical facts from stale future claims).
 
      **Category A — Explicit dates:**
      ```bash
@@ -231,7 +231,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      Flag all matches every week as a low-priority verification checklist — no file-age threshold. Present as: "These claims exist in your context files — still true?"
 
      **Category C — Dates approaching expiry:**
-     Dates within 30 days of today. Early warning for content about to need updating.
+     Reuse Category A's output. Filter for dates within 30 days of today — early warning for content about to need updating.
 
    - Skip files with zero temporal markers across all categories (inherently stable).
 
@@ -347,7 +347,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Guidelines
 
-- **Mechanical, not reflective.** This command fixes structural issues. `/weekly-review` handles patterns, alignment, and planning.
+- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflection to act on.
 - **Auto-fix only safe operations.** Pruning session links, removing completed items, and purging done backlog are safe. File moves, deletions, tickler actions, and stale project demotion require user confirmation.
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
