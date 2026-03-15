@@ -102,22 +102,32 @@ ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION
 
 if [ "$REPLACE_MODE" = "true" ]; then
     # Replace mode: remove all content lines between heading and boundary, insert new content
-    # Keep the heading line itself and preserve blank line before next heading
+    # For terminal sections (no next ### heading), add trailing blank line since the skip range
+    # eats everything. For non-terminal sections, the blank line before the next heading is
+    # naturally preserved (it sits at SECTION_END, outside the skip range).
+    TRAILING_BLANK=""
+    if [ -z "$NEXT_SECTION" ]; then
+        TRAILING_BLANK="yes"
+    fi
     export _AWK_SECTION_START="$SECTION_ABS"
     export _AWK_SECTION_END="$SECTION_END"
     export _AWK_CONTENT="$CONTENT"
+    export _AWK_TRAILING="$TRAILING_BLANK"
     awk '
-        NR == ENVIRON["_AWK_SECTION_START"]+0 { print; print ENVIRON["_AWK_CONTENT"]; print ""; next }
+        NR == ENVIRON["_AWK_SECTION_START"]+0 {
+            print; print ENVIRON["_AWK_CONTENT"]
+            if (ENVIRON["_AWK_TRAILING"] != "") print ""
+            next
+        }
         NR > ENVIRON["_AWK_SECTION_START"]+0 && NR < ENVIRON["_AWK_SECTION_END"]+0 { next }
         { print }
     ' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
-    unset _AWK_SECTION_START _AWK_SECTION_END _AWK_CONTENT
+    unset _AWK_SECTION_START _AWK_SECTION_END _AWK_CONTENT _AWK_TRAILING
 else
     # Append mode: check for "None" or append after last content
     SECTION_BODY=$(sed -n "$((SECTION_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE")
 
     # Check if section body is a single non-blank line starting with "None"
-    NONE_LINE=""
     NON_BLANK_COUNT=0
     FIRST_NON_BLANK=""
     while IFS= read -r line; do
@@ -125,8 +135,6 @@ else
             NON_BLANK_COUNT=$((NON_BLANK_COUNT + 1))
             if [ -z "$FIRST_NON_BLANK" ]; then
                 FIRST_NON_BLANK="$line"
-                # Track the absolute line number
-                NONE_LINE_REL=$NON_BLANK_COUNT
             fi
         fi
     done <<< "$SECTION_BODY"
