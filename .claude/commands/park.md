@@ -308,8 +308,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
        ```bash
        # Extract the WIP entry for this project and count session links
-       # Substitute the project heading (e.g. "### Claude Code Learning / OpenCairn")
-       sed -n '/^### PROJECT_HEADING/,/^### /p' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
+       # Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
+       # Uses awk index() for fixed-string matching (headings often contain / and &)
+       awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
        Display: `FIFO check: N/7 session links`. If not exactly 7 (or fewer for projects with <7 total sessions), fix before proceeding.
    - Update "Last updated" timestamp at top of file with current date/time
