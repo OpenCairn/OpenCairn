@@ -51,8 +51,31 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 2. **Check for merge-continuation** before creating a new session:
    - Ask: "Is this work a direct continuation of a recently parked session — same task, just finishing a loose end?"
-   - If yes: **don't create a new session entry.** Instead, update the existing session's Files Created/Updated lists, summary, and (if needed) Next Steps/Open Loops and Pickup Context. Use flock-protected Bash edits (not the Edit tool — race condition risk with parallel parks). Then skip to Step 15 (completion message) with: `✓ Merged into Session N — [what was added]`
+   - If yes: **don't create a new session entry.** Instead, update the existing session using the update-session-section script (not the Edit tool — race condition risk with parallel parks):
+     ```bash
+     # Append to Summary (leading blank line creates paragraph break)
+     printf '\nMerge addendum: [description]' | \
+       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Summary"
+
+     # Append to Files Created (handles None→list automatically)
+     printf -- '- path/to/file - description\n' | \
+       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Created"
+
+     # Append to Files Updated (handles None→list automatically)
+     printf -- '- path/to/file - description\n' | \
+       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Updated"
+
+     # Replace Next Steps / Open Loops (when changed)
+     printf -- '- Updated loop\n' | \
+       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Next Steps / Open Loops" --replace
+
+     # Replace Pickup Context (always replaced on merge)
+     printf '**For next session:** ...\n**Project:** ...\n' | \
+       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Pickup Context" --replace
+     ```
+   - **After merging, run Steps 5, 12, 13, 14, 14a, 15** (quality gate, WIP update, reference graph, open loop routing, backfill — all using the merged session's number). Skip Steps 3-4, 6-11 (no new session entry needed).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
+   - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
 
 3. **Detect session tier** (unless explicit parameter provided):
@@ -392,7 +415,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 
 ## Guidelines
 
-- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
+- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. Use `update-session-section.sh` for all section edits (never ad-hoc sed — multiline sed fails silently). This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
 - **Capture ALL sessions:** Use `/park` (or `/checkpoint` mid-session) for every session, even quick tasks. The system auto-detects appropriate tier.
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
