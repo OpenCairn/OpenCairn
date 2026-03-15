@@ -305,6 +305,13 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **Next:** [Next action from open loops]
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
      - **FIFO cap at 7:** After adding the new link, count standalone session link lines (lines whose only content is `→ [[06 Archive/Claude/Session Logs/...]]`) between **Last:** and **Next:** in this WIP entry. If there are more than 7, remove the oldest by date until exactly 7 remain. Session history lives in the archive; WIP links are convenience pointers, not the record of truth.
+     - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
+       ```bash
+       # Extract the WIP entry for this project and count session links
+       # Substitute the project heading (e.g. "### Claude Code Learning / OpenCairn")
+       sed -n '/^### PROJECT_HEADING/,/^### /p' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
+       ```
+       Display: `FIFO check: N/7 session links`. If not exactly 7 (or fewer for projects with <7 total sessions), fix before proceeding.
    - Update "Last updated" timestamp at top of file with current date/time
 
 13. **Trace reference graph for status changes** (Full tier only):
