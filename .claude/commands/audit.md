@@ -74,18 +74,20 @@ Theory vs. reality. Can you verify it runs?
 
 ### Phase 3: Report Findings
 
-1. **Present findings by layer**, not as a flat list. This makes severity obvious — a Layer 1 finding ("wrong approach") outranks ten Layer 4 findings ("minor bugs").
+1. **State the audit scope** at the top of the report — what was audited, and any boundaries (e.g., "Auditing `src/auth/` only, not the calling code").
 
-2. **For each finding, state:**
+2. **Present findings by layer**, not as a flat list. This makes severity obvious — a Layer 1 finding ("wrong approach") outranks ten Layer 4 findings ("minor bugs").
+
+3. **For each finding, state:**
    - What's wrong (specific, no hedging)
    - Why it matters (consequence if left unfixed)
    - Suggested fix (concrete, not "consider improving")
 
-3. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents."
+4. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents."
 
 ### Phase 4: Fix and Re-audit
 
-1. **If fixes are possible and authorised**, make them.
+1. **If fixes are possible and authorised**, make them. If fixes aren't authorised or aren't possible (e.g., auditing someone else's work, a read-only review), the audit ends at Phase 3 — present findings and stop.
 2. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
 3. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
 
