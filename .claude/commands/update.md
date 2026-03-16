@@ -3,7 +3,7 @@ name: update
 description: Update OpenCairn commands and scripts from the template repository
 parameters:
   - "--dry-run" - Preview changes without applying them
-  - "--force" - Skip confirmation prompt
+  - "--force" - Accept all changes without per-file review
 ---
 
 # Update - OpenCairn Template Sync
@@ -14,8 +14,8 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 
 | Category | Path | Action |
 |----------|------|--------|
-| Commands | `.claude/commands/*.md` | Overwrite from template |
-| Scripts | `.claude/scripts/*.sh` | Overwrite from template |
+| Commands | `.claude/commands/*.md` | Per-file review (accept/skip) |
+| Scripts | `.claude/scripts/*.sh` | Per-file review (accept/skip) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
@@ -150,36 +150,65 @@ If `--dry-run`: Stop here and display:
 Dry run complete. Run /update to apply these changes.
 ```
 
-### Step 6: Confirm and Apply
+### Step 6: Per-File Review and Apply
 
-Unless `--force` was specified, ask the user: "Apply these updates? Your CLAUDE.md and vault content won't be touched."
+For each changed file, show a short diff and let the user decide. This prevents template updates from overwriting local improvements.
 
-If confirmed:
-
+**If `--force` was specified**, skip per-file review — accept all files and apply them in bulk (use the bulk checkout approach):
 ```bash
-# Check for uncommitted changes in target paths only
-git status --porcelain -- .claude/commands/ .claude/scripts/
-```
-
-If there are uncommitted local changes to commands/scripts, warn:
-```
-⚠ You have local modifications to these commands:
-  .claude/commands/park.md (modified)
-
-These will be overwritten with the template version. Continue? (y/n)
-```
-
-Apply the update:
-```bash
-# Checkout template versions of commands and scripts
 git checkout $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/
+```
+Then skip ahead to the commit step below.
 
+**Otherwise, iterate over each changed file:**
+
+Get the list of files that differ (excluding local-only files which aren't in the template):
+```bash
+git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/
+```
+
+For each file in this list:
+
+1. **Show a compact diff** (the template version vs local version):
+   ```bash
+   git diff $REMOTE/$BRANCH -- <file>
+   ```
+
+2. **Show a one-line summary** describing the change direction and size, e.g.:
+   ```
+   audit.md — template adds 2 lines (105 → 103 locally, template is longer)
+   ```
+
+3. **Ask the user:** "Accept template version? (y/n/d)"
+   - **y** — accept: checkout the template version of this file
+   - **n** — skip: keep the local version unchanged
+   - **d** — show full diff again (re-display, then re-ask)
+
+4. **If accepted**, apply immediately:
+   ```bash
+   git checkout $REMOTE/$BRANCH -- <file>
+   ```
+
+5. **If skipped**, note it for the summary. Move to the next file.
+
+**New files** (in template but not local) don't need review — apply them automatically:
+```bash
+git checkout $REMOTE/$BRANCH -- <new-file>
+```
+
+**After all files are processed**, commit everything that was accepted:
+```bash
 # Ensure scripts are executable and stage the permission change
 chmod +x .claude/scripts/*.sh 2>/dev/null
-git add .claude/scripts/*.sh
+git add .claude/commands/ .claude/scripts/
 
 # Commit with template version hash for traceability
 git commit -m "Update OpenCairn commands from template ($(git rev-parse --short $REMOTE/$BRANCH))"
+```
+
+If nothing was accepted (user skipped everything), don't commit. Display:
+```
+No updates applied — all files skipped.
 ```
 
 If the commit fails (nothing to commit), that's fine — files are already updated in the working tree.
@@ -251,8 +280,9 @@ git rev-parse --short $REMOTE/$BRANCH
 ```
 ✓ OpenCairn commands updated (template <hash>)
 
-  Commands: N updated, M new
-  Scripts:  N updated, M new
+  Accepted: N files (park.md, pickup.md, morning.md)
+  Skipped:  M files (audit.md)
+  New:      K files (weekly.md)
   Your CLAUDE.md and vault content were not touched.
 
   📋 Release notes: https://github.com/OpenCairn/OpenCairn/releases
@@ -281,7 +311,8 @@ Error: [specific error message]
 ## Guidelines
 
 - **Safe by design:** Only `.claude/commands/` and `.claude/scripts/` are ever modified. All other files are outside the checkout path.
-- **Custom commands are preserved:** `git checkout` only updates files that exist in the template. User-created custom commands are never modified or deleted.
+- **Per-file review:** Each changed file is shown with its diff before applying. Users can skip files they've customised locally, preventing template regressions. `--force` bypasses review and accepts all.
+- **Custom commands are preserved:** Only files that exist in the template are updated. User-created custom commands are never modified or deleted.
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.
 - **Scripts are cross-platform:** All template scripts use portable locking (flock on Linux, mkdir-based on macOS/Windows) and portable date handling. Updates won't break OS-specific functionality.
 - **Version-tracked:** Each update commit includes the template hash (e.g., `a3f8c2d`) for debugging and rollback.
