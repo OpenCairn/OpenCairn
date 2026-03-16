@@ -83,10 +83,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - Conversation < 10 turns AND
      - No files created/updated AND
      - Session < 5 minutes duration AND
-     - No decisions made, just information lookup
+     - No decisions or status changes — just information lookup
    - **Full tier** triggers when ANY of:
      - Files created/updated OR
      - Decisions made OR
+     - Status changes identified (task completed, booking confirmed/cancelled, item resolved) OR
      - Open loops generated OR
      - Session involved any substantive work
    - If `--auto` (default): Auto-detect based on above
