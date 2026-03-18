@@ -28,26 +28,50 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - "What was the mistake?" (if not obvious from context)
    - "What should have happened instead?" (if correction unclear)
 
-### Phase 2: Structure the Lesson
+### Phase 2: Check for Rule Collision
 
-3. **Extract three components:**
+3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md and any loaded context files for rules that cover this situation.
+
+   **If a matching rule exists**, the lesson isn't "follow the rule" — the rule already failed to fire. Diagnose why:
+   - **Was the rule in context?** (Was CLAUDE.md or the relevant context file loaded when the mistake happened?)
+   - **Was the context window too large?** (Rule present but buried/forgotten due to conversation length?)
+   - **Is the rule coherent?** (Is it clear enough to follow, or ambiguous in this situation?)
+   - **Does the rule need a better trigger?** (Rule is correct but doesn't activate in this scenario — needs a more specific cue?)
+
+   The correction entry must address the diagnosis, not just restate the existing rule. Either:
+   - **Refine the existing rule** with a more specific trigger or mechanism
+   - **Add a new rule** that covers the gap the existing rule missed
+   - **Note that the rule was absent from context** (if that's the diagnosis — the fix is ensuring it loads, not writing a duplicate rule)
+
+   Display:
+   ```
+   ⚠ Rule collision: [existing rule summary]
+   Diagnosis: [why it didn't fire]
+   Fix: [refine trigger / add new rule / ensure context loading]
+   ```
+
+   **If no matching rule exists**, proceed normally — this is a genuinely new lesson.
+
+### Phase 3: Structure the Lesson
+
+4. **Extract three components:**
    - **Mistake:** What went wrong (factual, specific, no hedging)
    - **Correction:** What the right approach was
    - **Lesson:** Transferable principle for future sessions (this is the valuable part)
 
-4. **Generate a short title** (3-6 words) that captures the error type, e.g.:
+5. **Generate a short title** (3-6 words) that captures the error type, e.g.:
    - "Edited File Without Reading First"
    - "Assumed Config Without Checking"
    - "Missed Existing Helper Function"
 
-### Phase 3: Write to Corrections Log
+### Phase 4: Write to Corrections Log
 
-5. **Resolve paths and date:**
+6. **Resolve paths and date:**
    - VAULT_PATH is available from environment
    - Corrections log: `$VAULT_PATH/07 System/Claude Corrections Log.md`
    - Get date: `date +"%Y-%m-%d"`
 
-6. **Append to the corrections log** using the Edit tool:
+7. **Append to the corrections log** using the Edit tool:
    - Read the current end of `$VAULT_PATH/07 System/Claude Corrections Log.md`
    - Use Edit tool to append the new entry after the last line
    - Entry format (substitute actual values):
@@ -60,13 +84,13 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    **Lesson:** Transferable principle for the future.
    ```
 
-### Phase 4: Consider Promotion
+### Phase 5: Consider Promotion
 
-7. **Check if this is a pattern.** Use Grep tool to search for similar mistakes:
+8. **Check if this is a pattern.** Use Grep tool to search for similar mistakes:
    - Search for key nouns from the mistake (e.g., tool names, error types, assumption categories)
    - Search the corrections log file
 
-8. **If pattern detected** (2+ similar mistakes), suggest promotion:
+9. **If pattern detected** (2+ similar mistakes), suggest promotion:
    - **Default target: `07 System/` context files** — specific operational rules belong near the system they govern (e.g., NAS path rules → `Context - Technical Infrastructure.md`)
    - **CLAUDE.md only for truly cross-cutting patterns** — habits-of-mind that apply regardless of which system you're working with
    ```
@@ -76,7 +100,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    [Suggested addition]
    ```
 
-9. **Confirm capture:**
+10. **Confirm capture:**
    ```
    Logged: [Short Title]
    Lesson: [One-line lesson]
