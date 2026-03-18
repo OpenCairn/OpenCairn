@@ -91,7 +91,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Search for key nouns from the mistake (e.g., tool names, error types, assumption categories)
    - Search the corrections log file
 
-9. **If pattern detected** (2+ similar mistakes), suggest promotion. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.**
+9. **If pattern detected** (2+ similar mistakes), suggest promotion. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.
    - **Default target: `07 System/` context files** — specific operational rules belong near the system they govern (e.g., NAS path rules → `Context - Technical Infrastructure.md`)
    - **CLAUDE.md only for truly cross-cutting patterns** — habits-of-mind that apply regardless of which system you're working with
    ```
