@@ -47,7 +47,9 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
    **Week's activity data:**
    - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
+   - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
    - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Session Logs/` for the same date range
+   - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
