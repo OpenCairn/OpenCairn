@@ -68,11 +68,11 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
 6. **Resolve paths and date:**
    - VAULT_PATH is available from environment
-   - Corrections log: `$VAULT_PATH/07 System/Claude Corrections Log.md`
+   - Corrections log: `{VAULT}/07 System/Claude Corrections Log.md`
    - Get date: `date +"%Y-%m-%d"`
 
 7. **Append to the corrections log** using the Edit tool:
-   - Read the current end of `$VAULT_PATH/07 System/Claude Corrections Log.md`
+   - Read the current end of `{VAULT}/07 System/Claude Corrections Log.md`
    - Use Edit tool to append the new entry after the last line
    - Entry format (substitute actual values):
 

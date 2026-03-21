@@ -18,19 +18,19 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%Y-W%V"` (for file naming: YYYY-Wnn.md)
-   - Find the previous weekly review: `ls -1 "$VAULT_PATH/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
+   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
    - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
    - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
@@ -39,27 +39,27 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 2. **Check for Hygiene Report and gather the week's data:**
 
    **Hygiene report:**
-   - Look for the latest file in `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/` (sorted by filename descending)
+   - Look for the latest file in `{VAULT}/06 Archive/Claude/Hygiene Reports/` (sorted by filename descending)
    - If a report exists, parse the week number from its filename (e.g., `2026-W10.md` → W10) and compare to the current ISO week (`date +%G-W%V`):
      - **Current week:** Read and incorporate — no warning
      - **Previous week or older:** Warn: "Latest hygiene report is from [week] — vault state may have changed. Consider re-running `/weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
    - If no reports exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
-   - Read daily reports from `$VAULT_PATH/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
+   - Read daily reports from `{VAULT}/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
    - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
-   - Read session summaries from `$VAULT_PATH/06 Archive/Claude/Session Logs/` for the same date range
+   - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range
    - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
    **Sweep for tagged tasks:**
-   - Long Poles [LP]: `grep -r "\[LP\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
-   - Cornerstones [CS]: `grep -r "\[CS\]" "$VAULT_PATH" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+   - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+   - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
    - Read the matched files and extract the tagged items for review
 
    **Claude Corrections Log review:**
-   - Read `$VAULT_PATH/07 System/Claude Corrections Log.md`
+   - Read `{VAULT}/07 System/Claude Corrections Log.md`
    - Identify entries from this week (by date header)
    - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
 
@@ -91,13 +91,13 @@ Before diving into the lenses below, ask the user once whether they want interac
 - "Anything to stop doing or delegate?"
 
 4. **Ensure directory exists:**
-   - Check if `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/` directory exists
-   - If not, create it: `mkdir -p "$VAULT_PATH/06 Archive/Claude/Weekly Reviews"`
+   - Check if `{VAULT}/06 Archive/Claude/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Reviews"`
    - This prevents first-run failures
 
 5. **Generate weekly review:**
 
-Create a file at `$VAULT_PATH/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename):
+Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename):
 
 ```markdown
 # Weekly Review — [Date Range]

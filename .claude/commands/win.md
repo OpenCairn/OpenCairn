@@ -46,11 +46,11 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
 
 5. **Resolve paths and date:**
    - VAULT_PATH is available from environment
-   - Wins log: `$VAULT_PATH/07 System/Claude Wins Log.md`
+   - Wins log: `{VAULT}/07 System/Claude Wins Log.md`
    - Get date: `date +"%Y-%m-%d"`
 
 6. **Append to the wins log** using the Edit tool:
-   - Read the current end of `$VAULT_PATH/07 System/Claude Wins Log.md`
+   - Read the current end of `{VAULT}/07 System/Claude Wins Log.md`
    - Use Edit tool to append the new entry after the last line
    - Entry format (substitute actual values):
 

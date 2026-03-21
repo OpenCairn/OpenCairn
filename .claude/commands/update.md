@@ -220,7 +220,7 @@ If the commit fails (nothing to commit), that's fine — files are already updat
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH_MISSING"
 else
-  echo "VAULT_PATH=$VAULT_PATH"
+  echo "VAULT_PATH={VAULT}"
 fi
 ```
 

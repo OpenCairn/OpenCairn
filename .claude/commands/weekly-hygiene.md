@@ -14,10 +14,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
@@ -26,10 +26,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 1. **WIP Metrics & Pruning**
 
    **Gather:**
-   - WIP line count: `wc -l "$VAULT_PATH/01 Now/Works in Progress.md"`
-   - WIP session links: `grep -c "06 Archive/Claude/Session Logs" "$VAULT_PATH/01 Now/Works in Progress.md"`
+   - WIP line count: `wc -l "{VAULT}/01 Now/Works in Progress.md"`
+   - WIP session links: `grep -c "06 Archive/Claude/Session Logs" "{VAULT}/01 Now/Works in Progress.md"`
    - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
-   - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "$VAULT_PATH/01 Now/Works in Progress.md"`
+   - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "{VAULT}/01 Now/Works in Progress.md"`
    - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
    - Per-entry line count (excluding session link lines starting with →): flag entries exceeding 30 lines
 
@@ -49,8 +49,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    WIP is the canonical project dashboard; This Week is the tactical weekly view with higher-frequency updates. Items completed in This Week but not reflected in WIP create stale priors for every session that reads WIP.
 
    **Gather:**
-   - Read `$VAULT_PATH/01 Now/Works in Progress.md` (already loaded from step 1)
-   - Read `$VAULT_PATH/01 Now/This Week.md`
+   - Read `{VAULT}/01 Now/Works in Progress.md` (already loaded from step 1)
+   - Read `{VAULT}/01 Now/This Week.md`
    - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending, in a `**Next:**` action, or as an unchecked `[ ]` item
    - For each `**Next:**` action in WIP, check whether any date reference has passed (e.g., "train task Sat 7 Mar" when today is 14 Mar)
    - For relative-time framing in WIP Next actions ("sleep on it", "tomorrow", "tonight"), flag if 2+ days have elapsed since the `**Last:**` date
@@ -70,9 +70,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 3. **Projects Folder Audit**
 
    **Gather:**
-   - List top-level: `ls "$VAULT_PATH/03 Projects/"`
-   - List Cold/: `ls "$VAULT_PATH/03 Projects/Cold/" 2>/dev/null`
-   - List Backlog/: `ls "$VAULT_PATH/03 Projects/Backlog/" 2>/dev/null`
+   - List top-level: `ls "{VAULT}/03 Projects/"`
+   - List Cold/: `ls "{VAULT}/03 Projects/Cold/" 2>/dev/null`
+   - List Backlog/: `ls "{VAULT}/03 Projects/Backlog/" 2>/dev/null`
    - Cross-reference with WIP sections — flag tier mismatches (e.g., Active project with file in Cold/, Backlog WIP entry with file in root)
 
    **Confirm with user:**
@@ -84,7 +84,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 4. **Tickler Hygiene**
 
    **Gather:**
-   - Read `$VAULT_PATH/01 Now/Tickler.md` (if it exists)
+   - Read `{VAULT}/01 Now/Tickler.md` (if it exists)
    - Flag items with dates that have passed (past-due and unactioned)
 
    **Confirm with user:**
@@ -93,7 +93,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 5. **Working Memory Sweep**
 
    **Gather:**
-   - Read `$VAULT_PATH/01 Now/Working memory.md`
+   - Read `{VAULT}/01 Now/Working memory.md`
    - Count items in each section (Fresh Captures, To Review, etc.)
    - Flag sections with 10+ unprocessed items
    - Identify any items that appear to be actionable tasks that should be in WIP or project files
@@ -102,15 +102,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 6. **Scratchpad Sweep**
 
    **Gather:**
-   - Find all Scratchpad.md files: `find "$VAULT_PATH" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
+   - Find all Scratchpad.md files: `find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
    - Flag items that have been sitting unprocessed (14+ days old or grown stale)
 
-7. **CRM Name Scan** (if `$VAULT_PATH/07 System/CRM/` exists)
+7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
    - Read CRM index to get list of known names
    - Extract names from recent session files:
      ```bash
-     find "$VAULT_PATH/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec \
+     find "{VAULT}/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec \
        grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
      ```
    - Flag names that appear 2+ times but aren't in CRM — **don't auto-add**, present candidates to user
@@ -118,7 +118,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 8. **This Week.md Hygiene**
 
    **Auto-fix:**
-   - Read `$VAULT_PATH/01 Now/This Week.md`
+   - Read `{VAULT}/01 Now/This Week.md`
    - Purge completed backlog items: delete all `- [x]` lines from the Backlog section. `- [ ]` items are untouched.
 
    **Confirm with user:**
@@ -181,7 +181,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    If CLI unavailable, fall back to grep:
    ```bash
-   grep -roh '\[\[.*\]\]' "$VAULT_PATH" --include="*.md" \
+   grep -roh '\[\[.*\]\]' "{VAULT}" --include="*.md" \
      -not -path "*/.stversions/*" -not -path "*/06 Archive/*" \
      | sed 's/\[\[//;s/\]\]//' | sed 's/|.*//' | sed 's/#.*//' \
      | sort -u
@@ -215,12 +215,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 12. **Context File Staleness Detection**
 
-   Context files (`$VAULT_PATH/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
+   Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
 
    **Gather:**
    - List all context files and their last-modified dates:
      ```bash
-     find "$VAULT_PATH/07 System/" -name "Context - *.md" -type f -exec stat -c '%Y %n' {} +
+     find "{VAULT}/07 System/" -name "Context - *.md" -type f -exec stat -c '%Y %n' {} +
      ```
    - For each file found above, scan for temporal markers in three categories. Grep extracts candidate lines; **Claude classifies contextually** (bash can't distinguish historical facts from stale future claims).
 
@@ -256,7 +256,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 13. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
-   Write all findings to `$VAULT_PATH/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
+   Write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
 
    ```markdown
    # Vault Hygiene Report

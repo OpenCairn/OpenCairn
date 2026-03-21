@@ -22,14 +22,14 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -37,7 +37,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - Store for metadata
 
 2. **Identify project to complete:**
-   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
+   - Read `{VAULT}/01 Now/Works in Progress.md`
    - Display list of Active projects
    - If project name provided as parameter: Use that
    - Otherwise: Ask the user which project to complete
@@ -52,8 +52,8 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 4. **Update project file:**
    - Find project file (check both locations):
-     - `$VAULT_PATH/03 Projects/[Project Name].md` (active projects)
-     - `$VAULT_PATH/03 Projects/Backlog/[Project Name].md` (backlog projects)
+     - `{VAULT}/03 Projects/[Project Name].md` (active projects)
+     - `{VAULT}/03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Add completion section at top:
      ```markdown
      **Status:** COMPLETED ([Date])
@@ -65,14 +65,14 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - This preserves project history while marking completion
 
 5. **Move project file to archive:**
-   - Create archive directory if needed: `mkdir -p "$VAULT_PATH/06 Archive/Projects/YYYY"`
+   - Create archive directory if needed: `mkdir -p "{VAULT}/06 Archive/Projects/YYYY"`
    - Move file from wherever it was found:
      - From `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
      - From `03 Projects/Backlog/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
    - Update any resource folders (e.g., `03 Projects/[Project]-Resources/` → `06 Archive/Projects/YYYY/`)
 
 6. **Update Works in Progress:**
-   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
+   - Read `{VAULT}/01 Now/Works in Progress.md`
    - Remove project from its current section (Active, Maintenance, Backlog, etc.)
    - Update "Last updated" timestamp
 

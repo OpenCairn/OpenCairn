@@ -34,14 +34,14 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set. Set it in your shell profile (e.g., export VAULT_PATH=/path/to/vault)"
      exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH does not exist"
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} does not exist"
      exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH"
+     echo "VAULT_PATH={VAULT}"
    fi
    ```
-   If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All code examples below use `{VAULT}` as a placeholder — substitute the resolved path before executing. Do NOT use `$VAULT_PATH` in later Bash tool calls — shell state does not persist between calls, so the variable will be empty.
+   If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All code examples below use `{VAULT}` as a placeholder — substitute the resolved path before executing. Do NOT use `{VAULT}` in later Bash tool calls — shell state does not persist between calls, so the variable will be empty.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)

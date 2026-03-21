@@ -25,14 +25,14 @@ Session files should be easily accessible while actively relevant (last 90 days)
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Check current date** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -45,7 +45,7 @@ Session files should be easily accessible while actively relevant (last 90 days)
    - `--dry-run`: Show moves without executing
 
 3. **Scan session files:**
-   - List all files in `$VAULT_PATH/06 Archive/Claude/Session Logs/`
+   - List all files in `{VAULT}/06 Archive/Claude/Session Logs/`
    - Filter to `YYYY-MM-DD.md` pattern (exclude subdirectories)
    - For each file:
      - Extract date from filename
@@ -54,13 +54,13 @@ Session files should be easily accessible while actively relevant (last 90 days)
 
 4. **Create year directories:**
    - For each year found in files-to-archive:
-     - Create directory: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/`
+     - Create directory: `{VAULT}/06 Archive/Claude/Session Logs/YYYY/`
      - Use `mkdir -p` (safe if exists)
 
 5. **Move files** (or display if dry-run):
    - For each file marked for archival:
-     - Source: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
-     - Destination: `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md`
+     - Source: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+     - Destination: `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md`
      - If dry-run: Display "Would move: [source] → [dest]"
      - If live: Move file
    - Preserve file permissions and timestamps
@@ -178,7 +178,7 @@ for the session file name and Obsidian will find it in the new location.
 - Already in subdirectories are skipped
 
 **Directories created:**
-- `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY/`
+- `{VAULT}/06 Archive/Claude/Session Logs/YYYY/`
 
 **Link format preserved:**
 - `[[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session 1]]` (old)
