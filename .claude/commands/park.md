@@ -305,7 +305,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
      - **Next:** [Next action from open loops]
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
-     - **FIFO cap at 7:** After adding the new link, count standalone session link lines (lines whose only content is `→ [[06 Archive/Claude/Session Logs/...]]`) between **Last:** and **Next:** in this WIP entry. If there are more than 7, remove the oldest by date until exactly 7 remain. Session history lives in the archive; WIP links are convenience pointers, not the record of truth.
+     - **FIFO cap at 2:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 2, remove the oldest by date until exactly 2 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
        ```bash
        # Extract the WIP entry for this project and count session links
@@ -313,7 +313,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        # Uses awk index() for fixed-string matching (headings often contain / and &)
        awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
-       Display: `FIFO check: N/7 session links`. If not exactly 7 (or fewer for projects with <7 total sessions), fix before proceeding.
+       Display: `FIFO check: N/2 session links`. If more than 2, fix before proceeding.
    - Update "Last updated" timestamp at top of file with current date/time
 
 13. **Trace reference graph for status changes** (Full tier only):
