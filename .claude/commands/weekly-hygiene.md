@@ -34,7 +34,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Per-entry line count (excluding session link lines starting with →): flag entries exceeding 30 lines
 
    **Auto-fix:**
-   - Trim session links to **3–5 most recent per project** (session history lives in the archive, not WIP)
+   - Trim session log links to **2 most recent per entry** — only lines matching `→ [[06 Archive/Claude/Session Logs/`. **Preserve all other reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers, not session history. Session history lives in the archive and project hub pages, not WIP.
    - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern)
    - Remove resolved open decisions (strikethrough decisions that were answered)
    - Collapse resolved inline narratives: when a paragraph or sub-section contains 3+ items all marked ✅/resolved/completed, replace with a single summary line referencing the linked project/area file
@@ -78,6 +78,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Confirm with user:**
    - Move project files to match their WIP tier
    - Archive completed project files to `06 Archive/`
+
+   **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Fix broken wikilinks in non-archive files. Leave archive/session log references as historical records.
 
 4. **Tickler Hygiene**
 
