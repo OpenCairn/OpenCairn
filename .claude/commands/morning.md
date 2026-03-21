@@ -208,7 +208,7 @@ Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/exp
 Pull items from:
 - Items carried forward from stale This Week.md (if any, noted in step 2)
 - Time-sensitive items and appointments
-- WIP next actions
+- WIP project docs (follow **Next:** links to project pages for task queues)
 - Yesterday's queue (from /goodnight Daily Report)
 - Today's items already in This Week.md (migrated from Tickler in steps 2/5)
 - Anything the user mentioned in step 3
