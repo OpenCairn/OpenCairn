@@ -303,7 +303,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Find the relevant project section
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
-     - **Next:** `→ [[03 Projects/Project Name]]` (pointer to project doc only — never a task list. The project doc is SSOT for its own task queue. If no project doc exists, omit Next.)
+     - **Next:** Three cases:
+       1. **Has project/area doc:** `→ [[03 Projects/Project Name]]` — pointer only, project doc is SSOT for its task queue
+       2. **No doc, has next action:** Single next action (one line max — if it needs more, create a project doc)
+       3. **No doc, work complete:** Omit Next
+       Never a queue — one pointer or one action.
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
      - **FIFO cap at 2:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 2, remove the oldest by date until exactly 2 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
