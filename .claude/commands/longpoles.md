@@ -10,39 +10,23 @@ You are scanning the vault for items tagged with `[LP]` — longpole items that 
 
 ## Instructions
 
-### Phase 1: Resolve Vault Path
+### 1. Scan the Vault
 
-1. **Resolve vault path** before proceeding:
-   ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set. Set it in your shell profile (e.g., export VAULT_PATH=/path/to/vault)"
-     exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} does not exist"
-     exit 1
-   else
-     echo "VAULT_PATH={VAULT}"
-   fi
-   ```
-   If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All references below use `{VAULT}` as a placeholder — substitute the resolved path before executing.
+Use the Grep tool to find all `[LP]` references across `{VAULT}`:
 
-### Phase 2: Find All Longpoles
+- Search pattern: `\[LP\]`
+- Search path: `{VAULT}`
+- Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
+- Exclude `06 Archive/` — archived items aren't actionable
 
-2. **Grep the vault for `[LP]` tags** using the Grep tool:
-   - Search pattern: `\[LP\]`
-   - Path: `{VAULT}/`
-   - File type filter: `*.md`
-   - Use `output_mode: "content"` with `-C 1` (one line of context above and below each hit)
-   - Exclude `06 Archive/` — archived items aren't actionable
+### 2. Group by File
 
-### Phase 3: Group and Present
-
-4. **Group results by file.** For each file containing longpole items:
+**Group results by file.** For each file containing longpole items:
    - Show the file path (relative to vault root for readability)
    - Show each `[LP]` item with its surrounding context
    - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status
 
-5. **Output format:**
+### 3. Present Summary
 
 ```markdown
 ## Longpoles
@@ -64,7 +48,7 @@ You are scanning the vault for items tagged with `[LP]` — longpole items that 
 - **Hottest file:** [file with most open longpoles]
 ```
 
-6. **If no `[LP]` items found**, report that clearly:
+If no `[LP]` items found, report that clearly:
    ```
    No [LP] items found in the vault. Nothing on the critical path — or nothing tagged yet.
    ```
