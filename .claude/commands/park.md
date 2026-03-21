@@ -303,7 +303,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Find the relevant project section
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
-     - **Next:** [Next action from open loops]
+     - **Next:** `→ [[03 Projects/Project Name]]` (pointer to project doc only — never a task list. The project doc is SSOT for its own task queue. If no project doc exists, omit Next.)
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
      - **FIFO cap at 2:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 2, remove the oldest by date until exactly 2 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
@@ -356,7 +356,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text]`
 
-   4. **If no date + session has a Project link** → update that project file's next action section, or add to the project's WIP entry under **Next:**
+   4. **If no date + session has a Project link** → update that project file's next action section
 
    5. **If no date + no project + This Week.md stale/missing** → Tickler with tomorrow's date via write-tickler script
 

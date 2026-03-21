@@ -51,14 +51,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Gather:**
    - Read `{VAULT}/01 Now/Works in Progress.md` (already loaded from step 1)
    - Read `{VAULT}/01 Now/This Week.md`
-   - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending, in a `**Next:**` action, or as an unchecked `[ ]` item
-   - For each `**Next:**` action in WIP, check whether any date reference has passed (e.g., "train task Sat 7 Mar" when today is 14 Mar)
-   - For relative-time framing in WIP Next actions ("sleep on it", "tomorrow", "tonight"), flag if 2+ days have elapsed since the `**Last:**` date
+   - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending or as an unchecked `[ ]` item
+   - WIP `**Next:**` fields should be project doc pointers only (`→ [[03 Projects/...]]`), not task lists. Flag any that contain task descriptions or queued actions — these should be migrated to the project doc.
 
    **Auto-fix:**
-   - Update WIP entries to reflect completions confirmed in This Week (strike through items, update status lines, remove from Next actions)
-   - Remove stale date parentheticals from Next actions
-   - Update relative-time framing to direct action framing when 2+ days have passed (e.g., "Sleep on draft then send" → "Send draft (ready, slept on since [date])")
+   - Update WIP entries to reflect completions confirmed in This Week (strike through items, update status lines)
+   - Migrate any task content in `**Next:**` fields to the relevant project doc, then replace with a pointer
 
    **Cross-reference sweep:**
    - For each status change (battery disconnect, order placed, task completed), grep the vault for other files containing the stale value

@@ -131,8 +131,7 @@ Add to **Active** section (or appropriate priority section if specified):
 ### [Project Name]
 **Status:** Just started
 **Created:** [Date]
-**Next:** [First next action]
-→ [[03 Projects/[Project Name]]]
+**Next:** → [[03 Projects/[Project Name]]]
 ```
 
 If part of an initiative, add under that initiative's section instead (if it exists in WIP).
