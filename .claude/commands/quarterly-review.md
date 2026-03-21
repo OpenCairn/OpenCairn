@@ -21,10 +21,10 @@ Quarterly review serves three purposes:
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
@@ -40,7 +40,7 @@ Quarterly review serves three purposes:
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
    - Read all `07 System/Context - *.md` files
    - Read CRM index: `07 System/CRM/` (if exists)
-   - Count vault files by area: `find "$VAULT_PATH" -name "*.md" -type f | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -20`
+   - Count vault files by area: `find "{VAULT}" -name "*.md" -type f | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -20`
 
 ### Part 1: Strategic Review
 
@@ -113,11 +113,11 @@ Quarterly review serves three purposes:
 6. **Vault-wide broken link scan:**
    ```bash
    # Extract all wikilinks and check if targets exist
-   grep -roh '\[\[[^]]*\]\]' "$VAULT_PATH" --include="*.md" | \
+   grep -roh '\[\[[^]]*\]\]' "{VAULT}" --include="*.md" | \
      sed 's/\[\[//;s/\]\]//;s/#.*//;s/|.*//' | \
      sort -u | while read -r link; do
        # Check if file exists (with or without .md extension)
-       if [[ ! -f "$VAULT_PATH/$link" ]] && [[ ! -f "$VAULT_PATH/$link.md" ]]; then
+       if [[ ! -f "{VAULT}/$link" ]] && [[ ! -f "{VAULT}/$link.md" ]]; then
          echo "BROKEN: [[$link]]"
        fi
      done
@@ -139,11 +139,11 @@ Quarterly review serves three purposes:
    - Find files in `04 Areas/` and `05 Resources/` not linked from any other file:
      ```bash
      # List all .md files in Areas and Resources
-     find "$VAULT_PATH/04 Areas" "$VAULT_PATH/05 Resources" -name "*.md" -type f | while read -r file; do
-       basename="${file#$VAULT_PATH/}"
+     find "{VAULT}/04 Areas" "{VAULT}/05 Resources" -name "*.md" -type f | while read -r file; do
+       basename="${file#{VAULT}/}"
        basename_no_ext="${basename%.md}"
        # Check if any other file links to this one
-       if ! grep -rFl "[[${basename_no_ext}" "$VAULT_PATH" --include="*.md" | grep -qv "$file"; then
+       if ! grep -rFl "[[${basename_no_ext}" "{VAULT}" --include="*.md" | grep -qv "$file"; then
          echo "ORPHAN: $basename"
        fi
      done
@@ -164,12 +164,12 @@ Quarterly review serves three purposes:
 
 10. **Ensure output directory exists:**
    ```bash
-   mkdir -p "$VAULT_PATH/06 Archive/Quarterly Reviews"
+   mkdir -p "{VAULT}/06 Archive/Quarterly Reviews"
    ```
 
 11. **Generate quarterly review:**
 
-Create a file at `$VAULT_PATH/06 Archive/Quarterly Reviews/YYYY-QN.md`:
+Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
 ```markdown
 # Quarterly Review - YYYY QN ([Month] - [Month])

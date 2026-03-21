@@ -22,14 +22,14 @@ You are helping the user pickup a previous work session with full context.
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 2. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -41,9 +41,9 @@ You are helping the user pickup a previous work session with full context.
    - If `--hibernate` specified: Redirect to `/awaken --date=DATE` and stop
    - **Run the pickup scanner shell script** to extract metadata efficiently:
      ```bash
-     "$VAULT_PATH/.claude/scripts/pickup-scan.sh" --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
+     "{VAULT}/.claude/scripts/pickup-scan.sh" --days=N --hidden-file="[SESSION_DIR]/.pickup-hidden" [--show-hidden]
      ```
-     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `$VAULT_PATH/06 Archive/Claude/Session Logs`)
+     (Script uses `CLAUDE_SESSION_DIR` env var or defaults to `{VAULT}/06 Archive/Claude/Session Logs`)
    - The script outputs TSV with columns: `DATE`, `SESSION_NUM`, `TITLE`, `TIME`, `PROJECT`, `LOOP_COUNT`, `SUMMARY`
    - **Parse the TSV output** to build session list (this is ~10x smaller than reading full files)
    - If no sessions found in default window (10 days), re-run with `--days=30`
@@ -64,14 +64,14 @@ You are helping the user pickup a previous work session with full context.
    - If `--show-hidden` passed to script, hidden/snoozed entries are included in output
 
 5. **Check Works in Progress staleness:**
-   - Read `$VAULT_PATH/01 Now/Works in Progress.md`
+   - Read `{VAULT}/01 Now/Works in Progress.md`
    - Extract "Last updated" timestamp from top of file
    - Calculate days since last update
    - If > 10 days old, prepare staleness warning to display with menu
    - If > 30 days old, prepare critical staleness warning
 
 6. **Check Tickler for due items:**
-   - Read `$VAULT_PATH/01 Now/Tickler.md` (if file doesn't exist, skip this step)
+   - Read `{VAULT}/01 Now/Tickler.md` (if file doesn't exist, skip this step)
    - Parse date headers (format: `## YYYY-MM-DD`)
    - For each date header where date <= today (from step 2):
      - Extract all unchecked items (`- [ ]`) under that header
@@ -238,7 +238,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - If project: Add project name to `.pickup-hidden`
      - If standalone session: Add `YYYY-MM-DD#Session N - Title` to `.pickup-hidden`
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions
-   - Append to `$VAULT_PATH/06 Archive/Claude/Session Logs/.pickup-hidden` (create if doesn't exist)
+   - Append to `{VAULT}/06 Archive/Claude/Session Logs/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with hidden entries removed
    - Confirm: "Hidden N entries. Use --show-hidden or 'u' to unhide."
 
@@ -268,7 +268,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - If standalone session: Add `YYYY-MM-DD#Session N - Title|until:YYYY-MM-DD`
    - **Case preservation:** Use original case from session/project name (matching is case-insensitive, but file entries preserve original)
    - **File locking:** Use `flock` when modifying `.pickup-hidden` to prevent race conditions with concurrent sessions
-   - Append to `$VAULT_PATH/06 Archive/Claude/Session Logs/.pickup-hidden` (create if doesn't exist)
+   - Append to `{VAULT}/06 Archive/Claude/Session Logs/.pickup-hidden` (create if doesn't exist)
    - Re-display menu with snoozed entries removed
    - Confirm: "Snoozed [ITEM NAMES] until [DATE]. They'll resurface automatically."
 
@@ -279,7 +279,7 @@ To action: edit 01 Now/Tickler.md (delete, reschedule, or move to WIP)
      - User then selects specific session to load
      - Do NOT auto-load most recent - always let user choose
    - **If specific session selected (from expanded/flat view):**
-     - **NOW read the full session file:** `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+     - **NOW read the full session file:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
      - Navigate to the specific session section (`## Session N - Title`)
    - Extract key information from the session section:
      - Session date and number (for continuation tracking)
@@ -320,8 +320,8 @@ Ready to continue. What's next?
 15. **Auto-load relevant context files:**
    - Always load: `~/CLAUDE.md`
    - If project linked: Read the project hub file (check both locations):
-     - `$VAULT_PATH/03 Projects/[Project Name].md` (active projects)
-     - `$VAULT_PATH/03 Projects/Backlog/[Project Name].md` (backlog projects)
+     - `{VAULT}/03 Projects/[Project Name].md` (active projects)
+     - `{VAULT}/03 Projects/Backlog/[Project Name].md` (backlog projects)
    - Display what was loaded:
      ```
      Auto-loaded context:
@@ -348,7 +348,7 @@ Ready to continue. What's next?
 
 ### Hide/Unhide Feature
 - **Purpose:** Declutter the pickup menu by hiding completed projects or irrelevant sessions
-- **Hidden file location:** `$VAULT_PATH/06 Archive/Claude/Session Logs/.pickup-hidden`
+- **Hidden file location:** `{VAULT}/06 Archive/Claude/Session Logs/.pickup-hidden`
 - **Hiding is non-destructive:** Session files remain intact, just filtered from display
 - **Project-level hiding:** Hiding a project hides all its sessions
 - **Session-level hiding:** Can hide individual standalone sessions
@@ -406,11 +406,11 @@ Ready to continue. What's next?
 
 ### Context Efficiency (Two-Stage Loading)
 - **Problem solved:** Reading all session files (~400KB+) for menu building consumed 50-80% of context before work began
-- **Solution:** Shell script (`"$VAULT_PATH/.claude/scripts/pickup-scan.sh"`) extracts metadata outside Claude's context
+- **Solution:** Shell script (`"{VAULT}/.claude/scripts/pickup-scan.sh"`) extracts metadata outside Claude's context
 - **Stage 1 (menu building):** Shell script scans files, outputs ~40KB TSV metadata
 - **Stage 2 (session loading):** Only selected session file is read by Claude
 - **Result:** ~10x reduction in context usage for pickup
-- **Shell script location:** `"$VAULT_PATH/.claude/scripts/pickup-scan.sh"`
+- **Shell script location:** `"{VAULT}/.claude/scripts/pickup-scan.sh"`
 - **If script missing or fails:** Warn user that context usage will be high, then fall back to direct file reading. This works but defeats the context efficiency benefit.
 
 ## Integration with Claude Code

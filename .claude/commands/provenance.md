@@ -31,10 +31,10 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "$VAULT_PATH" ]]; then
-  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+elif [[ ! -d "{VAULT}" ]]; then
+  echo "VAULT_PATH={VAULT} not found"; exit 1
 else
-  echo "VAULT_PATH=$VAULT_PATH OK"
+  echo "VAULT_PATH={VAULT} OK"
 fi
 ```
 
@@ -42,7 +42,7 @@ fi
 
 ```bash
 TODAY=$(date +"%Y-%m-%d")
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/$TODAY.md"
+SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$TODAY.md"
 ```
 
 Check if session file exists:
@@ -80,7 +80,7 @@ If no session file exists yet, display "No session file to hash" and exit.
 
 Before logging, check if this session + tag combination already exists:
 ```bash
-PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
+PROVENANCE_LOG="{VAULT}/07 System/AI Provenance Log.md"
 if [[ ! -f "$PROVENANCE_LOG" ]]; then
   echo "Provenance log not found at $PROVENANCE_LOG — skipping"
   exit 0
@@ -103,9 +103,9 @@ TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 ```bash
 OTS_STATUS="—"
 if command -v ots &>/dev/null; then
-  mkdir -p "$VAULT_PATH/07 System/Provenance"
+  mkdir -p "{VAULT}/07 System/Provenance"
   if ots stamp "$SESSION_FILE" 2>/dev/null; then
-    mv "${SESSION_FILE}.ots" "$VAULT_PATH/07 System/Provenance/${TODAY}.ots" 2>/dev/null
+    mv "${SESSION_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}.ots" 2>/dev/null
     OTS_STATUS="pending"
   fi
 fi
@@ -119,7 +119,7 @@ If `ots` is not installed or network is unavailable, skip silently (`OTS_STATUS`
 ```bash
 ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
 
-flock -w 10 "$VAULT_PATH/07 System/.provenance-lock" bash -c "
+flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c "
   sed -i '/^|---|---|---|---|---|$/a\\
 $ROW' '$PROVENANCE_LOG'
 "
@@ -155,7 +155,7 @@ Full log: 07 System/AI Provenance Log.md
 - **Reads:** Current day's session file from `06 Archive/Claude/Session Logs/`
 - **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
 - **Verified by:** `/verify-provenance`
-- **Lock file:** `$VAULT_PATH/07 System/.provenance-lock` (separate from session lock)
+- **Lock file:** `{VAULT}/07 System/.provenance-lock` (separate from session lock)
 
 ## Example JAMA Derm Disclosure
 

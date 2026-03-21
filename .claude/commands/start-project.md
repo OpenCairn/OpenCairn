@@ -30,14 +30,14 @@ Projects should be explicit from the start. Creating a project properly:
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "$VAULT_PATH" ]]; then
-  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+elif [[ ! -d "{VAULT}" ]]; then
+  echo "VAULT_PATH={VAULT} not found"; exit 1
 else
-  echo "VAULT_PATH=$VAULT_PATH OK"
+  echo "VAULT_PATH={VAULT} OK"
 fi
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -62,8 +62,8 @@ Ask about initiative linkage:
 
 ### 3. Check for conflicts
 
-- Check if `$VAULT_PATH/03 Projects/[Project Name].md` already exists
-- Check if `$VAULT_PATH/03 Projects/Backlog/[Project Name].md` already exists
+- Check if `{VAULT}/03 Projects/[Project Name].md` already exists
+- Check if `{VAULT}/03 Projects/Backlog/[Project Name].md` already exists
 - If exists, warn and ask if they want to:
   - Resume existing project
   - Create with different name
@@ -71,7 +71,7 @@ Ask about initiative linkage:
 
 ### 4. Create project file
 
-Create at `$VAULT_PATH/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`):
+Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`):
 
 ```markdown
 # [Project Name]
@@ -123,7 +123,7 @@ Project initialised.
 
 ### 5. Update Works in Progress
 
-Read `$VAULT_PATH/01 Now/Works in Progress.md`
+Read `{VAULT}/01 Now/Works in Progress.md`
 
 Add to **Active** section (or appropriate priority section if specified):
 
@@ -142,7 +142,7 @@ Update "Last updated" timestamp.
 ### 6. Link from initiative (if applicable)
 
 If initiative specified:
-- Read initiative file at `$VAULT_PATH/03 Projects/[Initiative Name].md`
+- Read initiative file at `{VAULT}/03 Projects/[Initiative Name].md`
 - Add link to new project in appropriate section:
   ```markdown
   - [[03 Projects/[Project Name]]] - [brief description]
@@ -155,7 +155,7 @@ Ask:
 
 If yes:
 ```bash
-mkdir -p "$VAULT_PATH/05 Resources/[Project Name]"
+mkdir -p "{VAULT}/05 Resources/[Project Name]"
 ```
 
 ### 8. Display confirmation

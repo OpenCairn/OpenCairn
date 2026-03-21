@@ -14,17 +14,17 @@ You are verifying the integrity of the AI Provenance Log by recomputing session 
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "$VAULT_PATH" ]]; then
-  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+elif [[ ! -d "{VAULT}" ]]; then
+  echo "VAULT_PATH={VAULT} not found"; exit 1
 else
-  echo "VAULT_PATH=$VAULT_PATH OK"
+  echo "VAULT_PATH={VAULT} OK"
 fi
 ```
 
 ### 2. Read Provenance Log
 
 ```bash
-PROVENANCE_LOG="$VAULT_PATH/07 System/AI Provenance Log.md"
+PROVENANCE_LOG="{VAULT}/07 System/AI Provenance Log.md"
 if [[ ! -f "$PROVENANCE_LOG" ]]; then
   echo "No provenance log found at $PROVENANCE_LOG"
   exit 0
@@ -46,7 +46,7 @@ For each entry in the log, perform steps 3–5:
 ### 3. Check File Existence
 
 ```bash
-SESSION_FILE="$VAULT_PATH/06 Archive/Claude/Session Logs/$SESSION_FILENAME"
+SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$SESSION_FILENAME"
 if [[ ! -f "$SESSION_FILE" ]]; then
   echo "MISSING: $SESSION_FILENAME"
   # Record as MISSING, continue to next entry
@@ -70,7 +70,7 @@ fi
 
 ### 5. Verify OTS Proofs (if applicable)
 ```bash
-OTS_FILE="$VAULT_PATH/07 System/Provenance/${SESSION_FILENAME%.md}.ots"
+OTS_FILE="{VAULT}/07 System/Provenance/${SESSION_FILENAME%.md}.ots"
 if [[ -f "$OTS_FILE" ]]; then
   # Try to upgrade pending proofs first
   ots upgrade "$OTS_FILE" 2>/dev/null

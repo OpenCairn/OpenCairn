@@ -25,14 +25,14 @@ This is the "return from sabbatical" complement to daily pickup.
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -40,7 +40,7 @@ This is the "return from sabbatical" complement to daily pickup.
    - Calculate time since last activity
 
 2. **Find hibernate snapshot:**
-   - Check `$VAULT_PATH/06 Archive/Hibernate Snapshots/` for most recent snapshot
+   - Check `{VAULT}/06 Archive/Hibernate Snapshots/` for most recent snapshot
    - If multiple exist, use the most recent unless user specifies: `/awaken --date=2026-01-17`
    - If no snapshot exists, offer to run `/pickup` with extended window instead
 

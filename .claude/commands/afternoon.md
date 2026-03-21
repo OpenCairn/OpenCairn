@@ -24,14 +24,14 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "$VAULT_PATH" ]]; then
-  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+elif [[ ! -d "{VAULT}" ]]; then
+  echo "VAULT_PATH={VAULT} not found"; exit 1
 else
-  echo "VAULT_PATH=$VAULT_PATH OK"
+  echo "VAULT_PATH={VAULT} OK"
 fi
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -45,9 +45,9 @@ Note roughly how much working time remains today.
 ### 2. Quick Status Check (auto)
 
 Read:
-- **This Week.md:** `$VAULT_PATH/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
-- **Works in Progress:** `$VAULT_PATH/01 Now/Works in Progress.md` - what's meant to be priority?
-- **Today's sessions:** `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` - what's been done so far?
+- **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
+- **Works in Progress:** `{VAULT}/01 Now/Works in Progress.md` - what's meant to be priority?
+- **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` - what's been done so far?
 - **This morning's intention:** Check if `/morning` set a "one thing" for today
 
 ### 3. Present Current State
@@ -117,7 +117,7 @@ Consider:
 
 **Most regroups:** No artifact. The recalibration was the point.
 
-**If priorities significantly shifted:** Update `$VAULT_PATH/01 Now/Works in Progress.md` with new status/priorities.
+**If priorities significantly shifted:** Update `{VAULT}/01 Now/Works in Progress.md` with new status/priorities.
 
 **If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged. This keeps the week plan current without rebuilding from scratch.
 

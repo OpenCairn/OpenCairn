@@ -21,14 +21,14 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Analyze the text:**
    - Identify AI patterns (see checklist below)
@@ -38,9 +38,9 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 2. **Load voice profile:**
 
 Check for voice training data:
-- `$VAULT_PATH/07 System/Context - Voice & Writing Style.md` - concrete before/after examples (read this first)
-- `$VAULT_PATH/04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
-- the user's blog posts at `$VAULT_PATH/03 Projects/Blog-Sites/blog/content/posts/`
+- `{VAULT}/07 System/Context - Voice & Writing Style.md` - concrete before/after examples (read this first)
+- `{VAULT}/04 Archive/AI Exports/` - ChatGPT, Claude, Roam exports
+- the user's blog posts at `{VAULT}/03 Projects/Blog-Sites/blog/content/posts/`
 - His Obsidian notes (especially in `07 System/` and `03 Projects/`)
 
 Extract patterns from the voice profile (sentence structure, vocabulary, tone, hedging style, examples, structure). The voice context file is the source of truth for these.

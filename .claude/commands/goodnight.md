@@ -26,14 +26,14 @@ Determine the vault base path. Run:
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "$VAULT_PATH" ]]; then
-  echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+elif [[ ! -d "{VAULT}" ]]; then
+  echo "VAULT_PATH={VAULT} not found"; exit 1
 else
-  echo "VAULT_PATH=$VAULT_PATH OK"
+  echo "VAULT_PATH={VAULT} OK"
 fi
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -45,9 +45,9 @@ date +"%Y-%m-%d"                   # for file paths and session timestamp
 ### 2. Gather Today's Activity (auto)
 
 Read and compile:
-- **This Week.md:** Read `$VAULT_PATH/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
-- **Today's sessions:** Check `$VAULT_PATH/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
-- **Works in Progress:** Read `$VAULT_PATH/01 Now/Works in Progress.md` for project states
+- **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
+- **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
+- **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md` for project states
 - **Completed tasks:** Extract from This Week.md today's section (checked items) AND session summaries (deduplicate)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
@@ -155,7 +155,7 @@ If the user doesn't have strong opinions, suggest based on:
 
 ### 9. Generate Daily Report
 
-Create file at `$VAULT_PATH/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
+Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 
 ```markdown
 # Daily Report - [Day], [Date]
@@ -203,7 +203,7 @@ Create file at `$VAULT_PATH/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 
 Ensure directory exists first:
 ```bash
-mkdir -p "$VAULT_PATH/06 Archive/Claude/Daily Reports"
+mkdir -p "{VAULT}/06 Archive/Claude/Daily Reports"
 ```
 
 ### 10. Route undone items from past day sections
@@ -325,7 +325,7 @@ cat > /tmp/goodnight_session.md << 'EOF'
 EOF
 
 # Append atomically under lock
-flock -w 10 "$VAULT_PATH/06 Archive/Claude/Session Logs/.lock" bash -c \
+flock -w 10 "{VAULT}/06 Archive/Claude/Session Logs/.lock" bash -c \
   'cat /tmp/goodnight_session.md >> "'"$SESSION_FILE"'"'
 rm -f /tmp/goodnight_session.md
 ```
@@ -352,7 +352,7 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 ### 18. Update Works in Progress
 
-If any project status changed significantly today, update `$VAULT_PATH/01 Now/Works in Progress.md` with current state.
+If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state.
 
 ### 19. Close
 
@@ -373,7 +373,7 @@ Goodnight.
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
-- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `$VAULT_PATH/06 Archive/Claude/Session Logs/.lock`
+- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `{VAULT}/06 Archive/Claude/Session Logs/.lock`
 
 ### Working Memory Model (Critical)
 

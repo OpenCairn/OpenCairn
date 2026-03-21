@@ -19,14 +19,14 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort — no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort — no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Parse the inbound**
 
@@ -42,11 +42,11 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 2. **Load context**
 
    **Voice profile** (always load):
-   - `$VAULT_PATH/07 System/Context - Voice & Writing Style.md` — source of truth for voice patterns and register-specific rules
+   - `{VAULT}/07 System/Context - Voice & Writing Style.md` — source of truth for voice patterns and register-specific rules
 
    **CRM lookup** (always attempt):
-   - Search `$VAULT_PATH/07 System/CRM/_index.md` for the sender's name
-   - If found: read the relevant range file section (A-F, G-L, M-R, S-Z) and Dossier if one exists in `$VAULT_PATH/07 System/CRM/Dossiers/`
+   - Search `{VAULT}/07 System/CRM/_index.md` for the sender's name
+   - If found: read the relevant range file section (A-F, G-L, M-R, S-Z) and Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
    - If not found: note "Not in CRM" and proceed. This is fine — not every reply is to someone in the vault.
 
    **Topic-relevant context** (as needed):
@@ -106,7 +106,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 5. **Output**
 
    **Substantive drafts** (3+ sentences OR contains researched content):
-   - Append to `$VAULT_PATH/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
+   - Append to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
    - If re-drafting the same reply (same sender + medium), replace the previous draft section rather than appending a duplicate
    - Also display the full draft in conversation
 

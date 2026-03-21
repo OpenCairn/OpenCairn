@@ -24,14 +24,14 @@ This is the "big picture" complement to session-level parking.
    ```bash
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH not found"; exit 1
+   elif [[ ! -d "{VAULT}" ]]; then
+     echo "VAULT_PATH={VAULT} not found"; exit 1
    else
-     echo "VAULT_PATH=$VAULT_PATH OK"
+     echo "VAULT_PATH={VAULT} OK"
    fi
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `$VAULT_PATH/`, substitute the resolved vault path.
+   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -39,7 +39,7 @@ This is the "big picture" complement to session-level parking.
    - Store for metadata
 
 2. **Read comprehensive context:**
-   - `$VAULT_PATH/01 Now/Works in Progress.md` - active projects
+   - `{VAULT}/01 Now/Works in Progress.md` - active projects
    - Recent session files (last 10 days) - recent work
    - Last daily review (if exists) - recent progress
    - Last weekly review (if exists) - patterns and insights
@@ -57,7 +57,7 @@ This is the "big picture" complement to session-level parking.
    - **Deliberate deferrals:** "What are you intentionally NOT doing during this break?"
    - **Return priorities:** "What should be your focus when you return?"
 
-5. **Generate hibernate snapshot** at `$VAULT_PATH/06 Archive/Hibernate Snapshots/YYYY-MM-DD-hibernate.md`:
+5. **Generate hibernate snapshot** at `{VAULT}/06 Archive/Hibernate Snapshots/YYYY-MM-DD-hibernate.md`:
 
 ```markdown
 # Hibernate Snapshot - [Date]
