@@ -52,11 +52,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read `{VAULT}/01 Now/Works in Progress.md` (already loaded from step 1)
    - Read `{VAULT}/01 Now/This Week.md`
    - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending or as an unchecked `[ ]` item
-   - WIP `**Next:**` fields should be project doc pointers only (`→ [[03 Projects/...]]`), not task lists. Flag any that contain task descriptions or queued actions — these should be migrated to the project doc.
+   - WIP `**Next:**` fields: flag any that contain **multiple actions** (queue) — these always need migration. Also flag entries with task content where a project/area doc exists — should be a pointer instead. A single next action is acceptable for lightweight entries that have no project doc.
 
    **Auto-fix:**
    - Update WIP entries to reflect completions confirmed in This Week (strike through items, update status lines)
-   - Migrate any task content in `**Next:**` fields to the relevant project doc, then replace with a pointer
+   - For Next fields with queued actions: migrate to the project doc, replace with a pointer
+   - For Next fields with task content where a project doc exists: replace with a pointer (`→ [[03 Projects/...]]`)
 
    **Cross-reference sweep:**
    - For each status change (battery disconnect, order placed, task completed), grep the vault for other files containing the stale value
