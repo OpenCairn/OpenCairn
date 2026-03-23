@@ -1,6 +1,6 @@
 ---
 name: goodnight
-description: End-of-day status report - inventory loops, set tomorrow's queue, close cleanly
+description: End-of-day close-out - accountability, tomorrow's queue, route undone items
 ---
 
 # Goodnight - End-of-Day Status Report
@@ -55,7 +55,7 @@ Read and compile:
 
 ### 3. Pre-Verification Debrief (BEFORE presenting report)
 
-**This step happens BEFORE displaying any open loops.** The goal is to update your working model with reality before presenting outdated information.
+**This step happens BEFORE presenting the status report.** The goal is to update your working model with reality before presenting outdated information.
 
 Ask:
 > "Before I show today's report, let me check: did you complete anything outside Claude today? Any tasks from earlier sessions that are now done?"
@@ -90,24 +90,12 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 ```
 ## Today's Report — [Day], [DD] [Mon] [YYYY] — [HH:MM TZ]
 
-**Sessions:** N
 **Projects touched:** [list]
 
 ### Completed
 - ✓ Task 1 (session)
 - ✓ Task 2 (session)
 - ✓ Task 3 (marked done just now)
-
-### Open Loops (by project)
-**[Project A]**
-- Loop 1
-- Loop 2
-
-**[Project B]**
-- Loop 1
-
-**Unassigned**
-- Orphan loop
 ```
 
 **Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
@@ -172,18 +160,6 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 - ✓ Task 1
 - ✓ Task 2
 
-## Open Loops
-
-### [Project A]
-- Loop 1
-- Loop 2
-
-### [Project B]
-- Loop 1
-
-### Unassigned
-- Orphan loop
-
 ## Tomorrow's Queue
 1. **[Priority 1]** - [why]
 2. **[Priority 2]** - [context]
@@ -214,6 +190,8 @@ Before collapsing, scan today's section — and any earlier days that are still 
 - **Low priority / no deadline?** → Move to the Backlog section at the top of This Week.md.
 - **Already appears in a future day?** → Delete the duplicate from today, don't move.
 
+Preserve existing project/area links when moving items. If an item lacks a link, add one (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`). No link for items with no project context.
+
 Also check for sub-sections scoped to a future day. Move the entire sub-section to the appropriate future day before collapsing.
 
 ### 11. Collapse past day sections
@@ -229,43 +207,7 @@ Sweep all past days, not just today. Earlier days may still be verbose if a prev
 
 Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in step 10 — route it before collapsing.
 
-### 12. Build tomorrow's visual schedule
-
-This Week.md is a planning document. Past days should be minimal (summary + link). Future days should be actionable and current. Building the visual schedule at goodnight means `/morning` has less work to do and the user can glance at tomorrow's plan before bed.
-
-Replace tomorrow's day section with the full timeline format (same as `/morning` uses). Integrate rolled-over priority items alongside existing scheduled items:
-
-````
-## [Day] [DD] [Mon]
-
-### Morning (HH:MM–HH:MM)
-- [ ] **HH:MM Scheduled block (1h30m)**
-  - [ ] Sub-item detail
-- Flexible time
-  - [ ] Task 1
-  - [ ] Task 2
-
-### Afternoon (HH:MM–HH:MM)
-- [ ] **HH:MM–HH:MM Longer block (3h)**
-  - [ ] Task within it
-- Task batch
-  - [ ] Task 1
-  - [ ] Task 2
-
-### Evening (HH:MM–)
-- [ ] **HH:MM Evening commitment (2h)**
-- Computer tasks
-  - [ ] Task 1
-  - [ ] Task 2
-````
-
-**Timeline format:** Bold entire line = items longer than 1 hour (`- [ ] **14:00–17:00 Workshop (3h)**`), normal weight = 1 hour or under (`- [ ] 09:00 Call (30m)`), duration in parentheses, `### Morning/Afternoon/Evening` section dividers, plain text lines (no checkbox) = time container headers, `~` = approximate time, `(tentative)` suffix for unconfirmed items. Every actionable item gets a `- [ ]` checkbox.
-
-Slot items based on context: physical errands → morning, messages/sends → afternoon, computer tasks → evening. Keep existing items from tomorrow's section — integrate around them, don't overwrite. Rolled-over items that aren't priority go in an "Also [Day] (if time)" task list below the timeline.
-
-**Move, not copy.** When an item from the Backlog section is scheduled into a day section, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
-
-### 13. Maintain rolling 7-day horizon
+### 12. Maintain rolling 7-day horizon
 
 Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m-%d"` (i.e. today + 7 calendar days). Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). For any missing days:
 
@@ -277,11 +219,11 @@ Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m
 
 This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
 
-### 14. Log Goodnight Session
+### 13. Log Goodnight Session
 
 Append a session entry for the goodnight session itself to today's session file.
 
-### 15. Determine Next Session Number
+### 14. Determine Next Session Number
 
 Extract the last session number mechanically — do NOT count by reading:
 ```bash
@@ -293,11 +235,11 @@ echo "New session number: $NEW_NUM"
 **Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
 1. Read its summary and completions from the session file
 2. Update your working memory (add to completed list, adjust session count)
-3. **Patch the daily report** (Step 9 output already on disk) — update session count, add the missed session(s) to the session list, add any completions to the Completed section
+3. **Patch the daily report** (Step 9 output already on disk) — add the missed session(s) to the session list, add any completions to the Completed section
 
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
 
-### 16. Append Goodnight Session Entry
+### 15. Append Goodnight Session Entry
 
 **Do NOT use heredoc inside flock — nested quoting is fragile.** Instead, use the Write or Edit tool to append the session entry directly, or write to a temp file and use flock for the append:
 
@@ -332,7 +274,7 @@ rm -f /tmp/goodnight_session.md
 
 **Preferred method:** Use the Edit/Write tool to append (no shell quoting issues at all). Only use bash+flock if concurrent writes are a real risk (multiple Claude instances).
 
-### 17. Check for Stranded Work Product
+### 16. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
@@ -350,16 +292,15 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 18. Update Works in Progress
+### 17. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state.
 
-### 19. Close
+### 18. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
-✓ Open loops: N items across M projects
 ✓ Tomorrow's #1: [Priority item]
 
 Goodnight.
@@ -407,7 +348,7 @@ This command should trigger when the user says:
 
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog, structures tomorrow), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
+- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
 

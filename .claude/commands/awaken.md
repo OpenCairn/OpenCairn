@@ -151,7 +151,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 
 9. **Route Immediate Next Actions to SSOT:**
    - For each action in "Immediate Next Actions":
-     - If This Week.md exists and is current → add to today's or tomorrow's section
+     - If This Week.md exists and is current → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`).
      - If This Week.md is stale/missing → add to Tickler with today's date
    - Dedup check: grep target file before writing. Skip if already present.
    - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes.
