@@ -106,6 +106,7 @@ Present two versions:
 - [ ] Repetitive transitions ("Moreover,", "Furthermore,", "Additionally,")
 - [ ] Conclusion that restates introduction
 - [ ] Every paragraph starts with topic sentence
+- [ ] Subject-drop (omitting subject pronouns, e.g. "Looked into that" instead of "I looked into that"). Keep all subject pronouns — English is not a pro-drop language and the user doesn't write in telegraphic style
 
 **Tone indicators:**
 - [ ] Excessive hedging ("somewhat", "relatively", "arguably")
