@@ -159,7 +159,7 @@ Use de-AI-ify:
 - **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
 - **Before blog publishing:** Final voice check on posts
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
-- **With /reply:** `/reply` strictly invokes the full `/de-ai-ify` protocol on every draft (silent fixes, no before/after presentation). Use standalone `/de-ai-ify` when you want the before/after presentation or want to run it on text outside of `/reply`.
+- **With /reply:** `/reply` applies `/de-ai-ify`'s full checklist and transformations on every draft (silent fixes, no before/after, no separate skill invocation). Use standalone `/de-ai-ify` when you want the before/after presentation or want to run it on text outside of `/reply`.
 
 This ensures **the user's authentic voice in all published work**.
 
