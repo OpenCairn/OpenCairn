@@ -83,9 +83,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
 4. **Voice check (strict)**
 
-   Run `/de-ai-ify` on the draft. This is not optional and not a lightweight inline scan. Execute the full `/de-ai-ify` protocol: load the voice profile, run the complete AI pattern checklist, apply transformations, and fix every issue found.
-
-   **Presentation mode within `/reply`:** Fix issues silently in the draft (do not present before/after versions as standalone `/de-ai-ify` would). But run the full checklist with the same rigour.
+   Apply `/de-ai-ify`'s full checklist and transformations to the draft. Do not invoke `/de-ai-ify` as a separate skill (vault path and voice profile are already loaded from steps 0 and 2). Run every check from `/de-ai-ify`'s AI Pattern Checklist: lexical clichés, structural patterns, tone indicators, and the user's voice criteria. Fix every issue found directly in the draft, silently (no before/after presentation).
 
    **Report one line after the draft:**
    - `Voice check: passed` — if no issues found
