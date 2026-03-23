@@ -40,13 +40,37 @@ date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
-### 2. Surface the Landscape (auto, ~1 min)
+### 2. Reconcile post-goodnight sessions
+
+Check if any sessions were logged after last night's /goodnight close-out. If so, patch the daily report so it reflects the full day.
+
+1. Compute yesterday's date: `date -d "yesterday" +"%Y-%m-%d"`
+2. Check if yesterday's daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
+3. If no daily report → skip (no /goodnight was run). Proceed to Step 3.
+4. Read yesterday's session log: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+5. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic).
+6. If daily report exists but no goodnight session found in the session log → skip (daily report wasn't created by /goodnight). Proceed to Step 3.
+7. Extract the goodnight session number. Check if any sessions exist with a higher number.
+8. If no post-goodnight sessions → skip silently. Proceed to Step 3.
+9. If post-goodnight sessions found:
+   - Read each post-goodnight session block.
+   - **Append** the late session(s) to the `## Sessions` list in the daily report.
+   - **Append** any completions to `## Completed`.
+   - Do NOT modify other sections — the daily report's Tomorrow's Queue, Blockers, and Notes were set deliberately at close-out and remain valid.
+   - Add a note at the end of the Sessions section: `*Sessions N–M added by /morning (ran after close-out)*`
+   - Display:
+     ```
+     ✓ Reconciled: [N] post-goodnight session(s) added to yesterday's daily report
+       - Session M: [Topic] - [outcome]
+     ```
+
+### 3. Surface the Landscape (auto, ~1 min)
 
 Read and present:
 - **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md`, show Active section
-- **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 6. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 6. If the file doesn't exist, skip.
+- **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 7. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 7. If the file doesn't exist, skip.
 - **Tickler items due:** Read `{VAULT}/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
-- **Tickler→This Week migration (automatic):** If `{VAULT}/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup.
+- **Tickler→This Week migration (automatic):** If `{VAULT}/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup. When migrating, preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`). If an item has only a session log link (`→ [[06 Archive/...]]`), replace it with the relevant project/area link. If no link, add one per the item linking convention (see Step 7).
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `{VAULT}/06 Archive/Claude/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Tomorrow's Queue from last night:** Check `{VAULT}/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
@@ -93,18 +117,18 @@ Here's your landscape:
 
 If a section is empty, skip it. Keep it scannable.
 
-### 3. Catch Gaps + Open Space (single prompt)
+### 4. Catch Gaps + Open Space (single prompt)
 
 Ask both questions together — don't force two round trips:
 > "Anything from yesterday that didn't get captured? And what's on your mind this morning?"
 
-**If "nothing" or minimal:** Move to step 5, keep it quick.
+**If "nothing" or minimal:** Move to step 6, keep it quick.
 
-**If stuff comes up:** Let it flow. Don't rush. This is generative space. Let the user dump everything before you respond. The user will often also respond to the landscape from step 2 in the same message (marking items done, rescheduling, adding context). Treat all of this as input to step 4.
+**If stuff comes up:** Let it flow. Don't rush. This is generative space. Let the user dump everything before you respond. The user will often also respond to the landscape from step 3 in the same message (marking items done, rescheduling, adding context). Treat all of this as input to step 5.
 
-### 4. Capture Gate (MANDATORY — do not skip or defer)
+### 5. Capture Gate (MANDATORY — do not skip or defer)
 
-**After** the user finishes their response (whether it's brain dump items, landscape corrections, scheduling decisions, or all three), and **before** moving to step 5:
+**After** the user finishes their response (whether it's brain dump items, landscape corrections, scheduling decisions, or all three), and **before** moving to step 6:
 
 **Capture means writing to a file, not acknowledging in conversation.** If it's not in a file, it's not captured. Discussing an item, triaging it, or giving an opinion about it is not capturing it.
 
@@ -119,7 +143,7 @@ For every item the user mentioned:
    - **Research/idea** → Write to the relevant project or area file
    - **Just venting** → Don't write. But this category should be rare — most things people say in the morning are at least "note-worthy"
 
-2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 5. Do not hold them in conversational memory.
+2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 6. Do not hold them in conversational memory.
 
 3. **Confirm with a receipt.** After writing, show the user a summary:
    ```
@@ -134,11 +158,11 @@ For every item the user mentioned:
 
 **Why this gate exists:** The failure mode is: user dumps 10 items, Claude discusses all 10 intelligently, user assumes they're captured, they're not. Conversation is volatile memory. Files are the system of record. The gap between "discussed" and "captured" is where trust erodes.
 
-### 5. Maintain This Week.md window
+### 6. Maintain This Week.md window
 
 This step runs every morning regardless of whether the user wants a timeline for today. It keeps the rolling window current.
 
-If This Week.md doesn't exist, skip this step (step 6 will offer to create it if needed).
+If This Week.md doesn't exist, skip this step (step 7 will offer to create it if needed).
 
 **Trim old day sections:** Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
@@ -152,9 +176,9 @@ If This Week.md doesn't exist, skip this step (step 6 will offer to create it if
 4. Format for days with no content: `## [Day] [DD] [Mon]` — just the heading
 5. Update the file heading date range: set start date to the earliest remaining day section, end date to the latest
 
-**Populate new days from Tickler:** For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Step 2 handles migration for *existing* day sections — this only covers *newly created* ones.
+**Populate new days from Tickler:** For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Step 3 handles migration for *existing* day sections — this only covers *newly created* ones. Apply the same link handling as Step 3: preserve project/area links, replace session-log-only links, add links to bare items per the item linking convention (see Step 7).
 
-### 6. Update today's timeline (optional)
+### 7. Update today's timeline (optional)
 
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
 
@@ -205,13 +229,20 @@ Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/exp
 
 **Every actionable item gets a `- [ ]` checkbox.** Time container headers (plain `- ` lines grouping flexible tasks) are the only lines without checkboxes.
 
+**Item linking:** Every item in a day section or Backlog should link to its project/area context where one exists:
+- Project doc exists → `→ [[03 Projects/Project Name]]`
+- Area doc exists → `→ [[04 Areas/path/doc]]`
+- No dedicated doc but tracked in WIP → `→ [[01 Now/Works in Progress#Heading]]`
+- Standalone/generic items (no project context) → no link
+When moving items that already have project/area links, preserve them. Replace session log links with project/area links (session context is low-value once the item is in a planning doc).
+
 Pull items from:
-- Items carried forward from stale This Week.md (if any, noted in step 2)
+- Items carried forward from stale This Week.md (if any, noted in step 3)
 - Time-sensitive items and appointments
 - WIP project docs (follow **Next:** links to project pages for task queues)
 - Yesterday's queue (from /goodnight Daily Report)
-- Today's items already in This Week.md (migrated from Tickler in steps 2/5)
-- Anything the user mentioned in step 3
+- Today's items already in This Week.md (migrated from Tickler in steps 3/6)
+- Anything the user mentioned in step 4
 
 **Move, not copy.** When an item from the Backlog section is scheduled into today's timeline, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
 
@@ -247,19 +278,19 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 **If no or the day is unstructured:** Skip. Not every day needs a timeline.
 
-### 7. Output (conditional)
+### 8. Output (conditional)
 
-**Note:** By this point, all brain dump items from step 3 should ALREADY be written to files (step 4). This step is only for This Week.md and any additional generative content — not for deferred captures.
+**Note:** By this point, all brain dump items from step 4 should ALREADY be written to files (step 5). This step is only for This Week.md and any additional generative content — not for deferred captures.
 
 **Most days with This Week.md:** The updated This Week.md is the artifact. No additional output needed.
 
-**If generative/insight content** (beyond what was captured in step 4):
+**If generative/insight content** (beyond what was captured in step 5):
 - Append to today's journal at `{VAULT}/05 Resources/Journal/YYYY-MM-DD.md`
 - Or create morning note at `{VAULT}/06 Archive/Morning Notes/YYYY-MM-DD.md` (create directory if needed)
 
 **If nothing:** Just close cleanly.
 
-### 8. Close
+### 9. Close
 
 Short and light:
 ```
@@ -296,7 +327,7 @@ This command should trigger when the user says:
 
 - **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness)
 - **May create/update:** This Week.md (weekly plan with day sections)
-- **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files
+- **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
 

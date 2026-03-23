@@ -119,7 +119,7 @@ Consider:
 
 **If priorities significantly shifted:** Update `{VAULT}/01 Now/Works in Progress.md` with new status/priorities.
 
-**If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged. This keeps the week plan current without rebuilding from scratch.
+**If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged. Include project/area links on new items (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`). This keeps the week plan current without rebuilding from scratch.
 
 **If actionable decisions made:** Note them in today's session file if one exists.
 
