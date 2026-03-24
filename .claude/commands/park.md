@@ -125,6 +125,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Update stale references (outdated info, old dates, deprecated approaches)
    - Fix broken structure (illogical heading hierarchy, orphaned sections)
    - Remove dead/orphaned content created then abandoned
+   - **Mid-session direction changes:** If the session's conclusion diverges from its starting position (e.g. an item went from "moot" to "live option", or a decision was reversed), re-read files edited earlier in the session and verify they reflect the final state, not the interim state. This is distinct from general staleness — these files were correct when written but became stale because the conversation changed direction.
+   - **Research persistence:** Did this session produce research (subagent findings, web searches, analysis) that should be captured in a reference/area file, not just narrated in the session summary? If a stub entry exists for the researched topic, update it with the findings.
 
    **VERIFY** - Session summary accuracy (if updating an already-parked session):
    - Do open loops still reflect reality? (If user completed something mid-conversation, remove it from the list)
@@ -320,6 +322,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
        Display: `FIFO check: N/2 session links`. If more than 2, fix before proceeding.
+   - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
    - Update "Last updated" timestamp at top of file with current date/time
 
 13. **Trace reference graph for status changes** (Full tier only):
