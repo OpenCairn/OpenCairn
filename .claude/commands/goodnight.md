@@ -1,6 +1,6 @@
 ---
 name: goodnight
-description: End-of-day close-out - accountability, tomorrow's queue, route undone items
+description: End-of-day close-out - accountability, route undone items, daily report
 ---
 
 # Goodnight - End-of-Day Status Report
@@ -12,7 +12,6 @@ You are running the user's end-of-day operational close-out. This is a technical
 The goal is clean handoff to tomorrow-you:
 - **Inventory** - what's the state of everything?
 - **Accountability** - what got done?
-- **Queue** - what's the priority sequence for tomorrow?
 - **Context** - what would tomorrow-you need to know to hit the ground running?
 
 This is the complement to `/morning` - morning surfaces the landscape, goodnight closes the books.
@@ -119,29 +118,7 @@ Ask:
 - If yes: add to inventory (but don't add to session files - these go in the daily report)
 - If no: proceed
 
-### 8. Set Tomorrow's Queue
-
-Ask:
-> "What's the priority order for tomorrow?"
-
-Help structure as:
-
-```
-### Tomorrow's Queue
-1. **[Must-do]** - [why it's priority]
-2. **[Should-do]** - [context]
-3. **[If time]** - [nice to have]
-
-**Blockers/Dependencies:**
-- [Anything waiting on external input]
-```
-
-If the user doesn't have strong opinions, suggest based on:
-- Time-sensitive items first
-- Blocked items need unblocking
-- High-momentum items worth continuing
-
-### 9. Generate Daily Report
+### 8. Generate Daily Report
 
 Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 
@@ -160,11 +137,6 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 - ✓ Task 1
 - ✓ Task 2
 
-## Tomorrow's Queue
-1. **[Priority 1]** - [why]
-2. **[Priority 2]** - [context]
-3. **[Priority 3]** - [if time]
-
 ## Blockers
 - [Item] - waiting on [what]
 
@@ -182,7 +154,7 @@ Ensure directory exists first:
 mkdir -p "{VAULT}/06 Archive/Claude/Daily Reports"
 ```
 
-### 10. Route undone items from past day sections
+### 9. Route undone items from past day sections
 
 Before collapsing, scan today's section — and any earlier days that are still verbose — for `- [ ]` items. For each:
 - **Has a natural future day?** → Move to that day's section.
@@ -194,7 +166,7 @@ Preserve existing project/area links when moving items. If an item lacks a link,
 
 Also check for sub-sections scoped to a future day. Move the entire sub-section to the appropriate future day before collapsing.
 
-### 11. Collapse past day sections
+### 10. Collapse past day sections
 
 After all undone items have been routed, collapse today's section — and any earlier days in This Week.md that are still verbose — to a one-line summary + link:
 
@@ -205,9 +177,9 @@ After all undone items have been routed, collapse today's section — and any ea
 
 Sweep all past days, not just today. Earlier days may still be verbose if a previous `/goodnight` run predates this step or was interrupted. Any day before tomorrow should be a one-liner.
 
-Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in step 10 — route it before collapsing.
+Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in step 9 — route it before collapsing.
 
-### 12. Maintain rolling 7-day horizon
+### 11. Maintain rolling 7-day horizon
 
 Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m-%d"` (i.e. today + 7 calendar days). Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). For any missing days:
 
@@ -219,11 +191,11 @@ Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m
 
 This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
 
-### 13. Log Goodnight Session
+### 12. Log Goodnight Session
 
 Append a session entry for the goodnight session itself to today's session file.
 
-### 14. Determine Next Session Number
+### 13. Determine Next Session Number
 
 Extract the last session number mechanically — do NOT count by reading:
 ```bash
@@ -239,7 +211,7 @@ echo "New session number: $NEW_NUM"
 
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
 
-### 15. Append Goodnight Session Entry
+### 14. Append Goodnight Session Entry
 
 **Do NOT use heredoc inside flock — nested quoting is fragile.** Instead, use the Write or Edit tool to append the session entry directly, or write to a temp file and use flock for the append:
 
@@ -274,7 +246,7 @@ rm -f /tmp/goodnight_session.md
 
 **Preferred method:** Use the Edit/Write tool to append (no shell quoting issues at all). Only use bash+flock if concurrent writes are a real risk (multiple Claude instances).
 
-### 16. Check for Stranded Work Product
+### 15. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
@@ -292,17 +264,15 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 17. Update Works in Progress
+### 16. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state.
 
-### 18. Close
+### 17. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
-✓ Tomorrow's #1: [Priority item]
-
 Goodnight.
 ```
 
@@ -310,7 +280,6 @@ Goodnight.
 
 - **Technical, not emotional:** Focus on state and status, not feelings
 - **Accountability:** The completed list matters - own what got done
-- **Forward-looking:** Tomorrow's queue is the point - set yourself up
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
@@ -329,11 +298,9 @@ Goodnight.
 2. Ask about completions BEFORE presenting (Step 3) - update working memory AND files
 3. Present from working memory (Step 5) - never re-read files mid-flow
 4. Handle mid-flow corrections (Step 6) - update working memory AND files
-5. Generate daily report from working memory (Step 9)
+5. Generate daily report from working memory (Step 8)
 
 **Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
-
-**Tomorrow's queue must respect working memory.** When generating tomorrow's queue (Step 8), cross-check every suggested item against corrections applied in Steps 3-6. Items marked complete during this session MUST NOT reappear as suggestions. This includes "if time" items and hedged suggestions like "or already done?" — if you know it's done, don't mention it.
 
 ## Triggers
 
