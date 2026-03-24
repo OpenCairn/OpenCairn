@@ -6,9 +6,11 @@
 # If the session's "### Files Updated" section contains "None", replaces it.
 # Otherwise appends after the last entry in that section.
 #
-# Examples:
-#   printf -- '- 01 Now/WIP.md - Travel 2026 status updated\n- 01 Now/This Week.md - ANZ Shield retry routed to Fri\n' | \
-#     "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "/path/to/2026-03-12.md" 25
+# Examples (use heredocs, not printf — printf interprets % as format specifiers):
+#   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "/path/to/2026-03-12.md" 25
+#   - 01 Now/Works in Progress.md - Updated project status
+#   - 01 Now/This Week.md - Routed task to Thursday
+#   EOF
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 
