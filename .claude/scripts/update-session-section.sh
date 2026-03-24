@@ -6,18 +6,23 @@
 #   --replace: replace entire section content
 #   Section name without "### " prefix (e.g. "Summary", "Files Created")
 #
-# Examples:
+# Examples (use heredocs, not printf — printf interprets % as format specifiers):
 #   # Append to Summary (leading blank line creates paragraph break)
-#   printf '\nAdditional work: fixed the auth bug.' | \
-#     update-session-section.sh "/path/to/2026-03-15.md" 5 "Summary"
+#   cat << 'EOF' | update-session-section.sh "/path/to/2026-03-15.md" 5 "Summary"
+#
+#   Additional work: fixed the auth bug.
+#   EOF
 #
 #   # Append to Files Created (replaces "None" if that's all that's there)
-#   printf '- path/to/new-file.md - description\n' | \
-#     update-session-section.sh "/path/to/2026-03-15.md" 5 "Files Created"
+#   cat << 'EOF' | update-session-section.sh "/path/to/2026-03-15.md" 5 "Files Created"
+#   - path/to/new-file.md - description
+#   EOF
 #
 #   # Replace Pickup Context entirely
-#   printf '**For next session:** Deploy to staging\n**Project:** [[03 Projects/Auth]]' | \
-#     update-session-section.sh "/path/to/2026-03-15.md" 5 "Pickup Context" --replace
+#   cat << 'EOF' | update-session-section.sh "/path/to/2026-03-15.md" 5 "Pickup Context" --replace
+#   **For next session:** Deploy to staging
+#   **Project:** [[03 Projects/Auth]]
+#   EOF
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 

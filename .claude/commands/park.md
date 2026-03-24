@@ -54,24 +54,31 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - If yes: **don't create a new session entry.** Instead, update the existing session using the update-session-section script (not the Edit tool — race condition risk with parallel parks):
      ```bash
      # Append to Summary (leading blank line creates paragraph break)
-     printf '\nMerge addendum: [description]' | \
-       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Summary"
+     cat << 'EOF' | "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Summary"
+
+     Merge addendum: [description]
+     EOF
 
      # Append to Files Created (handles None→list automatically)
-     printf -- '- path/to/file - description\n' | \
-       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Created"
+     cat << 'EOF' | "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Created"
+     - path/to/file - description
+     EOF
 
      # Append to Files Updated (handles None→list automatically)
-     printf -- '- path/to/file - description\n' | \
-       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Updated"
+     cat << 'EOF' | "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Files Updated"
+     - path/to/file - description
+     EOF
 
      # Replace Next Steps / Open Loops (when changed)
-     printf -- '- Updated loop\n' | \
-       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Next Steps / Open Loops" --replace
+     cat << 'EOF' | "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Next Steps / Open Loops" --replace
+     - Updated loop
+     EOF
 
      # Replace Pickup Context (always replaced on merge)
-     printf '**For next session:** ...\n**Project:** ...\n' | \
-       "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Pickup Context" --replace
+     cat << 'EOF' | "{VAULT}/.claude/scripts/update-session-section.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N "Pickup Context" --replace
+     **For next session:** ...
+     **Project:** ...
+     EOF
      ```
    - **After merging, run Steps 5, 12, 13, 14, 14a, 15** (quality gate, WIP update, reference graph, open loop routing, backfill — all using the merged session's number). Skip Steps 3-4, 6-11 (no new session entry needed).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
@@ -387,8 +394,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Collect all files modified during steps 12-14 (WIP update, reference graph tracing, open loop routing)
    - Use the backfill-files-updated script:
      ```bash
-     printf -- '- 01 Now/Works in Progress.md - [what changed]\n- 01 Now/This Week.md - [what changed]\n' | \
-       "{VAULT}/.claude/scripts/backfill-files-updated.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
+     cat << 'EOF' | "{VAULT}/.claude/scripts/backfill-files-updated.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
+     - 01 Now/Works in Progress.md - [what changed]
+     - 01 Now/This Week.md - [what changed]
+     EOF
      ```
      Where `N` is the current session number. The script handles:
      - File locking (flock) for concurrent safety
