@@ -20,7 +20,7 @@ You are capturing a work session — either ending it or saving a mid-session ch
 ## Tier Philosophy
 
 **Two tiers only:**
-- **Quick** - Genuinely trivial sessions (<5 min, no files touched, just a question answered). One line is enough.
+- **Quick** - Genuinely trivial sessions (<5 min, minimal file interaction, just a question answered). One line is enough.
 - **Full** - Everything else. If it's worth documenting at all, do it properly. Includes pickup context, key insights, open loops, continuation links.
 
 The old "standard" tier was a false economy - saving 30 seconds of processing time but losing context that might be valuable later is bad math.
@@ -34,11 +34,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    if [[ -z "${VAULT_PATH:-}" ]]; then
      echo "VAULT_PATH not set. Set it in your shell profile (e.g., export VAULT_PATH=/path/to/vault)"
      exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} does not exist"
+   elif [[ ! -d "$VAULT_PATH" ]]; then
+     echo "VAULT_PATH=$VAULT_PATH does not exist"
      exit 1
    else
-     echo "VAULT_PATH={VAULT}"
+     echo "VAULT_PATH=$VAULT_PATH"
    fi
    ```
    If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All code examples below use `{VAULT}` as a placeholder — substitute the resolved path before executing. Do NOT use `{VAULT}` in later Bash tool calls — shell state does not persist between calls, so the variable will be empty.
@@ -50,7 +50,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
 2. **Check for merge-continuation** before creating a new session:
-   - Ask: "Is this work a direct continuation of a recently parked session — same task, just finishing a loose end?"
+   - Determine from context whether this is a direct continuation of a recently parked session (same task, just finishing a loose end). Indicators: `/pickup` loaded a specific session, topic is identical, work is completing an open loop from that session. Only ask the user if genuinely ambiguous.
    - If yes: **don't create a new session entry.** Instead, update the existing session using the update-session-section script (not the Edit tool — race condition risk with parallel parks):
      ```bash
      # Append to Summary (leading blank line creates paragraph break)
@@ -82,10 +82,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Quick tier** triggers when ALL of:
      - Conversation < 10 turns AND
      - No files created/updated AND
+     - Few non-context files read (< 3 distinct files, excluding routine context loads like `07 System/Context -` files and CLAUDE.md) AND
      - Session < 5 minutes duration AND
      - No decisions or status changes — just information lookup
    - **Full tier** triggers when ANY of:
      - Files created/updated OR
+     - Significant reading breadth (3+ distinct non-context files read) OR
      - Decisions made OR
      - Status changes identified (task completed, booking confirmed/cancelled, item resolved) OR
      - Open loops generated OR
@@ -325,9 +327,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Full tier:** Review the session for any status changes — tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, etc.
    - For each status change identified:
      1. Identify the key identifier (project name, booking number, feature name, account name, etc.)
-     2. Grep the vault for that identifier: `grep -r "identifier" "{VAULT}/" --include="*.md" -l`
-     3. Exclude archive/session files (these are historical records, not living docs)
-     4. Read and update every living document that references the changed item
+     2. Grep the vault for that identifier, excluding archive/session files (historical records, not living docs):
+        ```bash
+        grep -r "identifier" "{VAULT}/" --include="*.md" -l --exclude-dir="06 Archive"
+        ```
+     3. Read and update every living document in the results that references the changed item
    - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
    - Display result:
      ```
