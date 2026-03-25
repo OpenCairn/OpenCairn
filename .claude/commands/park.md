@@ -401,7 +401,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      ```
      Where `N` is the current session number. The script handles:
      - File locking (flock) for concurrent safety
-     - Replacing "None" if that's the current content, or appending after existing entries
+     - Replacing placeholder "None" lines (bare `None`, `- None`, `- None (explanation)`) or appending after existing entries
      - Finding the correct section boundary within the session block
    - Only include files actually modified — if steps 12-14 didn't touch a file, don't list it
    - **Why this exists:** The session log is written at step 9 before steps 12-14 run, so "Files Updated" is always incomplete without this backfill. This was caught by audit — sessions were reporting "Files Updated: None" when WIP, This Week, and project files had all been modified.
@@ -470,7 +470,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
   - **No canonical home?** Create a project or area file rather than linking to WIP
   - **Working in Resources?** That's a signal it should graduate to an Area
   - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
-- **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9.
+- **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9. For empty sections, write bare `None` on its own line (not `- None`, not `None (explanation)` — just `None`). The backfill script tolerates variations, but bare `None` is the canonical form.
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 
 ## Cue Word Detection
