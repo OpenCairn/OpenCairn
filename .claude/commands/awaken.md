@@ -23,16 +23,10 @@ This is the "return from sabbatical" complement to daily pickup.
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -240,7 +234,3 @@ This is fine - life happens. Priorities may have shifted more than expected.
 | Frequency | Daily/session | Extended breaks only |
 
 Use `/pickup` for yesterday. Use `/awaken` for months ago.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

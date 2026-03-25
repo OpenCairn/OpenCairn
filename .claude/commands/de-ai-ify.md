@@ -19,16 +19,10 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Analyze the text:**
    - Identify AI patterns (see checklist below)
@@ -163,7 +157,3 @@ Use de-AI-ify:
 - **With /reply:** `/reply` applies `/de-ai-ify`'s full checklist and transformations on every draft (silent fixes, no before/after, no separate skill invocation). Use standalone `/de-ai-ify` when you want the before/after presentation or want to run it on text outside of `/reply`.
 
 This ensures **the user's authentic voice in all published work**.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

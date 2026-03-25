@@ -151,7 +151,3 @@ This command should trigger when the user says:
 - "lesson learned"
 - "don't do that again"
 - "capture this lesson"
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

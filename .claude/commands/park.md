@@ -31,17 +31,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 0. **Resolve vault path** before proceeding:
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set. Set it in your shell profile (e.g., export VAULT_PATH=/path/to/vault)"
-     exit 1
-   elif [[ ! -d "$VAULT_PATH" ]]; then
-     echo "VAULT_PATH=$VAULT_PATH does not exist"
-     exit 1
-   else
-     echo "VAULT_PATH=$VAULT_PATH"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
-   If error, abort. **Store the resolved absolute path** (e.g. `/home/user/Files`). All code examples below use `{VAULT}` as a placeholder — substitute the resolved path before executing. Do NOT use `{VAULT}` in later Bash tool calls — shell state does not persist between calls, so the variable will be empty.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
@@ -173,21 +165,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 6. **Determine session metadata:**
    - Session number for today — extract mechanically, do NOT count by reading:
      ```bash
-     SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
-     if [ -f "$SESSION_FILE" ]; then
-       LAST_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
-       NEW_NUM=$((LAST_NUM + 1))
-     else
-       NEW_NUM=1
-     fi
+     NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
      echo "Session number: $NEW_NUM"
      ```
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
-   - Related project (if applicable):
-     - **Finite work** → `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/`)
-     - **Ongoing area work** → `{VAULT}/04 Areas/[path]/[name].md`
-     - **Never link to:** WIP sections, Resources, or Archive (see Guidelines for rationale)
+   - Related project (if applicable) — follow Project Linking Rules in `_shared-rules.md` Section 2
    - **Quick tier:** Skip project detection (just use topic)
 
 7. **Check for continuation** (conditional on tier):
@@ -289,10 +272,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Quick tier:** Skip
    - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
      ```bash
-     # Check for plan files modified today (POSIX-compatible, works on macOS/Linux/Git Bash)
-     touch -t $(date +%Y%m%d0000) /tmp/.opencairn_midnight_marker_$$
-     find "$HOME/.claude/plans/" -type f -newer /tmp/.opencairn_midnight_marker_$$ 2>/dev/null
-     rm -f /tmp/.opencairn_midnight_marker_$$
+     "{VAULT}/.claude/scripts/check-stranded-plans.sh"
      ```
    - If any files found, **individually assess each file** — do not batch-dismiss:
      - Read each plan file
@@ -454,9 +434,9 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" (no bullets needed)
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone handling:** Use system timezone (local time wherever the user is). During travel, sessions dated in local context (Tokyo → JST, Denver → MST). This is intentional — local time is more meaningful than forcing the home timezone
+- **Timezone:** Per `_shared-rules.md` Section 7. Use system timezone.
 - **Continuation linking only:** Do NOT add chronological "Next session:" or "Previous session:" links — sessions are in chronological order in the file, so these are redundant. The only cross-session links that carry information are topical: `**Continues:**` (in the new session, pointing to the session being continued) and `**Continued in:**` (added to the original session, pointing forward to the continuation). These are triggered by `/pickup` loading a specific session to continue.
-- **File locking is mandatory:** Use `flock` via Bash tool, NOT the Edit tool. Edit tool has no locking and WILL cause race conditions when multiple Claude instances park simultaneously. Single lock file (`{VAULT}/06 Archive/Claude/Session Logs/.lock`) protects both writes and edits
+- **File locking:** Per `_shared-rules.md` Section 5. Use scripts, not Edit tool.
 - **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
 - **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.
@@ -465,13 +445,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick tier skips
-- **Project linking rules:**
-  - **Finite work** → link to `03 Projects/[name].md`
-  - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
-  - **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, or Archive
-  - **No canonical home?** Create a project or area file rather than linking to WIP
-  - **Working in Resources?** That's a signal it should graduate to an Area
-  - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
+- **Project linking:** Follow the rules in `_shared-rules.md` Section 2.
 - **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9. For empty sections, write bare `None` on its own line (not `- None`, not `None (explanation)` — just `None`). The backfill script tolerates variations, but bare `None` is the canonical form.
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 
@@ -501,7 +475,3 @@ When triggered by cue words, acknowledge and proceed with session capture. Use t
 The goal is Cal Newport's "shutdown complete" ritual — explicit acknowledgement of open loops so the mind can truly rest, or so you can compact context and keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
 
 **For completed work:** Capture it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

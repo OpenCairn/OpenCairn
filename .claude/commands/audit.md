@@ -99,7 +99,3 @@ Theory vs. reality. Can you verify it runs?
 - **Don't pad:** If the implementation is solid, say so. "Clean pass" is a valid audit result.
 - **Scope to what was asked:** Audit the target, not the surrounding codebase. Flag adjacent concerns briefly if they're blocking, but don't expand scope without asking.
 - **Earn the clean pass:** Layer 1-3 findings are uncomfortable but high-value — they mean the approach itself may be wrong. A clean pass at these layers must be earned by articulating *why* the approach is right, not assumed by jumping to implementation details.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

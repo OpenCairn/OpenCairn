@@ -12,14 +12,10 @@ You are verifying the integrity of the AI Provenance Log by recomputing session 
 ### 1. Resolve Vault Path
 
 ```bash
-if [[ -z "${VAULT_PATH:-}" ]]; then
-  echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "{VAULT}" ]]; then
-  echo "VAULT_PATH={VAULT} not found"; exit 1
-else
-  echo "VAULT_PATH={VAULT} OK"
-fi
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
+
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 2. Read Provenance Log
 
@@ -145,7 +141,3 @@ If OTS proofs are pending and upgradeable, offer:
 - **Reads:** `07 System/AI Provenance Log.md`, session files in `06 Archive/Claude/Session Logs/`, OTS proofs in `07 System/Provenance/`
 - **May update:** Provenance Log (if user approves re-hashing or OTS status updates)
 - **Complements:** `/provenance` (creates entries), `/park` `/checkpoint` `/goodnight` (auto-creates entries)
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

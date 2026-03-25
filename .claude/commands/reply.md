@@ -17,16 +17,10 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort — no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Parse the inbound**
 
@@ -120,7 +114,3 @@ Within a session, `/reply` carries forward context from previous drafts and the 
 - **CRM miss is fine.** Not every reply is to someone in the vault. Note it and proceed.
 - **Batch mode.** 3+ messages to reply to → run claims inventory before drafting any.
 - **Research proportionality.** Quick lookups within `/reply` are fine. Substantial research → suggest `/research-assistant` first.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

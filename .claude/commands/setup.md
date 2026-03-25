@@ -310,7 +310,3 @@ This command should trigger when the user says:
 - **Creates:** `07 System/Context - [Domain].md` stubs
 - **Updates:** CLAUDE.md (replaces placeholders with user's answers)
 - **Complements:** `/update` (ongoing template sync — setup is one-time)
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

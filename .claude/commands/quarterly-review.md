@@ -19,14 +19,10 @@ Quarterly review serves three purposes:
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
+
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and calculate quarter boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -159,6 +155,30 @@ Quarterly review serves three purposes:
    - Check for oversized files (>500 lines) that should be split
    - Check for near-empty files (<5 lines) that should be merged or deleted
    - Check `06 Archive/Claude/Session Logs/` — are daily session files reasonably sized? Flag any anomalies.
+
+10. **OpenCairn infrastructure self-audit:**
+    Run a dual-model audit of the OpenCairn template repo itself (commands, scripts, vault templates, documentation). This catches bugs, drift, and improvement opportunities in the tools you use every day.
+
+    **Step A:** Run `/audit the entire OpenCairn repo` against the template repo directory (the repo where these commands live).
+
+    **Step B:** Simultaneously launch Gemini CLI for a parallel audit:
+    ```bash
+    cd "$OPENCAIRN_REPO_PATH" && gemini -m gemini-3.1-pro-preview --approval-mode plan -p "$(cat <<'PROMPT'
+    Audit this entire repository. It's a Claude Code + Obsidian vault template.
+    Perform a five-layer audit: (1) Is the approach right? (2) Operating environment?
+    (3) Migration/integration concerns? (4) Implementation correctness? (5) Does it work?
+    For each finding: what's wrong, why it matters, concrete fix. Read every file.
+    PROMPT
+    )" 2>&1
+    ```
+    If Gemini CLI is not installed (`command -v gemini` fails), skip Step B and note it in the output.
+
+    **Step C:** Once both complete, synthesise findings:
+    - Present an agreement/disagreement table (which findings both models surfaced vs model-specific)
+    - Produce a priority-ordered fix list
+    - Fix what's authorised; log remaining issues in the review output
+
+    **Why dual-model:** Different models catch different things. The agreement table reveals high-confidence findings; disagreements surface blind spots worth investigating.
 
 ### Part 3: Output
 
@@ -303,7 +323,3 @@ Run quarterly, typically:
 - **Feeds into annual review:** (If the user implements one)
 - **Complements /weekly-review:** Weekly handles tactical maintenance; quarterly handles strategic + deep structural
 - **Informs context files:** The primary mechanism for keeping `07 System/Context - *.md` files accurate
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

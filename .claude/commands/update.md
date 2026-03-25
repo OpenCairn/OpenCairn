@@ -347,7 +347,3 @@ Error: [specific error message]
 - **Idempotent:** Running `/update` twice in a row is safe — second run shows "Already up to date."
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

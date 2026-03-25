@@ -61,7 +61,3 @@ If no `[CS]` tags are found, say so clearly — the user may not have adopted th
 - **Speed over completeness:** This is a quick scan, not a deep audit. Present what grep finds.
 - **Don't modify anything.** This is read-only reconnaissance.
 - **Cornerstones vs long poles:** Cornerstones (`[CS]`) are foundational tasks that compound — infrastructure, systems, habits. They differ from long poles (critical-path blockers with deadlines). A task can be both, but the tags serve different purposes.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
