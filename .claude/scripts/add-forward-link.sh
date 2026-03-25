@@ -130,7 +130,7 @@ else
 fi
 
 # Preserve original file permissions (GNU stat on Linux/Git Bash, BSD stat on macOS)
-ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
+ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
 
 # Insert the forward link using awk (more robust than sed append)
 # Use ENVIRON instead of -v to avoid backslash interpretation in topic names

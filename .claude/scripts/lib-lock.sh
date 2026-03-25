@@ -9,6 +9,11 @@
 #   # ... do work ...
 #   _unlock
 #
+# NOTE: _lock() sets an EXIT trap to auto-release the lock on unexpected exit.
+# Do NOT set your own EXIT trap before calling _lock() — it will be overwritten.
+# If you need cleanup logic, set your trap AFTER _unlock, or call _unlock
+# explicitly and manage cleanup yourself.
+#
 # Platform: Linux, macOS, Windows (Git Bash).
 # Uses flock where available, mkdir-based fallback otherwise.
 
@@ -26,6 +31,15 @@ _lock() {
             if [ "$waited" -ge "$timeout" ]; then
                 echo "Lock timeout after ${timeout}s" >&2
                 return 1
+            fi
+            # Stale lock recovery: if the lock dir is older than the timeout,
+            # the holder likely crashed (kill -9). Remove and retry.
+            local lock_mtime
+            lock_mtime=$(stat -c '%Y' "$_LOCK_DIR" 2>/dev/null || stat -f '%m' "$_LOCK_DIR" 2>/dev/null || echo 0)
+            local now
+            now=$(date +%s)
+            if [ $(( now - lock_mtime )) -gt "$timeout" ]; then
+                rmdir "$_LOCK_DIR" 2>/dev/null || true
             fi
             sleep 1
             waited=$((waited + 1))

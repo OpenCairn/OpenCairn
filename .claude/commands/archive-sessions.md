@@ -23,16 +23,10 @@ Session files should be easily accessible while actively relevant (last 90 days)
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -128,6 +122,7 @@ for the session file name and Obsidian will find it in the new location.
 - **Dry-run first:** Always show preview before actual move, especially first time
 - **Non-destructive:** Moves files, doesn't delete anything
 - **Idempotent:** Safe to run multiple times (already-archived files skipped)
+- **Pickup hidden file:** `.pickup-hidden` entries reference session identifiers by date (e.g., `2026-01-18#Session 1 - Title`). These remain valid after archiving because `pickup-scan.sh` extracts the date from filenames, not directory paths. However, if you notice previously hidden sessions reappearing after archiving, the hidden file entries may need updating.
 
 ## When to Use This Command
 
@@ -191,7 +186,3 @@ for the session file name and Obsidian will find it in the new location.
 - Dry-run available for validation
 
 This keeps the archive manageable as it grows to thousands of sessions over years.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

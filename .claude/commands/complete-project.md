@@ -20,16 +20,10 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -65,11 +59,15 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - This preserves project history while marking completion
 
 5. **Move project file to archive:**
-   - Create archive directory if needed: `mkdir -p "{VAULT}/06 Archive/Projects/YYYY"`
+   - Determine archive destination based on ownership:
+     - **Area-owned project** (belongs to a specific domain): `04 Areas/[Area]/Archive/[Project Name].md`
+     - **Cross-cutting project** (no single area): `06 Archive/Projects/YYYY/[Project Name].md`
+   - If unsure, ask: "Does this project belong to a specific area (Health, Photography, etc.), or is it cross-cutting?"
+   - Create archive directory if needed: `mkdir -p "{VAULT}/[chosen archive path]"`
    - Move file from wherever it was found:
-     - From `03 Projects/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
-     - From `03 Projects/Backlog/[Project Name].md` → `06 Archive/Projects/YYYY/[Project Name].md`
-   - Update any resource folders (e.g., `03 Projects/[Project]-Resources/` → `06 Archive/Projects/YYYY/`)
+     - From `03 Projects/[Project Name].md` → chosen archive path
+     - From `03 Projects/Backlog/[Project Name].md` → chosen archive path
+   - Update any resource folders similarly
 
 6. **Update Works in Progress:**
    - Read `{VAULT}/01 Now/Works in Progress.md`
@@ -131,7 +129,3 @@ If unsure, ask the user: "Is this project truly complete, or just on hold?"
 - **Weekly synthesis:** Can review session archive for completion patterns
 - **Session summaries:** Searchable record of when projects ended
 - **Archive:** Long-term storage of all project history
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

@@ -78,8 +78,13 @@ if [ ! -f "$TICKLER_FILE" ]; then
 fi
 
 # Use awk to insert item in correct place
-awk -v target="$TARGET_DATE" -v item="$ITEM" '
+# Pass via ENVIRON (not -v) to avoid awk interpreting escape sequences in user input
+export _AWK_TARGET="$TARGET_DATE"
+export _AWK_ITEM="$ITEM"
+awk '
 BEGIN {
+    target = ENVIRON["_AWK_TARGET"]
+    item = ENVIRON["_AWK_ITEM"]
     in_content = 0
     found_target = 0
     inserted = 0
@@ -131,6 +136,7 @@ END {
 ' "$TICKLER_FILE" > "$TICKLER_FILE.tmp"
 
 mv "$TICKLER_FILE.tmp" "$TICKLER_FILE"
+unset _AWK_TARGET _AWK_ITEM
 
 _unlock
 

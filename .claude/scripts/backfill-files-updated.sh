@@ -111,7 +111,7 @@ fi
 FILE_LIST="$DEDUPED_LIST"
 
 # Preserve original file permissions
-ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
+ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
 
 if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
     # Find placeholder "None" line — matches: "None", "- None", "- None (explanation)", "- None."

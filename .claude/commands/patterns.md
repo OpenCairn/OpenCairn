@@ -7,9 +7,10 @@ Find patterns, themes, and connections across files related to a topic.
 
 ## Instructions
 
-1. **Search broadly** - Use mcp-obsidian tools to find files matching the topic:
-   - `obsidian_simple_search` for text matches
+1. **Search broadly** - Use the Grep tool to find files matching the topic across the vault:
+   - Search with multiple keyword variations (synonyms, related terms)
    - Check `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/` for relevant content
+   - If Obsidian MCP tools are available (`obsidian_simple_search`), use those for richer results
 
 2. **Read matches** - For each matching file, read and extract:
    - Key claims or ideas
@@ -46,7 +47,3 @@ Find patterns, themes, and connections across files related to a topic.
 ```
 
 5. **Be concise** - This is for quick pattern recognition, not comprehensive summaries. Aim for actionable insights.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

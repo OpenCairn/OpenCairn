@@ -23,16 +23,10 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 Determine the vault base path. Run:
 
 ```bash
-if [[ -z "${VAULT_PATH:-}" ]]; then
-  echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "{VAULT}" ]]; then
-  echo "VAULT_PATH={VAULT} not found"; exit 1
-else
-  echo "VAULT_PATH={VAULT} OK"
-fi
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -176,15 +170,7 @@ Nothing with `- [ ]` should remain in any collapsed section. If it does, somethi
 
 ### 11. Maintain rolling 7-day horizon
 
-Ensure This Week.md has day sections through at least `date -d "+7 days" +"%Y-%m-%d"` (i.e. today + 7 calendar days). Count existing future day headings (`## [emoji] [Day] [DD] [Mon]` or `## [Day] [DD] [Mon]`). For any missing days:
-
-1. Run `date -d "+N days" +"%A %d %b"` for each missing day to get correct day-date mappings
-2. Add new day sections after the last existing day, before the `---` / Refs / Pending decisions sections
-3. **Populate from Tickler:** For each new day, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete them from Tickler (This Week.md becomes SSOT per Tickler transfer rules). **Deduplicate against Backlog:** After migrating each Tickler item, check whether a matching item already exists in the Backlog section of This Week.md (same task, possibly different phrasing). If so, delete the Backlog copy — the day section is now SSOT.
-4. Format for days with no Tickler items: `## [Day] [DD] [Mon]` with no content (just the heading)
-5. **Update the file heading** date range to match the new end date: `# This Week — [start] – [new end] [YYYY]`
-
-This prevents the file from shrinking as days get collapsed. The window always extends 7 days ahead.
+Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md` Section 9). This ensures the file always extends 7 days ahead, preventing it from shrinking as days get collapsed.
 
 ### 12. Log Goodnight Session
 
@@ -194,8 +180,7 @@ Append a session entry for the goodnight session itself to today's session file.
 
 Extract the last session number mechanically — do NOT count by reading:
 ```bash
-PREV_NUM=$(grep -o "^## Session [0-9]*" "$SESSION_FILE" | tail -1 | grep -o "[0-9]*")
-NEW_NUM=$((PREV_NUM + 1))
+NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_FILE")
 echo "New session number: $NEW_NUM"
 ```
 
@@ -208,13 +193,10 @@ This is the only exception to the "write-only after initial read" rule — you m
 
 ### 14. Append Goodnight Session Entry
 
-**Do NOT use heredoc inside flock — nested quoting is fragile.** Instead, use the Write or Edit tool to append the session entry directly, or write to a temp file and use flock for the append:
+**Use the write-session script** (same as `/park`) — this avoids the permission system corruption bug from inline flock commands and handles locking safely:
 
 ```bash
-# Write session entry to temp file first (no quoting issues)
-cat > /tmp/goodnight_session.md << 'EOF'
-
-
+cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
 ## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
 
 ### Summary
@@ -232,23 +214,16 @@ cat > /tmp/goodnight_session.md << 'EOF'
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
 EOF
-
-# Append atomically under lock
-flock -w 10 "{VAULT}/06 Archive/Claude/Session Logs/.lock" bash -c \
-  'cat /tmp/goodnight_session.md >> "'"$SESSION_FILE"'"'
-rm -f /tmp/goodnight_session.md
 ```
 
-**Preferred method:** Use the Edit/Write tool to append (no shell quoting issues at all). Only use bash+flock if concurrent writes are a real risk (multiple Claude instances).
+**If this is the first session of the day** (no session file exists yet), add `--create` to the script invocation. The script handles locking, file creation, and atomic writes.
 
 ### 15. Check for Stranded Work Product
 
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
 ```bash
-touch -t $(date +%Y%m%d0000) /tmp/.opencairn_midnight_marker_$$
-find "$HOME/.claude/plans/" -type f -newer /tmp/.opencairn_midnight_marker_$$ 2>/dev/null
-rm -f /tmp/.opencairn_midnight_marker_$$
+"{VAULT}/.claude/scripts/check-stranded-plans.sh"
 ```
 
 If any files found:
@@ -315,7 +290,3 @@ This command should trigger when the user says:
 - **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
