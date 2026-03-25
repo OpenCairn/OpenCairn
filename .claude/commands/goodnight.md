@@ -47,7 +47,7 @@ Read and compile:
 - **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
 - **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md` for project states
-- **Session outcomes:** Note what each session accomplished (these go into the Sessions list — no separate completed list needed)
+- **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
 **Important:** Store this data in working memory - it's a DRAFT inventory, not ground truth.
@@ -97,11 +97,9 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 2. [Topic] — [outcome]
 ...
 
-### Open / Blocked
+### Blockers
 - [Item] — waiting on [what]
 ```
-
-**Note:** Sessions is the canonical record of what got done. No separate Completed section — completions are visible in the session outcomes and in Today's Plan (checked items). If the user reported completions during pre-verification (Step 3), annotate those with "(marked done just now)" in the relevant session or Today's Plan entry.
 
 ### 6. Mid-Flow Corrections
 
@@ -203,7 +201,7 @@ echo "New session number: $NEW_NUM"
 
 **Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
 1. Read its summary and completions from the session file
-2. Update your working memory (add to completed list, adjust session count)
+2. Update your working memory (adjust session count, note outcomes)
 3. **Patch the daily report** (Step 9 output already on disk) — add the missed session(s) to the Sessions list
 
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
