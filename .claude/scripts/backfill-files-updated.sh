@@ -113,9 +113,11 @@ FILE_LIST="$DEDUPED_LIST"
 # Preserve original file permissions
 ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
 
-if echo "$SECTION_CONTENT" | grep -q "^None$"; then
-    # Find the "None" line (exact match only — not "None - work completed") and replace it
-    NONE_LINE=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -n "^None$" || true; } | head -1 | cut -d: -f1)
+if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
+    # Find placeholder "None" line — matches: "None", "- None", "- None (explanation)", "- None."
+    # Does NOT match "None - work completed" (intentional content, not a placeholder)
+    # Uses [ \t] instead of \s for POSIX/macOS compatibility
+    NONE_LINE=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -nE "^-?[ 	]*None($|[^- 	]|[ 	]*\()" || true; } | head -1 | cut -d: -f1)
     if [ -n "$NONE_LINE" ]; then
         NONE_ABS=$((FILES_UPDATED_ABS + NONE_LINE))
         # Replace the None line with the file list
