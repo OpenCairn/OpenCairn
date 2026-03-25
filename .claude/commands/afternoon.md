@@ -22,16 +22,10 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 ### 0. Resolve Vault Path
 
 ```bash
-if [[ -z "${VAULT_PATH:-}" ]]; then
-  echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "{VAULT}" ]]; then
-  echo "VAULT_PATH={VAULT} not found"; exit 1
-else
-  echo "VAULT_PATH={VAULT} OK"
-fi
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -166,7 +160,3 @@ This command should trigger when the user says:
 - **May update:** This Week.md (mark done, add tasks), Works in Progress (if priorities shifted)
 - **Complements:** `/morning` (start of day), `/goodnight` (end of day), `/park` (end of session)
 - **Not a replacement for:** `/park` (regroup doesn't close sessions, just recalibrates)
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

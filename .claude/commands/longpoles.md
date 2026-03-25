@@ -59,7 +59,3 @@ If no `[LP]` items found, report that clearly:
 - **Flag completed longpoles.** An `[LP]` on a checked-off item (`- [x]`) is stale — nudge the user to clean it up.
 - **Don't modify anything.** This is read-only. Never edit files during a longpole scan.
 - **Relative paths for display.** Show paths relative to vault root so the output is scannable.
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

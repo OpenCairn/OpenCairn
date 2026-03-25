@@ -175,6 +175,20 @@ Claude Code stores memories in `~/.claude/projects/` keyed to the absolute path 
 
 ---
 
+## Shared Conventions
+
+Operational rules that span multiple commands live in `.claude/commands/_shared-rules.md`. Commands reference this file in Step 0 after vault path resolution. This prevents rule divergence across 30+ command files — change the rule once, all commands follow it.
+
+The underscore prefix follows the `_skill-monitor.md` convention for non-invocable support files in the commands directory.
+
+**What goes in `_shared-rules.md`:** Procedural rules that commands must follow (project linking, item linking, Tickler SSOT transfer, file locking, FIFO cap, timezone handling, This Week.md maintenance).
+
+**What stays inline:** Rules specific to one command (park's quality gate, pickup's two-stage loading). Only rules appearing in 3+ files get extracted.
+
+**What stays in DESIGN.md:** Architectural rationale ("why the system works this way"), not operational rules ("do this"). The distinction: DESIGN.md explains why Tickler SSOT transfer exists; `_shared-rules.md` says how to do it.
+
+---
+
 ## Extension Points
 
 The template is designed to be customised:

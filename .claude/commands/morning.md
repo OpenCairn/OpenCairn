@@ -22,16 +22,10 @@ This routine handles all four without forcing you into one mode. Start operation
 ### 0. Resolve Vault Path
 
 ```bash
-if [[ -z "${VAULT_PATH:-}" ]]; then
-  echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "{VAULT}" ]]; then
-  echo "VAULT_PATH={VAULT} not found"; exit 1
-else
-  echo "VAULT_PATH={VAULT} OK"
-fi
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If ERROR, abort - no vault accessible. (Do NOT silently fall back to `~/Files` without an active failover symlink - that copy may be stale.) **Use the resolved path for all file operations below.** Wherever this document references `{VAULT}/`, substitute the resolved vault path.
+If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -164,19 +158,9 @@ This step runs every morning regardless of whether the user wants a timeline for
 
 If This Week.md doesn't exist, skip this step (step 7 will offer to create it if needed).
 
-**Trim old day sections:** Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
-1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
-2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
-3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
+Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md` Section 9). This trims old sections, extends the window to today+6, and populates new days from Tickler.
 
-**Extend the window:** Ensure day sections exist for today + 6 calendar days ahead (7 total including today). Rolling window: 3 past + today + 6 future = 10 sections max.
-1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
-2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
-3. Remove day sections beyond the 6-day window (heading + content until next `## ` heading)
-4. Format for days with no content: `## [Day] [DD] [Mon]` — just the heading
-5. Update the file heading date range: set start date to the earliest remaining day section, end date to the latest
-
-**Populate new days from Tickler:** For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (This Week.md becomes SSOT per Tickler transfer rules). Step 3 handles migration for *existing* day sections — this only covers *newly created* ones. Apply the same link handling as Step 3: preserve project/area links, replace session-log-only links, add links to bare items per the item linking convention (see Step 7).
+**Additional morning-specific behaviour:** Step 3 (landscape surfacing) handles Tickler migration for *existing* day sections. The rolling window procedure here only covers *newly created* day sections. Apply the same link handling as Step 3: preserve project/area links, replace session-log-only links, add links to bare items per the item linking convention (see `_shared-rules.md` Section 3).
 
 ### 7. Update today's timeline (optional)
 
@@ -330,7 +314,3 @@ This command should trigger when the user says:
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

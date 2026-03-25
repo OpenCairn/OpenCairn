@@ -12,16 +12,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 0. **Resolve Vault Path**
 
    ```bash
-   if [[ -z "${VAULT_PATH:-}" ]]; then
-     echo "VAULT_PATH not set"; exit 1
-   elif [[ ! -d "{VAULT}" ]]; then
-     echo "VAULT_PATH={VAULT} not found"; exit 1
-   else
-     echo "VAULT_PATH={VAULT} OK"
-   fi
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If ERROR, abort. **Use the resolved path for all file operations below.**
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **WIP Metrics & Pruning**
 
@@ -364,7 +358,3 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 - **Standalone:** Run mid-week for a quick cleanup
 - **Pre-review:** Run before `/weekly-review` — the review will consume the hygiene report
 - **Weekly-review fallback:** If `/weekly-review` finds no hygiene report, it suggests running `/weekly-hygiene` first
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.

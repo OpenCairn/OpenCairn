@@ -128,7 +128,3 @@ This command should trigger when the user says:
 - "capture this pattern"
 - "log this win"
 - "nailed it"
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
