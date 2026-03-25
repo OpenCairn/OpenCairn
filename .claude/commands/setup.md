@@ -159,7 +159,7 @@ If skipping, jump to Phase 6.
 ```bash
 echo "LANG=${LANG:-not set}"
 echo "TZ=${TZ:-not set}"
-date +"%Z (UTC%:z)"
+date +"%Z (UTC%z)"
 ```
 
 **Questions:**
@@ -264,7 +264,7 @@ After creating stubs, display:
 
 ### Phase 6: Verify & Close
 
-Re-run the environment checks from Phase 1. Display the final summary:
+Re-run the environment checks from Phase 1. If VAULT_PATH was set inline during Phase 2, prepend the same `export VAULT_PATH="..."` to the bash command so it's available in the new shell. Display the final summary:
 
 ```
 Setup Complete
