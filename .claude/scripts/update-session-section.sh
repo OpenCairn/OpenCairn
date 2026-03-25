@@ -103,7 +103,7 @@ else
 fi
 
 # Preserve original file permissions
-ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE")
+ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
 
 if [ "$REPLACE_MODE" = "true" ]; then
     # Replace mode: remove all content lines between heading and boundary, insert new content

@@ -29,14 +29,10 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 ### 1. Resolve Vault Path
 
 ```bash
-if [[ -z "${VAULT_PATH:-}" ]]; then
-  echo "VAULT_PATH not set"; exit 1
-elif [[ ! -d "{VAULT}" ]]; then
-  echo "VAULT_PATH={VAULT} not found"; exit 1
-else
-  echo "VAULT_PATH={VAULT} OK"
-fi
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
+
+   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 2. Get Current Date and Session File
 
@@ -119,10 +115,15 @@ If `ots` is not installed or network is unavailable, skip silently (`OTS_STATUS`
 ```bash
 ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
 
-flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c "
-  sed -i '/^|---|---|---|---|---|$/a\\
-$ROW' '$PROVENANCE_LOG'
-"
+# Use awk (not sed -i) for cross-platform compatibility (BSD sed requires different -i syntax)
+export _AWK_ROW="$ROW"
+flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
+  awk "
+    /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
+    { print }
+  " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+' _ "$PROVENANCE_LOG"
+unset _AWK_ROW
 ```
 
 **Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude/Session Logs/.lock`) to avoid deadlock.
@@ -160,7 +161,3 @@ Full log: 07 System/AI Provenance Log.md
 ## Example JAMA Derm Disclosure
 
 > "The author used Claude Sonnet 4.5 (Anthropic, San Francisco, CA) on 17 Feb 2026 to assist with structuring arguments and refining prose in this letter. All content, interpretations, and conclusions remain the author's responsibility. Full session transcript and cryptographic proof (SHA256 + OpenTimestamps) available upon request."
-
----
-
-**Skill monitor:** Also follow the instructions in `.claude/commands/_skill-monitor.md`.
