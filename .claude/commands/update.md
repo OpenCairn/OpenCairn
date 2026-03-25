@@ -270,6 +270,34 @@ Replace the path with your actual vault location.
 Then restart your terminal.
 ```
 
+**Check bash version (macOS only):**
+
+On macOS, check whether bash meets the minimum version required by OpenCairn scripts:
+
+```bash
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  echo "BASH_VERSION=$BASH_VERSION"
+  if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2))); then
+    echo "BASH_UPGRADE_NEEDED"
+  else
+    echo "BASH_OK"
+  fi
+fi
+```
+
+If `BASH_UPGRADE_NEEDED`, display:
+```
+⚠ Bash 4.2+ is required for some OpenCairn scripts (e.g. /pickup).
+  Your current bash: [version]
+
+  Install a newer bash via Homebrew:
+
+    brew install bash
+
+  After installing, Claude Code will use the Homebrew bash automatically
+  (it resolves via $PATH). No shebang or shell profile changes needed.
+```
+
 ### Step 8: Display Completion
 
 ```bash

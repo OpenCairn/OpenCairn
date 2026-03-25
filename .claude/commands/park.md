@@ -289,8 +289,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Quick tier:** Skip
    - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
      ```bash
-     # Check for plan files modified today
-     find ~/.claude/plans/ -type f -newermt "$(date +%Y-%m-%d)" 2>/dev/null
+     # Check for plan files modified today (POSIX-compatible, works on macOS/Linux/Git Bash)
+     touch -t $(date +%Y%m%d0000) /tmp/.opencairn_midnight_marker_$$
+     find "$HOME/.claude/plans/" -type f -newer /tmp/.opencairn_midnight_marker_$$ 2>/dev/null
+     rm -f /tmp/.opencairn_midnight_marker_$$
      ```
    - If any files found, **individually assess each file** — do not batch-dismiss:
      - Read each plan file
