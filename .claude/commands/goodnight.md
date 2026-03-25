@@ -246,7 +246,9 @@ rm -f /tmp/goodnight_session.md
 Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
 
 ```bash
-find ~/.claude/plans/ -type f -newermt "$(date +%Y-%m-%d)" 2>/dev/null
+touch -t $(date +%Y%m%d0000) /tmp/.opencairn_midnight_marker_$$
+find "$HOME/.claude/plans/" -type f -newer /tmp/.opencairn_midnight_marker_$$ 2>/dev/null
+rm -f /tmp/.opencairn_midnight_marker_$$
 ```
 
 If any files found:

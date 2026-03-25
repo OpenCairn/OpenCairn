@@ -148,15 +148,12 @@ export VAULT_PATH="$HOME/Files"
 alias cc='cd ~/Files && claude'
 ```
 
-Then start Claude and personalise:
+Then start Claude and run the setup interview:
 
 ```bash
 cc   # or: cd ~/Files && claude
 
-# CLAUDE.md has bracketed placeholders - fill in your name,
-# profession, life context, and communication preferences.
-# Then try the core loop:
-
+> /setup   # Checks prerequisites, personalises CLAUDE.md through a short interview
 > /park    # End your first session
 > /pickup  # See your landscape and open loops
 ```
@@ -241,6 +238,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 | Command | What it does |
 |---------|-------------|
+| `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn commands/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 
 ---
