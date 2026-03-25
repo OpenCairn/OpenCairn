@@ -47,7 +47,7 @@ Read and compile:
 - **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
 - **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md` for project states
-- **Completed tasks:** Extract from This Week.md today's section (checked items) AND session summaries (deduplicate)
+- **Session outcomes:** Note what each session accomplished (these go into the Sessions list — no separate completed list needed)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
 **Important:** Store this data in working memory - it's a DRAFT inventory, not ground truth.
@@ -90,14 +90,18 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 ## Today's Report — [Day], [DD] [Mon] [YYYY] — [HH:MM TZ]
 
 **Projects touched:** [list]
+**Sessions:** [count]
 
-### Completed
-- ✓ Task 1 (session)
-- ✓ Task 2 (session)
-- ✓ Task 3 (marked done just now)
+### Sessions
+1. [Topic] — [outcome]
+2. [Topic] — [outcome]
+...
+
+### Open / Blocked
+- [Item] — waiting on [what]
 ```
 
-**Note:** The "(marked done just now)" annotation helps the user see what was just reconciled vs what was already recorded.
+**Note:** Sessions is the canonical record of what got done. No separate Completed section — completions are visible in the session outcomes and in Today's Plan (checked items). If the user reported completions during pre-verification (Step 3), annotate those with "(marked done just now)" in the relevant session or Today's Plan entry.
 
 ### 6. Mid-Flow Corrections
 
@@ -130,18 +134,19 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 [Include today's day section from This Week.md here (the `## [Day] [DD] [Mon]` heading and all items under it). Convert any `- [ ]` to plain `- ` bullets and any `- [x]` to `- ✓` — the daily report is an archival record, not a task SSOT. Checkboxes live in This Week.md, project files, and Tickler only. If This Week.md doesn't exist or today falls outside the date range, omit this section.]
 
 ## Sessions
-- Session 1: [Topic] - [outcome]
-- Session 2: [Topic] - [outcome]
-
-## Completed
-- ✓ Task 1
-- ✓ Task 2
+1. [Topic] — [outcome]
+2. [Topic] — [outcome]
 
 ## Blockers
-- [Item] - waiting on [what]
+- [Item] — waiting on [what]
 
 ## Notes
-[Any context tomorrow-you needs]
+[Context that isn't obvious from the session list. Include:
+- Key decisions and their rationale (especially ones that affect multiple projects)
+- Status changes with cross-project implications (e.g. "BSR date shift cascaded to Katie timeline and flight bookings")
+- Anything that shifted during the day that /morning should surface
+- Emerging patterns or risks spotted across sessions
+Omit: narrative filler ("big day"), tomorrow priorities (already visible in This Week.md), anything that just restates session outcomes.]
 
 ---
 *Links:*
@@ -207,7 +212,7 @@ echo "New session number: $NEW_NUM"
 **Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
 1. Read its summary and completions from the session file
 2. Update your working memory (add to completed list, adjust session count)
-3. **Patch the daily report** (Step 9 output already on disk) — add the missed session(s) to the session list, add any completions to the Completed section
+3. **Patch the daily report** (Step 9 output already on disk) — add the missed session(s) to the Sessions list
 
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
 
@@ -279,7 +284,7 @@ Goodnight.
 ## Guidelines
 
 - **Technical, not emotional:** Focus on state and status, not feelings
-- **Accountability:** The completed list matters - own what got done
+- **Accountability:** Each session line should clearly state what was accomplished — the Sessions list is the record of what got done
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
