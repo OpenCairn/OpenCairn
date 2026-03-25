@@ -140,14 +140,6 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 ## Blockers
 - [Item] — waiting on [what]
 
-## Notes
-[Context that isn't obvious from the session list. Include:
-- Key decisions and their rationale (especially ones that affect multiple projects)
-- Status changes with cross-project implications (e.g. "BSR date shift cascaded to Katie timeline and flight bookings")
-- Anything that shifted during the day that /morning should surface
-- Emerging patterns or risks spotted across sessions
-Omit: narrative filler ("big day"), tomorrow priorities (already visible in This Week.md), anything that just restates session outcomes.]
-
 ---
 *Links:*
 - Sessions: [[06 Archive/Claude/Session Logs/YYYY-MM-DD]]
