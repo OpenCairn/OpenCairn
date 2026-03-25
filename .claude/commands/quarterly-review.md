@@ -182,12 +182,12 @@ Quarterly review serves three purposes:
 
 ### Part 3: Output
 
-10. **Ensure output directory exists:**
+11. **Ensure output directory exists:**
    ```bash
    mkdir -p "{VAULT}/06 Archive/Quarterly Reviews"
    ```
 
-11. **Generate quarterly review:**
+12. **Generate quarterly review:**
 
 Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
@@ -278,14 +278,14 @@ Projects to explicitly abandon rather than let linger:
 - ...
 ```
 
-12. **Execute maintenance fixes:**
+13. **Execute maintenance fixes:**
     - Apply context file corrections (user-confirmed)
     - Fix unambiguous broken links
     - Move tier-mismatched project files
     - Archive/delete user-approved orphans
     - **All destructive actions require user confirmation**
 
-13. **Display confirmation:**
+14. **Display confirmation:**
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md

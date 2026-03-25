@@ -181,7 +181,8 @@ Append a session entry for the goodnight session itself to today's session file.
 Extract the last session number mechanically — do NOT count by reading:
 ```bash
 NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_FILE")
-echo "New session number: $NEW_NUM"
+PREV_NUM=$((NEW_NUM - 1))
+echo "New session number: $NEW_NUM (last existing: $PREV_NUM)"
 ```
 
 **Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
