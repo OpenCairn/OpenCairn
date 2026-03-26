@@ -172,6 +172,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Use current time from step 1 (already checked)
    - Related project (if applicable) — follow Project Linking Rules in `_shared-rules.md` Section 2
    - **Quick tier:** Skip project detection (just use topic)
+   - **Display the determination explicitly** — this is the single source for the project link used in Steps 8 and 12:
+     ```
+     Session N: [Topic] | Project: [[03 Projects/Name]] (or "None")
+     ```
 
 7. **Check for continuation** (conditional on tier):
    - **Quick tier:** Skip
@@ -212,7 +216,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 ### Pickup Context
 **For next session:** [One clear sentence about where to pick up - the very next action to take]
 **Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
-**Project:** [[03 Projects/Project Name]] (if applicable)
+**Project:** [use exact link from Step 6 — do not rewrite]
 ```
 
 9. **Write the summary** (with file locking for concurrent safety):
@@ -252,6 +256,14 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ```
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
+
+9a. **⛔ Project link verification** (Full tier only):
+   After writing the session, verify the `**Project:**` line matches Step 6's determination. Extract mechanically:
+   ```bash
+   grep '^\*\*Project:\*\*' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | tail -1
+   ```
+   Compare against Step 6 output. If they differ, fix the session log before proceeding.
+   Display: `Project check: [link] ✓` or, if fixed: `Project check: fixed [old] → [new]`
 
 10. **Add continuation link** (full tier only, only if continuing previous work):
    - **Quick tier:** Skip
