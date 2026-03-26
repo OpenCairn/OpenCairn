@@ -52,6 +52,11 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
    - Read the matched files and extract the tagged items for review
 
+   **Direction (strategic layer):**
+   - Read `{VAULT}/07 System/Context - Direction.md` (if it exists)
+   - Note the current values, strategic plans, and active disciplines for use in the Align section
+   - This is the reference document for "are you working on the right things?"
+
    **Claude Corrections Log review:**
    - Read `{VAULT}/07 System/Claude Corrections Log.md`
    - Identify entries from this week (by date header)
@@ -73,11 +78,13 @@ Before diving into the lenses below, ask the user once whether they want interac
 - "Any surprises - things that were easier or harder than expected?"
 - "What did you overestimate? Underestimate?"
 
-**Align - Priorities check:**
-- "Looking at how you spent time vs your stated priorities - any misalignment?"
+**Align - Priorities check (reference Direction.md if loaded):**
+- "Looking at how you spent time vs your strategic plans - any misalignment?"
 - "What got attention that shouldn't have?"
 - "What didn't get attention that should have?"
-- "Are you working on the right things?"
+- "Are you working on the right things?" (Check against career and personal strategic plans)
+- "Any disciplines that slipped this week?" (Check against disciplines list)
+- "Anything on the anti-goals list that crept back in?"
 
 **Plan - What's next:**
 - "What's the focus for next week?"
