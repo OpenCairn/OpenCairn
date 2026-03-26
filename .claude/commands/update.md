@@ -22,7 +22,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 
 ## Git Command Constraint
 
-`git show ref:path` (colon syntax) breaks on Windows — the colon gets mangled. To read a template file's contents, use `git show $REMOTE/$BRANCH -- path` (double-dash syntax) instead. All other git commands in this skill already use cross-platform forms.
+Do not use `git show ref:path` (colon syntax) — Windows Git Bash mangles the colon. Use `git diff` to compare and `git checkout` to restore. All commands in this skill already use cross-platform forms; this constraint prevents improvisation with colon syntax during execution.
 
 ## Instructions
 
