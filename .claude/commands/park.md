@@ -270,9 +270,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 11. **Check for stranded work product in Claude-internal files** (Full tier only):
    - **Quick tier:** Skip
-   - **Full tier:** Check whether any Claude-internal files were created or modified during this session:
+   - **Full tier:** Check whether any Claude-internal files were created or modified during this session. Pass the session start time (from step 1) so only files from this session are flagged:
      ```bash
-     "{VAULT}/.claude/scripts/check-stranded-plans.sh"
+     "{VAULT}/.claude/scripts/check-stranded-plans.sh" "HH:MM:SS"
      ```
    - If any files found, **individually assess each file** — do not batch-dismiss:
      - Read each plan file

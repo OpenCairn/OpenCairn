@@ -20,6 +20,10 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
 
+## Git Command Constraint
+
+`git show ref:path` (colon syntax) breaks on Windows — the colon gets mangled. To read a template file's contents, use `git show $REMOTE/$BRANCH -- path` (double-dash syntax) instead. All other git commands in this skill already use cross-platform forms.
+
 ## Instructions
 
 ### Step 1: Verify Git Repository
