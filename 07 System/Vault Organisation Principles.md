@@ -10,7 +10,7 @@ This vault uses a seven-folder structure called NIPARAS:
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory, current focus | Works in Progress, Today (daily plan), Working memory scratch |
+| **01 Now** | Active working memory, current focus | Works in Progress, This Week (rolling 7-day plan), Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
 | **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
@@ -102,11 +102,16 @@ Examples:
 - `Context - Career.md` - your professional situation, goals, key relationships
 - `Context - Health.md` - your health priorities, conditions, routines
 - `Context - Photography.md` - your gear, style, current projects
+- `Context - Direction.md` - values, strategic plans, anti-goals, disciplines (the "why" layer)
 
 Hub files are *indexes*, not encyclopedias. They contain:
 - Overview of the domain
 - Current status/priorities
 - Links to detailed pages
+
+**Special case: Direction.md** is a strategic document rather than a domain hub. It holds values, career and personal strategic plans, anti-goals, and disciplines. Everything else in the vault cascades from it — your weekly plan is shaped by your strategic plan, which is shaped by your values.
+
+`07 System/` also contains append-only logs: `Claude Corrections Log`, `Claude Wins Log`, `Strategic Decision Log`, and `AI Provenance Log`.
 
 Claude reads hub files to understand a domain, then follows links for specifics.
 

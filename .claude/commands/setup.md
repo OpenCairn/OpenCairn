@@ -199,6 +199,17 @@ Then:
 
 Capture: domain list.
 
+Then:
+> "OpenCairn has a strategic layer called Direction — it's where you capture your values, career and personal strategic plans, anti-goals (things you've decided against), and disciplines (hard commitments you always follow). Without it, you can be perfectly organised and still working on the wrong things.
+>
+> Want me to set up a Direction file for you? If yes:
+> 1. What are the main roles in your life? (e.g., professional, partner, parent, friend, creative)
+> 2. What values do you actually use to make decisions? (not aspirational — real ones)
+> 3. Any hard disciplines you currently follow? (e.g., exercise 4x/week, no screens after 10pm)
+> 4. Anything you've explicitly decided NOT to do? (anti-goals)"
+
+Capture: roles, values, disciplines, anti-goals (all optional — user can say "I'll fill this in later").
+
 Finally:
 > "Any personal principles or decision frameworks you want me to know about? Things like 'bias toward action', 'evidence over authority', 'long-term over short-term'. These go in the Working With Me section."
 
@@ -254,11 +265,23 @@ Ensure the directory exists:
 mkdir -p "07 System"
 ```
 
+**Direction.md setup** (if user opted in):
+
+If the user provided Direction answers, edit `07 System/Context - Direction.md`:
+1. Replace `[List the roles that matter to you and what each means]` with the user's roles
+2. Replace `[The principles you try to live by — not aspirational platitudes, but things you actually use to make decisions]` with the user's values
+3. Replace the `- [ ] [Discipline N — ...]` placeholder items with the user's actual disciplines
+4. Replace the anti-goals table placeholder row with the user's anti-goals (one row per item, with today's date)
+5. Leave the strategic plan sections (Career, Personal) as placeholders — these require deeper thought than a setup interview
+
+If the user said "I'll fill this in later", leave the template as-is — the placeholders are self-explanatory.
+
 After creating stubs, display:
 ```
 ✓ Created context file stubs:
   - 07 System/Context - [Domain1].md
   - 07 System/Context - [Domain2].md
+  - 07 System/Context - Direction.md (personalised / template — fill in later)
   ...
 ```
 
@@ -280,8 +303,10 @@ Context files:   [N] created
 
 Next steps:
   • Fill in your context files in 07 System/ as you go — they don't need to be complete now
+  • Fill in Direction.md (07 System/Context - Direction.md) — your values, strategic plans, and disciplines
   • Use /park when you're done with a session (captures your work)
   • Use /pickup to resume where you left off
+  • Use /morning to start your day (surfaces landscape, tickler, disciplines)
   • Use /update periodically to pull the latest commands
   • Open Obsidian and select this folder as your vault (optional but recommended)
 ```

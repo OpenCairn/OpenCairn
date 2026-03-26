@@ -42,7 +42,8 @@ or toward deliberation?]
 <!-- List the hub files Claude should read for different domains -->
 
 **Start here:** `01 Now/Works in Progress.md` - what's actively in flight
-**Today:** `01 Now/Today.md` - today's time-blocked plan (refreshed each morning)
+**This Week:** `01 Now/This Week.md` - rolling 7-day plan with time-blocked days (refreshed each morning)
+**Direction:** `07 System/Context - Direction.md` - values, strategic plans, anti-goals, disciplines
 
 For deeper context on specific domains:
 - **[Domain A]:** `07 System/Context - [Domain A].md`
@@ -85,7 +86,7 @@ Resources/
 
 ### No Checkboxes in Dashboard Files
 
-`01 Now/Today.md` and `01 Now/Works in Progress.md` are **dashboards**, not task SSOTs. Never use `- [ ]` checkboxes in these files — the canonical checkbox lives in the relevant Project page, Area file, or Tickler. Dashboard files should reference or summarise tasks, not duplicate their completion state.
+`01 Now/Works in Progress.md` is a **dashboard**, not a task SSOT. Never use `- [ ]` checkboxes in this file — the canonical checkbox lives in the relevant Project page, Area file, or Tickler. Dashboard files should reference or summarise tasks, not duplicate their completion state.
 
 **Exception:** WIP entries that have no corresponding Project page or Area folder may use checkboxes, since they have no other SSOT.
 

@@ -74,11 +74,11 @@ This template provides the structure: where files go, how Claude navigates them,
 
 ## The System
 
-Four layers, from single sessions up to months-long breaks.
+Five layers, from single sessions up to life direction.
 
 ### Session: Park and Pickup
 
-The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea that you can't truly rest while your brain holds onto incomplete loops.
+The core mechanic. Based on the "shutdown complete" ritual — the idea that you can't truly rest while your brain holds onto incomplete loops.
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
@@ -88,11 +88,11 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 | Command | When | What |
 |---------|------|------|
-| `/morning` | Start of day | Read the landscape (WIP, tickler, yesterday's loops), catch gaps, optionally build a time-blocked `Today.md` |
+| `/morning` | Start of day | Read the landscape (WIP, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
 | `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
 | `/goodnight` | End of day | Inventory open loops, set tomorrow's queue, generate daily report, log the session |
 
-`Today.md` is a plain-text daily plan - viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. `/afternoon` and `/goodnight` read it to track what actually happened.
+`This Week.md` is a rolling 7-day plan — viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. Each day gets a time-blocked section. `/afternoon` and `/goodnight` read today's section to track what actually happened.
 
 ### Week: Weekly Review
 
@@ -106,6 +106,10 @@ The core mechanic. Based on Cal Newport's "shutdown complete" ritual - the idea 
 
 Going on vacation? `/hibernate` captures a full state snapshot - all active projects, prioritised open loops, deliberate deferrals, recent decisions. `/awaken` restores context when you return weeks or months later and interviews you on what changed while you were away.
 
+### Direction: Values, Strategic Plans, Disciplines
+
+Without a strategic layer, you can be perfectly organised and still working on the wrong things. `07 System/Context - Direction.md` holds your values and roles, career and personal strategic plans, anti-goals (things you've explicitly decided against), and an evolving list of disciplines (hard commitments you always follow). Everything below flows from this — your weekly plan is shaped by your strategic plan, which is shaped by your values. Reviewed weekly for alignment, overhauled at major life transitions. A separate `Strategic Decision Log` preserves the rationale behind major direction choices.
+
 ---
 
 ## Folder Structure (NIPARAS)
@@ -114,13 +118,13 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory - what's in flight right now | Works in Progress, Today (daily plan), scratch notes |
+| **01 Now** | Active working memory - what's in flight right now | Works in Progress, This Week (rolling 7-day plan), scratch notes |
 | **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
 | **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
 | **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
 | **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
 | **06 Archive** | Completed or inactive items | Finished projects, old session logs, historical notes |
-| **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, vault config |
+| **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, Direction (strategic plans), decision/corrections/wins logs |
 
 **Areas vs Resources (differs from standard PARA):** NIPARAS uses Areas and Resources differently to Tiago Forte's original PARA. Here, **Areas** are domains you actively maintain, each containing its own nested reference material and Archive subfolders. **Resources** is a staging ground for generic stuff that doesn't belong to an Area yet. When something accumulates enough mass, it graduates to an Area. The key shift is that reference material lives *inside* the Area it belongs to, rather than in a separate top-level folder.
 
@@ -179,7 +183,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | Command | What it does |
 |---------|-------------|
 | `/pickup` | Session start. Interactive menu showing recent sessions grouped by project, with snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. Args: `--days=N`, `--project=NAME`, `--with-loops`, `--all`. |
-| `/park` | Session capture (Cal Newport "shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`, `--compact`. |
+| `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`, `--compact`. |
 
 **Extended breaks:**
 

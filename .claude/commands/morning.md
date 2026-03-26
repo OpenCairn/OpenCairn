@@ -68,6 +68,7 @@ Read and present:
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `{VAULT}/06 Archive/Claude/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Tomorrow's Queue from last night:** Check `{VAULT}/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
+- **Disciplines reminder:** Read `{VAULT}/07 System/Context - Direction.md` (skip if file doesn't exist). If a Disciplines section exists with active items, include a one-line reminder in the landscape output. Light touch — just surface the list, don't track or nag.
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 - **Review staleness:** Check when the last weekly review and quarterly review were run:
   ```bash
@@ -101,6 +102,8 @@ Here's your landscape:
 **Last night's queue:** (from /goodnight)
 - [Item you queued at bedtime]
 - [Another item]
+
+**Disciplines:** [Discipline 1] · [Discipline 2] · [Discipline 3]
 
 **Time-sensitive:**
 - [Item] - [deadline]
@@ -309,7 +312,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness)
+- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness)
 - **May create/update:** This Week.md (weekly plan with day sections)
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)

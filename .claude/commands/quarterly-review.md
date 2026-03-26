@@ -32,6 +32,8 @@ Quarterly review serves three purposes:
 
 2. **Gather quarterly data:**
    - Read current `01 Now/Works in Progress.md`
+   - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — this is the reference document for strategic alignment
+   - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — review decisions made this quarter
    - Read weekly reviews from `06 Archive/Claude/Weekly Reviews/` for the quarter
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
    - Read all `07 System/Context - *.md` files
@@ -48,11 +50,21 @@ Quarterly review serves three purposes:
 - "What was planned but never started — why?"
 - "Looking at the weekly reviews, what patterns persisted across the full quarter?"
 
-**Alignment — Are you working on the right things:**
+**Alignment — Are you working on the right things (reference Direction.md if loaded):**
 - "Have your priorities shifted since the start of the quarter?"
+- "Looking at your career and personal strategic plans — do they still reflect reality?"
 - "What's consuming time that shouldn't be?"
 - "What deserves more attention than it's getting?"
 - "Any projects that should be explicitly killed rather than lingering?"
+- "Any anti-goals that crept back in this quarter?"
+- "Are your disciplines holding? Any to add, remove, or adjust?"
+
+**Direction.md overhaul (if Direction.md exists):**
+- Walk through each section of Direction.md with the user
+- Update strategic plans to reflect the current chapter (a quarterly review is a natural checkpoint for overhaul)
+- Review anti-goals list — any to add or remove (premises changed)?
+- Review disciplines — still the right set? Any that should be added, dropped, or adjusted?
+- **Always ask before editing** — Direction.md is high-trust, like context files
 
 **Forward-looking — Next quarter:**
 - "What are the 3-5 Big Rocks for next quarter?"
@@ -209,6 +221,12 @@ Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 - [What came up that wasn't in the plan]
 
 ## Strategic Alignment
+
+### Direction Check (from Direction.md)
+**Career strategic plan:** [Still accurate / Updated — what changed and why]
+**Personal strategic plan:** [Still accurate / Updated — what changed and why]
+**Anti-goals reviewed:** [N items — any added/removed?]
+**Disciplines reviewed:** [N active — any changes?]
 
 ### Priorities Then vs Now
 [How have priorities shifted? Is the shift deliberate or drift?]

@@ -125,6 +125,55 @@ Locking logic lives in `lib-lock.sh` and is sourced by all scripts that need it.
 
 ---
 
+## Strategic Layer (Direction)
+
+The planning cascade that connects life direction to daily action:
+
+```
+Direction.md (values, strategic plans, disciplines)
+  ↓ reviewed weekly + quarterly
+Weekly plan (This Week.md)
+  ↓ reviewed daily
+Daily time blocks (today's section in This Week.md)
+  ↓ executed in sessions
+Session work → /park captures outcomes → feeds back up
+```
+
+### Why this layer exists
+
+Without explicit strategic plans, the system is excellent at managing *what you're doing* but can't tell you if *you're doing the right things*. You can have a perfectly clean WIP, every open loop routed, every session parked — and still be spending a sabbatical optimising logistics for a life direction you haven't validated.
+
+The weekly review already asks "are you working on the right things?" — Direction.md gives it a reference document to check against, rather than relying on whatever's in the user's head at review time.
+
+### What lives in Direction.md
+
+- **Values & Roles** — the principles that shape decisions
+- **Career Strategic Plan** — professional direction for the current chapter
+- **Personal Strategic Plan** — non-career life direction
+- **Anti-Goals** — things explicitly decided against, with rationale. Prevents re-litigation of closed decisions
+- **Disciplines** — hard commitments followed consistently (exercise, deep work hours, etc.)
+
+### Strategic Decision Log (separate file)
+
+Append-only log of major direction decisions with rationale, alternatives considered, and "what would change my mind." Separate from Direction.md because it's a log (append-only, historical) while Direction is a living document (edited in place). Same pattern as Corrections Log vs CLAUDE.md.
+
+### Maintenance cadence
+
+- **Values:** Reviewed weekly during `/weekly-review`
+- **Strategic plans:** Tweakable anytime. Overhauled during `/quarterly-review` or at major life transitions
+- **Anti-goals:** Append when making deliberate "no" decisions. Remove only if premises changed
+- **Disciplines:** Evolving list. Reviewed during `/quarterly-review`
+
+### Design decisions
+
+**One file, not four.** Values, career plan, personal plan, and disciplines could each be separate documents. For a template, one file with clear sections is easier to adopt. Users can split later if they outgrow it.
+
+**Anti-goals and disciplines inside Direction**, not standalone files. They're sections of strategic planning, not separate systems.
+
+**No new commands.** The existing `/weekly-review` and `/quarterly-review` provide the review cadence. Direction.md is loaded during those reviews — no new ritual needed.
+
+---
+
 ## Context Loading
 
 ### Hierarchical lazy-loading
