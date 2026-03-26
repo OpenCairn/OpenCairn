@@ -221,10 +221,10 @@ EOF
 
 ### 15. Check for Stranded Work Product
 
-Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault:
+Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault. Pass midnight to cover the entire day (goodnight wraps all sessions, not just the current one):
 
 ```bash
-"{VAULT}/.claude/scripts/check-stranded-plans.sh"
+"{VAULT}/.claude/scripts/check-stranded-plans.sh" "00:00:00"
 ```
 
 If any files found:
