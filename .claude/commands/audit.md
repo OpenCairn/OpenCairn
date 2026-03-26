@@ -89,7 +89,8 @@ Theory vs. reality. Can you verify it runs?
 
 1. **If fixes are possible and authorised**, make them. If fixes aren't authorised or aren't possible (e.g., auditing someone else's work, a read-only review), the audit ends at Phase 3 — present findings and stop.
 2. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
-3. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
+3. **⛔ Re-audit requires re-reading.** A re-audit pass must include at least one Read tool call on modified files. "Clean pass" without a preceding Read is a fabricated claim, not a verified result. Small, obvious fixes are the most dangerous — false confidence skips verification.
+4. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
 
 ## Guidelines
 
