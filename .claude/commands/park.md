@@ -72,7 +72,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 5, 12, 13, 14, 14a, 15** (quality gate, WIP update, reference graph, open loop routing, backfill — all using the merged session's number). Skip Steps 3-4, 6-11 (no new session entry needed).
+   - **After merging, run Steps 5, 11 (conversation draft check only), 12, 13, 14, 14a, 15** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill — all using the merged session's number). Skip Steps 3-4, 6-10, and the plans/ filesystem check in Step 11 (no new session entry needed, plans/ already checked by the original park).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
@@ -300,6 +300,16 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      🔧 Migrated plan content to vault: [vault file path]
      ```
    - **Why this exists:** Work product written to `~/.claude/plans/` has been stranded there multiple times. These files don't sync, aren't visible in Obsidian, and effectively don't exist outside the session.
+   - **Conversation draft check** (Full tier only): Scan the conversation for any drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis.
+     - If found: **write each draft to its semantic home in the vault now** (e.g. correspondence file, project doc, area file) before proceeding. Do NOT leave drafts in conversation only.
+     - **⛔ CHECKPOINT:** Display exactly one of:
+       ```
+       ✓ No conversation-only drafts to persist
+       ```
+       ```
+       🔧 Persisted N conversation draft(s): [file path(s)]
+       ```
+     You cannot proceed to Step 12 until this output appears.
 
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -414,6 +424,7 @@ Quick park complete. Minimal overhead for trivial task.
 ```
 ✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
+✓ Conversation drafts: No conversation-only drafts to persist [OR "Persisted N draft(s): [paths]"]
 ✓ Open loops documented: N items
 ✓ Continuation link added: [Original Session] (only if this session continues previous work)
 ✓ Project updated: [Project Name] (if applicable)
