@@ -15,7 +15,7 @@ You are capturing a work session — either ending it or saving a mid-session ch
 
 **Checkpoint mode:** If triggered by checkpoint/save/waypoint phrases, or with `--compact`, the session continues after capture. Checkpoint cue words also imply `--compact`. Closing message says "Progress saved. Session continues." instead of "Parked. Pick up when ready."
 
-**⚠ One capture at a time.** Do not run `/park` or `/checkpoint` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. Capture one session, wait for completion, then capture the next.
+**⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. `/goodnight` also writes to WIP, This Week.md, and project files via the Edit tool, which has no locking — concurrent parks will silently clobber each other's edits. Park all sessions before starting goodnight, and capture one session at a time.
 
 ## Tier Philosophy
 
