@@ -28,12 +28,27 @@ Determine the vault base path. Run:
 
 If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
-### 1. Check current date/time
+### 1. Check current date/time and concurrent sessions
 
 ```bash
 date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths and session timestamp
 ```
+
+**Concurrent session check:** Count active Claude instances (excluding this one):
+
+```bash
+OTHER_CLAUDE=$(( $(pgrep -c -x claude) - 1 ))
+echo "Other active Claude sessions: $OTHER_CLAUDE"
+```
+
+If `OTHER_CLAUDE > 0`: **Stop and warn the user.** Display:
+
+```
+⚠ Found N other active Claude session(s). Park all sessions before running /goodnight — concurrent parks and goodnight write to shared files (WIP, This Week.md) without locking, so edits will silently clobber each other.
+```
+
+Wait for confirmation before proceeding. The user may say "go ahead" (they know the other sessions are idle) or park them first.
 
 ### 2. Gather Today's Activity (auto)
 
