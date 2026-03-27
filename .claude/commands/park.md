@@ -1,19 +1,16 @@
 ---
 name: park
 aliases: [shutdown-complete]
-description: Capture session — end it, or checkpoint and keep working. Full bookkeeping either way.
+description: Capture session with full bookkeeping — quality gate, WIP update, open loop routing, session log.
 parameters:
   - "--quick" - Minimal parking (one-line log entry, for trivial sessions)
   - "--full" - Comprehensive parking (default for anything worth documenting)
   - "--auto" - Auto-detect tier based on session characteristics (default)
-  - "--compact" - Run /compact after saving, then continue working (Full tier only)
 ---
 
 # Park - Session Capture
 
-You are capturing a work session — either ending it or saving a mid-session checkpoint. The bookkeeping is identical either way: quality gate, WIP update, continuation links, reference graph tracing, stranded work product check, tickler. The only difference is the closing message.
-
-**Checkpoint mode:** If triggered by checkpoint/save/waypoint phrases, or with `--compact`, the session continues after capture. Checkpoint cue words also imply `--compact`. Closing message says "Progress saved. Session continues." instead of "Parked. Pick up when ready."
+You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, stranded work product check, tickler.
 
 **⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. `/goodnight` also writes to WIP, This Week.md, and project files via the Edit tool, which has no locking — concurrent parks will silently clobber each other's edits. Park all sessions before starting goodnight, and capture one session at a time.
 
@@ -265,6 +262,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    Compare against Step 6 output. If they differ, fix the session log before proceeding.
    Display: `Project check: [link] ✓` or, if fixed: `Project check: fixed [old] → [new]`
 
+   **⛔ CHECKPOINT:** You cannot proceed to Step 10 until `Project check:` output appears in your response. If you find yourself writing continuation links without having displayed a project check result, STOP and return to this step.
+
 10. **Add continuation link** (full tier only, only if continuing previous work):
    - **Quick tier:** Skip
    - **Only fires if this session continues a specific previous session** (from `/pickup` context). If not a continuation, skip this step entirely.
@@ -433,24 +432,22 @@ Quick park complete. Minimal overhead for trivial task.
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
 
-**Closing (session ending):** "Parked. Pick up when ready."
-**Closing (checkpoint / --compact):** "Progress saved. Session continues."
+Parked. Pick up when ready.
 
 To pickup later: `claude` (will show recent sessions) or `/pickup`
 ```
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.
 
-16. **Handle --compact flag** (if specified):
-   - Only applies to Full tier (Quick sessions don't need compacting)
-   - After displaying completion message, run the built-in `/compact` command
-   - The session summary becomes part of the compact summary, providing continuity
-   - Session continues — user keeps working in the compacted conversation
+16. **Skill monitor** (per shared rules §8):
+   - Review the park execution just completed. Did you improvise any step not documented here? Did a documented step turn out unnecessary? Did you skip a step that should have a stronger gate?
+   - If gaps found: propose specific edits to this skill file. Display proposed changes for user approval before editing.
+   - If clean: `✓ Skill monitor: No gaps detected`
 
 ## Guidelines
 
 - **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. Use `update-session-section.sh` for all section edits (never ad-hoc sed — multiline sed fails silently). This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
-- **Capture ALL sessions:** Use `/park` (or `/checkpoint` mid-session) for every session, even quick tasks. The system auto-detects appropriate tier.
+- **Capture ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
 - **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
 - **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
 - **Explicit override available:** Use `--quick` or `--full` to override auto-detection
@@ -462,7 +459,6 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **File locking:** Per `_shared-rules.md` Section 5. Use scripts, not Edit tool.
 - **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
 - **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
-- **Compact integration:** Use `--compact` (or `/checkpoint`) when context is heavy and you want to continue working. Full bookkeeping persisted to vault, then compact to reclaim context. The session summary in the compacted conversation provides continuity without needing /pickup.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
@@ -472,29 +468,8 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9. For empty sections, write bare `None` on its own line (not `- None`, not `None (explanation)` — just `None`). The backfill script tolerates variations, but bare `None` is the canonical form.
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
 
-## Cue Word Detection
-
-This command should also trigger automatically when the user uses these phrases:
-
-**Session ending:**
-- "bedtime"
-- "wrapping up"
-- "done for tonight"
-- "packing up"
-- "shutdown complete"
-- "park"
-
-**Checkpoint (session continues + compact):**
-- "checkpoint"
-- "save progress"
-- "plant a flag"
-- "capture this"
-- "don't want to lose this"
-
-When triggered by cue words, acknowledge and proceed with session capture. Use the cue word category to determine behaviour: session-ending cue words close out; checkpoint cue words imply `--compact` (full bookkeeping, compact context, session continues).
-
 ## Shutdown Philosophy
 
-The goal is a clean "shutdown complete" — explicit acknowledgement of open loops so the mind can truly rest, or so you can compact context and keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
+The goal is a clean "shutdown complete" — explicit acknowledgement of open loops so the mind can truly rest, or so you can keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
 
 **For completed work:** Capture it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.
