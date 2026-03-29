@@ -15,7 +15,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **WIP Metrics & Pruning**
 
@@ -167,40 +167,58 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
 
+   **Excludes filter:** If `{VAULT}/.claude/hygiene-excludes` exists, pipe all CLI output through `grep -vf` to remove noise from large embedded doc sets (darktable, Hugo themes, etc.). One grep pattern per line, `#` comments. Example file:
+   ```
+   # Patterns to exclude from vault consistency checks
+   darktable
+   hugo-theme
+   ```
+   Define the filter in each Bash call that uses it (shell state doesn't persist between calls):
+   ```bash
+   HYGIENE_EXCLUDES="{VAULT}/.claude/hygiene-excludes"
+   if [ -f "$HYGIENE_EXCLUDES" ]; then
+     filter() { grep -vf <(grep -v '^#' "$HYGIENE_EXCLUDES" | grep -v '^$') ; }
+   else
+     filter() { cat ; }
+   fi
+   ```
+
    **Unresolved (broken) links:**
    ```bash
    # CLI (preferred): queries Obsidian's index directly
-   obsidian unresolved counts format=tsv 2>/dev/null
+   obsidian unresolved counts format=tsv 2>/dev/null | filter
    ```
-   If CLI unavailable, fall back to grep:
+   If CLI unavailable, fall back to grep (also apply `filter` here):
    ```bash
    grep -roh '\[\[.*\]\]' "{VAULT}" --include="*.md" \
      -not -path "*/.stversions/*" -not -path "*/06 Archive/*" \
      | sed 's/\[\[//;s/\]\]//' | sed 's/|.*//' | sed 's/#.*//' \
-     | sort -u
+     | sort -u | filter
    ```
    For each link target, check whether a matching .md file exists in the vault.
 
    **Orphaned files** (no incoming links):
    ```bash
    # CLI (preferred)
-   obsidian orphans 2>/dev/null | grep -E "^(03 Projects|04 Areas)/"
+   obsidian orphans 2>/dev/null | filter | grep -E "^(03 Projects|04 Areas)/"
    ```
    If CLI unavailable, find files in `03 Projects/` and `04 Areas/` not linked from any other .md file (excluding Archives, .stversions, system files).
 
    **Dead-end files** (no outgoing links — CLI only, skip if unavailable):
    ```bash
-   obsidian deadends 2>/dev/null | grep -E "^(03 Projects|04 Areas)/" | head -20
+   obsidian deadends 2>/dev/null | filter | grep -E "^(03 Projects|04 Areas)/" | head -20
    ```
    Files with content but no links to anything else — may need connecting to the graph.
 
    **Vault structural metrics** (CLI only, report in hygiene output):
+
+   For totals, the CLI doesn't support exclude filters natively. Pipe through `wc -l` after filtering to get accurate counts:
    ```bash
-   obsidian tasks todo total 2>/dev/null      # open tasks vault-wide
+   obsidian tasks todo total 2>/dev/null      # open tasks vault-wide (no exclude needed)
    obsidian tags counts sort=count 2>/dev/null | head -10  # top tags
-   obsidian orphans total 2>/dev/null          # total orphan count
-   obsidian unresolved total 2>/dev/null       # total broken link count
-   obsidian deadends total 2>/dev/null         # total dead-end count
+   obsidian orphans 2>/dev/null | filter | wc -l           # filtered orphan count
+   obsidian unresolved 2>/dev/null | filter | wc -l        # filtered broken link count
+   obsidian deadends 2>/dev/null | filter | wc -l          # filtered dead-end count
    ```
 
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
@@ -317,10 +335,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Vault Structural Metrics (CLI)
    - Open tasks: N
-   - Orphan count (vault-wide): N
-   - Unresolved link count: N
-   - Dead-end count: N
+   - Orphan count: N [filtered / unfiltered]
+   - Unresolved link count: N [filtered / unfiltered]
+   - Dead-end count: N [filtered / unfiltered]
    - Top tags: [top 5 with counts]
+   - Excludes active: [yes — N patterns from hygiene-excludes / no excludes file]
 
    ## Context File Staleness
    - Files scanned: N

@@ -32,7 +32,7 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 2. Get Current Date and Session File
 
