@@ -1,6 +1,6 @@
 ---
 name: complete-project
-description: Explicitly complete and archive a project - prevents zombie projects lingering in Works in Progress
+description: Explicitly complete a project and route artifacts - prevents zombie projects lingering in Works in Progress
 ---
 
 # Complete Project - Formal Project Completion
@@ -23,7 +23,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
@@ -42,12 +42,13 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
-   - **Archive location:** "Where should the project file be archived?" (suggest: `06 Archive/Projects/YYYY/`)
+   - **Domain:** "Does this project belong to a specific area (Health, Photography, Derm, etc.)?" (determines routing in Step 5)
 
 4. **Update project file:**
-   - Find project file (check both locations):
+   - Find project file (check all locations):
      - `{VAULT}/03 Projects/[Project Name].md` (active projects)
      - `{VAULT}/03 Projects/Backlog/[Project Name].md` (backlog projects)
+     - `{VAULT}/03 Projects/Cold/[Project Name].md` (cold projects)
    - Add completion section at top:
      ```markdown
      **Status:** COMPLETED ([Date])
@@ -58,16 +59,25 @@ Projects often fade away rather than explicitly complete. This creates clutter i
      ```
    - This preserves project history while marking completion
 
-5. **Move project file to archive:**
-   - Determine archive destination based on ownership:
-     - **Area-owned project** (belongs to a specific domain): `04 Areas/[Area]/Archive/[Project Name].md`
-     - **Cross-cutting project** (no single area): `06 Archive/Projects/YYYY/[Project Name].md`
-   - If unsure, ask: "Does this project belong to a specific area (Health, Photography, etc.), or is it cross-cutting?"
-   - Create archive directory if needed: `mkdir -p "{VAULT}/[chosen archive path]"`
-   - Move file from wherever it was found:
-     - From `03 Projects/[Project Name].md` → chosen archive path
-     - From `03 Projects/Backlog/[Project Name].md` → chosen archive path
-   - Update any resource folders similarly
+5. **Route project artifacts:**
+
+   The key principle: **"completed project" ≠ "archived."** A completed project's useful artifacts (reference docs, templates, learnings) still belong in Areas. Archive is only for things where the information itself is no longer useful — just proof it existed.
+
+   **Step 5a — Route useful artifacts to Areas:**
+   - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself
+   - For each artifact, ask: "Is this information still useful for reference, or is it truly dead?" Route accordingly:
+     - **Still useful** → move to the relevant `04 Areas/[Area]/` folder
+     - **Truly dead** (old CSVs, superseded docs, one-time exports) → `06 Archive/`
+   - If the project has a resource folder in `03 Projects/`, apply the same test to its contents — don't move the whole folder blindly
+
+   **Step 5b — Move the project file:**
+   - Determine destination based on the artifact routing test:
+     - **Area-owned project** (belongs to a specific domain): `04 Areas/[Area]/[Project Name].md`
+     - **Cross-cutting project with lasting reference value**: `04 Areas/[most relevant area]/[Project Name].md`
+     - **Truly dead project** (no reference value, just proof of existence): `06 Archive/Projects/YYYY/[Project Name].md`
+   - If unsure, ask: "Does this project belong to a specific area, or is it truly dead with no future reference value?"
+   - Create destination directory if needed
+   - Move file from wherever it was found
 
 6. **Update Works in Progress:**
    - Read `{VAULT}/01 Now/Works in Progress.md`
@@ -78,11 +88,12 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - If current session file exists for today, append brief note:
      ```markdown
      ---
-     **Project Completed:** [[06 Archive/Projects/YYYY/Project Name]]
+     **Project Completed:** [[actual/destination/path/Project Name]]
      **Outcome:** [Result]
      **Date:** [Date and time]
      ---
      ```
+   - Use the actual destination path from Step 5 (may be Areas or Archive)
    - This creates searchable record of when project was completed
 
 8. **Display confirmation:**
@@ -90,7 +101,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 ```
 ✓ Project completed: [Project Name]
 ✓ Outcome: [Completed successfully / etc.]
-✓ Project file moved to: 06 Archive/Projects/YYYY/[Project Name].md
+✓ Project file moved to: [actual destination path]
 ✓ Works in Progress updated
 ✓ Completion recorded in today's session
 
@@ -102,7 +113,7 @@ Project completion complete. Well done.
 - **Explicit completion prevents drift:** Projects often fade rather than explicitly end - this forces a decision
 - **Completion ≠ success:** Abandoned projects are valid completions. Acknowledging abandonment is better than indefinite limbo.
 - **Outcomes:** Be honest - "Completed successfully", "Abandoned (lost interest)", "Superseded by X", "Merged into Y"
-- **Archive by year:** Keeps archive organised and searchable
+- **Route by value:** Useful reference → Areas. Truly dead → Archive (by year)
 - **Session archive is the completion log:** Completed projects are recorded in session logs, not in WIP
 - **Preserve history:** Project file stays intact, just moved. All decisions and work documented.
 - **Psychology matters:** Explicit completion provides closure and allows celebration

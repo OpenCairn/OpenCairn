@@ -19,7 +19,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`

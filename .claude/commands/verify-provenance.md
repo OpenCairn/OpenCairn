@@ -15,7 +15,7 @@ You are verifying the integrity of the AI Provenance Log by recomputing session 
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-   If error, abort. Read `.claude/commands/_shared-rules.md` and apply its rules throughout this command. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 2. Read Provenance Log
 
