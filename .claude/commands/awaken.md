@@ -36,7 +36,7 @@ This is the "return from sabbatical" complement to daily pickup.
 2. **Find hibernate snapshot:**
    - Check `{VAULT}/06 Archive/Hibernate Snapshots/` for most recent snapshot
    - If multiple exist, use the most recent unless user specifies: `/awaken --date=2026-01-17`
-   - If no snapshot exists, offer to run `/pickup` with extended window instead
+   - If no snapshot exists, offer to run `/pickup` instead (it auto-extends search window)
 
 3. **Load hibernate snapshot:**
    - Read the full snapshot file
@@ -190,7 +190,7 @@ Ready to continue: What would you like to work on?
 No hibernate snapshot found.
 
 You can:
-1. Run /pickup with extended window: /pickup --days=90
+1. Run `/pickup` and tell it what you want to resume (it auto-extends search window)
 2. Manually review Works in Progress and recent sessions
 3. Start fresh if the gap is too large
 
