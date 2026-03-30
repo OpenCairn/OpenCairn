@@ -69,7 +69,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 5, 11 (conversation draft check only), 12, 13, 14, 14a, 15** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill — all using the merged session's number). Skip Steps 3-4, 6-10, and the plans/ filesystem check in Step 11 (no new session entry needed, plans/ already checked by the original park).
+   - **After merging, run Steps 5, 11 (conversation draft check only), 12, 13, 14, 14a, 15, 16** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, audit recommendation — all using the merged session's number). Skip Steps 3-4, 6-10, and the plans/ filesystem check in Step 11 (no new session entry needed, plans/ already checked by the original park).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
@@ -431,6 +431,8 @@ Quick park complete. Minimal overhead for trivial task.
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
+💡 Audit recommended: [reason(s)]
+  [OR "No audit trigger detected."]
 
 Parked. Pick up when ready.
 
@@ -439,7 +441,24 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.
 
-16. **Skill monitor** (per shared rules §8):
+16. **Audit recommendation** (Full tier only):
+   - **Quick tier:** Skip
+   - Evaluate whether the session's vault edits warrant a `/audit our work this session` pass. The park's quality gate (Step 5) and reference graph (Step 13) catch most issues, but edits made *during* the park itself (research persistence, WIP updates) don't get cross-reference checked. The audit is the backstop.
+   - **Triggers** (if ANY are true, recommend audit):
+     1. **Identifier change:** Session edited a vault file and changed a key identifier (status, name, booking ref, date, transport method, amount) — the old value likely appears in other files
+     2. **Research persistence:** Quality gate (Step 5) created or substantially updated a vault file during the park — these edits happened after the cross-reference window closed
+     3. **Decision reversal:** Session's conclusion diverges from its starting position — early-session edits may reflect the abandoned plan. (This is a backstop for the quality gate's "mid-session direction changes" refactor check, which should catch most cases but doesn't always.)
+     4. **Multi-file entity edits:** Session edited 3+ vault files referencing the same entity (booking, project, person) — consistency errors between files won't be caught by identifier grep alone
+   - Display:
+     ```
+     💡 Audit recommended: [which trigger(s) fired]
+     ```
+     or:
+     ```
+     No audit trigger detected.
+     ```
+
+17. **Skill monitor** (per shared rules §8):
    - Review the park execution just completed. Did you improvise any step not documented here? Did a documented step turn out unnecessary? Did you skip a step that should have a stronger gate?
    - If gaps found: propose specific edits to this skill file. Display proposed changes for user approval before editing.
    - If clean: `✓ Skill monitor: No gaps detected`
@@ -458,7 +477,7 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
 - **Continuation linking only:** Do NOT add chronological "Next session:" or "Previous session:" links — sessions are in chronological order in the file, so these are redundant. The only cross-session links that carry information are topical: `**Continues:**` (in the new session, pointing to the session being continued) and `**Continued in:**` (added to the original session, pointing forward to the continuation). These are triggered by `/pickup` loading a specific session to continue.
 - **File locking:** Per `_shared-rules.md` Section 5. Use scripts, not Edit tool.
 - **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
-- **Three-part quality check:** Lint (syntax), Refactor (content quality), Proofread (language). All three categories checked for Full tier.
+- **Four-part quality check:** Lint (syntax), Refactor (content quality), Verify (session accuracy, when updating), Proofread (language). All four categories checked for Full tier.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
