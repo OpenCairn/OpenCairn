@@ -256,15 +256,26 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 
 **Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
 
-### 16. Update Works in Progress
+### 16. Export Session Transcripts
+
+Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
+
+```bash
+python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+```
+
+Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message.
+
+### 17. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state.
 
-### 17. Close
+### 18. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
+✓ Transcripts exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
 Goodnight.
 ```
 

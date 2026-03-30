@@ -163,7 +163,24 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Report per-directory counts (deleted and remaining).
 
-11. **Vault Consistency Checks**
+11. **Session Transcript Export**
+
+   Backstop for `/goodnight` step 16, which exports daily. This catches any days missed (skipped goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
+
+   **Auto-fix:**
+   ```bash
+   python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 7
+   ```
+
+   The script:
+   - Finds all JSONL files modified in the last 7 days in `~/.claude/projects/`
+   - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
+   - Writes one file per day to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - Overwrites existing files for the same date (idempotent)
+
+   Report the script's stdout summary in the hygiene report.
+
+12. **Vault Consistency Checks**
 
    If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
 
@@ -224,7 +241,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. Report instances for user review — don't auto-fix.
 
-12. **Context File Staleness Detection**
+13. **Context File Staleness Detection**
 
    Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
 
@@ -264,7 +281,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For Approaching expiry: note the expiry window so the user can plan the update
    - Do not auto-edit context files — these are high-value prose documents where mechanical changes risk destroying nuance
 
-13. **Write Hygiene Report**
+14. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -327,6 +344,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Shell snapshots: N stale deleted, M remaining
    - Telemetry: N stale deleted, M remaining
 
+   ## Session Transcript Export
+   - Sessions exported: N
+   - Sessions skipped (empty): N
+   - Transcript files written: N
+   - [Per-date breakdown]
+
    ## Vault Consistency
    - Unresolved (broken) links: N total — [list top 10 or "none"]
    - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
@@ -355,7 +378,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [ ] [Each item requiring user confirmation]
    ```
 
-14. **Display confirmation:**
+15. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
