@@ -120,7 +120,7 @@ This is the "big picture" complement to session-level parking.
 
 ---
 
-*To restore this context: `/awaken` or `/pickup --hibernate=YYYY-MM-DD`*
+*To restore this context: `/awaken` or `/awaken --date=YYYY-MM-DD`*
 ```
 
 6. **Update Works in Progress:**
@@ -137,7 +137,7 @@ This is the "big picture" complement to session-level parking.
 
 Hibernate complete. You can disconnect with confidence.
 
-To restore context on return: `/awaken` or `/pickup --hibernate=2026-01-17`
+To restore context on return: `/awaken` or `/awaken --date=2026-01-17`
 ```
 
 ## Guidelines

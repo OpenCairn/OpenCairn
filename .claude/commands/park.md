@@ -438,8 +438,8 @@ Quick park complete. Minimal overhead for trivial task.
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
-💡 Audit recommended: [reason(s)]
-  [OR "No audit trigger detected."]
+🔴 Audit recommended: [reason(s)]
+  [OR "🟢 No audit trigger detected."]
 
 Parked. Pick up when ready.
 
@@ -458,11 +458,11 @@ To pickup later: `claude` (will show recent sessions) or `/pickup`
      4. **Multi-file entity edits:** Session edited 3+ vault files referencing the same entity (booking, project, person) — consistency errors between files won't be caught by identifier grep alone
    - Display:
      ```
-     💡 Audit recommended: [which trigger(s) fired]
+     🔴 Audit recommended: [which trigger(s) fired]
      ```
      or:
      ```
-     No audit trigger detected.
+     🟢 No audit trigger detected.
      ```
 
 17. **Skill monitor** (per shared rules §8):
