@@ -337,18 +337,25 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 13. **Trace reference graph for status changes** (Full tier only):
    - **Quick tier:** Skip
-   - **Full tier:** Review the session for any status changes — tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, etc.
-   - For each status change identified:
-     1. Identify the key identifier (project name, booking number, feature name, account name, etc.)
-     2. Grep the vault for that identifier, excluding archive/session files (historical records, not living docs):
+   - **Full tier:** Review the session for any status changes. A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists).
+   - **⛔ CHECKPOINT — Enumerate before grepping.** List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response before any grep runs. If no values changed, state "No identifier values changed" explicitly. "Already traced during session" is not valid — the session edits targeted specific files, but the same identifiers appear in files you didn't edit.
+     ```
+     Changed values:
+     - "6 events" → "7 events"
+     - "status: pending" → "status: done"
+     [OR] No identifier values changed.
+     ```
+   - For each changed value:
+     1. Grep the vault for the **old** value, excluding archive/session files (historical records, not living docs):
         ```bash
-        grep -r "identifier" "{VAULT}/" --include="*.md" -l --exclude-dir="06 Archive"
+        grep -r "old value" "{VAULT}/" --include="*.md" -l --exclude-dir="06 Archive"
         ```
-     3. Read and update every living document in the results that references the changed item
+     2. Display the grep results (even if empty — the output proves the grep ran)
+     3. Read and update every living document that still references the old value
    - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
    - Display result:
      ```
-     ✓ Reference graph: No status changes to trace
+     ✓ Reference graph: No identifier values changed
      ```
      or:
      ```
