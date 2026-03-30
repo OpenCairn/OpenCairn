@@ -112,7 +112,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    - Read `{VAULT}/01 Now/This Week.md`
-   - Purge completed backlog items: delete all `- [x]` lines from the Backlog section. `- [ ]` items are untouched.
+   - Purge completed items: delete all `- [x]` lines from both the Backlog section and day sections. `- [ ]` items are untouched.
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
