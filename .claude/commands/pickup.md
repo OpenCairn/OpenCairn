@@ -3,7 +3,7 @@ name: pickup
 aliases: [resume, restore]
 description: Resume previous work — pass a topic, keyword, or file path to jump straight in
 parameters:
-  - "$ARGUMENTS" - Topic, keyword, or file path to pick up (optional — bare /pickup shows recent sessions)
+  - "$ARGUMENTS" - Topic, keyword, or file path to pick up (optional — bare /pickup shows WIPs)
 ---
 
 # Pickup - Session Pickup
@@ -25,7 +25,7 @@ You are helping the user resume previous work with full context.
 3. **Route based on arguments:**
 
    - **Arguments provided** (topic, keyword, or file path) → Step 4 (targeted pickup)
-   - **Bare `/pickup`** with no arguments → Step 6 (recent sessions list)
+   - **Bare `/pickup`** with no arguments → Step 6 (WIP overview)
 
 ---
 
@@ -75,44 +75,44 @@ You are helping the user resume previous work with full context.
 
 ---
 
-### Recent Sessions List (bare /pickup)
+### Works in Progress Overview (bare /pickup)
 
-6. **Scan recent sessions:**
+6. **Read Works in Progress:**
 
-   ```bash
-   "{VAULT}/.claude/scripts/pickup-scan.sh" --days=7
+   Read `{VAULT}/01 Now/Works in Progress.md`. Parse each `###` entry, extracting:
+   - **Name** (the heading text)
+   - **Status** (from the `**Status:**` line — abbreviate to one word if verbose)
+   - **Last touched** (date from the `**Last:**` line, if present)
+
+   Show only the **top section** (entries above `## Active`) and the **Active section**. These are the things worth picking up. Collapse Maintenance and Backlog into counts.
+
+7. **Display a numbered WIP list:**
+
    ```
+   Works in Progress:
 
-   If no results, extend to `--days=30`. If still nothing, say so and suggest starting fresh or running `/awaken` if it's been a long break.
+     1. Project Alpha                          Active    | Last: Sun 29 Mar
+     2. Tax 2025-26                            Active    | Last: Thu 26 Mar
+     3. Travel 2026                            Active    | Last: Mon 30 Mar
 
-7. **Display a simple list:**
+     Active
+     4. Side Project with Sam                  Active    | Last: Sat 28 Mar
+     5. Research Topic                         Exploring | Last: Mon 30 Mar
+     6. Job Application                        Submitted | Last: Sat 28 Mar
 
-   Show the most recent 10-15 sessions, grouped by date:
-
-   ```
-   Recent sessions (last 7 days):
-
-   Today
-     1. Session Title                        10:30am  | Project Name
-     2. Another Session                       8:15am  | Loops: 2
-
-   Yesterday
-     3. Evening Work                          9:20pm  | Project Name
-     4. Morning Check-in                      7:00am
-
-   Fri 28 Mar
-     5. Deep Research Session                 2:15pm  | Project Name | Loops: 1
+     + 2 maintenance, 15 backlog (say "show all" or name one)
 
    Pick a number, or tell me what you want to work on.
    ```
 
-   - Show loop count only when > 0
-   - Show project name when present
-   - Most recent first within each day
+   - Preserve section grouping (top items, then Active heading)
+   - Omit "Last" column for entries with no `**Last:**` line
+   - If WIP file is empty or missing, suggest starting fresh or running `/awaken`
 
 8. **Wait for user response:**
 
-   - **Number** → Load that session (read the full session section, plus project hub and context files as in Step 5)
+   - **Number** → Load that WIP's context: follow the first `[[03 Projects/...]]` link in `**Next:**` to read the project hub, read the most recent session log linked in `**Next:**`, and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
+   - **"show all"** → Redisplay with Maintenance and Backlog entries included
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally
 
@@ -120,8 +120,8 @@ You are helping the user resume previous work with full context.
 
 - **Speed over completeness.** Load only what's needed, not everything that exists.
 - **No interactive menus.** No hide, snooze, pagination, view toggles. Find and load.
-- **Session logs are read on demand.** The scan script extracts metadata cheaply. Only read full session files when the user has selected one.
-- **Open loops are historical.** Session log loops are a snapshot from when `/park` ran. Current task state lives in This Week.md and project hubs.
+- **Session logs are read on demand.** The scan script extracts metadata cheaply for targeted pickup. Only read full session files when the user has selected a specific WIP or topic.
+- **WIP is the orientation layer.** Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; WIPs are the unit you pick up.
 - **Project hubs live in two places:** `03 Projects/` (active) and `03 Projects/Backlog/` (backlog). Check both.
 - **Trust your search tools.** Don't over-prescribe search strategies. Use Grep, Glob, and the scan script as appropriate for what the user asked.
 
@@ -129,4 +129,4 @@ You are helping the user resume previous work with full context.
 
 Combined with `/park`, this forms the **park and pickup system**.
 
-**Reads from:** Session Logs (via pickup-scan.sh for metadata, direct read for selected session), Works in Progress, Project hubs, Context files
+**Reads from:** Works in Progress (bare mode), Session Logs (via pickup-scan.sh for targeted pickup, direct read for selected topic), Project hubs, Context files
