@@ -10,7 +10,7 @@ You are helping the user restore context after an extended break from regular wo
 
 ## Philosophy
 
-After weeks or months away, the 10-day pickup window shows nothing relevant. Awaken bridges the gap by:
+After weeks or months away, bare `/pickup` shows current WIPs but lacks the context of *why* those projects exist or what changed during the break. Awaken bridges the gap by:
 - Loading the pre-break state snapshot
 - Acknowledging what changed during the break
 - Updating priorities based on new reality
@@ -227,9 +227,8 @@ This is fine - life happens. Priorities may have shifted more than expected.
 
 | Feature | /pickup | /awaken |
 |---------|---------|---------|
-| Window | Last 10 days | Weeks/months |
-| Source | Session files | Hibernate snapshot |
-| Scope | Sessions | Projects |
+| Source | Works in Progress | Hibernate snapshot |
+| Scope | Current projects | Pre-break state + what changed |
 | Update | Read-only | Interactive update |
 | Frequency | Daily/session | Extended breaks only |
 
