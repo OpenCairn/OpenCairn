@@ -443,7 +443,7 @@ Quick park complete. Minimal overhead for trivial task.
 
 Parked. Pick up when ready.
 
-To pickup later: `claude` (will show recent sessions) or `/pickup`
+To pickup later: `claude` then `/pickup`
 ```
 
 **IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.

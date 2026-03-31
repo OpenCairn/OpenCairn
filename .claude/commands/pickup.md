@@ -119,7 +119,7 @@ You are helping the user resume previous work with full context.
 ## Guidelines
 
 - **Speed over completeness.** Load only what's needed, not everything that exists.
-- **No interactive menus.** No hide, snooze, pagination, view toggles. Find and load.
+- **No complex interactive menus.** No hide, snooze, pagination, multi-step view toggles. "Show all" is the only expansion permitted.
 - **Session logs are read on demand.** The scan script extracts metadata cheaply for targeted pickup. Only read full session files when the user has selected a specific WIP or topic.
 - **WIP is the orientation layer.** Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; WIPs are the unit you pick up.
 - **Project hubs live in two places:** `03 Projects/` (active) and `03 Projects/Backlog/` (backlog). Check both.
