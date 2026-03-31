@@ -438,8 +438,7 @@ Quick park complete. Minimal overhead for trivial task.
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
-🔴 Audit recommended: [reason(s)]
-  [OR "🟢 No audit trigger detected."]
+🔍 Post-park audit recommended. `/audit the /park` to check cross-file consistency.
 
 Parked. Pick up when ready.
 
@@ -450,19 +449,10 @@ To pickup later: `claude` then `/pickup`
 
 16. **Audit recommendation** (Full tier only):
    - **Quick tier:** Skip
-   - Evaluate whether the session's vault edits warrant a `/audit our work this session` pass. The park's quality gate (Step 5) and reference graph (Step 13) catch most issues, but edits made *during* the park itself (research persistence, WIP updates) don't get cross-reference checked. The audit is the backstop.
-   - **Triggers** (if ANY are true, recommend audit):
-     1. **Identifier change:** Session edited a vault file and changed a key identifier (status, name, booking ref, date, transport method, amount) — the old value likely appears in other files
-     2. **Research persistence:** Quality gate (Step 5) created or substantially updated a vault file during the park — these edits happened after the cross-reference window closed
-     3. **Decision reversal:** Session's conclusion diverges from its starting position — early-session edits may reflect the abandoned plan. (This is a backstop for the quality gate's "mid-session direction changes" refactor check, which should catch most cases but doesn't always.)
-     4. **Multi-file entity edits:** Session edited 3+ vault files referencing the same entity (booking, project, person) — consistency errors between files won't be caught by identifier grep alone
+   - Always recommend a post-park audit. No trigger evaluation — the default is "audit." The park's quality gate (Step 5) and reference graph (Step 13) catch many issues, but edits made *during* the park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Experience shows post-park audits reliably catch sync gaps even after a clean quality gate.
    - Display:
      ```
-     🔴 Audit recommended: [which trigger(s) fired]
-     ```
-     or:
-     ```
-     🟢 No audit trigger detected.
+     🔍 Post-park audit recommended. `/audit the /park` to check cross-file consistency.
      ```
 
 17. **Skill monitor** (per shared rules §8):
