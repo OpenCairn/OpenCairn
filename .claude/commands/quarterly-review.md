@@ -71,40 +71,9 @@ Quarterly review serves three purposes:
 - "What needs to start now to be ready on time? (Long Poles)"
 - "What should you stop doing?"
 
-4. **Landscape Scan — What exists that you should know about:**
+4. **Landscape Scan — Review recent `/landscape-scan` outputs:**
 
-   Use web search and scraping to check these specific sources. The goal is patterns and architecture, not a tool-adoption spree — "how did they solve X?" over "should I switch to Y?"
-
-   **Claude Code ecosystem:**
-   - https://github.com/hesreallyhim/awesome-claude-code — curated skills, hooks, slash commands, agent orchestrators, plugins
-   - https://github.com/rohitg00/awesome-claude-code-toolkit — comprehensive toolkit (agents, skills, commands, plugins, hooks, rules, templates, MCP configs)
-   - https://github.com/travisvn/awesome-claude-skills — skills and workflow customisation
-   - https://code.claude.com/docs — official docs (new features, patterns since last quarter)
-
-   **Obsidian + Claude PKM systems** (direct OpenCairn comparables):
-   - https://github.com/ballred/obsidian-claude-pkm — starter kit with agents, skills, auto-commit hooks, goal hierarchy
-   - https://github.com/ArtemXTech/claude-code-obsidian-starter — another starter kit with skills for projects, tasks, daily routines
-
-   **Practitioner writeups** (people building similar systems):
-   - Search for recent posts on Claude Code + PKM workflows, Obsidian + AI second brain patterns
-   - Obie Fernandez's "Personal CTO Operating System with Claude Code" (Medium)
-   - Matt Stockton's "How Claude Code Became My Knowledge Management System"
-
-   **Docs-for-AI / knowledge structuring:**
-   - Mintlify — docs-as-code with AI search, structuring for dual human/AI consumption
-   - Documentation.AI — AI agents for documentation structure and maintenance
-   - GitBook — docs-as-code with AI features
-
-   **PKM landscape:**
-   - PKM Weekly newsletter (https://www.pkmweekly.com/) — weekly digest of the space
-   - AFFiNE, Tana — AI-native alternatives to Obsidian worth monitoring
-
-   For each relevant finding:
-   - What does it do?
-   - What problem does it solve that OpenCairn currently handles manually (or doesn't handle)?
-   - Classify: **adopt** (use directly), **adapt** (extract the pattern for OpenCairn), or **note** (interesting, not actionable now)
-
-   If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on — don't block the review. Flag it in the Sources list updates section so the command file gets cleaned up.
+   Read all landscape scan reports from `{VAULT}/06 Archive/Landscape Scans/` for this quarter. Synthesise the adopt/adapt/note findings into the quarterly review output. If no scans have been run this quarter, run `/landscape-scan` now as part of the quarterly review.
 
 ### Part 2: Vault Deep Maintenance
 
@@ -238,8 +207,8 @@ Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 Projects to explicitly abandon rather than let linger:
 - [ ] [Project] — Reason to kill
 
-## Landscape Scan
-**Sources checked:** [list of repos, articles, tools reviewed]
+## Landscape Scan (synthesised from monthly `/landscape-scan` reports)
+**Scans this quarter:** [list months, e.g. 2026-04, 2026-05, 2026-06]
 
 ### Adopt (use directly)
 - [Tool/pattern] — [what it does, why it's relevant]
@@ -249,9 +218,6 @@ Projects to explicitly abandon rather than let linger:
 
 ### Note (interesting, not actionable now)
 - [Thing] — [why it's interesting, when it might become relevant]
-
-### Sources list updates
-- [Any new sources to add or stale ones to remove for next quarter's scan]
 
 ## Vault Health
 
@@ -307,7 +273,7 @@ Projects to explicitly abandon rather than let linger:
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
-✓ Landscape scan: N sources checked, M findings
+✓ Landscape scans synthesised: N months, M total findings
 ✓ Context files audited: N files, M issues found
 ✓ Broken links: N fixed, M remaining
 ✓ CRM: N new candidates, M stale entries
@@ -324,8 +290,7 @@ Quarterly review complete.
 - **Don't try to do everything.** If the vault is large, prioritise by impact. Fix context files and broken links first. Orphan scan is lower priority.
 - **Connect to weekly reviews.** Reference weekly review insights rather than re-deriving everything from session logs.
 - **Honest strategic assessment.** The quarterly check is where you surface uncomfortable truths about priority drift.
-- **Landscape scan is research, not shopping.** The goal is patterns and architecture insights, not a tool-adoption spree. "How did they solve X?" is more valuable than "should I switch to Y?"
-- **Update the source list.** If a source goes stale or a new one emerges, update the scan's source list in the command file itself so next quarter's scan stays current.
+- **Landscape scan is monthly now.** The quarterly review synthesises monthly `/landscape-scan` reports rather than running its own scan. If no monthly scans exist for the quarter, run one inline.
 - **Natural language.** Write in the user's voice — analytical, outcome-focused, honest.
 
 ## Frequency
@@ -339,5 +304,6 @@ Run quarterly, typically:
 
 - **Aggregates weekly reviews:** Connects weekly patterns into quarterly themes
 - **Feeds into annual review:** (If the user implements one)
+- **Synthesises /landscape-scan:** Monthly scans track the external landscape; quarterly review rolls them up into strategic context
 - **Complements /weekly-review:** Weekly handles tactical maintenance; quarterly handles strategic + deep structural
 - **Informs context files:** The primary mechanism for keeping `07 System/Context - *.md` files accurate
