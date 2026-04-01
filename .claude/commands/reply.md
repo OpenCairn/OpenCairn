@@ -85,17 +85,13 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
 5. **Output**
 
-   **Substantive drafts** (3+ sentences OR contains researched content):
+   **Always write to scratchpad:**
    - Append to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
    - If re-drafting the same reply (same sender + medium), replace the previous draft section rather than appending a duplicate
    - Also display the full draft in conversation
 
-   **Quick drafts** (1-2 sentences, no research):
-   - Display inline only. Don't write to scratchpad.
-
-   **User overrides:**
-   - "Put it on the scratchpad" → write even a quick draft to scratchpad
-   - "Just inline" → don't write to scratchpad even if substantive
+   **User override:**
+   - "Just inline" → don't write to scratchpad
 
    **After output:**
    - Wait for user feedback: edits, "sent", requests for `/de-ai-ify`, etc.
