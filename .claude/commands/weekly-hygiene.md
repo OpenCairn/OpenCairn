@@ -38,6 +38,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Confirm with user:**
    - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — recommend demote or nudge
 
+   **If not resolved in-session:** For each stale entry the user doesn't address, append `⚠ Hygiene Wnn: Nd stale — demote?` after the entry's `**Status:**` line in WIP. Note in report as `→ routed to WIP entry`.
+
 2. **WIP ↔ This Week Reconciliation**
 
    WIP is the canonical project dashboard; This Week is the tactical weekly view with higher-frequency updates. Items completed in This Week but not reflected in WIP create stale priors for every session that reads WIP.
@@ -72,6 +74,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Move project files to match their WIP tier
    - Archive completed project files to `06 Archive/`
 
+   **If not resolved in-session:** For each tier mismatch the user doesn't address, append `⚠ Hygiene Wnn: file in wrong tier — move to Cold/?` to the WIP entry (if one exists) or add to This Week Backlog with a hygiene report back-reference (if no WIP entry).
+
    **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Fix broken wikilinks in non-archive files. Leave archive/session log references as historical records.
 
 4. **Tickler Hygiene**
@@ -80,8 +84,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read `{VAULT}/01 Now/Tickler.md` (if it exists)
    - Flag items with dates that have passed (past-due and unactioned)
 
-   **Confirm with user:**
-   - For each past-due item: recommend complete, reschedule (with new date), or drop
+   **Resolve in-session:**
+   - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
+   - **If user disengages:** route unresolved past-due items to This Week Backlog with a hygiene report back-reference.
 
 5. **Working Memory Sweep**
 
@@ -92,11 +97,17 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Identify any items that appear to be actionable tasks that should be in WIP or project files
    - Note items that have routing guidance but haven't been moved yet
 
+   **If not resolved in-session:** For oversized sections (10+ items), add `⚠ Hygiene Wnn: N items, 10+ unprocessed — triage needed` at the top of that section in Working Memory.
+
 6. **Scratchpad Sweep**
 
    **Gather:**
    - Find all Scratchpad.md files: `find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
-   - Flag items that have been sitting unprocessed (14+ days old or grown stale)
+   - For each non-empty scratchpad, note line count and days since last modified
+
+   **Resolve in-session:**
+   - Present all non-empty scratchpads to user and offer to triage during the sweep.
+   - **If user declines:** add `⚠ Hygiene Wnn: NL, Nd since last edit — triage needed` at the top of each non-empty scratchpad file.
 
 7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
@@ -106,7 +117,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      find "{VAULT}/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec \
        grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
      ```
-   - Flag names that appear 2+ times but aren't in CRM — **don't auto-add**, present candidates to user
+   - Flag names that appear 2+ times but aren't in CRM
+
+   **Resolve in-session:**
+   - Present candidates to user. For confirmed names, create CRM entries in the appropriate range file (A-F, G-L, M-R, S-Z) during the sweep.
+   - **If user disengages:** route unresolved candidates to This Week Backlog with a hygiene report back-reference.
 
 8. **This Week.md Hygiene**
 
@@ -133,11 +148,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Keep in memory:** The memory is about Claude's behaviour but too granular or context-dependent for CLAUDE.md (e.g., "when user says X, they mean Y in this repo"). If it's a general behaviour rule, it belongs in CLAUDE.md's "Working With Me" section, not memory. Genuine keeps should be rare.
    - **Delete:** Stale (completed project, resolved decision), duplicated in vault/CLAUDE.md, vague/unactionable, or contradicts current vault content.
 
-   **Confirm with user:**
+   **Resolve in-session:**
    - Present each entry with its classification and recommended action
    - For migrations: show the proposed vault destination and how the content would be integrated (appended to existing doc, new section, etc.)
-   - Don't auto-delete or auto-migrate — memory entries may contain context the user values that isn't obvious from vault content alone
-   - After user confirms migrations: move content to vault, delete the memory file, update MEMORY.md index
+   - Execute confirmed deletions and migrations during the sweep. Delete memory files, update MEMORY.md index.
+   - **If user disengages:** route unresolved entries to This Week Backlog with a hygiene report back-reference.
 
 10. **Claude Internal File Cleanup**
 
@@ -239,7 +254,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
 
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
-   Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. Report instances for user review — don't auto-fix.
+   Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
 
 13. **Context File Staleness Detection**
 
@@ -274,12 +289,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Verify:** Category B markers — quick confirmation checklist.
    - **Approaching expiry:** Category A/C markers with dates in the next 30 days.
 
-   **Confirm with user:**
+   **Resolve in-session:**
    - Present each flagged file with its classification and the specific lines triggering the flag
-   - For Expired: recommend the user review and update or archive the stale section
-   - For Verify: present as a quick scan checklist — "still true?"
-   - For Approaching expiry: note the expiry window so the user can plan the update
-   - Do not auto-edit context files — these are high-value prose documents where mechanical changes risk destroying nuance
+   - For Expired: ask user for the updated text, then edit the context file. Never rewrite, rephrase, or infer updates autonomously — only write what the user provides.
+   - For Verify: present as a quick scan checklist — "still true?" For each claim the user confirms is stale, ask for replacement text and edit. For claims still true, no action.
+   - For Approaching expiry: ask user — update now (provide text) or add to Tickler under the expiry date? If Tickler: `- [ ] Update Context - [Name].md: [specific stale claim]`
+   - **If user disengages:** route unresolved items to This Week Backlog with a hygiene report back-reference.
+   - **Guardrail:** Edit context files only with user-provided replacement text. These are high-value prose documents — never rewrite, rephrase, or infer updates autonomously.
 
 14. **Write Hygiene Report**
 
@@ -374,25 +390,44 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ## Actions Taken (Auto-fix)
    - [List all automatic fixes applied]
 
-   ## Actions Pending (User Decision)
-   - [ ] [Each item requiring user confirmation]
+   ## Resolved In-Session
+   - [List items resolved during the sweep: CRM additions, memory cleanup, context updates, tickler actions, scratchpad triage]
+
+   ## Actions Routed
+   - [For each routed item: description → destination file]
+   - Routed to WIP entries: N
+   - Routed to SSOT files (Working Memory, scratchpads, terminology): N
+   - Routed to This Week Backlog (fallback): N
+   - Routed to Tickler: N
    ```
 
-15. **Display confirmation:**
+15. **Route unresolved findings**
+
+    For each finding not resolved during the sweep:
+
+    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — placed after the entry's `**Status:**` line (for WIP entries), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
+    - **Tier 2 items the user declined to engage with:** Write to This Week Backlog: `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]`
+    - Update the hygiene report's "Actions Routed" section to note where each item was sent.
+    - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
+    - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run auto-removes strikethrough content (existing WIP pruning step).
+
+16. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
     ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, internal file cleanup)
-    ✓ Items needing user decision: M
+    ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
+    ✓ Routed to SSOT: M (N to WIP entries, M to files, P to This Week Backlog)
 
     Vault hygiene complete. Run /weekly-review to incorporate findings into your weekly reflection.
     ```
 
 ## Guidelines
 
-- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflection to act on.
-- **Auto-fix only safe operations.** Pruning session links, removing completed items, and purging done backlog are safe. File moves, deletions, tickler actions, and stale project demotion require user confirmation.
-- **Idempotent.** Running twice should produce the same result. The report overwrites each run.
+- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 13) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflection to act on.
+- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale entries, tier mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route to This Week Backlog as fallback — never drop findings silently.
+- **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run auto-removes strikethrough content.
+- **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
 
 ## Integration
