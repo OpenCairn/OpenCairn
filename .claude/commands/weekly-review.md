@@ -216,12 +216,47 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - Update project statuses based on weekly progress
    - Add new projects if they emerged this week
 
-8. **Display confirmation:**
+8. **Generate Claude Web context summary:**
+
+   Generate a ~500 word context snapshot for the user to paste into Claude Web's Profile Preferences (Settings > Profile > "What preferences should Claude consider in responses?"). This gives Claude Web conversations up-to-date context without access to the vault.
+
+   Ensure directory exists: `mkdir -p "{VAULT}/07 System"`
+
+   If `{VAULT}/07 System/Claude Web Context.md` already exists, read it first. Carry forward any user-written communication preferences or behavioural rules into the new version. Then overwrite the file with the complete new summary.
+
+   **First-use note:** Before first use, the user should copy their existing Claude Web Profile Preferences content (if any) and save it to this file so the generated summary can incorporate it.
+
+   **Relationship with Claude Web Memory:** Claude Web auto-generates a "Memory" summary nightly from chat history. This may cover stable biographical facts (role, location, interests, gear), but not all users have populated Memory. The summary should be self-contained.
+
+   **What to include:**
+   - **Identity**: 1-2 sentences — name, role, location, current life stage (from CLAUDE.md). Always include this even though Claude Web Memory may cover it — not all users have populated Memory.
+   - **Active projects**: Top 3-5 from the "What's Next" section of this review
+   - **Recent context**: Key decisions, changes, or events from the review period
+   - **Upcoming**: What's coming in the next 1-2 weeks
+   - **Current location**: If different from home base (e.g. traveling)
+   - **Communication preferences**: Brief summary of how the user likes to interact (from CLAUDE.md)
+
+   **What to keep brief** (Memory may already cover these):
+   - Stable personal interests, hobbies, gear
+   - Technical infrastructure details
+   - Travel history (past trips)
+
+   **Constraints:**
+   - ~500 words (Profile Preferences consumes tokens in every conversation)
+   - Written in first person as if the user wrote it ("I am...", "I prefer...", "I'm currently...")
+   - Start with `Last updated: YYYY-MM-DD` so staleness is self-evident both in the vault file and after pasting into Claude Web
+   - No wikilinks, callouts, or dataview queries — standard markdown (headers, bullets, bold) is fine
+   - Factual and current — this replaces the previous version entirely
+   - **Recency weighting:** More recent = more detail. This week's priorities and upcoming plans get the most words. Last week's events get a sentence or two of context. Anything older than ~2 weeks should only appear if it's still actively relevant (e.g. an ongoing project), not as historical narrative.
+   - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. Token budget is scarce — don't waste it on context that doesn't shift the response.
+
+9. **Display confirmation:**
 
 ```
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
+✓ Claude Web context: 07 System/Claude Web Context.md (paste into Profile Preferences)
 ✓ What's next: [Top 2-3 priorities]
 
 Weekly review complete.
