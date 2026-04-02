@@ -31,7 +31,7 @@ When a session or task links to a project context:
 
 ## 3. Item Linking Convention
 
-Every actionable item in a day section, Backlog, or planning document should link to its project/area context where one exists:
+Every actionable item in a day section, Tasks.md, or planning document should link to its project/area context where one exists:
 
 - Project doc exists → `→ [[03 Projects/Project Name]]`
 - Area doc exists → `→ [[04 Areas/path/doc]]`
@@ -50,7 +50,7 @@ When migrating Tickler items:
 - Preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`)
 - Replace session-log-only links with the relevant project/area link
 - Add links to bare items per the Item Linking Convention (Section 3)
-- **Deduplicate against Backlog:** After migrating each Tickler item, check whether a matching item already exists in the Backlog section of This Week.md (same task, possibly different phrasing). If so, delete the Backlog copy — the day section is now SSOT.
+- **Deduplicate against Tasks.md:** After migrating each Tickler item, check whether a matching item already exists in Tasks.md (`01 Now/Tasks.md`) (same task, possibly different phrasing). If so, delete the Tasks.md copy — the day section is now SSOT.
 
 ---
 
@@ -115,7 +115,7 @@ This procedure keeps the rolling 7-day window current. It runs during `/morning`
 
 Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
 
-1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`, `## Backlog`).
+1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
 2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 

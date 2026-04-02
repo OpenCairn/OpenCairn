@@ -438,7 +438,7 @@ Quick park complete. Minimal overhead for trivial task.
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
-🔍 Post-park audit recommended. `/audit the /park` to check cross-file consistency.
+⚠️ Post-park audit recommended. `/audit the /park` to check cross-file consistency.
 
 Parked. Pick up when ready.
 
@@ -452,7 +452,7 @@ To pickup later: `claude` then `/pickup`
    - Always recommend a post-park audit. No trigger evaluation — the default is "audit." The park's quality gate (Step 5) and reference graph (Step 13) catch many issues, but edits made *during* the park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Experience shows post-park audits reliably catch sync gaps even after a clean quality gate.
    - Display:
      ```
-     🔍 Post-park audit recommended. `/audit the /park` to check cross-file consistency.
+     ⚠️ Post-park audit recommended. `/audit the /park` to check cross-file consistency.
      ```
 
 17. **Skill monitor** (per shared rules §8):

@@ -74,7 +74,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Move project files to match their WIP tier
    - Archive completed project files to `06 Archive/`
 
-   **If not resolved in-session:** For each tier mismatch the user doesn't address, append `⚠ Hygiene Wnn: file in wrong tier — move to Cold/?` to the WIP entry (if one exists) or add to This Week Backlog with a hygiene report back-reference (if no WIP entry).
+   **If not resolved in-session:** For each tier mismatch the user doesn't address, append `⚠ Hygiene Wnn: file in wrong tier — move to Cold/?` to the WIP entry (if one exists) or add to Tasks.md with a hygiene report back-reference (if no WIP entry).
 
    **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Fix broken wikilinks in non-archive files. Leave archive/session log references as historical records.
 
@@ -86,7 +86,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session:**
    - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
-   - **If user disengages:** route unresolved past-due items to This Week Backlog with a hygiene report back-reference.
+   - **If user disengages:** route unresolved past-due items to Tasks.md with a hygiene report back-reference.
 
 5. **Working Memory Sweep**
 
@@ -121,13 +121,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session:**
    - Present candidates to user. For confirmed names, create CRM entries in the appropriate range file (A-F, G-L, M-R, S-Z) during the sweep.
-   - **If user disengages:** route unresolved candidates to This Week Backlog with a hygiene report back-reference.
+   - **If user disengages:** route unresolved candidates to Tasks.md with a hygiene report back-reference.
 
 8. **This Week.md Hygiene**
 
    **Auto-fix:**
    - Read `{VAULT}/01 Now/This Week.md`
-   - Purge completed items: delete all `- [x]` lines from both the Backlog section and day sections. `- [ ]` items are untouched.
+   - Purge completed items: delete all `- [x]` lines from day sections in This Week.md and from Tasks.md. `- [ ]` items are untouched.
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
@@ -152,7 +152,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Present each entry with its classification and recommended action
    - For migrations: show the proposed vault destination and how the content would be integrated (appended to existing doc, new section, etc.)
    - Execute confirmed deletions and migrations during the sweep. Delete memory files, update MEMORY.md index.
-   - **If user disengages:** route unresolved entries to This Week Backlog with a hygiene report back-reference.
+   - **If user disengages:** route unresolved entries to Tasks.md with a hygiene report back-reference.
 
 10. **Claude Internal File Cleanup**
 
@@ -294,7 +294,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For Expired: ask user for the updated text, then edit the context file. Never rewrite, rephrase, or infer updates autonomously — only write what the user provides.
    - For Verify: present as a quick scan checklist — "still true?" For each claim the user confirms is stale, ask for replacement text and edit. For claims still true, no action.
    - For Approaching expiry: ask user — update now (provide text) or add to Tickler under the expiry date? If Tickler: `- [ ] Update Context - [Name].md: [specific stale claim]`
-   - **If user disengages:** route unresolved items to This Week Backlog with a hygiene report back-reference.
+   - **If user disengages:** route unresolved items to Tasks.md with a hygiene report back-reference.
    - **Guardrail:** Edit context files only with user-provided replacement text. These are high-value prose documents — never rewrite, rephrase, or infer updates autonomously.
 
 14. **Write Hygiene Report**
@@ -397,7 +397,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [For each routed item: description → destination file]
    - Routed to WIP entries: N
    - Routed to SSOT files (Working Memory, scratchpads, terminology): N
-   - Routed to This Week Backlog (fallback): N
+   - Routed to Tasks.md (fallback): N
    - Routed to Tickler: N
    ```
 
@@ -406,7 +406,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     For each finding not resolved during the sweep:
 
     - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — placed after the entry's `**Status:**` line (for WIP entries), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
-    - **Tier 2 items the user declined to engage with:** Write to This Week Backlog: `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]`
+    - **Tier 2 items the user declined to engage with:** Write to Tasks.md: `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]`
     - Update the hygiene report's "Actions Routed" section to note where each item was sent.
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run auto-removes strikethrough content (existing WIP pruning step).
@@ -417,7 +417,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
     ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, internal file cleanup)
     ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
-    ✓ Routed to SSOT: M (N to WIP entries, M to files, P to This Week Backlog)
+    ✓ Routed to SSOT: M (N to WIP entries, M to files, P to Tasks.md)
 
     Vault hygiene complete. Run /weekly-review to incorporate findings into your weekly reflection.
     ```
@@ -425,7 +425,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 ## Guidelines
 
 - **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 13) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflection to act on.
-- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale entries, tier mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route to This Week Backlog as fallback — never drop findings silently.
+- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale entries, tier mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route to Tasks.md as fallback — never drop findings silently.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run auto-removes strikethrough content.
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
