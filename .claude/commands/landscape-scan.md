@@ -76,14 +76,25 @@ This is research, not shopping. The goal is "how did they solve X?" over "should
 
    If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on. Flag it in the Sources list updates section so the command file gets cleaned up.
 
-4. **Classify findings:**
+4. **Capability audit pass:**
+
+   Check whether any skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. This is a lightweight check, not a deep audit. Focus on domains where the scan sources surfaced something relevant.
+
+   For each relevant finding, compare against the user's existing skills:
+   - Does this replace something we built? (adopt candidate)
+   - Does this do something better that we could extract a pattern from? (adapt candidate)
+   - Is our implementation still superior? (note and move on)
+
+   If the vault contains a capability audit project doc (e.g. `03 Projects/OpenCairn Capability Audit.md`), update the relevant domain section with any new findings.
+
+5. **Classify findings:**
 
    For each relevant finding:
    - What does it do?
    - What problem does it solve that the user's system currently handles manually (or doesn't handle)?
    - Classify: **adopt** (use directly), **adapt** (extract the pattern), or **note** (interesting, not actionable now)
 
-5. **Generate scan report:**
+6. **Generate scan report:**
 
    ```bash
    mkdir -p "{VAULT}/06 Archive/Landscape Scans"
@@ -105,6 +116,10 @@ This is research, not shopping. The goal is "how did they solve X?" over "should
    ## Note (interesting, not actionable now)
    - [Thing] - [why it's interesting, when it might become relevant]
 
+   ## Capability audit
+   - [Skill domain] - [external tool/pattern found, how it compares to our implementation, classify: adopt/adapt/note/inferior]
+   - (or: No new capability-relevant findings this month)
+
    ## No change since last scan
    - [Sources that had nothing new]
 
@@ -112,14 +127,15 @@ This is research, not shopping. The goal is "how did they solve X?" over "should
    - [New sources to add or stale ones to remove from this command]
    ```
 
-6. **Update this command's source list** if any sources should be added or removed (repos deleted, new high-quality sources discovered during the scan). Edit the command file directly.
+7. **Update this command's source list** if any sources should be added or removed (repos deleted, new high-quality sources discovered during the scan). Edit the command file directly.
 
-7. **Display confirmation:**
+8. **Display confirmation:**
 
    ```
    Landscape scan saved to: 06 Archive/Landscape Scans/YYYY-MM.md
    Sources checked: N
    Findings: N adopt, N adapt, N note
+   Capability audit: N domains with new findings (or "no new findings")
    Source list updates: [any changes made to this command]
    ```
 

@@ -70,6 +70,11 @@ Read and present:
 - **Tomorrow's Queue from last night:** Check `{VAULT}/06 Archive/Claude/Daily Reports/` for yesterday's report, extract "Tomorrow's Queue" section if exists (this is what you set at bedtime via /goodnight)
 - **Disciplines reminder:** Read `{VAULT}/07 System/Context - Direction.md` (skip if file doesn't exist). If a Disciplines section exists with active items, include a one-line reminder in the landscape output. Light touch — just surface the list, don't track or nag.
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
+- **Working Memory status:** Check `{VAULT}/01 Now/Working memory.md` (skip if file doesn't exist). Count unchecked items (`- [ ]`) and total lines. If unchecked count > 30 or total lines > 300, flag in landscape output:
+  ```
+  **⚠️ Working Memory overflow** — [N] unchecked items, [L] lines. Consider `/inbox-processor` or manual triage.
+  ```
+  Also check for a "Completed" or "Likely Stale" section — if it has unchecked items, note the count: `[N] items flagged for deletion — confirm during this session?`
 - **Review staleness:** Check when the last weekly review and quarterly review were run:
   ```bash
   ls -1t "{VAULT}/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | head -1
@@ -216,7 +221,7 @@ Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/exp
 
 **Every actionable item gets a `- [ ]` checkbox.** Time container headers (plain `- ` lines grouping flexible tasks) are the only lines without checkboxes.
 
-**Item linking:** Every item in a day section or Backlog should link to its project/area context where one exists:
+**Item linking:** Every item in a day section or Tasks.md should link to its project/area context where one exists:
 - Project doc exists → `→ [[03 Projects/Project Name]]`
 - Area doc exists → `→ [[04 Areas/path/doc]]`
 - No dedicated doc but tracked in WIP → `→ [[01 Now/Works in Progress#Heading]]`
@@ -231,7 +236,7 @@ Pull items from:
 - Today's items already in This Week.md (migrated from Tickler in steps 3/6)
 - Anything the user mentioned in step 4
 
-**Move, not copy.** When an item from the Backlog section is scheduled into today's timeline, delete it from the Backlog. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Backlog or a future day — but it must never exist in both places simultaneously.
+**Move, not copy.** When an item from Tasks.md is scheduled into today's timeline, delete it from Tasks.md. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Tasks.md or a future day — but it must never exist in both places simultaneously.
 
 Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`). Detailed completion notes go in the "Done today" subsection under today's day heading.
 

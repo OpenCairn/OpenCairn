@@ -163,7 +163,7 @@ mkdir -p "{VAULT}/06 Archive/Claude/Daily Reports"
 Before collapsing, scan today's section — and any earlier days that are still verbose — for `- [ ]` items. For each:
 - **Has a natural future day?** → Move to that day's section.
 - **Priority item that should happen tomorrow?** → Move to tomorrow's section.
-- **Low priority / no deadline?** → Move to the Backlog section at the top of This Week.md.
+- **Low priority / no deadline?** → Move to Tasks.md (`{VAULT}/01 Now/Tasks.md`).
 - **Already appears in a future day?** → Delete the duplicate from today, don't move.
 
 **Critical: carry items forward intact.** Move the full item text, sub-items, checklists, and surrounding context exactly as they appear. A multi-line checklist (e.g. a sprint with Tier 1/Tier 2 items) is an active working artifact — move the entire block, not a summary. Never summarise, condense, or strip items during routing — including `[x]` items. Completed items within a block are progress context.

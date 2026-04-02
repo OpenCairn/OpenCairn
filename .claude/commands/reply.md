@@ -75,27 +75,23 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
    **Batch mode:** If the user pastes 3 or more messages to reply to, run the factual claims inventory before drafting any (per voice profile "3+ emails" rule): present what's known to be true, what was researched, and ask the user to confirm which researched facts can be attributed to them. One round-trip, then draft cleanly.
 
-4. **Voice check (strict)**
+4. **Voice check (via `/de-ai-ify`)**
 
-   Apply `/de-ai-ify`'s full checklist and transformations to the draft. Do not invoke `/de-ai-ify` as a separate skill (vault path and voice profile are already loaded from steps 0 and 2). Run every check from `/de-ai-ify`'s AI Pattern Checklist: lexical clichés, structural patterns, tone indicators, and the user's voice criteria. Fix every issue found directly in the draft, silently (no before/after presentation).
-
-   **Report one line after the draft:**
-   - `Voice check: passed` — if no issues found
-   - `Voice check: fixed N issues [brief list]` — if issues were found and fixed (e.g., "Voice check: fixed 3 issues [em dashes, 'dive deep', hedging]")
+   After drafting, invoke `/de-ai-ify` via the Skill tool on the draft text. This is a real skill invocation, not an inline approximation. `/de-ai-ify` will present the before/after comparison and apply its full checklist, including the voice refinement prompt (step 6 of `/de-ai-ify`). Do not duplicate `/de-ai-ify`'s logic here.
 
 5. **Output**
 
    **Always write to scratchpad:**
-   - Append to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
+   - Append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
    - If re-drafting the same reply (same sender + medium), replace the previous draft section rather than appending a duplicate
-   - Also display the full draft in conversation
 
    **User override:**
    - "Just inline" → don't write to scratchpad
 
    **After output:**
-   - Wait for user feedback: edits, "sent", requests for `/de-ai-ify`, etc.
-   - On "sent": acknowledge briefly (one line), move on. Don't clear scratchpad automatically.
+   - Wait for user feedback: edits, "sent", etc.
+   - On "sent": acknowledge briefly (one line). Voice refinement is handled by `/de-ai-ify` (step 6) which already ran in step 4.
+   - Don't clear scratchpad automatically.
 
 ## Conversation Continuity
 

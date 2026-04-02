@@ -83,7 +83,18 @@ Present two versions:
 5. **Iterate if needed:**
    - Ask if the voice feels right
    - Adjust based on feedback
-   - Learn from corrections for future de-AI-ifying
+
+6. **Voice refinement prompt:**
+
+   After the user accepts or uses the de-AI-ified text, ask: "If you'd like to refine your voice profile, paste the final version you actually used."
+
+   When the user provides their final text:
+   - Diff against the de-AI-ified version. Ignore content-only changes (added links, changed facts, different context). Focus on word choice, tone, structure, and register shifts.
+   - For each voice-relevant change, classify:
+     - **Voice doc gap:** A pattern not yet captured in the voice profile. Propose adding it.
+     - **Voice doc violation:** A pattern the doc already covers but the output didn't follow. Note it as a self-correction (the doc is fine; the de-AI-ifying needs to improve).
+   - If there are genuine voice doc gaps: propose specific edits to `{VAULT}/07 System/Context - Voice & Writing Style.md` and apply them on user confirmation.
+   - If all changes were content-only or already-covered violations: say so briefly. No voice doc update needed.
 
 ## AI Pattern Checklist
 
@@ -154,6 +165,6 @@ Use de-AI-ify:
 - **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
 - **Before blog publishing:** Final voice check on posts
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
-- **With /reply:** `/reply` applies `/de-ai-ify`'s full checklist and transformations on every draft (silent fixes, no before/after, no separate skill invocation). Use standalone `/de-ai-ify` when you want the before/after presentation or want to run it on text outside of `/reply`.
+- **With /reply:** `/reply` invokes `/de-ai-ify` via the Skill tool after drafting. The full before/after presentation and voice refinement prompt apply. `/de-ai-ify` can also be used standalone on any text outside of `/reply`.
 
 This ensures **the user's authentic voice in all published work**.
