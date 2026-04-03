@@ -402,6 +402,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Quick tier:** Skip
    - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
    - Collect all files modified during steps 12-14 (WIP update, reference graph tracing, open loop routing)
+   - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session.
    - Use the backfill-files-updated script:
      ```bash
      cat << 'EOF' | "{VAULT}/.claude/scripts/backfill-files-updated.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
@@ -478,6 +479,7 @@ To pickup later: `claude` then `/pickup`
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
+- **No checkboxes in session logs:** Open loops in "Next Steps / Open Loops" use plain bullets (`- `), never checkboxes (`- [ ]`). Checkboxes belong in files where items are tracked and checked off (This Week.md, Tasks.md, project files). Session logs are write-once records — the format signals the function.
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
 - **Project context:** Full tier links projects; Quick tier skips
 - **Project linking:** Follow the rules in `_shared-rules.md` Section 2.

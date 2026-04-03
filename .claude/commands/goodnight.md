@@ -318,6 +318,6 @@ This command should trigger when the user says:
 
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/backlog), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
+- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Tasks.md), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
 - **Replaces:** `/daily-review` (deprecated)
