@@ -82,7 +82,7 @@ The core mechanic. Based on the "shutdown complete" ritual — the idea that you
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-**Next session:** `/pickup` uses a shell script to extract session metadata as compact TSV, then builds an interactive project-grouped menu. Only the selected session is read in full — menu browsing costs almost nothing. Supports hide, snooze (with auto-resurface), staleness warnings, and tickler surfacing.
+**Next session:** `/pickup` shows your Works in Progress as a numbered list — pick one to load its project hub and last session context. Or pass a topic/keyword to jump straight in; a shell script extracts session metadata as compact TSV so targeted searches are cheap.
 
 ### Day: Morning, Afternoon, Goodnight
 
@@ -182,7 +182,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 | Command | What it does |
 |---------|-------------|
-| `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Supports snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. |
+| `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Loads project hub and last session context on selection. |
 | `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
 
 **Extended breaks:**
@@ -266,7 +266,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 ## Under the Hood
 
-- **Two-stage pickup.** `/pickup` uses a shell script to extract session metadata as TSV (~10x smaller than reading full files), then builds an interactive project-grouped menu. Only the selected session is read in full — menu browsing costs almost nothing. Supports hide, snooze (with auto-resurface), staleness warnings, and tickler surfacing.
+- **Two-stage pickup.** Bare `/pickup` reads Works in Progress and shows a numbered list — cheap orientation. Targeted pickup (`/pickup Japan trip`) uses a shell script to extract session metadata as TSV (~10x smaller than reading full files), then searches for matches. Only the selected session is read in full.
 - **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
 - **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
 - **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
