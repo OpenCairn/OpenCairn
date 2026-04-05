@@ -324,7 +324,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        3. **No doc, work complete:** Omit Next
        Never a queue — one pointer or one action.
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
-     - **FIFO cap at 2:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 2, remove the oldest by date until exactly 2 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
+     - **FIFO cap at 3:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 3, remove the oldest by date until exactly 3 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
        ```bash
        # Extract the WIP entry for this project and count session links
@@ -332,7 +332,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        # Uses awk index() for fixed-string matching (headings often contain / and &)
        awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
-       Display: `FIFO check: N/2 session links`. If more than 2, fix before proceeding.
+       Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
    - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
    - Update "Last updated" timestamp at top of file with current date/time
 
