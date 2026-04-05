@@ -71,9 +71,11 @@ Quarterly review serves three purposes:
 - "What needs to start now to be ready on time? (Long Poles)"
 - "What should you stop doing?"
 
-4. **Landscape Scan — Review recent `/landscape-scan` outputs:**
+4. **Landscape Scan:**
 
-   Read all landscape scan reports from `{VAULT}/06 Archive/Landscape Scans/` for this quarter. Synthesise the adopt/adapt/note findings into the quarterly review output. If no scans have been run this quarter, run `/landscape-scan` now as part of the quarterly review.
+   Check if `{VAULT}/06 Archive/Landscape Scans/` exists and contains reports from this quarter. If reports exist, synthesise the adopt/adapt/note findings into the quarterly review output.
+
+   If no reports exist (or the directory doesn't exist), run a lightweight inline scan: search the web for recent developments in the user's key domains (based on WIP projects and context files), and populate the Landscape Scan section of the review output directly. Focus on tools, patterns, and architecture changes relevant to the user's active work.
 
 ### Part 2: Vault Deep Maintenance
 
@@ -207,8 +209,8 @@ Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 Projects to explicitly abandon rather than let linger:
 - [ ] [Project] — Reason to kill
 
-## Landscape Scan (synthesised from monthly `/landscape-scan` reports)
-**Scans this quarter:** [list months, e.g. 2026-04, 2026-05, 2026-06]
+## Landscape Scan
+**Source:** [synthesised from monthly reports / inline scan]
 
 ### Adopt (use directly)
 - [Tool/pattern] — [what it does, why it's relevant]
@@ -273,7 +275,7 @@ Projects to explicitly abandon rather than let linger:
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
-✓ Landscape scans synthesised: N months, M total findings
+✓ Landscape scan: [synthesised N monthly reports / ran inline scan]
 ✓ Context files audited: N files, M issues found
 ✓ Broken links: N fixed, M remaining
 ✓ CRM: N new candidates, M stale entries
@@ -290,7 +292,7 @@ Quarterly review complete.
 - **Don't try to do everything.** If the vault is large, prioritise by impact. Fix context files and broken links first. Orphan scan is lower priority.
 - **Connect to weekly reviews.** Reference weekly review insights rather than re-deriving everything from session logs.
 - **Honest strategic assessment.** The quarterly check is where you surface uncomfortable truths about priority drift.
-- **Landscape scan is monthly now.** The quarterly review synthesises monthly `/landscape-scan` reports rather than running its own scan. If no monthly scans exist for the quarter, run one inline.
+- **Landscape scan.** The quarterly review synthesises monthly landscape scan reports if they exist, otherwise runs a lightweight inline scan.
 - **Natural language.** Write in the user's voice — analytical, outcome-focused, honest.
 
 ## Frequency
@@ -304,6 +306,6 @@ Run quarterly, typically:
 
 - **Aggregates weekly reviews:** Connects weekly patterns into quarterly themes
 - **Feeds into annual review:** (If the user implements one)
-- **Synthesises /landscape-scan:** Monthly scans track the external landscape; quarterly review rolls them up into strategic context
+- **Landscape awareness:** Synthesises monthly landscape scan reports if available, or runs an inline scan during the review
 - **Complements /weekly-review:** Weekly handles tactical maintenance; quarterly handles strategic + deep structural
 - **Informs context files:** The primary mechanism for keeping `07 System/Context - *.md` files accurate
