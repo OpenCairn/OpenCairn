@@ -87,9 +87,62 @@ If neither `main` nor `master` exists, abort:
 
 Store as `$BRANCH`. Use `$REMOTE/$BRANCH` for all subsequent steps.
 
+### Step 3b: Verify Commit Signature
+
+Before applying any changes, verify the template commit is signed:
+
+```bash
+VERIFY_OUTPUT=$(git verify-commit $REMOTE/$BRANCH 2>&1)
+```
+
+**If verification succeeds** (exit code 0), display:
+```
+✓ Template commit is signed and verified
+```
+Continue to Step 4.
+
+**If verification fails** (exit code non-zero), check whether the failure is a missing config or an actual signature problem:
+
+```bash
+echo "$VERIFY_OUTPUT" | grep -q "allowedSignersFile"
+```
+
+**If `allowedSignersFile` is mentioned** — the user hasn't configured signature verification locally. This is a config gap, not a security problem. Display:
+```
+ℹ Signature verification is not configured on your machine.
+  The template commit may be signed, but your git can't check it.
+
+  To enable verification, see: https://github.com/OpenCairn/OpenCairn#commit-signing
+
+  Continuing without signature check.
+```
+Continue to Step 4 (no user prompt needed — this is informational, not a security warning).
+
+**Otherwise** — the commit is genuinely unsigned or the signature is invalid. Display:
+```
+⚠ WARNING: Template commit at $REMOTE/$BRANCH is NOT signed.
+
+  This could mean:
+  - The repository maintainer pushed without signing (ask them to fix it)
+  - The repository has been compromised
+
+  Commit: $(git rev-parse --short $REMOTE/$BRANCH)
+  Author: $(git log -1 --format='%an <%ae>' $REMOTE/$BRANCH)
+  Date:   $(git log -1 --format='%ci' $REMOTE/$BRANCH)
+
+  Do you want to continue anyway? (y/n)
+```
+
+If the user chooses **n**, abort. If **y**, continue with a warning banner prepended to all subsequent output:
+```
+⚠ UNVERIFIED — applying unsigned template commit
+```
+
+**Why warn instead of hard-block:** Early adopters pulling older (pre-signing) commits would be locked out. Once all historical commits are superseded by signed ones, this can be tightened to a hard block.
+
 ### Step 4: Compare Working Tree Against Template
 
-Compare the user's **actual files on disk** (not committed state) against the template:
+Compare the user's **actual files on disc** (not committed state) against the template:
 
 ```bash
 # Compare working tree against template (catches uncommitted local changes too)

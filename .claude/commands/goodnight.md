@@ -238,25 +238,7 @@ EOF
 
 **If this is the first session of the day** (no session file exists yet), add `--create` to the script invocation. The script handles locking, file creation, and atomic writes.
 
-### 15. Check for Stranded Work Product
-
-Check whether any Claude-internal files were created or modified today that haven't been migrated to the vault. Pass midnight to cover the entire day (goodnight wraps all sessions, not just the current one):
-
-```bash
-"{VAULT}/.claude/scripts/check-stranded-plans.sh" "00:00:00"
-```
-
-If any files found:
-1. Read each plan file
-2. Identify the corresponding vault project doc
-3. If vault doc is stale or missing the plan content, **migrate it now**
-4. Display: `🔧 Migrated plan content to vault: [path]`
-
-If none found: `✓ No stranded work product in ~/.claude/plans/`
-
-**Why:** `~/.claude/plans/` doesn't sync, isn't visible in Obsidian, and effectively doesn't exist outside the session. Work product has been stranded there multiple times. End-of-day is the last safety net.
-
-### 16. Export Session Transcripts
+### 15. Export Session Transcripts
 
 Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
 
@@ -272,11 +254,11 @@ fi
 
 Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
 
-### 17. Update Works in Progress
+### 16. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
 
-### 18. Close
+### 17. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
