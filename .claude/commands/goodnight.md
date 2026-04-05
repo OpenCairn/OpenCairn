@@ -166,7 +166,7 @@ Before collapsing, scan today's section — and any earlier days that are still 
 - **Low priority / no deadline?** → Move to Tasks.md (`{VAULT}/01 Now/Tasks.md`).
 - **Already appears in a future day?** → Delete the duplicate from today, don't move.
 
-**Critical: carry items forward intact.** Move the full item text, sub-items, checklists, and surrounding context exactly as they appear. A multi-line checklist (e.g. a sprint with Tier 1/Tier 2 items) is an active working artifact — move the entire block, not a summary. Never summarise, condense, or strip items during routing — including `[x]` items. Completed items within a block are progress context.
+**Critical: carry items forward intact.** Move the full item text, sub-items, checklists, and surrounding context exactly as they appear. A multi-line checklist (e.g. a sprint with Tier 1/Tier 2 items) is an active working artefact — move the entire block, not a summary. Never summarise, condense, or strip items during routing — including `[x]` items. Completed items within a block are progress context.
 
 **Block boundary rule:** A section header (bold text line like `**Sprint Tier 1:**`) and all items beneath it until the next section header form a block. If *any* `- [ ]` item remains in a block, move the entire block (header + all items + `[x]` items). The destination should be a copy of the source block, not a reconstruction.
 
@@ -207,7 +207,7 @@ echo "New session number: $NEW_NUM (last existing: $PREV_NUM)"
 **Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
 1. Read its summary and completions from the session file
 2. Update your working memory (adjust session count, note outcomes)
-3. **Patch the daily report** (Step 9 output already on disk) — add the missed session(s) to the Sessions list
+3. **Patch the daily report** (Step 9 output already on disc) — add the missed session(s) to the Sessions list
 
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
 
@@ -261,10 +261,16 @@ If none found: `✓ No stranded work product in ~/.claude/plans/`
 Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
 
 ```bash
-python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+TODAY=$(date +"%Y-%m-%d")
+TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/Session Transcripts/$TODAY.md"
+if [[ -f "$TRANSCRIPT_FILE" ]]; then
+  echo "Transcripts already exported for today (from /park) — skipping"
+else
+  python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+fi
 ```
 
-Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message.
+Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
 
 ### 17. Update Works in Progress
 

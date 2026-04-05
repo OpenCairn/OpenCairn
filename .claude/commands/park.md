@@ -130,7 +130,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Were any "Next Steps" completed during the session? Remove them from the list (they're no longer open)
 
    **PROOFREAD** - Language and consistency:
-   - **Spelling localisation:** Use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling (organise, categorise, prioritise, realise, analyse, summarise, colour, favour). If `en_US`: normalise to American spelling. If no locale set: skip spelling normalisation.
+   - **Spelling localisation:** Skip if a PostToolUse spelling hook (e.g. britfix) already normalises spelling at write time. Otherwise: use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling (organise, categorise, prioritise, realise, analyse, summarise, colour, favour). If `en_US`: normalise to American spelling. If no locale set: skip spelling normalisation.
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice
@@ -418,6 +418,16 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Only include files actually modified — if steps 12-14 didn't touch a file, don't list it
    - **Why this exists:** The session log is written at step 9 before steps 12-14 run, so "Files Updated" is always incomplete without this backfill. This was caught by audit — sessions were reporting "Files Updated: None" when WIP, This Week, and project files had all been modified.
 
+14b. **Export session transcript** (Full tier only):
+   - **Quick tier:** Skip
+   - Export today's verbatim session transcripts to the vault:
+     ```bash
+     python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+     ```
+   - Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
+   - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
+   - **Why at park time:** Makes transcripts available for `/provenance` hashing without waiting for `/goodnight`.
+
 15. **Display completion message** (tier-appropriate):
 
 **Quick tier:**
@@ -440,6 +450,7 @@ Quick park complete. Minimal overhead for trivial task.
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
+✓ Transcript exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
 ⚠️ Post-park audit recommended. `/audit the /park` to check cross-file consistency.
 
 Parked. Pick up when ready.

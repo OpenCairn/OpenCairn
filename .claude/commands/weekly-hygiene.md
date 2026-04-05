@@ -5,7 +5,7 @@ description: Vault structural maintenance - broken links, stale items, tier mism
 
 # Weekly Hygiene - Vault Structural Maintenance
 
-You are running a vault hygiene pass. This is purely mechanical/structural maintenance — no reflection, no planning, no alignment checks. It can run independently (mid-week cleanup) or as a precursor to `/weekly-review`.
+You are running a vault hygiene pass. This is purely mechanical/structural maintenance — no reflexion, no planning, no alignment checks. It can run independently (mid-week cleanup) or as a precursor to `/weekly-review`.
 
 ## Instructions
 
@@ -180,7 +180,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 11. **Session Transcript Export**
 
-   Backstop for `/goodnight` step 16, which exports daily. This catches any days missed (skipped goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
+   Backstop for `/park` step 14b and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
 
    **Auto-fix:**
    ```bash
@@ -424,7 +424,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Guidelines
 
-- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 13) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflection to act on.
+- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 13) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
 - **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale entries, tier mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route to Tasks.md as fallback — never drop findings silently.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run auto-removes strikethrough content.
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
