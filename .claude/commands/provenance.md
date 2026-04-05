@@ -1,6 +1,6 @@
 ---
 name: provenance
-description: Log cryptographic hash of current session for AI collaboration audit trail
+description: Log cryptographic hashes of session log and transcript for AI collaboration audit trail
 parameters:
   - "--auto" - Auto-tag from session context (default)
   - "--tag TAG" - Manual project/manuscript tag
@@ -34,11 +34,12 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 
    If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
-### 2. Get Current Date and Session File
+### 2. Get Current Date and Session Files
 
 ```bash
 TODAY=$(date +"%Y-%m-%d")
 SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$TODAY.md"
+TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/Session Transcripts/$TODAY.md"
 ```
 
 Check if session file exists:
@@ -82,48 +83,110 @@ if [[ ! -f "$PROVENANCE_LOG" ]]; then
   exit 0
 fi
 
+SKIP_SESSION=false
 if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG"; then
   echo "Already logged: $TODAY.md with tag '$PROJECT_TAG' — skipping duplicate"
+  SKIP_SESSION=true
+fi
+
+SKIP_TRANSCRIPT=false
+if grep -Fq "| $PROJECT_TAG | ${TODAY}-transcript.md |" "$PROVENANCE_LOG"; then
+  echo "Already logged: ${TODAY}-transcript.md with tag '$PROJECT_TAG' — skipping duplicate"
+  SKIP_TRANSCRIPT=true
+fi
+
+# If both already logged, nothing to do
+if [[ "$SKIP_SESSION" == true && "$SKIP_TRANSCRIPT" == true ]]; then
+  echo "Both session log and transcript already logged — skipping"
+  exit 0
+fi
+# If session already logged but no transcript exists, also nothing to do
+if [[ "$SKIP_SESSION" == true && ! -f "$TRANSCRIPT_FILE" ]]; then
+  echo "Session log already logged, no transcript to hash — skipping"
   exit 0
 fi
 ```
 
-### 5. Hash the Session File
+### 5. Hash Session Files
 ```bash
-HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
-SHORT_HASH="${HASH:0:16}"
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+
+# Hash session log
+if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
+  HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
+  SHORT_HASH="${HASH:0:16}"
+fi
+
+# Hash session transcript (if it exists)
+HAS_TRANSCRIPT=false
+if [[ "$SKIP_TRANSCRIPT" != true && -f "$TRANSCRIPT_FILE" ]]; then
+  TRANSCRIPT_HASH=$(sha256sum "$TRANSCRIPT_FILE" | awk '{print $1}')
+  TRANSCRIPT_SHORT="${TRANSCRIPT_HASH:0:16}"
+  HAS_TRANSCRIPT=true
+fi
 ```
+
+Session transcripts are the verbatim conversation exports produced by `/park` step 14b and `/goodnight` step 16 (`export-session-transcripts.py`). They're higher-value provenance evidence than curated session logs because they capture the full, unedited interaction. Transcript hashing only fires when a transcript file exists — skips silently if not yet exported.
 
 ### 6. OpenTimestamps (optional, non-blocking)
 ```bash
 OTS_STATUS="—"
 if command -v ots &>/dev/null; then
   mkdir -p "{VAULT}/07 System/Provenance"
-  if ots stamp "$SESSION_FILE" 2>/dev/null; then
-    mv "${SESSION_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}.ots" 2>/dev/null
-    OTS_STATUS="pending"
+  # Stamp session log
+  if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
+    if ots stamp "$SESSION_FILE" 2>/dev/null; then
+      mv "${SESSION_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}.ots" 2>/dev/null
+      OTS_STATUS="pending"
+    fi
   fi
+  # Stamp transcript
+  TRANSCRIPT_OTS_STATUS="—"
+  if [[ "$HAS_TRANSCRIPT" == true ]]; then
+    if ots stamp "$TRANSCRIPT_FILE" 2>/dev/null; then
+      mv "${TRANSCRIPT_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}-transcript.ots" 2>/dev/null
+      TRANSCRIPT_OTS_STATUS="pending"
+    fi
+  fi
+else
+  TRANSCRIPT_OTS_STATUS="—"
 fi
 ```
 
 The `.ots` proof is initially "pending" — it becomes "confirmed" after ~2 hours when the Bitcoin block is mined. Run `ots upgrade` or `/verify-provenance` later to check confirmation status.
 
-If `ots` is not installed or network is unavailable, skip silently (`OTS_STATUS` stays `—`).
+If `ots` is not installed or network is unavailable, skip silently (status stays `—`).
 
-### 7. Append Table Row
+### 7. Append Table Rows
 ```bash
-ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
+# Append session log row
+if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
+  ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
 
-# Use awk (not sed -i) for cross-platform compatibility (BSD sed requires different -i syntax)
-export _AWK_ROW="$ROW"
-flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
-  awk "
-    /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
-    { print }
-  " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
-' _ "$PROVENANCE_LOG"
-unset _AWK_ROW
+  # Use awk (not sed -i) for cross-platform compatibility (BSD sed requires different -i syntax)
+  export _AWK_ROW="$ROW"
+  flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
+    awk "
+      /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
+      { print }
+    " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+  ' _ "$PROVENANCE_LOG"
+  unset _AWK_ROW
+fi
+
+# Append transcript row
+if [[ "$HAS_TRANSCRIPT" == true ]]; then
+  TRANSCRIPT_ROW="| $TIMESTAMP | $PROJECT_TAG | ${TODAY}-transcript.md | \`$TRANSCRIPT_SHORT\` | $TRANSCRIPT_OTS_STATUS |"
+
+  export _AWK_ROW="$TRANSCRIPT_ROW"
+  flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
+    awk "
+      /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
+      { print }
+    " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+  ' _ "$PROVENANCE_LOG"
+  unset _AWK_ROW
+fi
 ```
 
 **Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude/Session Logs/.lock`) to avoid deadlock.
@@ -133,12 +196,14 @@ unset _AWK_ROW
 ```
 ✓ Provenance logged
   Project: [tag]
-  Session: [date].md
-  Hash: [first 16 chars]...
-  OTS: [pending/—]
+  Session: [date].md — [first 16 chars]... (OTS: [pending/—])
+  Transcript: [date]-transcript.md — [first 16 chars]... (OTS: [pending/—])
+             [OR "not yet exported — will hash at /goodnight"]
 
 Full log: 07 System/AI Provenance Log.md
 ```
+
+If no transcript exists, display the "not yet exported" line. If session log was already logged (only transcript is new), display "already logged" for the session line.
 
 ## Guidelines
 
@@ -153,7 +218,7 @@ Full log: 07 System/AI Provenance Log.md
 ## Integration
 
 - **Creates:** Entries in `07 System/AI Provenance Log.md`, `.ots` proofs in `07 System/Provenance/`
-- **Reads:** Current day's session file from `06 Archive/Claude/Session Logs/`
+- **Reads:** Current day's session log from `06 Archive/Claude/Session Logs/` and session transcript from `06 Archive/Claude/Session Transcripts/` (if exported)
 - **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
 - **Verified by:** `/verify-provenance`
 - **Lock file:** `{VAULT}/07 System/.provenance-lock` (separate from session lock)

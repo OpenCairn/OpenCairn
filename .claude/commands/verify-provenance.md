@@ -41,8 +41,17 @@ For each entry in the log, perform steps 3–5:
 
 ### 3. Check File Existence
 
+Resolve the actual file path based on the Session column value. Transcript entries use the naming convention `YYYY-MM-DD-transcript.md` and map to the `Session Transcripts/` directory.
+
 ```bash
-SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$SESSION_FILENAME"
+if [[ "$SESSION_FILENAME" == *-transcript.md ]]; then
+  # Transcript entry: strip -transcript suffix, look in Transcripts dir
+  BASE_DATE="${SESSION_FILENAME%-transcript.md}"
+  SESSION_FILE="{VAULT}/06 Archive/Claude/Session Transcripts/${BASE_DATE}.md"
+else
+  SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$SESSION_FILENAME"
+fi
+
 if [[ ! -f "$SESSION_FILE" ]]; then
   echo "MISSING: $SESSION_FILENAME"
   # Record as MISSING, continue to next entry
@@ -66,6 +75,7 @@ fi
 
 ### 5. Verify OTS Proofs (if applicable)
 ```bash
+# OTS filename matches the Session column value (e.g. 2026-04-05.ots or 2026-04-05-transcript.ots)
 OTS_FILE="{VAULT}/07 System/Provenance/${SESSION_FILENAME%.md}.ots"
 if [[ -f "$OTS_FILE" ]]; then
   # Try to upgrade pending proofs first
@@ -138,6 +148,6 @@ If OTS proofs are pending and upgradeable, offer:
 
 ## Integration
 
-- **Reads:** `07 System/AI Provenance Log.md`, session files in `06 Archive/Claude/Session Logs/`, OTS proofs in `07 System/Provenance/`
+- **Reads:** `07 System/AI Provenance Log.md`, session logs in `06 Archive/Claude/Session Logs/`, session transcripts in `06 Archive/Claude/Session Transcripts/`, OTS proofs in `07 System/Provenance/`
 - **May update:** Provenance Log (if user approves re-hashing or OTS status updates)
 - **Complements:** `/provenance` (creates entries), `/park` `/checkpoint` `/goodnight` (auto-creates entries)
