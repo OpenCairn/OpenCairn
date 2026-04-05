@@ -9,7 +9,7 @@ You are facilitating the user's weekly review. This is a higher-altitude review 
 
 ## Philosophy
 
-The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities. Vault structural maintenance is handled by `/weekly-hygiene` — this command focuses on reflection and planning.
+The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities. Vault structural maintenance is handled by `/weekly-hygiene` — this command focuses on reflexion and planning.
 
 ## Instructions
 
@@ -218,37 +218,76 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 8. **Generate Claude Web context summary:**
 
-   Generate a ~500 word context snapshot for the user to paste into Claude Web's Profile Preferences (Settings > Profile > "What preferences should Claude consider in responses?"). This gives Claude Web conversations up-to-date context without access to the vault.
+   Generate a comprehensive context snapshot (~120-150 lines) for the user to import into Claude Web via Settings > Capabilities > Memory > "Import memory from other AI providers" > paste into the "Add to memory" field. This gives Claude Web up-to-date, vault-informed context that merges into its Memory.
 
-   Ensure directory exists: `mkdir -p "{VAULT}/07 System"`
+   **How Claude Web Memory works:** Claude Web auto-generates a "Memory from your chats" summary nightly from chat history. Imported context merges into this same Memory blob. The nightly regeneration restructures everything into third-person prose with sections like "Work context", "Personal context", "Top of mind", "Brief history". The context file is the user's authoritative, vault-informed self-description — more accurate than what Memory derives from chat patterns alone.
 
-   If `{VAULT}/07 System/Claude Web Context.md` already exists, read it first. Carry forward any user-written communication preferences or behavioural rules into the new version. Then overwrite the file with the complete new summary.
+   **Output location:**
+   - Ensure directory: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Context"`
+   - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week)
 
-   **First-use note:** Before first use, the user should copy their existing Claude Web Profile Preferences content (if any) and save it to this file so the generated summary can incorporate it.
+   **Gather context for dynamic sections:**
+   - Read `{VAULT}/01 Now/Works in Progress.md` — every active entry is a candidate for inclusion, not just "projects." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
+   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (sorted descending) for trajectory and recent events. The current week's review data is already available from earlier steps.
 
-   **Relationship with Claude Web Memory:** Claude Web auto-generates a "Memory" summary nightly from chat history. This may cover stable biographical facts (role, location, interests, gear), but not all users have populated Memory. The summary should be self-contained.
+   **Read previous context version** to carry forward stable sections:
+   - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/` (sorted by filename descending)
+   - The file has two kinds of sections:
+     - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How I Like to Work): Carry forward from the previous version. Update only facts that changed this week. If no previous version exists, generate from CLAUDE.md and context files in `07 System/`.
+     - **Dynamic sections** (What I'm Working On Right Now, Recent Context, Active Research Interests, and any active personal threads from WIP): Regenerate fully from WIP, recent weekly reviews, and this week's review data.
 
-   **What to include:**
-   - **Identity**: 1-2 sentences — name, role, location, current life stage (from CLAUDE.md). Always include this even though Claude Web Memory may cover it — not all users have populated Memory.
-   - **Active projects**: Top 3-5 from the "What's Next" section of this review
-   - **Recent context**: Key decisions, changes, or events from the review period
-   - **Upcoming**: What's coming in the next 1-2 weeks
-   - **Current location**: If different from home base (e.g. traveling)
-   - **Communication preferences**: Brief summary of how the user likes to interact (from CLAUDE.md)
+   **Output structure:**
 
-   **What to keep brief** (Memory may already cover these):
-   - Stable personal interests, hobbies, gear
-   - Technical infrastructure details
-   - Travel history (past trips)
+   ~~~
+   Last updated: YYYY-MM-DD
+
+   [1-2 sentence identity/situation summary from CLAUDE.md]
+
+   [Active personal context from WIP that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't "projects" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
+
+   ## What I'm Working On Right Now
+   [Top 3-5 from "What's Next" section of this review, plus significant WIP entries. Include key dates/deadlines.]
+
+   ## Recent Context
+   [Key decisions, changes, events from the review period. 2-4 bullets.]
+
+   ## How I Like to Work
+   [Communication preferences from CLAUDE.md. Carry forward from previous version.]
+
+   ## Background
+   [Stable biographical context: citizenship, credentials, practice details, key collaborators, family, housing. Carry forward, update as needed.]
+
+   ## Photography
+   [Gear, websites, aesthetic, editing workflow. Carry forward, update as needed.]
+
+   ## Technical Setup
+   [Devices, OS, NAS, networking, backups, self-hosted services. Carry forward, update as needed. No vault file paths — irrelevant to Claude Web.]
+
+   ## Health & Medications
+   [Current medication stack, fitness approach, relevant conditions. Carry forward, update as needed.]
+
+   ## Interests & Worldview
+   [Core frameworks, influences, political orientation, intellectual interests. Carry forward, update as needed.]
+
+   ## Active Research Interests
+   [Current academic/intellectual pursuits. Refresh from review data.]
+   ~~~
+
+   **Section guidance:**
+   - Not all users will have all sections. Omit any section with no corresponding context file or CLAUDE.md content. The section list above is a superset — match to what the user's vault actually contains.
+   - For stable sections, look for `07 System/Context - *.md` files matching the section topic (e.g., a photography context file for Photography, a health context file for Health & Medications).
 
    **Constraints:**
-   - ~500 words (Profile Preferences consumes tokens in every conversation)
-   - Written in first person as if the user wrote it ("I am...", "I prefer...", "I'm currently...")
+   - ~120-150 lines target. Stable sections should be detailed enough that the user doesn't need to re-explain these domains in web conversations.
+   - Written in third person ("[Name] is...", "He/She prefers...") — Claude Web's Memory system uses third person, and imported content is restructured into the same style. Third person is more predictable and consistent.
    - Start with `Last updated: YYYY-MM-DD` so staleness is self-evident both in the vault file and after pasting into Claude Web
    - No wikilinks, callouts, or dataview queries — standard markdown (headers, bullets, bold) is fine
-   - Factual and current — this replaces the previous version entirely
-   - **Recency weighting:** More recent = more detail. This week's priorities and upcoming plans get the most words. Last week's events get a sentence or two of context. Anything older than ~2 weeks should only appear if it's still actively relevant (e.g. an ongoing project), not as historical narrative.
-   - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. Token budget is scarce — don't waste it on context that doesn't shift the response.
+   - No vault file paths (irrelevant to Claude Web)
+   - Factual and current
+   - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
+   - **Stable sections: carry forward by default.** Only rewrite if facts changed. This preserves user edits and avoids churn.
+   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting.
+   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and WIP (gathered above). The first generation will require reading these files; subsequent weeks carry forward.
 
 9. **Display confirmation:**
 
@@ -256,7 +295,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
-✓ Claude Web context: 07 System/Claude Web Context.md (paste into Profile Preferences)
+✓ Claude Web context: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md (import via Settings > Capabilities > Memory)
 ✓ What's next: [Top 2-3 priorities]
 
 Weekly review complete.
@@ -281,7 +320,7 @@ Run whenever the user requests it. Typical cadence is every 4-12 days — there 
 ## Integration with Other Commands
 
 - **Consumes `/weekly-hygiene`:** Reads the hygiene report for vault maintenance findings — no need to re-gather
-- **Synthesizes daily reviews:** Aggregates daily patterns into weekly insights
+- **Synthesises daily reviews:** Aggregates daily patterns into weekly insights
 - **Informs project planning:** Identifies what needs attention, what to drop
 - **Feeds into monthly/quarterly reviews:** (If the user implements those)
 - **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)

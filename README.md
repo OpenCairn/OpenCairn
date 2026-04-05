@@ -1,4 +1,4 @@
-<p align="center">
+<p align="centre">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
@@ -6,18 +6,18 @@
   </picture>
 </p>
 
-<h1 align="center">OpenCairn</h1>
+<h1 align="centre">OpenCairn</h1>
 
-<p align="center"><em>Park. Pickup. Flow.</em></p>
+<p align="centre"><em>Park. Pickup. Flow.</em></p>
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="License: CC BY-NC 4.0"></a>&nbsp;
+<p align="centre">
+  <a href="LICENCE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
 Slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
 
-<p align="center">
+<p align="centre">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
 </p>
 
@@ -64,7 +64,7 @@ If the terminal part sounds alien, the [setup wizard](https://hedwards.dev/cco-s
 
 ## How It Works
 
-**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disk. **Claude Code** reads and writes those same files directly. Your notes and Claude's context are the same thing.
+**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disc. **Claude Code** reads and writes those same files directly. Your notes and Claude's context are the same thing.
 
 **The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files. Each conversation produces refined thinking that gets written back to your vault, becoming input for the next conversation. Context compounds instead of decaying.
 
@@ -281,12 +281,30 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 
 ---
 
+## Commit Signing
+
+All commits to this repository are signed with SSH keys. GitHub shows a "Verified" badge on each commit.
+
+**For `/update` users:** When you run `/update`, it checks whether the template commit is signed. If your git isn't configured to verify signatures, you'll see an informational message (not a security warning). To enable local verification:
+
+```bash
+# 1. Create an allowed_signers file with the maintainer's public key
+echo "harrisonaedwards@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII2W2hHbB2SqhuxctJVhXBgEAOWI0SKJxp/WN96Gtibq harrison-signing-key" > ~/.ssh/allowed_signers
+
+# 2. Tell git to use it
+git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+```
+
+After this, `/update` will show "Template commit is signed and verified" on each run.
+
+---
+
 ## Credits
 
 Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm), [The Neuron](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant). Built with Claude Code.
 
 ---
 
-## License
+## Licence
 
-[CC BY-NC 4.0](LICENSE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licensing.
+[CC BY-NC 4.0](LICENCE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licencing.

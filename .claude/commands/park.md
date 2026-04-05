@@ -10,7 +10,7 @@ parameters:
 
 # Park - Session Capture
 
-You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, stranded work product check, tickler.
+You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, conversation draft check, tickler.
 
 **⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. `/goodnight` also writes to WIP, This Week.md, and project files via the Edit tool, which has no locking — concurrent parks will silently clobber each other's edits. Park all sessions before starting goodnight, and capture one session at a time.
 
@@ -69,7 +69,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 5, 11 (conversation draft check only), 12, 13, 14, 14a, 15, 16** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, audit recommendation — all using the merged session's number). Skip Steps 3-4, 6-10, and the plans/ filesystem check in Step 11 (no new session entry needed, plans/ already checked by the original park).
+   - **After merging, run Steps 5, 11, 12, 13, 14, 14a, 15, 16** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, audit recommendation — all using the merged session's number). Skip Steps 3-4, 6-10 (no new session entry needed).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
@@ -279,27 +279,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        ```
    - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
 
-11. **Check for stranded work product in Claude-internal files** (Full tier only):
+11. **Check for conversation-only drafts** (Full tier only):
    - **Quick tier:** Skip
-   - **Full tier:** Check whether any Claude-internal files were created or modified during this session. Pass the session start time (from step 1) so only files from this session are flagged:
-     ```bash
-     "{VAULT}/.claude/scripts/check-stranded-plans.sh" "HH:MM:SS"
-     ```
-   - If any files found, **individually assess each file** — do not batch-dismiss:
-     - Read each plan file
-     - **Subagent files** (pattern `*-agent-*.md`) often contain standalone reference material distinct from the main plan — assess separately, not as "part of" the main plan's migration
-     - Compare each file's content against the relevant vault project doc
-     - If the vault doc is stale or missing the content: **migrate it now** (update the vault file before completing the park)
-   - Display result:
-     ```
-     ✓ No stranded work product in ~/.claude/plans/
-     ```
-     or:
-     ```
-     🔧 Migrated plan content to vault: [vault file path]
-     ```
-   - **Why this exists:** Work product written to `~/.claude/plans/` has been stranded there multiple times. These files don't sync, aren't visible in Obsidian, and effectively don't exist outside the session.
-   - **Conversation draft check** (Full tier only): Scan the conversation for any drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis.
+   - **Full tier:** Scan the conversation for any drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis.
      - If found: **write each draft to its semantic home in the vault now** (e.g. correspondence file, project doc, area file) before proceeding. Do NOT leave drafts in conversation only.
      - **⛔ CHECKPOINT:** Display exactly one of:
        ```
