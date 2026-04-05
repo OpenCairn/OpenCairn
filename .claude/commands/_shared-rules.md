@@ -77,7 +77,7 @@ When adding session links (`→ [[06 Archive/Claude/Session Logs/...]]`) to a WI
 
 1. Add the new link
 2. Count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry
-3. If more than 2, remove the oldest by date until exactly 2 remain
+3. If more than 3, remove the oldest by date until exactly 3 remain
 4. **Do NOT trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers
 
 Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth.
@@ -89,7 +89,7 @@ Session history lives in the archive and project hub pages; WIP links are conven
 # Uses awk index() for fixed-string matching (headings often contain / and &)
 awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
 ```
-Display: `FIFO check: N/2 session links`. If more than 2, fix before proceeding.
+Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
 
 ---
 
