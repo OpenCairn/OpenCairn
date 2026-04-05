@@ -1,18 +1,17 @@
 ---
 name: quarterly-review
-description: Quarterly deep review - strategic alignment, landscape scan, vault structural health, and context file accuracy
+description: Quarterly deep review - strategic alignment, vault structural health, and context file accuracy
 ---
 
 # Quarterly Review - Deep Maintenance and Strategic Check
 
-You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction, external landscape awareness, vault structural health, and context file accuracy. Things that are too heavy for weekly but accumulate debt if never done.
+You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction, vault structural health, and context file accuracy. Things that are too heavy for weekly but accumulate debt if never done.
 
 ## Philosophy
 
-Quarterly review serves three purposes:
+Quarterly review serves two purposes:
 1. **Strategic alignment** — Are the projects and priorities from 3 months ago still the right ones? What emerged that wasn't planned? What was planned but never started?
-2. **Landscape scan** — What exists externally that you should know about? Patterns, tools, and architecture from teams and practitioners doing similar work.
-3. **Vault deep maintenance** — Structural debt that accumulates slowly: context files drifting from reality, broken wikilinks, CRM gaps, orphaned files in areas that nobody visits weekly.
+2. **Vault deep maintenance** — Structural debt that accumulates slowly: context files drifting from reality, broken wikilinks, CRM gaps, orphaned files in areas that nobody visits weekly.
 
 ## Instructions
 
@@ -70,12 +69,6 @@ Quarterly review serves three purposes:
 - "What are the 3-5 Big Rocks for next quarter?"
 - "What needs to start now to be ready on time? (Long Poles)"
 - "What should you stop doing?"
-
-4. **Landscape Scan:**
-
-   Check if `{VAULT}/06 Archive/Landscape Scans/` exists and contains reports from this quarter. If reports exist, synthesise the adopt/adapt/note findings into the quarterly review output.
-
-   If no reports exist (or the directory doesn't exist), run a lightweight inline scan: search the web for recent developments in the user's key domains (based on WIP projects and context files), and populate the Landscape Scan section of the review output directly. Focus on tools, patterns, and architecture changes relevant to the user's active work.
 
 ### Part 2: Vault Deep Maintenance
 
@@ -209,18 +202,6 @@ Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 Projects to explicitly abandon rather than let linger:
 - [ ] [Project] — Reason to kill
 
-## Landscape Scan
-**Source:** [synthesised from monthly reports / inline scan]
-
-### Adopt (use directly)
-- [Tool/pattern] — [what it does, why it's relevant]
-
-### Adapt (extract the pattern)
-- [Pattern] — [how to apply it to the vault/OpenCairn]
-
-### Note (interesting, not actionable now)
-- [Thing] — [why it's interesting, when it might become relevant]
-
 ## Vault Health
 
 ### Context File Audit
@@ -275,7 +256,6 @@ Projects to explicitly abandon rather than let linger:
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
-✓ Landscape scan: [synthesised N monthly reports / ran inline scan]
 ✓ Context files audited: N files, M issues found
 ✓ Broken links: N fixed, M remaining
 ✓ CRM: N new candidates, M stale entries
@@ -292,7 +272,6 @@ Quarterly review complete.
 - **Don't try to do everything.** If the vault is large, prioritise by impact. Fix context files and broken links first. Orphan scan is lower priority.
 - **Connect to weekly reviews.** Reference weekly review insights rather than re-deriving everything from session logs.
 - **Honest strategic assessment.** The quarterly check is where you surface uncomfortable truths about priority drift.
-- **Landscape scan.** The quarterly review synthesises monthly landscape scan reports if they exist, otherwise runs a lightweight inline scan.
 - **Natural language.** Write in the user's voice — analytical, outcome-focused, honest.
 
 ## Frequency
@@ -306,6 +285,5 @@ Run quarterly, typically:
 
 - **Aggregates weekly reviews:** Connects weekly patterns into quarterly themes
 - **Feeds into annual review:** (If the user implements one)
-- **Landscape awareness:** Synthesises monthly landscape scan reports if available, or runs an inline scan during the review
 - **Complements /weekly-review:** Weekly handles tactical maintenance; quarterly handles strategic + deep structural
 - **Informs context files:** The primary mechanism for keeping `07 System/Context - *.md` files accurate
