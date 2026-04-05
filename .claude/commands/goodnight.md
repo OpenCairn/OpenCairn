@@ -268,7 +268,7 @@ Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Re
 
 ### 17. Update Works in Progress
 
-If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state.
+If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
 
 ### 18. Close
 

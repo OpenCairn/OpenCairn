@@ -313,6 +313,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
    - **Full tier:** Update WIP for related projects
+   - **Always bump "Last updated":** Even if no single project section needs updating (e.g. multi-project operational sessions like /goodnight, /weekly-review), update the "Last updated" timestamp at top of WIP if this session modified any planning files (This Week.md, Tasks.md, Tickler.md, project files). The timestamp reflects when WIP-tracked state last changed, not when a specific project entry was edited. If there is no related project to update, bump the timestamp and skip the rest of Step 12.
    - Read `{VAULT}/01 Now/Works in Progress.md`
    - Find the relevant project section
    - Update status with:
