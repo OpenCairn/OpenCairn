@@ -1,4 +1,4 @@
-<p align="centre">
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/logo-light.svg">
@@ -6,18 +6,18 @@
   </picture>
 </p>
 
-<h1 align="centre">OpenCairn</h1>
+<h1 align="center">OpenCairn</h1>
 
-<p align="centre"><em>Park. Pickup. Flow.</em></p>
+<p align="center"><em>Park. Pickup. Flow.</em></p>
 
-<p align="centre">
+<p align="center">
   <a href="LICENCE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
 Slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
 
-<p align="centre">
+<p align="center">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
 </p>
 
@@ -182,8 +182,8 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 | Command | What it does |
 |---------|-------------|
-| `/pickup` | Session start. Interactive menu showing recent sessions grouped by project, with snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. Args: `--days=N`, `--project=NAME`, `--with-loops`, `--all`. |
-| `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`, `--compact`. |
+| `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Supports snooze/hide, staleness warnings, tickler surfacing, and auto-loading of relevant context files. |
+| `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
 
 **Extended breaks:**
 
@@ -221,11 +221,20 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
 
+**Prioritisation:**
+
+| Command | What it does |
+|---------|-------------|
+| `/longpoles` | Surfaces all `[LP]` (longpole) tagged items across the vault — critical-path items that block other work. |
+| `/cornerstones` | Surfaces high-value foundational tasks tagged `[CS]` across the vault. |
+
 **Utilities:**
 
 | Command | What it does |
 |---------|-------------|
 | `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
+| `/reply` | Drafts a reply to an inbound message with voice matching and CRM context. Always writes drafts to scratchpad. |
+| `/transcribe` | Transcribes audio files using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
 | `/archive-sessions` | Organises old session files from the flat sessions directory into year-based subdirectories. Args: `--older-than=N`, `--year=YYYY`, `--dry-run`. |
 | `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
@@ -244,6 +253,14 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 |---------|-------------|
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn commands/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
+
+**Aliases:**
+
+| Command | Alias for |
+|---------|-----------|
+| `/checkpoint` | `/park` |
+| `/regroup` | `/afternoon` |
+| `/shutdown` | `/goodnight` |
 
 ---
 
