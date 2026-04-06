@@ -200,7 +200,7 @@ Create a file at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
 ### Kill List
 Projects to explicitly abandon rather than let linger:
-- [ ] [Project] — Reason to kill
+- [Project] — Reason to kill
 
 ## Vault Health
 
@@ -235,7 +235,7 @@ Projects to explicitly abandon rather than let linger:
 3. [Priority]
 
 ### Long Poles (Start Now)
-- [ ] [Thing that needs lead time]
+- [Thing that needs lead time]
 
 ### Stop Doing
 - [Thing to drop]
