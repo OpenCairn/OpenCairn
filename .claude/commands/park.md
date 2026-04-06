@@ -408,7 +408,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      ```
    - Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
-   - **Why at park time:** Makes transcripts available for `/provenance` hashing without waiting for `/goodnight`.
+   - **Why at park time:** Ensures transcripts exist for `/goodnight` provenance processing (step 16) and as a backstop against session data loss.
 
 15. **Display completion message** (tier-appropriate):
 

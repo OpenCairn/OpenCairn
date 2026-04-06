@@ -254,16 +254,35 @@ fi
 
 Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
 
-### 16. Update Works in Progress
+### 16. Process Provenance Flags
+
+Check for provenance flag files created during today's sessions:
+```bash
+ls "{VAULT}/07 System/Provenance/pending/${TODAY}"*.md 2>/dev/null
+```
+
+If any flags exist, process each one:
+1. Read the flag file to get the project tag and work product list
+2. Hash any work products not already hashed (check the flag file's "Hashed Immediately" section and the provenance log for existing entries)
+3. Hash the session transcript (exported in step 15, now final)
+4. Hash the session log (now final for the day)
+5. OTS stamp all hashed files
+6. Append entries to `07 System/AI Provenance Log.md`
+7. Delete the processed flag file
+
+If no flags exist, skip silently. See `/provenance` for flag file format and full hashing instructions.
+
+### 17. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
 
-### 17. Close
+### 18. Close
 
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
 ✓ Transcripts exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
+✓ Provenance: N files hashed [OR "no flags"]
 Goodnight.
 ```
 
