@@ -152,20 +152,20 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 ### Aged Open Loops (14+ Days)
 **Stale items requiring action:**
-- [ ] Item from Session X (N days old) - Complete, drop, or delegate?
-- [ ] Item from Session Y (N days old) - Complete, drop, or delegate?
+- Item from Session X (N days old) - Complete, drop, or delegate?
+- Item from Session Y (N days old) - Complete, drop, or delegate?
 
 **Recommendation:** These have lingered for 2+ weeks. Either act or explicitly drop.
 
 ### Long Poles [LP] & Cornerstones [CS]
 
 **Long Poles** - Need lead time, can't be rushed:
-- [ ] [LP task from file X] - Status/progress this week?
-- [ ] [LP task from file Y] - Status/progress this week?
+- [LP task from file X] - Status/progress this week?
+- [LP task from file Y] - Status/progress this week?
 
 **Cornerstones** - Foundational, other things depend on these:
-- [ ] [CS task from file X] - Status/progress this week?
-- [ ] [CS task from file Y] - Status/progress this week?
+- [CS task from file X] - Status/progress this week?
+- [CS task from file Y] - Status/progress this week?
 
 **Review:** Are LP items getting attention early enough? Are CS blockers being addressed?
 
@@ -174,7 +174,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 - [Date] - [Mistake summary] - Lesson: [key takeaway]
 
 **Promote to active recall?**
-- [ ] [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
+- [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
 
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
@@ -193,12 +193,12 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 ## What's Next
 
 **Big Rocks (Priority 1):**
-- [ ] Most important thing
-- [ ] Second priority
+- Most important thing
+- Second priority
 
 **Active Projects:**
-- [ ] Project A - [Specific next milestone]
-- [ ] Project B - [Specific next milestone]
+- Project A - [Specific next milestone]
+- Project B - [Specific next milestone]
 
 **Stop/Delegate:**
 [Things to drop or hand off]
