@@ -1,28 +1,30 @@
 ---
 name: provenance
-description: Log cryptographic hashes of session log and transcript for AI collaboration audit trail
+description: Flag this session for cryptographic provenance hashing at end-of-day
 parameters:
-  - "--auto" - Auto-tag from session context (default)
   - "--tag TAG" - Manual project/manuscript tag
+  - "--files FILE1 FILE2..." - Work product files to hash
 ---
 
-# Provenance - AI Collaboration Audit Trail
+# Provenance - Flag Session for Cryptographic Audit Trail
 
-You are logging the current session to the AI Provenance Log with a cryptographic hash for future academic disclosure and audit defence.
+You are flagging this session as provenance-worthy. This creates a lightweight flag file that `/goodnight` will process (hashing files, OTS-stamping, and logging). Optionally, work products that are already final can be hashed immediately.
 
-## Purpose
+## When To Use
 
-When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, or for any future use case requiring proof of AI collaboration:
-1. **Accurate dates** — when Claude was used
-2. **Scope** — which sessions touched which projects/manuscripts
-3. **Cryptographic proof** — SHA256 hashes prove no tampering
-4. **Trusted timestamps** — OpenTimestamps proofs anchored to Bitcoin blockchain (optional)
-5. **Audit defence** — if questioned, produce session file + verify hash + OTS proof
+Invoke `/provenance` when a session produces something worth proving existed at a point in time:
+- Original hypotheses or novel intellectual contributions
+- Journal submissions, letters, or formal documents
+- Evidence archives
+- Anything you might later need to establish priority or satisfy AI disclosure requirements
 
-## Manual vs Automatic Invocation
+Most sessions don't need provenance. Don't invoke this for routine work.
 
-- **Manual (`/provenance`):** Always prompts for tag, always logs. Use when you know a session is worth logging regardless of `**Project:**` link.
-- **Automatic (from `/park`, `/checkpoint`, `/goodnight`):** Tag-gated. Only fires if the session has a `**Project:**` link. No project = skip silently. No user prompt — tag auto-detected from project link.
+## What Gets Hashed (Provenance Hierarchy)
+
+1. **Work products** (highest value) — deliverable documents, hypotheses, analyses, letters. What you'd show a journal editor or use to establish intellectual priority. Can be hashed immediately (if final) or deferred to `/goodnight`.
+2. **Session transcripts** (high integrity) — verbatim conversation exports. Prove the thinking happened and when. Won't drift after export. May contain sensitive/personal content — the hash proves existence; you don't hand over the transcript unless challenged. Hashed at `/goodnight` (after export).
+3. **Session logs** (supporting context) — curated daily summaries. Append-only during the day, so only hashed at `/goodnight` when final.
 
 ## Instructions
 
@@ -32,196 +34,139 @@ When submitting work to journals (JAMA Derm, etc.) that require AI disclosure, o
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
-### 2. Get Current Date and Session Files
+### 2. Determine Tag
 
-```bash
-TODAY=$(date +"%Y-%m-%d")
-SESSION_FILE="{VAULT}/06 Archive/Claude/Session Logs/$TODAY.md"
-TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/Session Transcripts/$TODAY.md"
-```
+**If `--tag TAG` provided:** Use that tag exactly.
 
-Check if session file exists:
-```bash
-if [[ ! -f "$SESSION_FILE" ]]; then
-  echo "No session file for today ($TODAY) - nothing to log"
-  # Skip gracefully, don't error
-fi
-```
-
-If no session file exists yet, display "No session file to hash" and exit.
-
-### 3. Determine Project/Manuscript Tag
-
-**If `--tag TAG` parameter provided:** Use that tag exactly as given. Skip to step 4.
-
-**If `--auto` (default):**
-- Scan the conversation for context clues:
-  - `**Project:**` links in session summaries
-  - Project names mentioned (JAMA Derm Letter, Computational Photography, Travel 2026, etc.)
-  - Main topic of work
-- If multiple topics, choose the primary one
-- If unclear, use session title as tag
-
-**Prompt user for confirmation (manual invocation only):**
+**Otherwise:** Auto-detect from conversation context, then prompt:
 > Auto-detected tag: [tag]
 >
 > Confirm, edit, or skip?
 
-- **Confirm** → proceed to step 4
-- **Edit** → user provides replacement tag → proceed
-- **Skip** → abort without logging
+### 3. Identify Work Products
 
-### 4. Check Idempotency
+**If `--files` provided:** Use those paths.
 
-Before logging, check if this session + tag combination already exists:
+**Otherwise:** Ask:
+> Which files from this session are deliverables to hash?
+> (These are the documents you'd show to establish priority or satisfy disclosure.)
+
+Accept a list of file paths. Convert each to a vault-relative path (e.g., `05 Resources/Commentary/filename.md`).
+
+### 4. Write or Update Flag File
+
 ```bash
-PROVENANCE_LOG="{VAULT}/07 System/AI Provenance Log.md"
-if [[ ! -f "$PROVENANCE_LOG" ]]; then
-  echo "Provenance log not found at $PROVENANCE_LOG — skipping"
-  exit 0
-fi
-
-SKIP_SESSION=false
-if grep -Fq "| $PROJECT_TAG | $TODAY.md |" "$PROVENANCE_LOG"; then
-  echo "Already logged: $TODAY.md with tag '$PROJECT_TAG' — skipping duplicate"
-  SKIP_SESSION=true
-fi
-
-SKIP_TRANSCRIPT=false
-if grep -Fq "| $PROJECT_TAG | ${TODAY}-transcript.md |" "$PROVENANCE_LOG"; then
-  echo "Already logged: ${TODAY}-transcript.md with tag '$PROJECT_TAG' — skipping duplicate"
-  SKIP_TRANSCRIPT=true
-fi
-
-# If both already logged, nothing to do
-if [[ "$SKIP_SESSION" == true && "$SKIP_TRANSCRIPT" == true ]]; then
-  echo "Both session log and transcript already logged — skipping"
-  exit 0
-fi
-# If session already logged but no transcript exists, also nothing to do
-if [[ "$SKIP_SESSION" == true && ! -f "$TRANSCRIPT_FILE" ]]; then
-  echo "Session log already logged, no transcript to hash — skipping"
-  exit 0
-fi
-```
-
-### 5. Hash Session Files
-```bash
+TODAY=$(date +"%Y-%m-%d")
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
-
-# Hash session log
-if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
-  HASH=$(sha256sum "$SESSION_FILE" | awk '{print $1}')
-  SHORT_HASH="${HASH:0:16}"
-fi
-
-# Hash session transcript (if it exists)
-HAS_TRANSCRIPT=false
-if [[ "$SKIP_TRANSCRIPT" != true && -f "$TRANSCRIPT_FILE" ]]; then
-  TRANSCRIPT_HASH=$(sha256sum "$TRANSCRIPT_FILE" | awk '{print $1}')
-  TRANSCRIPT_SHORT="${TRANSCRIPT_HASH:0:16}"
-  HAS_TRANSCRIPT=true
-fi
+FLAG_DIR="{VAULT}/07 System/Provenance/pending"
+mkdir -p "$FLAG_DIR"
+SAFE_TAG=$(echo "$PROJECT_TAG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
+FLAG_FILE="$FLAG_DIR/${TODAY}-${SAFE_TAG}.md"
 ```
 
-Session transcripts are the verbatim conversation exports produced by `/park` step 14b and `/goodnight` step 16 (`export-session-transcripts.py`). They're higher-value provenance evidence than curated session logs because they capture the full, unedited interaction. Transcript hashing only fires when a transcript file exists — skips silently if not yet exported.
+**If the flag file already exists** (repeat `/provenance` call in the same session): read it, merge any new work products into the existing list (no duplicates), update the timestamp, and rewrite. Do not create a second flag file.
 
-### 6. OpenTimestamps (optional, non-blocking)
+**If the flag file does not exist:** create it.
+
+Flag file format:
+```markdown
+---
+date: YYYY-MM-DD
+timestamp: YYYY-MM-DD HH:MM:SS TZ (updated on each /provenance call)
+tag: Project Tag Here
+---
+
+## Work Products
+- 05 Resources/Commentary/filename.md
+- 05 Resources/Commentary/other-file.md
+
+## Hashed Immediately
+- 05 Resources/Commentary/filename.md — `abc123def456` (OTS: pending) [YYYY-MM-DD HH:MM]
+```
+
+The timestamp in frontmatter reflects the most recent `/provenance` call. The "Hashed Immediately" entries include their own timestamps so each hash is traceable to when it was taken.
+
+### 5. Hash Final Work Products (optional, immediate)
+
+If any work products are already final (won't be edited further), hash them now and record in the flag file's "Hashed Immediately" section. Also OTS-stamp them.
+
+**Skip files already hashed:** If the flag file already has an entry for a given file in "Hashed Immediately", skip it — don't re-hash or re-stamp. If the file has been *edited* since the last hash (user explicitly says so), re-hash it and update the entry with the new hash and timestamp.
+
 ```bash
-OTS_STATUS="—"
-if command -v ots &>/dev/null; then
-  mkdir -p "{VAULT}/07 System/Provenance"
-  # Stamp session log
-  if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
-    if ots stamp "$SESSION_FILE" 2>/dev/null; then
-      mv "${SESSION_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}.ots" 2>/dev/null
-      OTS_STATUS="pending"
+for DOC in "${FINAL_PRODUCTS[@]}"; do
+  if [[ -f "$DOC" ]]; then
+    DOC_HASH=$(sha256sum "$DOC" | awk '{print $1}')
+    DOC_SHORT="${DOC_HASH:0:16}"
+    RELATIVE_PATH="${DOC#${VAULT}/}"
+
+    # OTS stamp with date-prefixed filename
+    if command -v ots &>/dev/null; then
+      SAFE_NAME=$(basename "$DOC" .md | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+      mkdir -p "{VAULT}/07 System/Provenance"
+      ots stamp "$DOC" 2>/dev/null && \
+        mv "${DOC}.ots" "{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}.ots" 2>/dev/null
     fi
+
+    # Append to provenance log immediately
+    ROW="| $TIMESTAMP | $PROJECT_TAG | $RELATIVE_PATH | \`$DOC_SHORT\` | pending |"
+    # Use the append_row function (flock + awk pattern from goodnight)
   fi
-  # Stamp transcript
-  TRANSCRIPT_OTS_STATUS="—"
-  if [[ "$HAS_TRANSCRIPT" == true ]]; then
-    if ots stamp "$TRANSCRIPT_FILE" 2>/dev/null; then
-      mv "${TRANSCRIPT_FILE}.ots" "{VAULT}/07 System/Provenance/${TODAY}-transcript.ots" 2>/dev/null
-      TRANSCRIPT_OTS_STATUS="pending"
-    fi
-  fi
-else
-  TRANSCRIPT_OTS_STATUS="—"
-fi
+done
 ```
 
-The `.ots` proof is initially "pending" — it becomes "confirmed" after ~2 hours when the Bitcoin block is mined. Run `ots upgrade` or `/verify-provenance` later to check confirmation status.
+Transcript and session log hashing is always deferred to `/goodnight` — they're not final yet.
 
-If `ots` is not installed or network is unavailable, skip silently (status stays `—`).
-
-### 7. Append Table Rows
-```bash
-# Append session log row
-if [[ "$SKIP_SESSION" != true && -f "$SESSION_FILE" ]]; then
-  ROW="| $TIMESTAMP | $PROJECT_TAG | $TODAY.md | \`$SHORT_HASH\` | $OTS_STATUS |"
-
-  # Use awk (not sed -i) for cross-platform compatibility (BSD sed requires different -i syntax)
-  export _AWK_ROW="$ROW"
-  flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
-    awk "
-      /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
-      { print }
-    " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
-  ' _ "$PROVENANCE_LOG"
-  unset _AWK_ROW
-fi
-
-# Append transcript row
-if [[ "$HAS_TRANSCRIPT" == true ]]; then
-  TRANSCRIPT_ROW="| $TIMESTAMP | $PROJECT_TAG | ${TODAY}-transcript.md | \`$TRANSCRIPT_SHORT\` | $TRANSCRIPT_OTS_STATUS |"
-
-  export _AWK_ROW="$TRANSCRIPT_ROW"
-  flock -w 10 "{VAULT}/07 System/.provenance-lock" bash -c '
-    awk "
-      /^\|---\|---\|---\|---\|---\|$/ { print; print ENVIRON[\"_AWK_ROW\"]; next }
-      { print }
-    " "$1" > "$1.tmp" && mv "$1.tmp" "$1"
-  ' _ "$PROVENANCE_LOG"
-  unset _AWK_ROW
-fi
-```
-
-**Why flock:** Prevents race conditions when multiple sessions park simultaneously. Uses a separate lock file from the session lock (`06 Archive/Claude/Session Logs/.lock`) to avoid deadlock.
-
-### 8. Display Confirmation
+### 6. Display Confirmation
 
 ```
-✓ Provenance logged
-  Project: [tag]
-  Session: [date].md — [first 16 chars]... (OTS: [pending/—])
-  Transcript: [date]-transcript.md — [first 16 chars]... (OTS: [pending/—])
-             [OR "not yet exported — will hash at /goodnight"]
+✓ Provenance flagged
+  Tag: [tag]
+  Work products: N files
+    [relative/path/to/file.md] — hashed now: [hash]... (OTS: pending)
+    [relative/path/to/other.md] — deferred to /goodnight
+  Transcript: deferred to /goodnight
+  Session log: deferred to /goodnight
 
-Full log: 07 System/AI Provenance Log.md
+  Flag: 07 System/Provenance/pending/YYYY-MM-DD-tag.md
+  → /goodnight will process this flag and complete hashing.
 ```
 
-If no transcript exists, display the "not yet exported" line. If session log was already logged (only transcript is new), display "already logged" for the session line.
+## Processing (by other skills)
+
+### `/goodnight` (step 16)
+
+Processes today's flag files:
+1. Read each flag in `07 System/Provenance/pending/` matching today's date
+2. Hash any work products listed but not yet hashed (check "Hashed Immediately" section)
+3. Hash session transcript (now exported and final)
+4. Hash session log (now final)
+5. OTS stamp all newly hashed files
+6. Append all entries to `07 System/AI Provenance Log.md`
+7. Delete the processed flag file
+
+### `/weekly-hygiene` (provenance section)
+
+Catches stragglers and verifies:
+1. Process any remaining flags in `pending/` (missed goodnights) — hash everything listed, using the flag's date for context
+2. Verify all existing provenance log entries (re-hash, compare, check OTS proofs)
+3. Report findings in the hygiene report
 
 ## Guidelines
 
-- **Manual `/provenance`:** Always prompts for tag confirmation. User can skip.
-- **Automatic (park/checkpoint/goodnight):** Tag-gated by `**Project:**` link. No prompt. Silent skip if no project.
-- **Idempotent:** Same session+tag combination never logged twice
-- **Non-blocking:** Failures never prevent park/checkpoint/goodnight from completing
-- **Hash reflects file state at time of logging:** If session file is manually edited after logging, hash becomes stale. This is a known limitation — not a bug. For audit purposes, don't edit session files after logging provenance.
-- **OTS is best-effort:** Requires network access to Bitcoin calendar servers. Graceful degradation if offline or `ots` not installed.
-- **Session file must exist:** If no session file yet (early in day), skip gracefully
+- **Manual only.** `/provenance` is never called automatically. You invoke it when the session produces something worth proving.
+- **Lightweight.** The flag is a small markdown file. Heavy lifting (transcript/session log hashing, OTS stamping) happens at `/goodnight`.
+- **Work products can be hashed immediately** if they're final, giving you the strongest proof (hash taken at creation time, not end of day).
+- **Idempotent.** Multiple `/provenance` calls in the same session with the same tag merge new work products into the existing flag file — no duplicates, no second flag. If the tag changes between calls, a separate flag file is created (different tags = different provenance entries).
+- **Relative paths.** Work products are logged with vault-relative paths (e.g., `05 Resources/Commentary/file.md`) to avoid collisions and enable verification from any machine.
+- **OTS is best-effort.** Requires network access to Bitcoin calendar servers. Graceful degradation if offline or `ots` not installed.
 
 ## Integration
 
-- **Creates:** Entries in `07 System/AI Provenance Log.md`, `.ots` proofs in `07 System/Provenance/`
-- **Reads:** Current day's session log from `06 Archive/Claude/Session Logs/` and session transcript from `06 Archive/Claude/Session Transcripts/` (if exported)
-- **Called by:** `/park`, `/checkpoint`, `/goodnight` (automatic, tag-gated), user (manual, always logs)
-- **Verified by:** `/verify-provenance`
-- **Lock file:** `{VAULT}/07 System/.provenance-lock` (separate from session lock)
+- **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs in `07 System/Provenance/`
+- **Processed by:** `/goodnight` (step 16), `/weekly-hygiene` (provenance section)
+- **Verified by:** `/weekly-hygiene` (provenance verification section)
 
 ## Example JAMA Derm Disclosure
 

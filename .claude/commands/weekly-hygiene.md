@@ -297,7 +297,49 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **If user disengages:** route unresolved items to Tasks.md with a hygiene report back-reference.
    - **Guardrail:** Edit context files only with user-provided replacement text. These are high-value prose documents — never rewrite, rephrase, or infer updates autonomously.
 
-14. **Write Hygiene Report**
+14. **Provenance: Process Stale Flags & Verify Hashes**
+
+   This step absorbs the former `/verify-provenance` skill. Two jobs: catch missed flags, then verify existing entries.
+
+   **14a. Process stale provenance flags:**
+   ```bash
+   ls "{VAULT}/07 System/Provenance/pending/"*.md 2>/dev/null
+   ```
+   If any flag files exist (these are sessions where `/provenance` was invoked but `/goodnight` didn't process them — missed goodnight, crashed session, etc.):
+   - Read each flag to get the tag and work product list
+   - Hash any work products not already hashed
+   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - Hash the session log for that date: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+   - OTS stamp all newly hashed files
+   - Append entries to `07 System/AI Provenance Log.md`
+   - Delete the processed flag file
+
+   **14b. Verify existing provenance entries:**
+
+   Read `{VAULT}/07 System/AI Provenance Log.md`. For each entry:
+
+   **Resolve file path** from the File column:
+   - `*-transcript.md` → `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+   - Paths containing `/` → `{VAULT}/relative/path`
+   - Other (legacy) → try Session Logs, then vault root
+
+   **Re-hash and compare:**
+   ```bash
+   CURRENT_HASH=$(sha256sum "$RESOLVED_FILE" | awk '{print $1}')
+   CURRENT_SHORT="${CURRENT_HASH:0:16}"
+   ```
+   Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
+
+   **Upgrade OTS proofs:**
+   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/`. If upgrade succeeds, update the provenance log entry to "confirmed".
+
+   **Verify OTS proofs:**
+   For entries with `.ots` files, run `ots verify`. Record as CONFIRMED, PENDING, FAILED, or MISSING.
+
+   **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
+
+15. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -380,6 +422,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Top tags: [top 5 with counts]
    - Excludes active: [yes — N patterns from hygiene-excludes / no excludes file]
 
+   ## Provenance
+   - Stale flags processed: N [OR "none"]
+   - Entries verified: N
+   - Hash matches: N
+   - Hash mismatches: N (files edited after logging)
+   - Missing files: N
+   - OTS confirmed: N
+   - OTS pending: N
+   - OTS upgraded this sweep: N
+
    ## Context File Staleness
    - Files scanned: N
    - Inherently stable (no temporal markers): N
@@ -401,7 +453,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Routed to Tickler: N
    ```
 
-15. **Route unresolved findings**
+16. **Route unresolved findings**
 
     For each finding not resolved during the sweep:
 
@@ -411,7 +463,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run auto-removes strikethrough content (existing WIP pruning step).
 
-16. **Display confirmation:**
+17. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
