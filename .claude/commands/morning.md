@@ -202,10 +202,6 @@ Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/exp
 
 ### Evening (HH:MM–)
 - [ ] **HH:MM Evening event (2h)**
-
-### Done today
-- [x] Completed item — detail
-- [x] Another completed item
 ````
 
 **Timeline format reference:**
@@ -238,7 +234,7 @@ Pull items from:
 
 **Move, not copy.** When an item from Tasks.md is scheduled into today's timeline, delete it from Tasks.md. The day section becomes SSOT for that item. If the item doesn't get done, /goodnight routes it back to Tasks.md or a future day — but it must never exist in both places simultaneously.
 
-Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`). Detailed completion notes go in the "Done today" subsection under today's day heading.
+Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Task`).
 
 **Future days** in the same file stay simple — just task lists under the `## ` heading, no `### Morning/Afternoon/Evening` sub-sections. They get expanded with the full timeline format when that day becomes "today" via /morning.
 
@@ -274,7 +270,7 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 **Note:** By this point, all brain dump items from step 4 should ALREADY be written to files (step 5). This step is only for This Week.md and any additional generative content — not for deferred captures.
 
-**Most days with This Week.md:** The updated This Week.md is the artifact. No additional output needed.
+**Most days with This Week.md:** The updated This Week.md is the artefact. No additional output needed.
 
 **If generative/insight content** (beyond what was captured in step 5):
 - Append to today's journal at `{VAULT}/05 Resources/Journal/YYYY-MM-DD.md`
@@ -300,7 +296,7 @@ You're clear. Go.
 ## Guidelines
 
 - **Adaptive duration:** Can be 2 minutes or 20. Follow the energy, don't force.
-- **This Week.md is the artifact when needed:** For structured days, update today's section in This Week.md. For open/exploratory days, the conversation itself is the routine — no file update needed.
+- **This Week.md is the artefact when needed:** For structured days, update today's section in This Week.md. For open/exploratory days, the conversation itself is the routine — no file update needed.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
 - **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Capture means file writes:** If something comes up, write it to the right place (WIP, project, journal, Tickler) immediately. Don't just discuss routing — do the routing. Don't create new systems or files when an existing one fits.
