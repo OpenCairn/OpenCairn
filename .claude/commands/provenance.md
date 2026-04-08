@@ -92,7 +92,12 @@ The timestamp in frontmatter reflects the most recent `/provenance` call. The "H
 
 If any work products are already final (won't be edited further), hash them now and record in the flag file's "Hashed Immediately" section. Also OTS-stamp them.
 
-**Skip files already hashed:** If the flag file already has an entry for a given file in "Hashed Immediately", skip it — don't re-hash or re-stamp. If the file has been *edited* since the last hash (user explicitly says so), re-hash it and update the entry with the new hash and timestamp.
+**Skip files already hashed:** If the flag file already has an entry for a given file in "Hashed Immediately", skip it — don't re-hash or re-stamp. If the file has been *edited* since the last hash (user explicitly says so), re-hash it and update ALL three artefacts:
+1. The flag file's "Hashed Immediately" entry (new hash + new timestamp)
+2. The provenance log row in `07 System/AI Provenance Log.md` (new hash AND new timestamp — both fields, not just the hash)
+3. The OTS stamp (re-stamp the file, overwriting the previous `.ots` proof)
+
+**Initial hash** (no existing entry in flag file):
 
 ```bash
 for DOC in "${FINAL_PRODUCTS[@]}"; do
@@ -114,6 +119,27 @@ for DOC in "${FINAL_PRODUCTS[@]}"; do
     # Use the append_row function (flock + awk pattern from goodnight)
   fi
 done
+```
+
+**Re-hash** (file edited since last hash — existing entry in flag file and provenance log):
+
+```bash
+# 1. Compute new hash
+DOC_HASH=$(sha256sum "$DOC" | awk '{print $1}')
+DOC_SHORT="${DOC_HASH:0:16}"
+NEW_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+
+# 2. Update flag file "Hashed Immediately" entry (new hash + new timestamp)
+# Use Edit tool to replace the old hash line
+
+# 3. Update provenance log row — BOTH hash AND timestamp (use flock)
+flock "{VAULT}/07 System/.provenance-lock" \
+  sed -i "s|$OLD_SHORT.*$RELATIVE_PATH|$NEW_TIMESTAMP | $PROJECT_TAG | $RELATIVE_PATH | \`$DOC_SHORT\` | pending |" \
+  "{VAULT}/07 System/AI Provenance Log.md"
+
+# 4. Re-stamp with OTS (overwrites previous .ots file at same path)
+ots stamp "$DOC" 2>/dev/null && \
+  mv "${DOC}.ots" "{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}.ots" 2>/dev/null
 ```
 
 Transcript and session log hashing is always deferred to `/goodnight` — they're not final yet.

@@ -261,12 +261,14 @@ Check for provenance flag files created during today's sessions:
 ls "{VAULT}/07 System/Provenance/pending/${TODAY}"*.md 2>/dev/null
 ```
 
+**⚠ Ordering dependency:** Steps 14-15 MUST complete before this step. The session log and transcript must be in their final state before hashing — if you hash then append, the hash is immediately invalid and the OTS stamp covers the wrong content. This is the single most common execution error in this skill.
+
 If any flags exist, process each one:
 1. Read the flag file to get the project tag and work product list
 2. Hash any work products not already hashed (check the flag file's "Hashed Immediately" section and the provenance log for existing entries)
 3. Hash the session transcript (exported in step 15, now final)
-4. Hash the session log (now final for the day)
-5. OTS stamp all hashed files
+4. Hash the session log (now final — goodnight session appended in step 14)
+5. OTS stamp all hashed files in a single `ots stamp` invocation (batching reduces calendar submissions)
 6. Append entries to `07 System/AI Provenance Log.md`
 7. Delete the processed flag file
 

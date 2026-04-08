@@ -16,7 +16,7 @@ When the user wants to transcribe an audio recording (voice memo, meeting, inter
 
 - Python venv with `whisperx` installed at `~/venvs/whisperx/`
 - `ffmpeg` installed (for audio decoding)
-- For diarisation: HuggingFace token (via `HF_TOKEN` env var or `huggingface-cli login`). The user must have accepted the pyannote model licenses at huggingface.co/pyannote/speaker-diarization-3.1, huggingface.co/pyannote/speaker-diarization-community-1, and huggingface.co/pyannote/segmentation-3.0.
+- For diarisation: HuggingFace token (via `HF_TOKEN` env var or `huggingface-cli login`). The user must have accepted the pyannote model licences at huggingface.co/pyannote/speaker-diarization-3.1, huggingface.co/pyannote/speaker-diarization-community-1, and huggingface.co/pyannote/segmentation-3.0.
 
 If any prerequisite is missing, tell the user what to install and stop.
 
@@ -28,6 +28,8 @@ Flags (parsed from arguments):
 - `--diarize` or `--diarise` — enable speaker diarisation
 - `--speakers N` — exact number of speakers (implicitly enables diarisation)
 - `--min-speakers N` / `--max-speakers N` — speaker count range (implicitly enables diarisation)
+- `--raw` — skip LLM cleanup pass (save unprocessed WhisperX output)
+- `--no-timestamps` — omit timestamps from output
 
 ## Workflow
 
@@ -122,38 +124,62 @@ Replace the placeholder variables with actual values.
 
 2. **Format the transcript:**
 
-   **Without diarisation:** Insert a paragraph break wherever the gap between one segment's end and the next segment's start exceeds 1.5 seconds. Concatenate segment text within each paragraph.
+   Determine the timestamp format from the audio duration: `[MM:SS]` for recordings under 1 hour, `[H:MM:SS]` for recordings 1 hour or longer. If `--no-timestamps` was passed, omit timestamps entirely.
 
-   **With diarisation:** Iterate over the **words** array (not segments), since a single segment often contains multiple speakers. Group consecutive words by speaker. Start a new paragraph when the speaker label changes OR when the gap between consecutive words exceeds 1.5 seconds. Prefix each paragraph with the speaker label in bold:
+   **Without diarisation:** Insert a paragraph break wherever the gap between one segment's end and the next segment's start exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp derived from the first segment's `start` field:
    ```
-   **Speaker 1:** First speaker's text here spanning one or more words.
+   [00:00] First paragraph of speech here.
 
-   **Speaker 2:** Second speaker responds with their text.
-
-   **Speaker 1:** First speaker continues after the other.
+   [01:23] Next paragraph after a gap.
    ```
+
+   **With diarisation:** Iterate over the **words** array (not segments), since a single segment often contains multiple speakers. Group consecutive words by speaker. Start a new paragraph when the speaker label changes OR when the gap between consecutive words exceeds 1.5 seconds. Prefix each paragraph with a timestamp and speaker label in bold:
+   ```
+   [00:00] **Speaker 1:** First speaker's text here spanning one or more words.
+
+   [00:45] **Speaker 2:** Second speaker responds with their text.
+
+   [01:12] **Speaker 1:** First speaker continues after the other.
+   ```
+   The timestamp is derived from the `start` field of the first word in each paragraph group.
+
    Map raw labels (`SPEAKER_00`, `SPEAKER_01`, ...) to `Speaker 1`, `Speaker 2`, etc. in order of first appearance. The words array is found at `segments[].words[]`, each with `word`, `start`, `end`, `score`, and `speaker` keys.
 
-3. **Display** the formatted transcript to the user.
+3. **LLM cleanup pass** (skip if `--raw` was passed):
 
-4. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames before saving.
+   Review the assembled transcript text and fix transcription errors. Rules:
+   - Fix non-words to their most likely intended word (e.g. "seduptresses" → "seductresses")
+   - Fix obvious grammar/punctuation errors introduced by the transcription model (not the speaker's actual grammar — ESL patterns, filler words, etc. stay)
+   - Mark genuinely unclear sections as `[inaudible]` rather than guessing
+   - Preserve the speaker's actual words and meaning — don't rewrite, paraphrase, or "improve"
+   - Preserve timestamps exactly
+   - Preserve speaker labels exactly
+   - Do NOT fix the speaker's actual speech patterns (um, uh, repeated words, broken sentences) — these are features, not bugs
 
-5. **Save** the transcript as a markdown file alongside the audio file (same directory, same base name, `.md` extension). Format:
+   Process the full transcript in a single pass. If the transcript exceeds ~50KB of text, split into ~20KB chunks with 2-paragraph overlap to preserve context at boundaries.
+
+4. **Display** the formatted transcript to the user.
+
+5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames before saving.
+
+6. **Save** the transcript as a markdown file alongside the audio file (same directory, same base name, `.md` extension). Format:
 
    ```markdown
    # Transcript: {filename}
 
-   **Source:** `{full path to audio file}`
+   **Source:** `{filename or path to audio file}` (filename only when saved alongside the audio; full path otherwise)
    **Date transcribed:** {YYYY-MM-DD}
+   **Duration:** {MM:SS or H:MM:SS}
    **Model:** whisperx / distil-large-v3
    **Diarisation:** {yes (N speakers) | no}
+   **Cleanup:** {yes | no (--raw)}
 
    ---
 
    {formatted transcript text}
    ```
 
-6. If the transcript is very long, ask the user if they want a summary.
+7. If the transcript is very long, ask the user if they want a summary.
 
 ## Notes
 
