@@ -290,41 +290,27 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 11. **Check for at-risk work product** (Full tier only):
    - **Quick tier:** Skip
-   - **Full tier:** Two failure modes for important work product. Both must be checked, in order.
+   - **Full tier:** Two failure modes to check.
 
-     **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis. If found: write each draft to its semantic home in the vault now (correspondence file, project doc, area file). Do NOT leave drafts in conversation only.
+     **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
 
-     **(b) Work product persisted to transient capture surfaces.** A transient capture surface is any file designed to be cleared on a regular cadence — typically Scratchpad files, Inbox files, and daily notes. They are *not* durable homes. The fact that "Scratchpad is technically in the vault" does NOT make it durable — it makes it *worse* than conversation-only, because the false sense of persistence delays detection until after the cleanup pass has destroyed the content.
+     **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes. Read each one unconditionally; do not gate on "I don't think I wrote there this session" (memory-based gating is the failure mode this check exists to prevent). Enumeration matches `/weekly-hygiene` Step 6:
 
-       The detection and routing for (b) are spelled out below. They apply to (b) only; (a) handles its own routing inline above.
+     ```bash
+     find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"
+     ```
 
-       **(b) Detection — read unconditionally, do not rely on memory.** Do not skip this step on the basis of "I don't think I wrote anything there this session." Memory-based gating is exactly the failure mode this check exists to prevent. Read every transient capture surface in the vault on every Full-tier park, regardless of recall. The authoritative enumeration matches `/weekly-hygiene` Step 6 (Scratchpad Sweep):
-
-       ```bash
-       find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"
-       ```
-
-       Plus any vault-specific transient locations the user has designated (e.g. `{VAULT}/02 Inbox/*.md`, daily-note files). If the vault has a `{VAULT}/.claude/transient-surfaces.txt` config file, read it for the authoritative list.
-
-       For each surface found, read its current contents and judge: is anything there durable work product? Durable = named, structured, referenced from a task or future commitment, or recognisable as a draft for a forthcoming submission/message/document. Not durable = one-line ideas, link dumps, raw capture-to-triage notes, free-association journaling. When in doubt, treat as durable and route — the cost of a false positive (one extra file moved) is far lower than a false negative (work silently destroyed).
-
-       **(b) Routing.** Move each qualifying item to its semantic home — the project folder for project work, the area file for area work, a dedicated reference doc for standalone references. Then:
-       1. Remove the routed content from the transient capture surface
-       2. Update any pointers (This Week.md, project hubs, prior session logs from this session) that referenced the transient location to point at the new durable location instead
-       3. Add the new file to step 14a's backfill list so the session log "Files Updated" reflects the routing
+     Plus any vault-specific transient locations (e.g. `02 Inbox/*.md`, daily-note files). If anything looks like a draft for a forthcoming submission, message, or document — anything a future session would need to retrieve — move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
 
      - **⛔ CHECKPOINT:** Display exactly one of:
        ```
        ✓ No at-risk work product to persist
        ```
        ```
-       🔧 Persisted N item(s): [file path(s) — annotate (a) conversation-only or (b) transient-surface]
+       🔧 Persisted N item(s): [paths]
        ```
-     You cannot proceed to Step 12 until this output appears. If displaying the "✓" form, the response must include evidence that the unconditional read for (b) actually ran (a Read tool call or grep against each transient surface). A bare "✓" line without a preceding read is a fabricated claim, not a verified result.
 
-   - **Why this exists (lessons logged):**
-     - The conversation-only check (a) was added because `/reply` drafts and inline analysis were being lost when sessions ended without persistence.
-     - The transient-surface check (b) was added 2026-04-09 after a peer-review COI disclosure draft was persisted to Scratchpad in one session, then silently destroyed by a later session's scratchpad cleanup pass before the user needed it. The user discovered the loss days later and had to recover the text from git history. The lesson: *Scratchpad is not a durable home*. Anything a future session will need belongs in its semantic home, not in a transient capture surface. The unconditional-read requirement was added during the audit of this fix to remove the "I don't remember writing there" failure mode.
+   - **Why this exists:** Added 2026-04-09 after a peer-review COI disclosure was persisted to Scratchpad in one session and silently destroyed by a later session's cleanup pass before the user needed it. The unconditional-read requirement prevents the "I don't remember writing there" failure from recurring.
 
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
