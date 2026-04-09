@@ -294,13 +294,17 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
      **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
 
-     **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes. Read each one unconditionally; do not gate on "I don't think I wrote there this session" (memory-based gating is the failure mode this check exists to prevent). Enumeration matches `/weekly-hygiene` Step 6:
+     **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes.
+
+     **Scope:** this-session contributions only. Pre-existing content sitting in a transient surface across multiple sessions is the user's intentional working buffer, not at-risk material from this session. Cross-session cleanup is `/weekly-hygiene` Step 6's job, not /park's.
+
+     **Detection:** Use `find` with `mtime` filtering to enumerate transient surfaces modified within the session window. This is mechanical (filesystem fact, not Claude's memory) and proportionate — it answers "did anything change in a transient surface during this session?" without requiring Claude to remember what it wrote there. Do not gate on "I don't think I wrote there" — memory-based gating is the failure mode this check exists to prevent. For a session of N minutes, use `-mmin -N` (a generous default for typical sessions is `-mmin -120`):
 
      ```bash
-     find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"
+     find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -mmin -120
      ```
 
-     Plus any vault-specific transient locations (e.g. `02 Inbox/*.md`, daily-note files). If anything looks like a draft for a forthcoming submission, message, or document — anything a future session would need to retrieve — move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
+     Plus any vault-specific transient locations (e.g. `02 Inbox/*.md`, daily-note files). For each result, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
 
      - **⛔ CHECKPOINT:** Display exactly one of:
        ```
