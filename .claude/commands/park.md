@@ -254,8 +254,17 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-9a. **⛔ Project link verification** (Full tier only):
-   After writing the session, verify the `**Project:**` line matches Step 6's determination. Extract mechanically:
+9a. **⛔ Pickup Context section verification** (Full tier only):
+   After writing the session, verify the `### Pickup Context` section actually exists in the just-written entry. The write-session script writes whatever stdin you give it without validating that all required sections are present — it's possible to write a session entry that's missing sections entirely. The Pickup Context section is the load-bearing one because it carries both the next-session pointer AND the Project link.
+   ```bash
+   grep -c '^### Pickup Context' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+   ```
+   Expected: at least 1 (one per session block in the file). If the count is lower than the number of Full-tier sessions today, the most recent session is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
+
+   **⛔ CHECKPOINT:** You cannot proceed to Step 9b until `Pickup Context check:` output appears in your response.
+
+9b. **⛔ Project link verification** (Full tier only):
+   After confirming the Pickup Context section exists, verify the `**Project:**` line inside it matches Step 6's determination. Extract mechanically:
    ```bash
    grep '^\*\*Project:\*\*' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | tail -1
    ```
@@ -279,18 +288,43 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        ```
    - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
 
-11. **Check for conversation-only drafts** (Full tier only):
+11. **Check for at-risk work product** (Full tier only):
    - **Quick tier:** Skip
-   - **Full tier:** Scan the conversation for any drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis.
-     - If found: **write each draft to its semantic home in the vault now** (e.g. correspondence file, project doc, area file) before proceeding. Do NOT leave drafts in conversation only.
+   - **Full tier:** Two failure modes for important work product. Both must be checked, in order.
+
+     **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans, or other work product that was displayed but never written to a file. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis or research synthesis. If found: write each draft to its semantic home in the vault now (correspondence file, project doc, area file). Do NOT leave drafts in conversation only.
+
+     **(b) Work product persisted to transient capture surfaces.** A transient capture surface is any file designed to be cleared on a regular cadence — typically Scratchpad files, Inbox files, and daily notes. They are *not* durable homes. The fact that "Scratchpad is technically in the vault" does NOT make it durable — it makes it *worse* than conversation-only, because the false sense of persistence delays detection until after the cleanup pass has destroyed the content.
+
+       The detection and routing for (b) are spelled out below. They apply to (b) only; (a) handles its own routing inline above.
+
+       **(b) Detection — read unconditionally, do not rely on memory.** Do not skip this step on the basis of "I don't think I wrote anything there this session." Memory-based gating is exactly the failure mode this check exists to prevent. Read every transient capture surface in the vault on every Full-tier park, regardless of recall. The authoritative enumeration matches `/weekly-hygiene` Step 6 (Scratchpad Sweep):
+
+       ```bash
+       find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"
+       ```
+
+       Plus any vault-specific transient locations the user has designated (e.g. `{VAULT}/02 Inbox/*.md`, daily-note files). If the vault has a `{VAULT}/.claude/transient-surfaces.txt` config file, read it for the authoritative list.
+
+       For each surface found, read its current contents and judge: is anything there durable work product? Durable = named, structured, referenced from a task or future commitment, or recognisable as a draft for a forthcoming submission/message/document. Not durable = one-line ideas, link dumps, raw capture-to-triage notes, free-association journaling. When in doubt, treat as durable and route — the cost of a false positive (one extra file moved) is far lower than a false negative (work silently destroyed).
+
+       **(b) Routing.** Move each qualifying item to its semantic home — the project folder for project work, the area file for area work, a dedicated reference doc for standalone references. Then:
+       1. Remove the routed content from the transient capture surface
+       2. Update any pointers (This Week.md, project hubs, prior session logs from this session) that referenced the transient location to point at the new durable location instead
+       3. Add the new file to step 14a's backfill list so the session log "Files Updated" reflects the routing
+
      - **⛔ CHECKPOINT:** Display exactly one of:
        ```
-       ✓ No conversation-only drafts to persist
+       ✓ No at-risk work product to persist
        ```
        ```
-       🔧 Persisted N conversation draft(s): [file path(s)]
+       🔧 Persisted N item(s): [file path(s) — annotate (a) conversation-only or (b) transient-surface]
        ```
-     You cannot proceed to Step 12 until this output appears.
+     You cannot proceed to Step 12 until this output appears. If displaying the "✓" form, the response must include evidence that the unconditional read for (b) actually ran (a Read tool call or grep against each transient surface). A bare "✓" line without a preceding read is a fabricated claim, not a verified result.
+
+   - **Why this exists (lessons logged):**
+     - The conversation-only check (a) was added because `/reply` drafts and inline analysis were being lost when sessions ended without persistence.
+     - The transient-surface check (b) was added 2026-04-09 after a peer-review COI disclosure draft was persisted to Scratchpad in one session, then silently destroyed by a later session's scratchpad cleanup pass before the user needed it. The user discovered the loss days later and had to recover the text from git history. The lesson: *Scratchpad is not a durable home*. Anything a future session will need belongs in its semantic home, not in a transient capture surface. The unconditional-read requirement was added during the audit of this fix to remove the "I don't remember writing there" failure mode.
 
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
@@ -424,7 +458,7 @@ Quick park complete. Minimal overhead for trivial task.
 ```
 ✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
-✓ Conversation drafts: No conversation-only drafts to persist [OR "Persisted N draft(s): [paths]"]
+✓ At-risk work product: No at-risk work product to persist [OR "Persisted N item(s): [paths]"]
 ✓ Open loops documented: N items
 ✓ Continuation link added: [Original Session] (only if this session continues previous work)
 ✓ Project updated: [Project Name] (if applicable)
