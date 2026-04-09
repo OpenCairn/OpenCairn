@@ -49,10 +49,11 @@ The implementation doesn't exist in isolation. What surrounds it matters.
 Change always meets existing reality. What's already there?
 
 - What does this replace or modify? What breaks if the old thing disappears?
-- Are there consumers/dependents that expect the current interface/format/behavior?
+- Are there consumers/dependents that expect the current interface/format/behaviour?
 - Is there data, state, or configuration that needs to carry forward?
 - For plans/processes: what habits, expectations, or workflows does this disrupt?
 - For content edits (docs, notes, config values): grep for key identifiers that changed (names, dates, refs, amounts) across the wider repository. For each hit, assess whether it's a stale cross-reference (update it), a historical record of what was actually said/sent (leave it), or a different context that happens to share the identifier (leave it). Stale cross-references are the most common Layer 3 miss in non-code edits.
+- **For link-integrity questions specifically, prefer structural queries over text grep.** A rename/move/delete that needs link-integrity verification is a structural question, not a text search. The system probably has a purpose-built query: an Obsidian vault has `obsidian unresolved` (queries the live link index); a codebase has language-server "find references" or `git grep` with the right filters; a wiki has a broken-link report; an EHR has a referential-integrity check. Read the project's tool-routing doc (e.g. CLAUDE.md, a contributor guide, or a "how to search" reference) before designing the verification step. Text grep is what you reach for when you don't know the system has a purpose-built tool — the grep-as-default reflex is a Layer 5 failure mode, because text search is sensitive to file format, encoding, hidden-directory exclusions, and ignore-pattern semantics that the structural query is indifferent to.
 
 #### Layer 4: Is the implementation correct?
 
