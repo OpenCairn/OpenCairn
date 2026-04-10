@@ -60,6 +60,20 @@ Check if any sessions were logged after last night's /goodnight close-out. If so
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
+**Weather forecast:** Fetch the 7-day forecast via the weather script:
+```bash
+"{VAULT}/.claude/scripts/weather-forecast.sh" [LAT] [LON] [TIMEZONE] [LOCATION_NAME]
+```
+Determine the user's current location from CLAUDE.md context (TZ field, travel status, or This Week.md location banner). Pass coordinates accordingly. Common locations:
+- Hong Kong: `22.3193 114.1694 Asia/Hong_Kong "Hong Kong"`
+- Brisbane: `-27.4698 153.0251 Australia/Brisbane "Brisbane"`
+- Shenzhen: `22.5431 114.0579 Asia/Shanghai "Shenzhen"`
+- Guangzhou: `23.1291 113.2644 Asia/Shanghai "Guangzhou"`
+
+If the script fails (no internet, API down), skip silently — weather is nice-to-have, not blocking.
+
+Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the status banner area (between the `**Status:**`/`**Location:**` lines and `**Quick ref:**`). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
+
 Read and present:
 - **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md`, show Active section
 - **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 7. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 7. If the file doesn't exist, skip.
@@ -313,7 +327,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness)
+- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness), Open-Meteo API (weather forecast via `weather-forecast.sh`)
 - **May create/update:** This Week.md (weekly plan with day sections)
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
