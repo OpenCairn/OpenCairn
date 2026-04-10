@@ -53,3 +53,7 @@ grep -rE -i "your_name|your_home_path|your_personal_details" \
 Substitute your own identifiers (name, home path, workplace, etc.) for the placeholders above.
 
 `/sync-template` Phase 4 runs this automatically.
+
+### Breaking Changes
+
+OpenCairn has real external users. Prompt-level changes (command `.md` files) are soft — Claude adapts. Structural changes (directories, filenames, script arguments) are hard breaks and need migration guidance or a changelog entry. At minimum, flag breaking structural changes in commit messages.
