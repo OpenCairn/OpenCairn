@@ -65,6 +65,7 @@ Check if any sessions were logged after last night's /goodnight close-out. If so
 ```bash
 curl -sf "https://api.open-meteo.com/v1/forecast?latitude=LAT&longitude=LON&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&timezone=TZ&forecast_days=7"
 ```
+API returns Celsius by default. Add `&temperature_unit=fahrenheit` if the user's locale uses Fahrenheit.
 
 Parse the JSON and format as a compact markdown block:
 ```
