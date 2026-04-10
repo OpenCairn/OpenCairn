@@ -333,7 +333,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness), Open-Meteo API (weather forecast via `weather-forecast.sh`)
+- **Reads from:** Works in Progress, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent Claude Sessions, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness), Open-Meteo API (weather forecast)
 - **May create/update:** This Week.md (weekly plan with day sections)
 - **May update:** Works in Progress, Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
