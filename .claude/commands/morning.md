@@ -60,15 +60,22 @@ Check if any sessions were logged after last night's /goodnight close-out. If so
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
-**Weather forecast (optional):** If `{VAULT}/.claude/scripts/weather-forecast.sh` exists, fetch the 7-day forecast:
-```bash
-if [[ -x "{VAULT}/.claude/scripts/weather-forecast.sh" ]]; then
-  "{VAULT}/.claude/scripts/weather-forecast.sh" [LAT] [LON] [TIMEZONE] [LOCATION_NAME]
-fi
-```
-The script is user-personalised (not part of the OpenCairn template). It contains a location lookup table matching the user's common locations. Determine the user's current location from CLAUDE.md context (TZ field, travel status, or This Week.md location banner) and pass coordinates accordingly — or call with no arguments to use the script's timezone-based fallback.
+**Weather forecast:** Fetch the 7-day forecast from the Open-Meteo API (free, no key). Determine the user's current city from CLAUDE.md context (TZ field, travel status, or This Week.md location banner), look up its coordinates, and run:
 
-If the script doesn't exist or fails (no internet, API down), skip silently — weather is nice-to-have, not blocking.
+```bash
+curl -sf "https://api.open-meteo.com/v1/forecast?latitude=LAT&longitude=LON&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&timezone=TZ&forecast_days=7"
+```
+
+Parse the JSON and format as a compact markdown block:
+```
+**Weather (City):** 25°C now, humidity 88%, wind 9 km/h
+**Forecast:** ☁️ Sat 28/25°C · 🌦️ Sun 27/23°C, 33% rain · ...
+*Updated [Day DD Mon HH:MM TZ] via Open-Meteo*
+```
+
+WMO weather codes → emoji: 0 ☀️, 1 🌤️, 2 ⛅, 3 ☁️, 45/48 🌫️, 51-55 🌦️, 61-65 🌧️, 71-75 🌨️, 80 🌦️, 81-82 🌧️, 95-99 ⛈️. Only show rain % if >5%.
+
+If the API call fails (no internet, timeout), skip silently — weather is nice-to-have, not blocking.
 
 Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the status banner area (between the `**Status:**`/`**Location:**` lines and `**Quick ref:**`). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
 
