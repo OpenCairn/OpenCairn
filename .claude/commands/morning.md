@@ -60,17 +60,15 @@ Check if any sessions were logged after last night's /goodnight close-out. If so
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
-**Weather forecast:** Fetch the 7-day forecast via the weather script:
+**Weather forecast (optional):** If `{VAULT}/.claude/scripts/weather-forecast.sh` exists, fetch the 7-day forecast:
 ```bash
-"{VAULT}/.claude/scripts/weather-forecast.sh" [LAT] [LON] [TIMEZONE] [LOCATION_NAME]
+if [[ -x "{VAULT}/.claude/scripts/weather-forecast.sh" ]]; then
+  "{VAULT}/.claude/scripts/weather-forecast.sh" [LAT] [LON] [TIMEZONE] [LOCATION_NAME]
+fi
 ```
-Determine the user's current location from CLAUDE.md context (TZ field, travel status, or This Week.md location banner). Pass coordinates accordingly. Common locations:
-- Hong Kong: `22.3193 114.1694 Asia/Hong_Kong "Hong Kong"`
-- Brisbane: `-27.4698 153.0251 Australia/Brisbane "Brisbane"`
-- Shenzhen: `22.5431 114.0579 Asia/Shanghai "Shenzhen"`
-- Guangzhou: `23.1291 113.2644 Asia/Shanghai "Guangzhou"`
+The script is user-personalised (not part of the OpenCairn template). It contains a location lookup table matching the user's common locations. Determine the user's current location from CLAUDE.md context (TZ field, travel status, or This Week.md location banner) and pass coordinates accordingly — or call with no arguments to use the script's timezone-based fallback.
 
-If the script fails (no internet, API down), skip silently — weather is nice-to-have, not blocking.
+If the script doesn't exist or fails (no internet, API down), skip silently — weather is nice-to-have, not blocking.
 
 Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the status banner area (between the `**Status:**`/`**Location:**` lines and `**Quick ref:**`). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
 
