@@ -57,3 +57,19 @@ Substitute your own identifiers (name, home path, workplace, etc.) for the place
 ### Breaking Changes
 
 OpenCairn has real external users. Prompt-level changes (command `.md` files) are soft — Claude adapts. Structural changes (directories, filenames, script arguments) are hard breaks and need migration guidance or a changelog entry. At minimum, flag breaking structural changes in commit messages.
+
+## Commit Signing
+
+All commits to this repository are signed with SSH keys. GitHub shows a "Verified" badge on each commit. `/update` checks whether the template commit is signed and emits an informational message if your local git isn't configured to verify signatures (not a security warning — the command still runs).
+
+To enable local verification:
+
+```bash
+# 1. Create an allowed_signers file with the maintainer's public key
+echo "harrisonaedwards@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII2W2hHbB2SqhuxctJVhXBgEAOWI0SKJxp/WN96Gtibq harrison-signing-key" > ~/.ssh/allowed_signers
+
+# 2. Tell git to use it
+git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
+```
+
+After this, `/update` will show "Template commit is signed and verified" on each run.
