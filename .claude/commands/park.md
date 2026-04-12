@@ -71,6 +71,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      EOF
      ```
    - **After merging, run Steps 5, 11, 12, 13, 14, 14a, 15, 16** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, audit recommendation — all using the merged session's number). Skip Steps 3-4, 6-10 (no new session entry needed).
+   - **Several of these steps will typically be no-ops in a merge** (the remediation did the routing/graphing inline as it ran) — run them anyway as mechanical checks but report them honestly as "no new X, already handled inline" rather than inventing work. Specifically, Step 11 (at-risk work product), Step 13 (reference graph), and Step 14 (open loop routing) rarely surface anything new in a merge because the remediation was file-based and already landed its own routing/graphing. Steps 5, 12, 14a, 15, 16 still do real work (fresh quality gate on the remediation edits, WIP timestamp bump, backfill of files touched during the remediation, completion reporting).
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
