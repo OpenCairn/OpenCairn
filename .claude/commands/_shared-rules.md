@@ -20,10 +20,11 @@ After running `resolve-vault.sh`, if it errors: **abort — no vault accessible.
 
 When a session or task links to a project context:
 
-- **Finite work** → link to `03 Projects/[name].md` (or `03 Projects/Backlog/[name].md`)
+- **Finite work (in flight)** → link to `03 Projects/[name].md` (or `03 Projects/Backlog/[name].md`)
 - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
+- **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a new project file, and do not create a WIP entry.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and creating a project file (or WIP entry) retroactively is noise. Example: a published post on `hedwards.dev` links to `[[04 Areas/Blog-Sites/Blog]]`, not a newly-created post-specific project file.
 - **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, or Archive
-- **No canonical home?** Create a project or area file rather than linking to WIP
+- **No canonical home and work is still in flight?** Create a project or area file rather than linking to WIP
 - **Working in Resources?** That's a signal it should graduate to an Area
 - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
 
