@@ -69,6 +69,108 @@ When migrating Tickler items:
 
 **Lock ordering:** When both locks are needed, always acquire the session lock first, release it, then acquire the provenance lock. Never hold both simultaneously.
 
+## Failure modes for in-place file edits
+
+Three distinct failure modes can trip up file edits during a skill's execution. Each has a different root cause and a different remediation. **Diagnose before treating.**
+
+### Failure mode A: Edit tool refuses with "modified since read"
+
+Symptom: `Edit` tool returns "File has been modified since read, either by the user or by a linter." even after a fresh `Read`.
+
+Likely causes (in decreasing probability):
+1. A PostToolUse hook (e.g. britfix) fired on a prior write and advanced mtime between this Read and Edit
+2. A parallel Claude session is editing the same file
+3. Syncthing bidirectional sync with the NAS mirror advanced mtime
+4. An Obsidian background process touched the file
+
+**Diagnostic:** `stat -c '%y' "$file"` immediately before the Read and immediately before the Edit. If mtime advances between them with no intervening write from this session, an external process is touching the file.
+
+**Remediation:** Don't loop-retry the Edit tool. Fall back to an atomic Python rewrite with `fcntl.flock(LOCK_EX)` on the target file:
+
+```python
+import fcntl
+path = "/absolute/path/to/file.md"
+with open(path, 'r+', encoding='utf-8') as f:
+    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+    content = f.read()
+    # ... modify content via str.replace(old, new, 1) / re.sub() ...
+    f.seek(0)
+    f.truncate()
+    f.write(content)
+```
+
+The Python fallback works for this failure mode because it skips the Edit tool's mtime freshness check entirely and performs an atomic read-modify-write under a kernel-level exclusive lock on the target file.
+
+### Failure mode B: Session-management script times out on its lock
+
+Symptom: `write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, or `add-forward-link.sh` exits with code 1 and "Lock timeout after 10s / Failed to acquire lock."
+
+Likely cause: **a prior invocation of the same script is still running and holds the flock.** This happens when the Bash tool backgrounded an earlier invocation and the script got stuck — most commonly, scripts fed via heredoc (`cat <<EOF | script.sh ... EOF`) can block forever in `read` from their stdin pipe if the Bash tool backgrounded the shell before the pipe writer finished. The script is blocked in `anon_pipe_read` on fd 0, still holding fd 9 on the `.lock` file.
+
+**Diagnostic — find the hung process, don't work around it:**
+```bash
+# List processes holding the lock
+fuser "{VAULT}/06 Archive/Claude/Session Logs/.lock"
+# Inspect them
+ps -ef | grep -E "write-session|update-session-section|backfill-files|add-forward-link" | grep -v grep
+# Confirm they're blocked on stdin pipe (expect anon_pipe_read)
+cat /proc/<PID>/wchan
+```
+
+**Remediation — kill the hung processes:**
+```bash
+# Kill specific PIDs reported by fuser
+kill <PID1> <PID2> ...
+# Or nuclear option
+pkill -f backfill-files-updated
+pkill -f update-session-section
+```
+
+After killing, the lock releases and subsequent script invocations work normally.
+
+**Why Python+flock is only a partial fallback here.** The scripts lock a *separate* `.lock` sibling file (e.g. `06 Archive/Claude/Session Logs/.lock`), while Python+flock locks the *target* session log file directly. These are two different inodes, two different locks — they do not coordinate at all. Python "works" not because it's stronger than the shell `flock(1)` command (both use `flock(2)` under the hood), but because it's locking a different file entirely and therefore doesn't contend with the hung script. This means:
+
+- **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another Claude session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
+- **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
+- **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. For ad-hoc edits with no dedicated script (e.g. WIP mid-park), Python+flock is the primary tool regardless.
+
+### Failure mode C: Bash tool backgrounds a command that finishes normally
+
+Symptom: A simple command (`ls`, `stat`, `wc -l`, `mount`, etc.) returns "Command running in background with ID: bXXXX" instead of returning its output inline. The command may have actually completed — check the task output file before assuming it's hung.
+
+Likely cause: The Bash tool's harness has heuristics for backgrounding commands that it considers long-running. These heuristics sometimes fire on commands that complete in milliseconds, especially during sessions with many rapid tool calls.
+
+**Diagnostic:**
+```bash
+# Retrieve output from the task file (path is in the tool result)
+cat /tmp/claude-XXXX/.../tasks/bXXXX.output
+# Check if the command's process still exists
+ps -p <PID from backgrounding message> 2>&1
+```
+
+**Remediation:** If the output file has the expected content, the command finished successfully — just use it. If the process is still alive after many seconds and the output is empty, it may be stuck; inspect and kill per Failure mode B.
+
+**Prevention:** For simple diagnostics, prefer small focused commands and read the output promptly. Avoid chaining many commands with `;` or `&&` in one Bash tool call — each chain element can trigger backgrounding heuristics.
+
+### Section-targeted append patterns (when scripts are unavailable)
+
+When you need to append to or replace a specific section within a session log (`### Summary`, `### Files Updated`, `### Pickup Context`) and the dedicated script is unavailable, use these safe insertion points:
+
+- **Append to `### Summary`:** insert immediately before the next `### ` heading within the same `## Session N` block (typically `### Key Insights` or `### Next Steps`). This preserves section order.
+- **Append to `### Files Updated`:** insert immediately before `### Pickup Context` within the same session block.
+- **Replace `### Pickup Context`:** find `### Pickup Context` and the next `## ` or `---` boundary, replace the span between them.
+
+Use markers unique to the session block (the full `## Session N - Topic` header) to scope the find. Python example:
+
+```python
+s3_idx = content.find("## Session 3 - Topic")
+next_section_idx = content.find("### Key Insights", s3_idx)
+before, after = content[:next_section_idx], content[next_section_idx:]
+before = before.rstrip("\n") + "\n\n" + addendum + "\n\n"
+```
+
+**Reminder:** Prefer killing hung scripts and re-running the dedicated script over writing ad-hoc Python. The dedicated scripts encode conventions (None→list placeholder handling, dedup logic) that inline Python reimplementations will miss.
+
 ---
 
 ## 6. WIP Session Link FIFO Cap

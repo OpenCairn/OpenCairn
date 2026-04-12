@@ -34,19 +34,42 @@ date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
-### 2. Reconcile post-goodnight sessions
+### 2. Reconcile yesterday's close-out
 
-Check if any sessions were logged after last night's /goodnight close-out. If so, patch the daily report so it reflects the full day.
+#### 2a. Catch up missed /goodnight
 
-1. Compute yesterday's date: `date -d "yesterday" +"%Y-%m-%d"`
-2. Check if yesterday's daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
-3. If no daily report → skip (no /goodnight was run). Proceed to Step 3.
-4. Read yesterday's session log: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
-5. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic).
-6. If daily report exists but no goodnight session found in the session log → skip (daily report wasn't created by /goodnight). Proceed to Step 3.
-7. Extract the goodnight session number. Check if any sessions exist with a higher number.
-8. If no post-goodnight sessions → skip silently. Proceed to Step 3.
-9. If post-goodnight sessions found:
+Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/offline). For each day, in chronological order:
+
+1. Check if a daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
+2. If daily report exists → skip this day (already closed out).
+3. Check if a session log exists: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+4. If no session log or no sessions → skip silently (nothing to close out).
+5. If sessions exist but no daily report → **/goodnight was missed.** Run a lightweight catch-up:
+
+   a. Read the day's session log and its day section in This Week.md.
+   b. **Generate the daily report** at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8 (plan from This Week.md day section converting `[x]`→`✓` and `[ ]`→plain bullets, sessions list, blockers). No debrief prompt — the user will mention completions in Step 4.
+   c. **Route undone items** from the day section in This Week.md — same logic as /goodnight Step 9 (natural future day → move there; priority → today's section; low priority/no deadline → Tasks.md; already in future day → delete duplicate). Carry items forward intact including sub-items and checklists. **Date shift:** during catch-up, "tomorrow" (where /goodnight would route priority items) means **today**, not the day after today.
+   d. **Collapse the day section** to a one-liner + daily report link (same format as /goodnight Step 10). Also collapse any earlier verbose day sections within the file.
+   e. **Log a catch-up session** to the day's session file via write-session.sh: `## Session N - Goodnight catch-up via /morning (HH:MMam/pm)` — brief summary of what was generated/routed.
+   f. **Skip** (not part of catch-up): debrief prompt, provenance processing, WIP timestamp bump. These are either handled by /morning's own flow or are non-critical for a retroactive close-out.
+   g. Display:
+      ```
+      ⚠ /goodnight was not run for [Day DD Mon] — caught up:
+      ✓ Daily report generated: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
+      ✓ [N] undone items routed from [Day]'s section
+      ✓ [Day] section collapsed
+      ```
+
+#### 2b. Reconcile post-goodnight sessions
+
+For each day that now has a daily report (whether from /goodnight or 2a), check for late sessions:
+
+1. Read the day's session log.
+2. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic). Also match `Goodnight catch-up via /morning` for catch-up sessions from 2a.
+3. If no goodnight session found → skip.
+4. Extract the goodnight session number. Check if any sessions exist with a higher number.
+5. If no post-goodnight sessions → skip silently.
+6. If post-goodnight sessions found:
    - Read each post-goodnight session block.
    - **Append** the late session(s) to the `## Sessions` list in the daily report.
    - **Append** any completions to `## Completed`.
