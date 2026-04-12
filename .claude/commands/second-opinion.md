@@ -57,6 +57,8 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
    - What context matters: audience, publication target, constraints, dependencies, the author's situation.
    - The specific question(s) you want judgement on.
    - The output format: structured sections, word cap, explicit "no hedging, disagree where warranted, no sycophancy" directive.
+   - **A "what the work gets right" section in the output format, capped at ~5 bullets.** Without this, a reviewer who only reports problems leaves the synthesis unable to distinguish "section X was approved" from "section X was not mentioned" — and silence is not endorsement. Forcing reviewers to name what they think works also makes disagreement more visible in Phase 3: if Opus lists something as a strength and Gemini lists the same thing as a problem, that's a load-bearing disagreement you'd otherwise miss.
+   - **Severity-stratified output with explicit maxes** (e.g. "load-bearing: max 5 / worth-fixing: max 8 / polish: max 5"). Uncapped lists invite reviewers to pad with shallow observations to look thorough; explicit caps force them to rank and drop the weak ones.
 
 5. **For review-of-review mode in Mode A (second opinion on a prior audit, code review, or decision memo written by the current session), add this explicitly:**
    - **Require the reviewers to read the original work product from source.** The brief gives them the path; their job is to go read it, not to take your word for what it says. Include a sentence like: "Read the work yourself before forming opinions. The summary below is supplementary context, not a substitute — treat it as possibly biassed because it was written by the author of the work being reviewed."
