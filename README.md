@@ -84,6 +84,8 @@ The core mechanic. Based on the "shutdown complete" ritual — the idea that you
 
 **Next session:** `/pickup` shows your Works in Progress as a numbered list — pick one to load its project hub and last session context. Or pass a topic/keyword to jump straight in; a shell script extracts session metadata as compact TSV so targeted searches are cheap.
 
+All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), so concurrent Claude instances and NAS-mounted vaults don't trample each other.
+
 ### Day: Morning, Afternoon, Goodnight
 
 | Command | When | What |
@@ -94,9 +96,11 @@ The core mechanic. Based on the "shutdown complete" ritual — the idea that you
 
 `This Week.md` is a rolling 7-day plan — viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. Each day gets a time-blocked section. `/afternoon` and `/goodnight` read today's section to track what actually happened.
 
+A **tickler** sits underneath the day layer: `/park` offers to defer open loops to specific future dates, and deferred items resurface automatically in `/morning` and `/pickup` when their date arrives. Once an item is pulled into a planning document, that document becomes SSOT and the tickler copy is deleted — no duplicate checkboxes drifting across the vault.
+
 ### Week: Weekly Review
 
-`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, reviews the corrections log for patterns worth promoting to context files, and flags open loops older than 14 days. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
+`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, and flags open loops older than 14 days. It also reviews the **corrections log** — `/oops` captures mistakes and lessons as you go; the weekly pass looks for recurring patterns worth promoting to context files, so you only get something wrong once. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
 
 ### Quarter: Quarterly Review
 
@@ -170,6 +174,9 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 ## All Commands
 
+<details>
+<summary><strong>Click to expand the full command reference</strong></summary>
+
 **Daily rhythm:**
 
 | Command | What it does |
@@ -220,6 +227,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
+| `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. Aliases: `/tiebreak`, `/panel`. |
 
 **Prioritisation:**
 
@@ -244,8 +252,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | Command | What it does |
 |---------|-------------|
 | `/audit` | Rigorous five-layer evaluation of any implementation (code, config, plans, processes). Layers: approach → environment → migration → implementation → execution. Iterates until clean. |
-| `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. |
-| `/verify-provenance` | Verifies integrity of the provenance log by recomputing hashes and comparing against logged values. Reports matches, mismatches, and OTS status. |
+| `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. Verification is handled automatically by `/weekly-hygiene`. |
 
 **Infrastructure:**
 
@@ -262,18 +269,9 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/regroup` | `/afternoon` |
 | `/shutdown` | `/goodnight` |
 
----
-
-## Under the Hood
-
-- **Two-stage pickup.** Bare `/pickup` reads Works in Progress and shows a numbered list — cheap orientation. Targeted pickup (`/pickup Japan trip`) uses a shell script to extract session metadata as TSV (~10x smaller than reading full files), then searches for matches. Only the selected session is read in full.
-- **Tiered overhead detection.** `/park` measures what you actually did. Quick sessions get a one-line log. Full sessions get structured documentation. You don't pay documentation overhead for a 2-minute tweak.
-- **Bidirectional session links.** Each session links forward and backward. Trace a project's history through time without searching.
-- **File locking.** All writes use `flock` (Linux) or `mkdir` fallback (macOS/Windows). Safe for concurrent Claude instances and NAS-mounted vaults.
-- **Tickler system.** `/park` offers to defer open loops to specific future dates. Deferred items surface automatically in `/morning` and `/pickup` when their date arrives. Once pulled into a planning document (weekly plan, project page), that document becomes SSOT and the Tickler copy is deleted.
-- **Corrections log.** `/oops` captures mistakes and lessons. `/weekly-review` reviews for recurring patterns worth promoting to context files. Only get something wrong once.
-
 Scripts live in `.claude/scripts/` and require the `VAULT_PATH` environment variable.
+
+</details>
 
 ---
 
@@ -295,24 +293,6 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 **Context-aware status line.** Claude Code's default status line shows absolute tokens. A percentage with colour-coded warnings is more useful - see [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/) for the setup script. Startup commands (`/morning`, `/pickup`, etc.) consume significant context on their own - a fresh session typically starts around 15-20% just from loading context files and command prompts, so your usable working window is smaller than the raw percentage suggests.
 
 **More tips** on context management, workflow patterns, keyboard shortcuts, and MCP servers: [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/)
-
----
-
-## Commit Signing
-
-All commits to this repository are signed with SSH keys. GitHub shows a "Verified" badge on each commit.
-
-**For `/update` users:** When you run `/update`, it checks whether the template commit is signed. If your git isn't configured to verify signatures, you'll see an informational message (not a security warning). To enable local verification:
-
-```bash
-# 1. Create an allowed_signers file with the maintainer's public key
-echo "harrisonaedwards@gmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII2W2hHbB2SqhuxctJVhXBgEAOWI0SKJxp/WN96Gtibq harrison-signing-key" > ~/.ssh/allowed_signers
-
-# 2. Tell git to use it
-git config --global gpg.ssh.allowedSignersFile ~/.ssh/allowed_signers
-```
-
-After this, `/update` will show "Template commit is signed and verified" on each run.
 
 ---
 
