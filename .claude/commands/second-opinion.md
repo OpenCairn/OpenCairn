@@ -13,7 +13,7 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 **TRIGGER when:**
 - High-stakes work is about to ship (publication, merge to main, send to client, deploy to prod) and a single reviewer's confidence feels load-bearing.
 - A decision is hard to reverse and the cost of being wrong exceeds the 2–5 minute cost of running the review.
-- You just finished a first-pass review (e.g. `/audit`) and want an independent check before acting on the findings. This is *review-of-review* mode — the highest-value use of the skill, and also the most prone to bias-leaking. See Phase 1 step 4.
+- You just finished a first-pass review (e.g. `/audit`) and want an independent check before acting on the findings. This is *review-of-review* mode — the highest-value use of the skill, and also the most prone to bias-leaking. See Phase 1 step 5.
 - You're stuck between two framings of a problem and want non-correlated voices.
 - You've already run a panel, applied fixes, and want to verify the fixes against the reviewers who raised the concerns (iterative mode — see below).
 
@@ -24,9 +24,9 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 
 ## The two modes
 
-**Mode A — Independent panel (parallel, fresh reviewers).** Two reviewers from different model families, each seeing the work for the first time, running concurrently. Maximum non-anchoring; cross-model signal on agreement vs disagreement. Use when the question is "is my understanding of this right?" and you want judgement uncorrelated with the in-session conversation. This is the default mode.
+**Mode A — Independent panel (parallel, fresh reviewers).** Two reviewers from different model families, each seeing the work for the first time, running concurrently. Maximum non-anchoring; cross-model signal on agreement vs disagreement. Use when the question is "is my understanding of this right?" and you want judgement uncorrelated with the in-session conversation. This is the default mode and the one validated in real use.
 
-**Mode B — Iterative deepening (sequential, resumed reviewers).** Bring the *same* reviewer(s) back for round 2, 3, or more. They carry their prior context forward — you don't have to re-brief them on the work or the history. Use when:
+**Mode B — Iterative deepening (sequential, resumed reviewers) — unverified, see Phase 2B warning.** Bring the *same* reviewer(s) back for round 2, 3, or more. They carry their prior context forward — you don't have to re-brief them on the work or the history. Use when:
 - You've fixed the thing the reviewer flagged in round 1 and want to know whether the fix actually resolves their concern.
 - The reviewer was uncertain in round 1 and you've gathered new evidence (docs, test results, source reads) that should shift the judgement.
 - You want to push back on a critique and have the reviewer defend or revise it.
@@ -38,17 +38,9 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 
 ## Philosophy
 
-**Fresh context is a tool, not a virtue.** A reviewer who walks in cold catches things the author has normalised — that's Mode A's value. A reviewer who already has context can go deeper on a specific thread without re-briefing cost — that's Mode B's value. Pick the mode that matches your question, not the one that feels more rigorous.
+**Fresh context is a tool, not a virtue.** A reviewer who walks in cold catches things the author has normalised — that's Mode A's value. A reviewer who already has context can go deeper on a specific thread without re-briefing cost — that's Mode B's value. But Mode A's freshness is conditional on the brief: if you brief a fresh reviewer with a summary written by the author of the work being reviewed, you've laundered your framing into their context and their judgement is no longer independent. This is the skill's single biggest failure mode; Phase 1 step 5 addresses it directly. Mode B doesn't suffer from this (the reviewer's context is their *own* prior reading, not the author's summary) — one reason Mode B is sometimes the better tool even for first-round questions.
 
-**Mode A's freshness is conditional on the brief.** If you brief a fresh reviewer with a summary written by the author of the work being reviewed, you've laundered your framing into their context and their judgement is no longer independent. This is the skill's single biggest failure mode; Phase 1 step 4 addresses it directly. Mode B doesn't suffer from this (the reviewer's context is their *own* prior reading, not the author's summary) — one reason Mode B is sometimes the better tool even for first-round questions.
-
-**Two reviewers surface disagreement; three surface votes.** The valuable signal isn't the aggregate verdict — it's *where reviewers disagree*, because that's where the real judgement calls live. Two reviewers expose disagreement cleanly; a third just adds a third opinion to count. Scale up to three only if the two agree on everything and you suspect they're correlating.
-
-**Cross-model matters more than cross-instance.** Two fresh Claudes share training data, prior-art exposure, and many error modes. One Claude plus one Gemini gives genuinely non-correlated opinions. If only one model family is available, say so in the synthesis — the value proposition changes.
-
-**The tiebreak is the work.** You are not running a committee. You are not counting votes. When reviewers split, investigate the disagreement, decide which side is right, and say *why* — don't hedge, don't average. Correlated agreement is weak evidence, not ground truth: two models trained on similar data can confidently share a blind spot.
-
-**Don't automatically execute.** Running reviewers surfaces candidate findings. The user (plus you) decides what to act on. A second opinion that mechanically applies every suggestion is just a slower first pass.
+**The tiebreak is the work.** You are not running a committee. You are not counting votes. When reviewers split, investigate the disagreement, decide which side is right, and say *why* — don't hedge, don't average. Correlated agreement is weak evidence, not ground truth: two models trained on similar data can confidently share a blind spot. And running the panel surfaces candidate findings, not verdicts — the user (plus you) decides what to act on. A second opinion that mechanically applies every suggestion is just a slower first pass.
 
 ## Instructions
 
@@ -71,9 +63,7 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
    - List the prior findings and fixes faithfully, but label them as the *author's* claims, not as facts.
    - Ask the reviewer to judge each claim on its own merits after reading the current state.
 
-   Without this, both reviewers inherit your framing and their "agreement" becomes an artefact of the brief rather than genuine independent judgement. This is not optional for review-of-review mode.
-
-   For Mode B this is less urgent — the continuing reviewer already has their own reading from round 1 and won't accept your framing uncritically. But it's still worth reminding them to re-read any sections that changed since round 1.
+   Without this, both reviewers inherit your framing and their "agreement" becomes an artefact of the brief rather than genuine independent judgement. This is not optional for review-of-review mode. For Mode B this is less urgent — the continuing reviewer already has their own reading from round 1 — but it's still worth reminding them to re-read sections that changed since round 1.
 
 6. **Strip bias from the brief.** Don't frame the question in a way that telegraphs your preferred answer. Present what was done, not whether it was good. Ask the reviewer to apply their own framework, not to rate yours.
 
@@ -87,7 +77,7 @@ Send the brief to both reviewers in a **single message** with concurrent tool ca
 
 1. **Fresh Claude** via the Agent tool. Use `subagent_type: general-purpose`. **Read the scratch file's contents and pass them verbatim as the Agent's `prompt` argument** — the identical string that the Gemini call receives. Do not paraphrase, summarise, or extract; the two reviewers must see the same text, byte for byte, or you've re-introduced framing asymmetry. Tell the Agent explicitly in the prompt: independent judgement, disagree where warranted, no sycophancy, no "looks good overall" hedging. If you skip the disagree directive, fresh Claude defaults to polite confirmation of whatever framing you gave it.
 
-   **Record the Agent's returned ID** from the tool result — you'll need it for Mode B round 2.
+   **After the tool call completes, surface the Agent ID in your user-visible response text** — e.g. `Panel spawned: Opus agent a5abc789520b0879a`. This makes the ID recoverable from the conversation transcript even after the raw tool result scrolls out of context, which matters for Mode B round 2. Don't rely on re-reading the tool result hours later.
 
 2. **Gemini CLI** via Bash, in parallel with the Agent call. **Pass `timeout: 300000` (5 minutes) to the Bash tool call** — the default 120 s will kill Gemini mid-review on any non-trivial target. This is load-bearing; the runner won't intuit it from "budget 5 minutes" alone.
 
@@ -102,25 +92,35 @@ Send the brief to both reviewers in a **single message** with concurrent tool ca
    cat /tmp/second-opinion-prompt.md | gemini -p "Follow the instructions in the piped input exactly."
    ```
 
-   Gemini's CLI auto-assigns a session index to the run; you can retrieve it later with `gemini --list-sessions` when you want to resume in Mode B.
+   **After the call completes, capture and surface the Gemini session index.** Run `gemini --list-sessions | head -3` and record the index of the session you just ran — surface it in the user-visible response text alongside the Agent ID (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12`). You'll need this for Mode B round 2, and "latest" is not a safe shortcut (see Phase 2B step 2).
 
 3. **If a reviewer is unavailable** — Gemini not installed, API unreachable, quota hit, Agent tool error, subagent timeout — fall back to the single available reviewer and **say so explicitly in the synthesis**. Do not silently pretend the panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim no longer applies.
 
 ### Phase 2B: Resume prior reviewers (Mode B)
 
+> ⚠️ **Mode B has not yet been executed end-to-end in anger.** The steps below are a first-pass specification derived from Claude Code and Gemini CLI documentation, not from observed behaviour. Operational gaps may surface on first use — specifically around Agent ID lifetime across session boundaries, SendMessage tool availability, and gemini session indexing under concurrent use. Treat Mode B as a specification you are helping to validate: when you hit a gap, surface it back to this skill file rather than working around it silently. The whole point of the re-audit that produced this warning was to avoid pretending Mode B is production-ready when it hasn't been proven.
+
 Use this phase instead of 2A when you're iterating — the reviewers are already spun up from a previous round.
 
-1. **Claude (resumed)** via the Agent tool's `SendMessage` form. Pass the prior Agent's ID (recorded in the Mode A run that surfaced the finding you're iterating on) as the `to` field, and the new message as the content. The resumed Agent keeps its full prior context — you do **not** re-brief from scratch. Instead, write the round-2 prompt as a *continuation*: "Round 1 of this review surfaced finding X. The author has now done Y in response. Please re-read [specific sections that changed] and judge whether Y resolves your original concern. If it doesn't, what's still wrong? If it does, say so plainly."
+0. **Load SendMessage first.** SendMessage is typically a deferred tool in Claude Code — if it's not in your base tool set, call `ToolSearch` with `select:SendMessage` to fetch its schema before proceeding. Calling SendMessage before its schema is loaded fails with an input-validation error. You cannot skip this step.
 
-2. **Gemini (resumed)** via Bash, in parallel with the Claude SendMessage if you want both to iterate, or alone if only one reviewer's finding is under discussion. Resume with `--resume latest` for the most recent session, or `--resume N` for a specific session index (find it with `gemini --list-sessions`):
-   ```
-   echo "<round-2 prompt>" | gemini -p "Continue the prior review." --resume latest --approval-mode plan -o text
-   ```
-   Pass `timeout: 300000` to the Bash tool call, same as in 2A.
+1. **Check the Agent ID is still alive.** Mode B requires the Agent spawned in Phase 2A to still be resumable. Agent ID lifetime across session boundaries (`/park` + `/pickup`, session reload, context compaction) is not currently verified — assume session-scoped until proven otherwise. If you've parked and unparked since round 1, or if /compact has run, or if you can't find the Agent ID in the conversation transcript, the Agent is likely gone. Fall back to a fresh Mode A panel and accept the briefing cost.
 
-3. **Keep the round-2 prompt narrow.** Mode B's value is depth on a specific thread, not breadth across new findings. Ask one or two tight questions, not "review the whole thing again."
+2. **Write the round-2 prompt to a scratch file**, same pattern as Phase 1 — `/tmp/second-opinion-round2.md` or your OS equivalent. Keep it narrow: one or two tight questions, not "review the whole thing again." Mode B's value is depth on a specific thread, not breadth. Write the prompt as a continuation: "Round 1 of this review surfaced finding X. The author has now done Y in response. Please re-read [specific sections that changed] and judge whether Y resolves your original concern. If it doesn't, what's still wrong? If it does, say so plainly." Using a scratch file (rather than inline `echo`) avoids shell-escaping problems when the prompt contains backticks, `$`, or quotes — exactly the same reason Phase 2A uses a scratch file.
 
-4. **If you want a second opinion on an iterating reviewer's revised judgement** — i.e. Claude just came back with a round-2 response and you want to stress-test it — that's a Mode A task, not a Mode B task. Run a fresh Gemini panel on the specific point, and attribute carefully in the synthesis.
+3. **Look up the Gemini session index deterministically.** If you surfaced the index in Phase 2A (as instructed), use that. If not, run `gemini --list-sessions` and identify the right session by timestamp and project. **Do not use `--resume latest`** — "latest" resolves to the most recent gemini session for the project, so if you or any other process has run gemini for anything in between (even a quick one-shot), `latest` resumes the wrong session. Always resume by numeric index.
+
+4. **Invoke both reviewers in a single message with concurrent tool calls**, same as Phase 2A — parallel, not sequential:
+
+   - **SendMessage to the resumed Claude Agent**: `to` = the Agent ID recorded in Phase 2A, `content` = the round-2 prompt (read from the scratch file). The resumed Agent keeps its full prior context; you do **not** re-brief from scratch.
+
+   - **Gemini CLI via Bash** with `timeout: 300000`:
+     ```
+     cat /tmp/second-opinion-round2.md | gemini -p "Continue the prior review." --resume 12 --approval-mode plan -o text
+     ```
+     Replace `12` with your actual session index. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable.
+
+5. **If only one reviewer is being iterated** (you only care about one reviewer's finding in round 2), run that one in Phase 2B and skip the other. Note clearly in the synthesis that round 2 is single-reviewer.
 
 ### Phase 3: Tiebreak and synthesise
 
@@ -145,7 +145,7 @@ Executing the fixes is outside the scope of this skill. Hand off to direct edits
 ## Guidelines
 
 - **Pick the mode by question type, not by habit.** Fresh panel (Mode A) for "is my understanding right?"; iterative (Mode B) for "does my fix land?" or "defend or revise this critique." Default to Mode A if the question is genuinely open; default to Mode B if you're coming back to a specific thread from a prior review.
-- **Record Agent IDs and Gemini session indices.** You can't resume a reviewer in Mode B if you didn't capture their handle from round 1. Do it reflexively after every Phase 2A run.
+- **Surface Agent IDs and Gemini session indices in visible response text after Phase 2A.** Raw tool results scroll out of context; visible transcript text persists. You can't resume a reviewer in Mode B if you can't find their handle.
 - **Brief fresh reviewers like colleagues walking in cold.** Mode A reviewers have zero prior knowledge of the task, the conversation, or why this matters. The brief must stand on its own. Mode B reviewers already have context — don't re-send the whole brief, send a tight continuation.
 - **Two reviewers is the default, not the ceiling.** Scale to three only if the first two agree on everything and you suspect they're correlating on a shared blind spot. Never run four — you're paying coordination cost for diminishing signal.
 - **Cross-model, not cross-instance.** Two fresh Claudes will correlate more than one Claude plus one Gemini. Use different model families when you can — non-correlated error modes is the whole value proposition.
@@ -154,3 +154,4 @@ Executing the fixes is outside the scope of this skill. Hand off to direct edits
 - **Don't over-iterate in Mode B.** Three rounds on the same thread and still disagreeing means the disagreement is substantive, not procedural. Escalate to the user with both positions clearly stated; don't run round 4.
 - **Scope discipline.** This is not `/audit` redone from scratch. Trust the reviewers to bring their own framework; your job is synthesis, not re-review.
 - **Verify before acting on unique finds.** A single reviewer confidently flagging a bug is a hypothesis, not a fact. Check it (read the code, test the command, look up the docs, read the source) before editing anything. Especially true for claims about tool behaviour, platform quirks, and version-sensitive APIs — a reviewer that confidently asserts "X doesn't work on Windows" can be wrong, and acting on it without verification means you've shipped a regression to fix a non-issue.
+- **Mode B is a first-pass specification, not a validated workflow.** Until it's been executed end-to-end at least once, treat it with the same scepticism you'd apply to any untested procedure. Surface gaps back to this file rather than working around them silently — the skill gets sharper with every real use.
