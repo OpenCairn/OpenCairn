@@ -253,6 +253,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    obsidian deadends 2>/dev/null | filter | wc -l          # filtered dead-end count
    ```
 
+   **Obsidian Sync ghost detection** (if `~/repos/scripts/obsidian-ghost-check.sh` exists):
+   ```bash
+   if [ -x ~/repos/scripts/obsidian-ghost-check.sh ]; then
+     bash ~/repos/scripts/obsidian-ghost-check.sh --since "8 days ago" "{VAULT}"
+   fi
+   ```
+   If ghosts or conflict files are found, report them. In delete mode (`-d`), duplicates and conflict files are auto-removed; orphans are listed for user review. This catches files silently re-uploaded by a reconnecting phone via Obsidian Sync (known bug — Sync doesn't propagate deletions to offline devices). Skip silently if the script isn't installed.
+
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
 
@@ -413,6 +421,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
    - Dead-end files (03 Projects/ & 04 Areas/): [list top 10 or "none"]
    - Terminology flags: [list or "none"] (if _terminology-checks.md exists)
+
+   ## Obsidian Sync Ghost Check
+   - Ghosts found: N (N duplicates, N orphans)
+   - Conflict files: N
+   - Auto-deleted: N
+   - Orphans for review: [list or "none"]
 
    ## Vault Structural Metrics (CLI)
    - Open tasks: N

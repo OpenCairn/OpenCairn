@@ -138,7 +138,17 @@ Replace the placeholder variables with actual values.
 
    Determine the timestamp format from the audio duration: `[MM:SS]` for recordings under 1 hour, `[H:MM:SS]` for recordings 1 hour or longer. If `--no-timestamps` was passed, omit timestamps entirely.
 
-   **Without diarisation:** Insert a paragraph break wherever the gap between one segment's end and the next segment's start exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp derived from the first segment's `start` field:
+   **Without diarisation:** Insert a paragraph break wherever the gap between one segment's end and the next segment's start exceeds 1.5 seconds. Concatenate segment text within each paragraph.
+
+   **Monologue fallback.** For recordings longer than 5 minutes, after the initial split, check: is the paragraph count at least `duration_seconds / 120` (roughly one per two minutes)? If not, the source is a dense monologue without natural 1.5s pauses — recompute:
+
+   1. Sort all segment-to-segment gaps in descending order.
+   2. Let `N = min(floor(duration_seconds / 90), len(gaps_desc))` — target paragraph-break count (one break per ~90s), clamped to the number of available gaps.
+   3. Use `gaps_desc[N-1]` as the new threshold and re-split.
+
+   In your user-facing response, state the threshold actually used — either `(1.5s default)` or `(0.Xs — monologue fallback)` — so the choice is observable.
+
+   Prefix each paragraph with a timestamp derived from the first segment's `start` field:
    ```
    [00:00] First paragraph of speech here.
 
