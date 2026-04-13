@@ -101,7 +101,9 @@ WMO weather codes → emoji: 0 ☀️, 1 🌤️, 2 ⛅, 3 ☁️, 45/48 🌫️
 
 If the API call fails (no internet, timeout), skip silently — weather is nice-to-have, not blocking.
 
-Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the status banner area (between the `**Status:**`/`**Location:**` lines and `**Quick ref:**`). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
+Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the banner area (after the `**Location:**` line, before the `**Quick ref:**` block). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
+
+**Drop any `**Status:**` line from the banner.** Deprecated — duplicates today's day section, drifts the moment the plan shifts mid-session, and creates a second authoritative surface for today's focus that can silently diverge from the day section (which is the real artefact). Keep `**Location:**` (stable travel context) and the weather block (external, refreshed); remove any legacy `**Status:**` line on this morning's pass.
 
 Read and present:
 - **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md`, show Active section
@@ -212,6 +214,17 @@ If This Week.md doesn't exist, skip this step (step 7 will offer to create it if
 Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md` Section 9). This trims old sections, extends the window to today+6, and populates new days from Tickler.
 
 **Additional morning-specific behaviour:** Step 3 (landscape surfacing) handles Tickler migration for *existing* day sections. The rolling window procedure here only covers *newly created* day sections. Apply the same link handling as Step 3: preserve project/area links, replace session-log-only links, add links to bare items per the item linking convention (see `_shared-rules.md` Section 3).
+
+**Review and refresh the Quick ref block.** Check the `**Quick ref:**` block in This Week.md's banner area each morning (the short list of working-surface links sitting above the first day section) and update it if this week's concerns have shifted. Quick ref is a **rolling surface, not a permanent nav bar** — links should reflect *this week's* active concerns, not a fixed navigation list. If concerns haven't shifted since yesterday, leave the block alone.
+
+Rules:
+- **Group by live concern, not flat list.** One labelled group per active concern, one line each. Grouped-by-concern makes obsolescence obvious — when a group disappears, that whole line goes. Flat lists rot silently because nobody notices when a link stops being the thing actually clicked.
+- **Preserve the existing label/separator style on refresh.** Match whatever format the current block uses (prefix marker, separator character, name casing). Those are user preference — don't mutate them during refresh. Only the link content changes.
+- **Link to working-surface docs, not just hubs.** If the user opens a sub-doc repeatedly during a concern (a rehearsal doc, a chat log, a decision page), link it directly alongside the hub — not only the hub. Hub-only links force an extra hop and decay into dead weight.
+- **Drop groups as concerns resolve.** When a leg completes, a deadline passes, or a conversation closes, remove the whole group on that morning's refresh. Built-in obsolescence is the feature, not a bug.
+- **Derive concerns from:** active WIP entries, today + this week's day sections, time-sensitive items surfaced in Step 3, and anything the user raised in Steps 4–5.
+
+If the existing block is a flat list (legacy format), rewrite it in the grouped format. If no Quick ref block exists at all, insert one (labelled `**Quick ref:**`) below the weather block. Each week's Quick ref will look different from the last — that's intended.
 
 ### 7. Update today's timeline (optional)
 

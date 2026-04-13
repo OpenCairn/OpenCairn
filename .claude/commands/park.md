@@ -302,13 +302,18 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
      **Scope:** this-session contributions only. Pre-existing content sitting in a transient surface across multiple sessions is the user's intentional working buffer, not at-risk material from this session. Cross-session cleanup is `/weekly-hygiene` Step 6's job, not /park's.
 
-     **Detection:** Use `find` with `mtime` filtering to enumerate transient surfaces modified within the session window. This is mechanical (filesystem fact, not Claude's memory) and proportionate — it answers "did anything change in a transient surface during this session?" without requiring Claude to remember what it wrote there. Do not gate on "I don't think I wrote there" — memory-based gating is the failure mode this check exists to prevent. For a session of N minutes, use `-mmin -N` (a generous default for typical sessions is `-mmin -120`):
+     **Detection:** Use `find` with `mtime` filtering, **scoped to transient-surface parent directories** — never from `{VAULT}` itself. Finding from vault root crawls `.git` auto-save history, which on a long-lived vault can take minutes. Transient surfaces live in known top-level directories (`01 Now`, `02 Inbox`, daily-note folders) that don't contain `.git`, so scoping the find to those parents avoids the crawl cost entirely while keeping the check mechanical (filesystem fact, not Claude's memory) and proportionate. Do not gate on "I don't think I wrote there" — memory-based gating is the failure mode this check exists to prevent.
+
+     For a session of N minutes, use `-mmin -N` (a generous default for typical sessions is `-mmin -120`):
 
      ```bash
-     find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -mmin -120
+     # Scope the find to transient-surface parent directories.
+     # NEVER pass {VAULT} itself as a find root — it crawls .git auto-save history.
+     # Add vault-specific transient locations (daily-note folders, etc.) as additional roots.
+     find "{VAULT}/01 Now" "{VAULT}/02 Inbox" -maxdepth 2 -type f -name "*.md" -mmin -120 2>/dev/null
      ```
 
-     Plus any vault-specific transient locations (e.g. `02 Inbox/*.md`, daily-note files). For each result, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
+     For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
 
      - **⛔ CHECKPOINT:** Display exactly one of:
        ```
@@ -358,7 +363,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - "status: pending" → "status: done"
      [OR] No identifier values changed.
      ```
-   - For each changed value:
+     - **⛔ No regex alternation from memory when N>3.** When enumeration produces more than three identifiers (e.g. a batch file move), do NOT hand-construct a `foo|bar|baz` alternation pattern from memory for the grep step below — typed-from-memory alternation silently drops entries and you won't notice because the grep still returns results. Instead: iterate each identifier as a separate grep call, or mechanically construct the pattern from the enumeration you just wrote down. The enumeration is the authoritative list; the grep pattern must be built from it, not re-remembered.
+     - **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
+   - For each enumerated identifier:
      1. Grep the vault for the **old** value, excluding archive/session files (historical records, not living docs):
         ```bash
         grep -r "old value" "{VAULT}/" --include="*.md" -l --exclude-dir="06 Archive"
@@ -396,6 +403,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
       ```
 
    3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text] → [[project/area doc]]`. Append a project/area link: `→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]` if tracked in WIP. The session's Project link (Step 6) identifies the target. No link for items with no project context.
+
+      **Exception — trigger-contingent loops fall through to rule 4.** If the loop fires on a downstream trigger event rather than calendar time (e.g. "next time X runs, verify Y" or "test Z when next encountering W"), skip rule 3 and fall through to rule 4 (project file). Rule 3 assumes loops are actionable on a specific day; trigger-contingent loops aren't, and surfacing them on tomorrow's plan creates false urgency for work that shouldn't be date-bound at all. If the session has no Project link either, route directly to the Tickler with the date `today + 10 days` (computed via `date -d '+10 days' +"%Y-%m-%d"`) via write-tickler.sh — not rule 5, because rule 5's condition requires This Week.md to be stale, which isn't the trigger case here.
 
    4. **If no date + session has a Project link** → update that project file's next action section
 
