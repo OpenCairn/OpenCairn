@@ -59,7 +59,7 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 - [x] [Completed items from timeline]
 - ▶ [Upcoming items still on timeline]
 
-**Done so far:** (from sessions, may overlap with This Week.md)
+**Done so far:** (from Claude sessions only — off-Claude work not visible here; may overlap with This Week.md)
 - [x] Task 1
 - [x] Task 2
 
@@ -72,12 +72,19 @@ If no This Week.md or it's stale, skip that section and show the standard view.
 
 ### 4. Drift Check
 
-Ask:
+**Before calling drift — account for off-Claude work channels.** Claude's session log only captures work that ran through Claude. If the user has parallel work streams happening outside Claude (external AI tools, voice drills, paper notebooks, reading, phone calls, meetings, physical practice, time with other people), that work is invisible to the session log and to the vault. Calling drift based on absence from the session log produces false positives that waste the user's time and erode trust. Before interpreting a gap as drift:
+
+1. Check This Week.md (if current, not stale per Step 2) and WIP for any task that plausibly happens off-Claude (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
+2. If such a task exists and is time-boxed to today, do NOT assume its absence from the session log means it didn't happen. Ask, or present the state neutrally without a drift verdict.
+3. **Rule:** *Absence from Claude's session log is not absence from the day.* The right question is "what did the day look like?" not "what's in the log?"
+
+Only after accounting for likely off-Claude work should you ask:
+
 > "How's the day going? On track, drifted, or intentionally pivoted?"
 
 **If on track:** Quick affirmation, ask if priorities still make sense for remaining time.
 
-**If drifted:** No judgment. Ask:
+**If drifted:** No judgement. Ask:
 > "What pulled you away? And is that actually more important, or just more urgent/interesting?"
 
 Help distinguish:
@@ -109,7 +116,7 @@ Consider:
 
 ### 6. Output (minimal)
 
-**Most regroups:** No artifact. The recalibration was the point.
+**Most regroups:** No artefact. The recalibration was the point.
 
 **If priorities significantly shifted:** Update `{VAULT}/01 Now/Works in Progress.md` with new status/priorities.
 
