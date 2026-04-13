@@ -131,7 +131,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
-   - Update header metadata: check `**Status:**` and `**Location:**` lines against the most recent daily report. Flag if stale.
+   - Update header metadata: check the `**Location:**` line against the most recent daily report. Flag if stale. (The `**Status:**` line has been deprecated — if one is still present as legacy, flag it for removal rather than staleness.)
 
 9. **Claude Memory Audit & Migration**
 
