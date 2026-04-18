@@ -23,7 +23,8 @@ When a session or task links to a project context:
 - **Finite work (in flight)** → link to `03 Projects/[name].md` (or `03 Projects/Backlog/[name].md`)
 - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
 - **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a new project file, and do not create a WIP entry.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and creating a project file (or WIP entry) retroactively is noise. Example: a published post on your blog links to `[[04 Areas/Blog/Blog]]`, not a newly-created post-specific project file.
-- **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, or Archive
+- **Operational/meta work with no natural project or area home** (e.g. /morning, /goodnight, general sysadmin, security hygiene, vault maintenance) → `Project: None (operational <scope>)` — e.g. `None (operational /morning)`, `None (operational tech-infra)`. Don't reach for a loosely-related project to fill the slot; `None` is the correct answer.
+- **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, Archive, or 07 System files (these are references and meta, not project/area homes)
 - **No canonical home and work is still in flight?** Create a project or area file rather than linking to WIP
 - **Working in Resources?** That's a signal it should graduate to an Area
 - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
