@@ -85,7 +85,10 @@ Only after accounting for likely off-Claude work should you ask:
 **If on track:** Quick affirmation, ask if priorities still make sense for remaining time.
 
 **If drifted:** No judgement. Ask:
-> "What pulled you away? And is that actually more important, or just more urgent/interesting?"
+> "What pulled you away?"
+
+Once you've heard it, prompt the distinction:
+> "Genuinely more important, or just more urgent/interesting?"
 
 Help distinguish:
 - **Legitimate pivot:** Something genuinely more important came up - update priorities
