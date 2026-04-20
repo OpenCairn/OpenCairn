@@ -177,7 +177,10 @@ Then:
 Capture: current focus.
 
 Then:
-> "How do you think? Some people are analytical and systems-oriented, others are intuitive or creative. Do you tend toward action or deliberation? Any mental models or frameworks you lean on?"
+> "Three quick questions about how you think:
+> 1. More analytical/systems-oriented, or intuitive/creative?
+> 2. Do you tend toward action or deliberation?
+> 3. Any mental models or frameworks you lean on?"
 
 Capture: thinking style.
 

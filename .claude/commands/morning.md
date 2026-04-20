@@ -164,10 +164,10 @@ Here's your landscape:
 
 If a section is empty, skip it. Keep it scannable.
 
-### 4. Catch Gaps + Open Space (single prompt)
+### 4. Open Space
 
-Ask both questions together — don't force two round trips:
-> "Anything from yesterday that didn't get captured? And what's on your mind this morning?"
+Ask:
+> "Anything you'd like to add this morning?"
 
 **If "nothing" or minimal:** Move to step 6, keep it quick.
 
