@@ -226,6 +226,26 @@ Rules:
 
 If the existing block is a flat list (legacy format), rewrite it in the grouped format. If no Quick ref block exists at all, insert one (labelled `**Quick ref:**`) below the weather block. Each week's Quick ref will look different from the last — that's intended.
 
+### 6.5 Declare today's load-bearing task
+
+Ask the user exactly:
+
+> "What's today's load-bearing task?"
+
+This implements the first counter-move from documented personal failure-mode notes on productive drift / competence displacement: *"Name the hard thing explicitly at /morning. 'Today's load-bearing task is X. Everything else is secondary.'"* The ritual of declaring is load-bearing in its own right — don't skip and don't infer from the scheduled-item list.
+
+Accept one of:
+
+- **Task + folder link (normal case).** Write `**Load-bearing today:** [task] → [[folder/path]]` as the first content line of today's day section in `This Week.md`, directly under the `## [Day] [DD] [Mon]` heading and above `### Morning`. If today's day section doesn't exist yet, create just the heading + load-bearing line — step 7 will fill in the timeline.
+
+- **Task without a folder** (external deadline, non-vault work, something spoken-rather-than-written). Prompt once: "Which folder does that live in?" But accept "no folder" / "n/a" / similar as a valid reply. Write `**Load-bearing today:** [task]` without a wikilink.
+
+- **`open day` / `none` / no single hard thing.** Write `**Load-bearing today:** _(open day — no single hard thing)_`. Some days are genuinely exploratory; valid answer. The declaration still happens — the opt-out is from naming a specific task, not from the ritual of being asked.
+
+**Why prompted, not inferred.** The ritual of naming is load-bearing in its own right. Inferring the declaration from the scheduled-item list removes the act of commitment, which is the part that catches displacement. The counter-move exists because *asking the question* is what forces the answer.
+
+**Downstream use.** `/goodnight` copies this line into the daily report before collapsing the day section, so it survives into the end-of-day artefact. `/weekly-review`'s Schedule-vs-Execution subsection (if present) reads the daily reports to produce a declared-vs-actual salience row per day.
+
 ### 7. Update today's timeline (optional)
 
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
@@ -236,7 +256,7 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
+Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work. **Preserve any existing `**Load-bearing today:**` line** (inserted by step 6.5) at the top of the day section immediately below the heading — it's a protected header, not part of the timeline to be replaced:
 
 ````
 ## [Day] [DD] [Mon]

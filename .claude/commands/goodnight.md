@@ -136,9 +136,11 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 ```markdown
 # Daily Report - [Day], [Date]
 
+[If today's day section in This Week.md contains a `**Load-bearing today:** ...` line (set by /morning step 6.5), copy it verbatim here as the first content line, directly below the `# Daily Report` heading and above `## Today's Plan`. This preserves the declaration into the end-of-day artefact — the This Week.md day section will be collapsed in step 10, so without this copy the declaration would be lost. If no load-bearing line exists in the day section, omit.]
+
 ## Today's Plan
 
-[Include today's day section from This Week.md here (the `## [Day] [DD] [Mon]` heading and all items under it). Convert any `- [ ]` to plain `- ` bullets and any `- [x]` to `- ✓` — the daily report is an archival record, not a task SSOT. Checkboxes live in This Week.md, project files, and Tickler only. If This Week.md doesn't exist or today falls outside the date range, omit this section.]
+[Include today's day section from This Week.md here (the `## [Day] [DD] [Mon]` heading and all items under it, EXCLUDING the `**Load-bearing today:**` line which is already copied above). Convert any `- [ ]` to plain `- ` bullets and any `- [x]` to `- ✓` — the daily report is an archival record, not a task SSOT. Checkboxes live in This Week.md, project files, and Tickler only. If This Week.md doesn't exist or today falls outside the date range, omit this section.]
 
 ## Sessions
 1. [Topic] — [outcome]
