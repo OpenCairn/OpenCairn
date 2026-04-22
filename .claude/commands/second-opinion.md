@@ -116,20 +116,20 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
 
    - **SendMessage to the resumed Claude Agent**: `to` = the Agent ID recorded in Phase 2A, `content` = the round-2 prompt (read from the scratch file). The resumed Agent keeps its full prior context; you do **not** re-brief from scratch.
 
-   - **Gemini CLI via Bash** with `timeout: 300000`:
+   - **Gemini CLI via Bash** with `timeout: 300000` — substitute `<round2-path>` with the path recorded in step 2:
      ```
-     cat /tmp/second-opinion-round2.md | gemini -p "Continue the prior review." --resume 12 --approval-mode plan -o text
+     cat <round2-path> | gemini -p "Continue the prior review." --resume 12 --approval-mode plan -o text
      ```
-     Replace `12` with your actual session index. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable.
+     Replace `12` with your actual session index. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable. **In the Phase 3 synthesis, annotate this case explicitly** (e.g. `[Gemini r2, fresh-with-replay]`) so the reader can distinguish a true resume from a replayed brief — they're not equivalent signals.
 
 5. **If only one reviewer is being iterated** (you only care about one reviewer's finding in round 2), run that one in Phase 2B and skip the other. Note clearly in the synthesis that round 2 is single-reviewer.
 
 ### Phase 3: Tiebreak and synthesise
 
-Once the reports come back, write the synthesis. **Tag every finding with attribution** — `[Opus+Gemini]` for shared finds, `[Opus]` or `[Gemini]` for unique ones, `[Opus r2]` or `[Gemini r2]` for points from a Mode B round-2 response. Attribution is not optional: without it, the panel's provenance is lost and the tiebreak becomes unreviewable. The user can't audit your reasoning if they can't see which reviewer raised what, or which round it came from.
+Once the reports come back, write the synthesis. **Tag every finding with attribution** — `[Opus+Gemini]` for shared finds, `[Opus]` or `[Gemini]` for unique ones, `[Opus r2]` or `[Gemini r2]` for points from a single reviewer's Mode B round-2 response, `[Opus+Gemini r2]` when both iterated reviewers land on the same round-2 finding. Attribution is not optional: without it, the panel's provenance is lost and the tiebreak becomes unreviewable. The user can't audit your reasoning if they can't see which reviewer raised what, or which round it came from.
 
 1. **Confirmed by both `[Opus+Gemini]`** — findings both reviewers agree on. Highest-confidence action items, but *not* ground truth: correlated agreement is weak evidence, especially within a single model family. One line each.
-2. **Disputed** — points where the reviewers disagree, or where a round-2 reviewer revised their round-1 position, or where one reviewer's critique conflicts with the prior work being reviewed. For each, state your decision and *why*. Pick a side and justify it. Don't hedge. Don't "both are valid."
+2. **Disputed** — points where the reviewers disagree, or where a round-2 reviewer revised their round-1 position, or where a reviewer's critique contradicts a claim the brief asserted on the author's behalf. For each, state your decision and *why*. Pick a side and justify it. Don't hedge. Don't "both are valid."
 3. **Uniquely flagged `[Opus]` or `[Gemini]`** — issues only one reviewer raised. Judge each on merit: a real issue, or a reviewer idiosyncrasy? Legitimate misses get promoted to the action list; shallow observations get dropped with a reason.
 4. **Priority stack** — the full action list ordered by impact (critical → polish), attribution tags preserved. Be explicit about severity so nothing silently rides along on the coat-tails of something important.
 5. **"I don't know" items** — if either reviewer flagged something you can't confidently adjudicate without verification (docs, tests, running code, reading source), list it separately. Do *not* act on unverified claims just because they sound plausible. Especially true for claims about tool behaviour, platform quirks, and version-sensitive APIs.
