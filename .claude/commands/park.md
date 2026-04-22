@@ -262,10 +262,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
 9a. **⛔ Pickup Context section verification** (Full tier only):
    After writing the session, verify the `### Pickup Context` section actually exists in the just-written entry. The write-session script writes whatever stdin you give it without validating that all required sections are present — it's possible to write a session entry that's missing sections entirely. The Pickup Context section is the load-bearing one because it carries both the next-session pointer AND the Project link.
+
+   **Scope the check to the just-written session block** (N = session number from Step 6), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier Full-tier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
-   grep -c '^### Pickup Context' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+   awk -v n="$N" '$0 ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
    ```
-   Expected: at least 1 (one per session block in the file). If the count is lower than the number of Full-tier sessions today, the most recent session is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
+   Expected: exactly 1. If 0, Session N is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
 
    **⛔ CHECKPOINT:** You cannot proceed to Step 9b until `Pickup Context check:` output appears in your response.
 
