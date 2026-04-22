@@ -280,6 +280,8 @@ If no flags exist, skip silently. See `/provenance` for flag file format and ful
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
 
+**Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected `**Last:**` / `**Next:**` / `**Next action:**` fields across WIP *and* any matching project hub in `03 Projects/` or `04 Areas/`. A stale "awaiting X" line in WIP or a hub file will mislead the next `/morning` or `/pickup` into expecting something that has already happened.
+
 ### 18. Close
 
 ```
