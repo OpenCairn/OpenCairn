@@ -69,7 +69,7 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 
 6. **Strip bias from the brief.** Don't frame the question in a way that telegraphs your preferred answer. Present what was done, not whether it was good. Ask the reviewer to apply their own framework, not to rate yours.
 
-Write the brief once and save it to a scratch file. Use `/tmp/second-opinion-prompt.md` on macOS/Linux, `%TEMP%\second-opinion-prompt.md` on Windows, or any writable path your OS provides. You'll access that file twice in Phase 2: once to extract its contents for the Claude reviewer, once to pipe to the CLI reviewer.
+Write the brief once and save it to a scratch file with a unique name — e.g. `mktemp -t second-opinion-prompt.XXXXXX.md` on macOS/Linux, or a timestamped path like `%TEMP%\second-opinion-prompt-<timestamp>.md` on Windows. Record the path; you'll reuse it twice in Phase 2 (once to extract its contents for the Claude reviewer, once to pipe to the CLI reviewer). Unique names matter because two concurrent `/second-opinion` runs on the same machine would otherwise clobber a shared hard-coded path silently.
 
 ### Phase 2A: Launch a fresh panel (Mode A)
 
@@ -83,18 +83,18 @@ Send the brief to both reviewers in a **single message** with concurrent tool ca
 
 2. **Gemini CLI** via Bash, in parallel with the Agent call. **Pass `timeout: 300000` (5 minutes) to the Bash tool call** — the default 120 s will kill Gemini mid-review on any non-trivial target. This is load-bearing; the runner won't intuit it from "budget 5 minutes" alone.
 
-   Preferred invocation (gemini ≥ 0.33):
+   Preferred invocation (gemini ≥ 0.33) — substitute `<prompt-path>` with the path recorded in Phase 1:
    ```
-   cat /tmp/second-opinion-prompt.md | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
+   cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
    ```
    `--approval-mode plan` gives Gemini read-only tool access — it can Read files but not edit them, matching the independent-review intent. `-o text` keeps the output pipe-friendly.
 
    Fallback if the flags aren't supported by the installed version:
    ```
-   cat /tmp/second-opinion-prompt.md | gemini -p "Follow the instructions in the piped input exactly."
+   cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly."
    ```
 
-   **After the call completes, capture and surface the Gemini session index.** Run `gemini --list-sessions | head -3` and record the index of the session you just ran — surface it in the user-visible response text alongside the Agent ID (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12`). You'll need this for Mode B round 2, and "latest" is not a safe shortcut (see Phase 2B step 2).
+   **After the call completes, capture and surface the Gemini session index.** Run `gemini --list-sessions | head -3`; the topmost row is the most recent session and the leading numeric column is the index you want. Record it and surface it in the user-visible response text alongside the Agent ID (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12`). You'll need this for Mode B round 2, and "latest" is not a safe shortcut (see Phase 2B step 2). If the output format doesn't match this shape (empty list, different columns), the installed gemini version diverges from what this skill was specified against — note the format you saw, fall back to resuming by full session identifier if one is visible, and flag it back to this file.
 
 3. **If a reviewer is unavailable** — Gemini not installed, API unreachable, quota hit, Agent tool error, subagent timeout — fall back to the single available reviewer and **say so explicitly in the synthesis**. Do not silently pretend the panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim no longer applies.
 
@@ -104,11 +104,11 @@ Send the brief to both reviewers in a **single message** with concurrent tool ca
 
 Use this phase instead of 2A when you're iterating — the reviewers are already spun up from a previous round.
 
-0. **Load SendMessage first.** SendMessage is typically a deferred tool in Claude Code — if it's not in your base tool set, call `ToolSearch` with `select:SendMessage` to fetch its schema before proceeding. Calling SendMessage before its schema is loaded fails with an input-validation error. You cannot skip this step.
+0. **Load SendMessage first.** SendMessage is typically a deferred tool in Claude Code — if it's not in your base tool set, call `ToolSearch` with `select:SendMessage` to fetch its schema before proceeding. Calling SendMessage before its schema is loaded fails with an input-validation error. You cannot skip this step. **If `ToolSearch` returns nothing for SendMessage**, the tool may be gated on an Agent being in flight in the current session — confirm the Phase 2A Agent is still alive before concluding SendMessage is simply unavailable. If the Agent is genuinely gone, Mode B isn't recoverable; fall back to a fresh Mode A panel (step 1 covers this).
 
 1. **Check the Agent ID is still alive.** Mode B requires the Agent spawned in Phase 2A to still be resumable. Agent ID lifetime across session boundaries (`/park` + `/pickup`, session reload, context compaction) is not currently verified — assume session-scoped until proven otherwise. If you've parked and unparked since round 1, or if /compact has run, or if you can't find the Agent ID in the conversation transcript, the Agent is likely gone. Fall back to a fresh Mode A panel and accept the briefing cost.
 
-2. **Write the round-2 prompt to a scratch file**, same pattern as Phase 1 — `/tmp/second-opinion-round2.md` or your OS equivalent. Keep it narrow: one or two tight questions, not "review the whole thing again." Mode B's value is depth on a specific thread, not breadth. Write the prompt as a continuation: "Round 1 of this review surfaced finding X. The author has now done Y in response. Please re-read [specific sections that changed] and judge whether Y resolves your original concern. If it doesn't, what's still wrong? If it does, say so plainly." Using a scratch file (rather than inline `echo`) avoids shell-escaping problems when the prompt contains backticks, `$`, or quotes — exactly the same reason Phase 2A uses a scratch file.
+2. **Write the round-2 prompt to a scratch file**, same pattern as Phase 1 — `mktemp -t second-opinion-round2.XXXXXX.md` or your OS equivalent (unique per invocation; record the path). Keep it narrow: one or two tight questions, not "review the whole thing again." Mode B's value is depth on a specific thread, not breadth. Write the prompt as a continuation: "Round 1 of this review surfaced finding X. The author has now done Y in response. Please re-read [specific sections that changed] and judge whether Y resolves your original concern. If it doesn't, what's still wrong? If it does, say so plainly." Using a scratch file (rather than inline `echo`) avoids shell-escaping problems when the prompt contains backticks, `$`, or quotes — exactly the same reason Phase 2A uses a scratch file.
 
 3. **Look up the Gemini session index deterministically.** If you surfaced the index in Phase 2A (as instructed), use that. If not, run `gemini --list-sessions` and identify the right session by timestamp and project. **Do not use `--resume latest`** — "latest" resolves to the most recent gemini session for the project, so if you or any other process has run gemini for anything in between (even a quick one-shot), `latest` resumes the wrong session. Always resume by numeric index.
 

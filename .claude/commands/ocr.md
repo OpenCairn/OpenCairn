@@ -35,6 +35,7 @@ Flags (parsed from arguments):
 - `--quality=N` — JPEG quality for preprocessing. Default `85`.
 - `--out=PATH` — output file path. If omitted, ask at save time.
 - `--no-preprocess` — skip the resize step. Only valid when every source file is already under the Read-hook threshold.
+- `--preprocess-only` — stop after Phase 2. Emit the resized-dir path and exit; skip Phases 3–5 entirely. Intended for use by other skills that delegate preprocessing to `/ocr` but handle Vision extraction themselves (e.g. `/tinder`). Not interactive in this mode.
 - `--no-translate` — skip inline translation for non-English text.
 - `--raw` — valid only with `--type=generic`. Dump visible text verbatim with no translation and no layout structuring. If passed with chat/moments, warn and ignore — Vision is already the interpretation layer for those, so "raw" is meaningless.
 
@@ -72,6 +73,7 @@ Skip this phase entirely if `--no-preprocess` was passed and every source file i
    ```
 4. Verify every file in `$DST` is under the Read-hook threshold (`stat -c%s`). For any that remain over, re-run `magick` on that single file with progressively smaller widths: 720 → 640 → 512 → 448. Stop when it fits.
 5. Report briefly: `"N files, source avg X MB → resized avg Y KB, width Wpx, quality Q."`
+6. **If `--preprocess-only`, stop here.** Emit one final line — `"Preprocessed → <absolute DST path>"` — and end the skill. No Vision read, no transcript, no interactive prompt. Callers (e.g. `/tinder`) consume the DST path and handle extraction themselves.
 
 ### Phase 3: Extract via Vision
 

@@ -336,6 +336,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Find the relevant project section (or sections — multi-project sessions iterate this routine across each touched project)
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
+     - **Last-field cap:** Single current entry — replace, don't chain. The Last field carries only the most recent session's update. **Do NOT prepend "Earlier [date]..." blocks for prior entries** — when updating Last, replace the prior value outright. Prior Last content is already preserved verbatim in the session-log archive and referenced by the 3-link session FIFO below; duplicating it inline as "Earlier" chains is the Last-field accretion anti-pattern. This is the prose-side parallel to the FIFO cap on session links: both rules keep WIP as a current-state dashboard, not a running log. If a prior entry contained durable thinking/lessons/decisions that belong in a project or area doc, migrate those to their natural home *before* replacing the Last field — the trimming check is "has the content been captured in an SSOT elsewhere?", not "does Last look tidy?"
      - **Next:** Three cases:
        1. **Has project/area doc:** `→ [[03 Projects/Project Name]]` — pointer only, project doc is SSOT for its task queue
        2. **No doc, has next action:** Single next action (one line max — if it needs more, create a project doc)
@@ -372,6 +373,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
         ```
      2. Display the grep results (even if empty — the output proves the grep ran)
      3. Read and update every living document that still references the old value
+   - **For file-path identifier changes specifically (rename, move, delete):** after the grep pass, run your vault's structural link-integrity query (e.g. `obsidian unresolved` for an Obsidian vault) as a post-check. The grep enumerates what-you-expect-to-find from your own memory of what changed; the structural query surfaces what's-actually-broken in the live link graph — catching cases enumeration missed (short-path wikilinks, display-text mismatches, archive/transcript refs that Obsidian's auto-heal didn't touch). Text grep is sensitive to format/encoding/hidden-dir exclusions; the structural query isn't. Not a replacement for the grep pass — a cheap post-check for a specific failure mode.
    - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
    - Display result:
      ```
