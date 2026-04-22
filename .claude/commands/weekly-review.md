@@ -47,6 +47,29 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
+   **Schedule-vs-Execution data (Alignment Check input):**
+   - **Cadence gate.** Run `cd "{VAULT}" && git log --since="7 days ago" --pretty=format:%H | wc -l`. If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
+   - **Otherwise, for each day in the review period:**
+     - **Post-/morning This Week.md state.** Find the commit closest to 14:00 vault-local time that day:
+       ```bash
+       cd "{VAULT}" && git rev-list -n 1 --before="YYYY-MM-DD 14:00" HEAD
+       ```
+       Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section. If empty, fall back to the first commit of the day whose day section has a populated `### Morning` subsection.
+     - **Daily report.** Reuse the daily report read above.
+     - **Load-bearing declaration.** Extract the `**Load-bearing today:** ...` line from the daily report (first content line under the heading, written by `/goodnight` step 8). If missing (days before step 6.5 rolled out), falls back to modal scheduled-items folder below.
+     - **Vault attention profile.** Run:
+       ```bash
+       cd "{VAULT}" && git log --since="YYYY-MM-DD 00:00" --until="YYYY-MM-DD 23:59" --name-only --pretty=format: | sort -u
+       ```
+       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
+   - **Compute per day:**
+     - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Romantic relationships/Katie Fu`, not just `04 Areas`).
+     - Executed items from daily report: `- ✓` = checked; plain `- ` items with `rolled to` suffix or absent from post-morning state = migrated-out; `~~strike~~` = dropped; items in daily report not in post-morning state = added mid-day. Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
+     - Actual attention: aggregate touched files into buckets defined by that week's scheduled-item wikilinks (longest-prefix match); files outside the vocabulary go to a catch-all `(outside scheduled vocabulary)` bucket.
+     - Declared top folder: load-bearing line's wikilink if present; else modal scheduled-items folder; else literal token `load-bearing not folder-mapped` (skip salience row for that day).
+     - Actual top folder: bucket with most files touched.
+   - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
+
    **Sweep for tagged tasks:**
    - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
    - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
@@ -144,8 +167,27 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 ## Alignment Check
 
+### Schedule vs Execution
+*[Populate from Schedule-vs-Execution data gathered in step 2. If the cadence gate failed, render just: "Schedule-vs-Execution reconciliation skipped — vault autocommit cadence below threshold (or no git repo)." Otherwise render the table + profile + divergence list below.]*
+
+| Day | Scheduled | Checked | Added | Migrated | Declared top | Actual top |
+|-----|-----------|---------|-------|----------|--------------|------------|
+| [Day DD] | N | N | N | N | [folder] | [folder] |
+
+**Folder-attention profile ([period] total, distinct files touched):**
+- [folder at scheduled-vocabulary depth] — N
+- [folder] — N
+- *(outside scheduled vocabulary)* — N
+
+**Days where declared ≠ actual:** [list of days, or "none"]
+
+*[If any days flagged by the schema-drift sanity check, append:]*
+⚠ Parser returned zero scheduled items for [day(s)] despite non-zero commits — This Week.md format may have drifted. Spot-check the day section.
+
+*Blind spots:* non-vault work (packing, spoken conversations, reading PDFs) is invisible; deep-work commit sparsity (4h on one file = few commits) under-counts genuine focus.
+
 ### Priorities vs Reality
-[Honest assessment: Is effort aligned with stated priorities?]
+[Honest assessment: Is effort aligned with stated priorities? The Schedule vs Execution subsection above gives you the mechanical distribution — this subsection is the judgement call on whether that distribution matches what mattered.]
 
 ### Value Drift Alerts
 [Any signs of drift toward low-value activities?]
