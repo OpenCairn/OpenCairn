@@ -265,7 +265,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Scope the check to the just-written session block** (N = session number from Step 6), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier Full-tier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
-   awk -v n="$N" '$0 ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
+   # `-v z=0 $z` workaround: slash-command loader strips bare $0 (positional-arg shorthand per Skills docs)
+   awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
    ```
    Expected: exactly 1. If 0, Session N is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
 
@@ -353,7 +354,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        # Extract the WIP entry for this project and count session links
        # Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
        # Uses awk index() for fixed-string matching (headings often contain / and &)
-       awk 'f && /^### /{exit} index($0, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
+       # `-v z=0 $z` workaround: slash-command loader strips bare $0 (positional-arg shorthand per Skills docs)
+       awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
        Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
    - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
