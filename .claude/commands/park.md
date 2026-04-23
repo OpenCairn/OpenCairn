@@ -39,7 +39,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
 2. **Check for merge-continuation** before creating a new session:
-   - Determine from context whether this is a direct continuation of a recently parked session (same task, just finishing a loose end). Indicators: `/pickup` loaded a specific session, topic is identical, work is completing an open loop from that session (especially: a `/audit the /park` that produced fixes — that's the canonical merge case since the audit is explicitly recommended by the prior park). Only ask the user if genuinely ambiguous.
+   - Determine from context whether this is a direct continuation of a recently parked session (same task, just finishing a loose end). Indicators: `/pickup` loaded a specific session, topic is identical, work is completing an open loop from that session (especially: a `/audit the /park` that produced fixes — that's the canonical merge case since the audit is explicitly recommended by the prior park). If the remediation is large, see the merge-size escape hatch below before treating it as canonical. Only ask the user if genuinely ambiguous.
+   - **Merge-size escape hatch — don't merge when remediation dwarfs the target.** The canonical merge case assumes small follow-on work (a loose end, a small correction). Evaluate against the target session's *current* state (including any prior merge addendums, not the pre-first-merge original). If the `/audit` remediation would add a summary addendum >2× the target's current summary length, or touches >3 files unrelated to the target's stated topic, start a new session instead — fall through to Step 3 as if this were not a continuation. The merge rule exists to keep small fixes with the work they complete, not to absorb unrelated discoveries under a poorly-matching title. Topic-searches find sessions by their headline; a session titled "X closed" that actually contains hours of work on unrelated topic Y becomes invisible to future-pickup searches for Y.
    - **Script lock timeout — diagnose, don't work around:** If `update-session-section.sh`, `backfill-files-updated.sh`, `write-session.sh`, or `add-forward-link.sh` fails with "Lock timeout after 10s / Failed to acquire lock," the most likely cause is a hung prior invocation of the same script holding the flock. This happens when the Bash tool backgrounded an earlier heredoc-fed invocation (`cat <<EOF | script.sh ... EOF`) and the script got stuck in `anon_pipe_read` waiting for stdin that never closed. **Diagnose first, then kill the hung process** — don't immediately jump to a Python workaround. Full diagnosis and remediation (fuser, ps, kill, wchan inspection) is in `_shared-rules.md` §5 Failure mode B. Python+flock is a *secondary* fallback only — it bypasses the hung script by locking a different file, which does not coordinate with the script's `.lock` and is unsafe against a genuine concurrent writer. Kill the zombies first, then re-run the dedicated script.
    - If yes: **don't create a new session entry.** Instead, update the existing session using the update-session-section script (not the Edit tool — race condition risk with parallel parks):
      ```bash
@@ -265,7 +266,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **Scope the check to the just-written session block** (N = session number from Step 6), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier Full-tier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
-   # `-v z=0 $z` workaround: slash-command loader strips bare $0 (positional-arg shorthand per Skills docs)
+   # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
    awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
    ```
    Expected: exactly 1. If 0, Session N is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
@@ -354,7 +355,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        # Extract the WIP entry for this project and count session links
        # Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
        # Uses awk index() for fixed-string matching (headings often contain / and &)
-       # `-v z=0 $z` workaround: slash-command loader strips bare $0 (positional-arg shorthand per Skills docs)
+       # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
        awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
        ```
        Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
