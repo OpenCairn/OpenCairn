@@ -191,7 +191,7 @@ Session history lives in the archive and project hub pages; WIP links are conven
 # Extract the WIP entry for this project and count session links
 # Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
 # Uses awk index() for fixed-string matching (headings often contain / and &)
-# `-v z=0 $z` workaround: slash-command loader strips bare $0 (positional-arg shorthand per Skills docs)
+# Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
 awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
 ```
 Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
