@@ -302,7 +302,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - **Quick tier:** Skip
    - **Full tier:** Two failure modes to check.
 
-     **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
+     **(a) Conversation-only drafts and interpretive commentary.** Two overlapping patterns to scan for:
+
+     - **Composed drafts** — emails, messages, analysis, or plans composed inline that only exist as text output. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis.
+     - **Interpretive commentary about a tracked entity** — observations or analysis about a named person / project / ongoing situation that has a hub file under `03 Projects/` or `04 Areas/`. If the session produced a new data point, a pattern read, or a re-interpretation of prior evidence, check whether it got written to the hub's natural log section (e.g. a dated-entry section, `### Observations`, `### Pattern Log`) or an Inbox sub-page. **Interpretive commentary is as perishable as a draft** — the session log is a plain-text archive, not where future sessions look when reading the entity's hub. A session that produces durable analysis of a tracked entity but writes no files to that entity's SSOT pipeline has a routing failure, even when no draft was "composed."
+
+     If found, write each to its semantic home (correspondence file, hub's log section, Inbox sub-page, project doc, or area file).
 
      **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes.
 
@@ -329,7 +334,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        🔧 Persisted N item(s): [paths]
        ```
 
-   - **Why this exists:** Added 2026-04-09 after a peer-review COI disclosure was persisted to Scratchpad in one session and silently destroyed by a later session's cleanup pass before the user needed it. The unconditional-read requirement prevents the "I don't remember writing there" failure from recurring.
+   - **Why this exists:** Added 2026-04-09 after durable content was persisted to Scratchpad in one session and silently destroyed by a later session's cleanup pass before the user needed it. The unconditional-read requirement prevents the "I don't remember writing there" failure from recurring. **Extended 2026-04-24** after a /park classified a session-long interpretive read of a tracked entity's new data point as "information lookup with no durable output," leaving the analysis only in the session log — a post-park audit caught that the entity's hub (with its established dated-log section) hadn't been updated, even though the session's substantive output was analysis of that entity. The "composed drafts" framing was too narrow: interpretive commentary without an intended recipient can be just as load-bearing as a draft email, and has a semantic home just as clearly.
 
 12. **Update Works in Progress** (conditional on tier):
    - **Quick tier:** Skip WIP update (session too minor to warrant it)
