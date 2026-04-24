@@ -374,9 +374,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - **⛔ No regex alternation from memory when N>3.** When enumeration produces more than three identifiers (e.g. a batch file move), do NOT hand-construct a `foo|bar|baz` alternation pattern from memory for the grep step below — typed-from-memory alternation silently drops entries and you won't notice because the grep still returns results. Instead: iterate each identifier as a separate grep call, or mechanically construct the pattern from the enumeration you just wrote down. The enumeration is the authoritative list; the grep pattern must be built from it, not re-remembered.
      - **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
    - For each enumerated identifier:
-     1. Grep the vault for the **old** value, excluding archive/session files (historical records, not living docs):
+     1. Grep the vault for the **old** value, excluding archive/session files (historical records, not living docs). Use `rg` (ripgrep — respects `.gitignore`, skips `.git/` auto-save history automatically) not `grep -r` (which crawls `.git` and takes minutes on long-lived vaults). The `**/` prefix on the exclude glob matters: `!06 Archive/**` only matches when rg's cwd is the vault root; `!**/06 Archive/**` matches regardless of cwd:
         ```bash
-        grep -r "old value" "{VAULT}/" --include="*.md" -l --exclude-dir="06 Archive"
+        rg -l --type md "old value" "{VAULT}" -g '!**/06 Archive/**'
         ```
      2. Display the grep results (even if empty — the output proves the grep ran)
      3. Read and update every living document that still references the old value
