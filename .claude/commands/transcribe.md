@@ -45,7 +45,8 @@ Flags (parsed from arguments):
 3. If checks fail, report what's missing and stop.
 4. **If YouTube source** (steps a-c are independent — run in parallel):
    a. Get the video title: `yt-dlp --print title "URL"`
-   b. Download audio as WAV: `yt-dlp -x --audio-format wav --audio-quality 0 -o "/tmp/yt_transcribe_%(id)s.%(ext)s" "URL"`
+   b. Download audio as WAV: `yt-dlp -f "bestaudio[abr<=64]/worstaudio" -x --audio-format wav -o "/tmp/yt_transcribe_%(id)s.%(ext)s" "URL"`
+      - Whisper resamples to 16kHz mono internally, so a ≤64kbps source (typically YouTube format 249 @ 49kbps Opus) is plenty for transcription. Unconstrained `bestaudio` pulls format 401 (~100-250MB for typical videos, GB-scale for long ones) and is painfully slow on a slow link.
    c. Download auto-generated English captions (if available) for cross-referencing during cleanup:
       ```bash
       yt-dlp --write-auto-sub --sub-lang en --sub-format srt --skip-download -o "/tmp/yt_subs_%(id)s" "URL"
