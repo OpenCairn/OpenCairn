@@ -146,16 +146,73 @@ pip install -q 'ctranslate2>=4.5.0'
 
 **Why pinned:** upstream whisperx jumped to 3.8.x (requires torch 2.8+, pyannote-audio 4.x) and pyannote-audio jumped to 4.0.x (breaking Inference API). Both happened between 2026-04-21 and 2026-04-22. Unpinned installs resolve to the newest wheels and break at runtime. The pin set above is the mid-2024 constellation that works with the cu124 image. If you bump any of these, re-validate end-to-end (not just imports) — SETUP_OK below is necessary but not sufficient.
 
-2. **Set runtime environment:**
+2. **Transfer Hugging Face token to pod (required for gated diarisation model):**
+
+   Skip this step if `--diarize`/`--speakers N` is *not* requested — only diarisation hits the gated `pyannote/speaker-diarization-3.1`. With diarisation, fresh pods have no HF auth and the `DiarizationPipeline(...)` call returns `None` at runtime — `Pipeline.from_pretrained` swallows the 401 and prints a "Could not download" notice on stderr that isn't easy to spot under `nohup`.
+
+   The `huggingface_hub` Python library writes the token to `~/.cache/huggingface/token` on **all three platforms** (Linux, macOS, Windows) — it doesn't honour `XDG_CACHE_HOME` or `LOCALAPPDATA`. So the source path is portable; only the local shell syntax differs:
+
+   ```bash
+   # Linux / macOS / Git Bash on Windows / WSL — bash or zsh:
+   ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
+   scp -i ~/.ssh/id_ed25519 -P PORT ~/.cache/huggingface/token \
+       root@IP:/root/.cache/huggingface/token
+   ```
+
+   ```powershell
+   # Windows PowerShell 5.1 / PowerShell 7+ (uses built-in OpenSSH, present since Win10):
+   ssh -i "$HOME\.ssh\id_ed25519" root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
+   scp -i "$HOME\.ssh\id_ed25519" -P PORT "$HOME\.cache\huggingface\token" `
+       root@IP:/root/.cache/huggingface/token
+   ```
+
+   **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) but not on disk: `ssh ... 'mkdir -p /root/.cache/huggingface && echo -n "$HF_TOKEN" > /root/.cache/huggingface/token'` — but ensure the env var is exported on the local side, not just on the pod.
+
+   **One-time per HF account:** also visit https://hf.co/pyannote/speaker-diarization-3.1 once and click "Accept" on the user-conditions page. The token grants auth; the click grants the gating agreement. Without the click, the same token returns 403 and the pipeline silently becomes `None`.
+
+3. **Set runtime environment:**
 ```bash
 export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
 ```
 
-3. **Verify CUDA + WhisperX + pyannote glue (don't skip):**
+4. **Verify CUDA + WhisperX + pyannote glue (don't skip):**
+
+If diarisation is *not* requested, the short form (no token, no gated pipeline):
 ```bash
 python3 -c "import torch; assert torch.cuda.is_available(); import whisperx; from pyannote.audio import Model; from whisperx.vads import Pyannote; Pyannote(torch.device('cuda'), token=None, vad_onset=0.500, vad_offset=0.363); Model.from_pretrained('pyannote/wespeaker-voxceleb-resnet34-LM'); print('SETUP_OK')"
 ```
-The VAD load exercises the whisperx×pyannote×huggingface_hub glue that bare `import whisperx` doesn't. The Model.from_pretrained call exercises pyannote's auth/download path that Phase 5's embedding extractor relies on. A passing import but failing VAD load is the exact failure mode that slipped through on 2026-04-21.
+
+If diarisation **is** requested, also exercise the gated pipeline so a missing token / unaccepted agreement fails here, not 90s into the transcription run:
+```bash
+python3 << 'PYEOF'
+import os
+tk_path = os.path.expanduser("~/.cache/huggingface/token")
+assert os.path.exists(tk_path), "HF token missing on pod — re-run Phase 3 step 2"
+os.environ["HF_TOKEN"] = open(tk_path).read().strip()
+os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
+
+import torch
+assert torch.cuda.is_available()
+import whisperx
+from pyannote.audio import Model, Pipeline
+from whisperx.vads import Pyannote
+
+Pyannote(torch.device("cuda"), token=None, vad_onset=0.500, vad_offset=0.363)
+Model.from_pretrained("pyannote/wespeaker-voxceleb-resnet34-LM")
+
+p = Pipeline.from_pretrained(
+    "pyannote/speaker-diarization-3.1",
+    use_auth_token=os.environ["HF_TOKEN"],
+)
+assert p is not None, (
+    "diarisation pipeline returned None — token invalid OR user-conditions at "
+    "https://hf.co/pyannote/speaker-diarization-3.1 not accepted for this HF account"
+)
+print("SETUP_OK")
+PYEOF
+```
+
+The VAD load exercises the whisperx×pyannote×huggingface_hub glue that bare `import whisperx` doesn't. The wespeaker `Model.from_pretrained` exercises pyannote's auth/download path that Phase 5's embedding extractor relies on (this model is **not** gated). The `Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", ...)` is the gated check — its `None`-on-failure behaviour is why a missing token slipped through SETUP_OK historically. A passing import but failing VAD load is the failure mode that slipped through on 2026-04-21; a passing VAD load but `None` diarisation pipeline is the failure mode that slipped through up to 2026-04-27.
 
 ### Phase 4: Get audio onto pod
 
@@ -230,6 +287,15 @@ Write and execute this Python script on the pod:
 import os, json, glob, time, subprocess, tempfile
 os.environ["TQDM_DISABLE"] = "1"
 
+# Load HF token from pod cache (Phase 3 step 2 copies it here from local ~/.cache/huggingface/token).
+# Required for the gated pyannote/speaker-diarization-3.1 pipeline; harmless without diarisation.
+_tk_path = os.path.expanduser("~/.cache/huggingface/token")
+if os.path.exists(_tk_path):
+    with open(_tk_path) as f:
+        os.environ["HF_TOKEN"] = f.read().strip()
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
+HF_TOKEN = os.environ.get("HF_TOKEN")  # None if not present; passed through to DiarizationPipeline below
+
 import numpy as np
 import torch, whisperx
 
@@ -248,9 +314,19 @@ model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # cl
 align_model, align_metadata = None, None
 
 if diarize:
+    assert HF_TOKEN, (
+        "Diarisation requested but no HF token on pod — Phase 3 step 2 was skipped. "
+        "pyannote/speaker-diarization-3.1 is gated and Pipeline.from_pretrained returns None silently on auth failure."
+    )
     from whisperx.diarize import DiarizationPipeline
     diarize_model = DiarizationPipeline(
-        model_name="pyannote/speaker-diarization-3.1", device=device
+        model_name="pyannote/speaker-diarization-3.1",
+        device=device,
+        use_auth_token=HF_TOKEN,
+    )
+    assert diarize_model.model is not None, (
+        "DiarizationPipeline.model is None — token rejected (likely user-conditions at "
+        "hf.co/pyannote/speaker-diarization-3.1 not accepted for this HF account)"
     )
 
     # Embedding model for per-cluster voice prints (matches what diarization-3.1 uses internally).
@@ -601,6 +677,10 @@ Logic-checked only, NOT executed end-to-end in the validation run:
 - Phase 8 `assign_names` quality-flag system (suspect/low-confidence/ok) — the 50× ratio heuristic was logic-traced against today's data points but the function itself wasn't run
 - Phase 3 verify one-liner in its exact concatenated form (pieces tested individually, not as one command)
 - Local venv recipe for Phase 8 (not set up or tested on this laptop)
+
+Caught and fixed 2026-04-27 against a fresh secure-cloud RTX 4090 pod (Linux client):
+- HF token transfer (Phase 3 step 2) and `use_auth_token=` plumbing through Phase 5's `DiarizationPipeline` — the 2026-04-22 "validated end-to-end" pod must have had the token cached from a prior session, because a clean pod with no token returns `None` from `Pipeline.from_pretrained` and the 2026-04-22 SETUP_OK check (VAD + wespeaker only, neither gated) couldn't see it.
+- Cross-platform token-source documentation (Linux/macOS/Git-Bash bash and Windows PowerShell variants); `huggingface_hub` writes to `~/.cache/huggingface/token` on all three platforms regardless of `XDG_CACHE_HOME`/`LOCALAPPDATA`. Windows-side commands logic-checked, NOT executed end-to-end on Windows.
 
 First real-use of the untested pieces will likely surface minor issues — trust but verify.
 
