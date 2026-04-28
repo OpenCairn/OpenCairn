@@ -126,7 +126,7 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 Ask:
 > "Anything else not captured? New blockers, decisions made, or items to add?"
 
-- If yes: add to inventory (but don't add to session files - these go in the daily report)
+- If yes: add to inventory (but don't add to session files — these go in the daily report). Off-Claude activity (wander/exercise/social/admin/errands) goes in the daily report's `## Outside-Claude` section; new blockers go in `## Blockers`; new decisions/items belong in the relevant SSOT (This Week.md, project file, Tickler).
 - If no: proceed
 
 ### 8. Generate Daily Report
@@ -145,6 +145,9 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 ## Sessions
 1. [Topic] — [outcome]
 2. [Topic] — [outcome]
+
+## Outside-Claude
+- [Off-Claude activity surfaced in Step 3 (pre-verification debrief) or Step 7 (additional captures) — wander/exercise/social/admin/errands done outside the assistant. Useful end-of-day signal that wouldn't otherwise be recorded anywhere. Omit section entirely if nothing to record.]
 
 ## Blockers
 - [Item] — waiting on [what]
@@ -215,7 +218,9 @@ This is the only exception to the "write-only after initial read" rule — you m
 
 ### 14. Append Goodnight Session Entry
 
-**Use the write-session script** (same as `/park`) — this avoids the permission system corruption bug from inline flock commands and handles locking safely:
+**Use the write-session script** (same as `/park`) — this avoids the permission system corruption bug from inline flock commands and handles locking safely.
+
+**Note on section structure:** The goodnight session log intentionally omits the `### Next Steps / Open Loops` section used in `/park` session entries. For goodnight specifically, the Pickup Context line below already names tomorrow's anchors (the entire purpose of goodnight is forward-routing), so the two sections would duplicate. Files Created and Files Updated are split per session-log convention — a freshly created Daily Report belongs under Created, not Updated.
 
 ```bash
 cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
@@ -227,8 +232,8 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Cl
 ### Key Insights / Decisions
 - [Any significant decisions made during close-out]
 
-### Next Steps / Open Loops
-- [Remaining items for tomorrow]
+### Files Created
+- [Daily Report path — typically the only newly-created file. Omit section if no new files.]
 
 ### Files Updated
 - [List any files modified during goodnight]
