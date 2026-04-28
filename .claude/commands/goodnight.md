@@ -126,7 +126,10 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 Ask:
 > "Anything else not captured? New blockers, decisions made, or items to add?"
 
-- If yes: add to inventory (but don't add to session files — these go in the daily report). Off-Claude activity (wander/exercise/social/admin/errands) goes in the daily report's `## Outside-Claude` section; new blockers go in `## Blockers`; new decisions/items belong in the relevant SSOT (This Week.md, project file, Tickler).
+- If yes: add to inventory. Don't add to session files — captures route as follows:
+  - Off-Claude activity (wander/exercise/social/admin/errands) → daily report's `## Outside-Claude` section
+  - New blockers → daily report's `## Blockers` section
+  - New decisions / actionable items → relevant SSOT (This Week.md day section, project file, or Tickler) — NOT the daily report (the daily report is archival; SSOT files surface in `/morning` and `/pickup`)
 - If no: proceed
 
 ### 8. Generate Daily Report
