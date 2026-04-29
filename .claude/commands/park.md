@@ -3,9 +3,7 @@ name: park
 aliases: [shutdown-complete]
 description: Capture session with full bookkeeping — quality gate, WIP update, open loop routing, session log.
 parameters:
-  - "--quick" - Minimal parking (one-line log entry, for trivial sessions)
-  - "--full" - Comprehensive parking (default for anything worth documenting)
-  - "--auto" - Auto-detect tier based on session characteristics (default)
+  - "--quick" - Opt-in one-line entry for genuinely trivial sessions (rare; default is full bookkeeping)
 ---
 
 # Park - Session Capture
@@ -14,13 +12,9 @@ You are capturing a work session. Full bookkeeping: quality gate, WIP update, co
 
 **⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. `/goodnight` also writes to WIP, This Week.md, and project files via the Edit tool, which has no locking — concurrent parks will silently clobber each other's edits. Park all sessions before starting goodnight, and capture one session at a time.
 
-## Tier Philosophy
+## Capture Philosophy
 
-**Two tiers only:**
-- **Quick** - Genuinely trivial sessions (<5 min, minimal file interaction, just a question answered). One line is enough.
-- **Full** - Everything else. If it's worth documenting at all, do it properly. Includes pickup context, key insights, open loops, continuation links.
-
-The old "standard" tier was a false economy - saving 30 seconds of processing time but losing context that might be valuable later is bad math.
+Every session captures the full bookkeeping pass. The skill historically had a Quick/Full tier distinction with auto-detection, removed 2026-04-29 — empirically ~90% of sessions hit Full tier, the auto-detect rarely fired correctly, and the bookkeeping cost on genuinely-trivial sessions was negligible (~30 sec). Sessions where there's nothing to capture (no files modified, no decisions, no open loops) produce a sparse log entry naturally. The `--quick` flag remains as an explicit opt-in for the rare case where you want a literal one-line entry.
 
 ## Instructions
 
@@ -71,32 +65,29 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 5, 11, 12, 13, 14, 14a, 14b, 15, 16, 17** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, transcript export, completion, audit recommendation, skill monitor — all using the merged session's number). Skip Steps 3-4, 6-10 (no new session entry needed).
+   - **After merging, run Steps 5, 11, 12, 13, 14, 14a, 14b, 14c, 15, 16, 17** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, transcript export, timestamp bump, completion, audit recommendation, skill monitor — all using the merged session's number). Skip Steps 3-4 (no `--quick` re-check, transcript already in merge context) and Steps 6-10 (no new session entry needed).
    - **Steps 11, 13, 14, 17 typically produce their clean-pass checkpoint output in a merge** — `✓ No at-risk work product to persist`, `✓ Reference graph: No identifier values changed`, `✓ No open loops to route`, `✓ Skill monitor: No gaps detected` — because the remediation already did the routing/graphing inline as it ran. Run the mechanical checks anyway (Scratchpad `find`, enumerate-before-grepping, loop scan) — the checkpoint emission is mandatory either way — but don't fabricate findings to fill the slots if the checks come up clean. Steps 5, 12, 14a, 14b, 14c, 15, 16 typically still have at least a small amount of real work (quality gate on the remediation edits, backfill, transcript re-export, WIP timestamp bump, completion reporting), but may also come up clean — in which case their normal success outputs apply.
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
 
-3. **Detect session tier** (unless explicit parameter provided):
-   - **Quick tier** triggers when ALL of:
-     - Conversation < 10 turns AND
-     - No files created/updated AND
-     - Few non-context files read (< 3 distinct files, excluding routine context loads like `07 System/Context -` files and CLAUDE.md) AND
-     - Session < 5 minutes duration AND
-     - No decisions or status changes — just information lookup
-   - **Full tier** triggers when ANY of:
-     - Files created/updated OR
-     - Significant reading breadth (3+ distinct non-context files read) OR
-     - Decisions made OR
-     - Status changes identified (task completed, booking confirmed/cancelled, item resolved) OR
-     - Open loops generated OR
-     - Session involved any substantive work
-   - If `--auto` (default): Auto-detect based on above
-   - If `--quick` or `--full`: Use explicit tier
-   - Display tier selection:
-     ```
-     Capture tier: [Quick/Full] (auto-detected)
-     ```
+3. **`--quick` fast-path check.** If the `--quick` flag was passed, write a one-line entry and exit. Self-contained — does not run Steps 4-17. (Merge case in Step 2 fires before this check, so `--quick` is silently ignored if merging into a prior session.)
+
+   ```bash
+   NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
+   TIME=$(date +"%I:%M:%S%p" | tr '[:upper:]' '[:lower:]')
+
+   # Append to existing day-file (or use --create flag on write-session.sh if no day-file exists yet — see Step 9)
+   cat << EOF | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+   ## Session ${NEW_NUM} - <Topic> (${TIME}) [Q]
+
+   <one-line summary of what was done>
+   EOF
+   ```
+
+   Substitute `<Topic>` and `<one-line summary>` from the conversation. Display: `⏭ Quick park (--quick flag, Session ${NEW_NUM}) — full bookkeeping skipped.` Then stop.
+
+   Otherwise, proceed to Step 4. The `--quick` flag is rare; default is the full pass through Steps 4-17 below.
 
 4. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
 
@@ -106,12 +97,9 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **This step MUST produce visible output. No silent skipping.**
 
-   | Tier | Action |
-   |------|--------|
-   | Quick | Display: `⏭ Quality check: Skipped (Quick tier)` and proceed |
-   | Full | Check all modified files (vault AND repo) + vault-wide broken link scan |
+   Check all modified files (vault AND repo) + vault-wide broken link scan.
 
-   **Four categories of checks (Full tier):**
+   **Four categories of checks:**
 
    **LINT** - Syntax and structure:
    - YAML frontmatter syntax errors
@@ -147,10 +135,6 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    **REQUIRED OUTPUT (exactly one of these MUST appear):**
 
    ```
-   ⏭ Quality check: Skipped (Quick tier)
-   ```
-
-   ```
    ✓ Quality check: N files checked, no issues found
    ```
 
@@ -173,7 +157,6 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
    - Related project (if applicable) — follow Project Linking Rules in `_shared-rules.md` Section 2
-   - **Quick tier:** Skip project detection (just use topic)
    - **Display the determination explicitly** — this is the single source for the project link used in Steps 8 and 12:
      ```
      Session N: [Topic] | Project: [[03 Projects/Name]] (or "None")
@@ -181,22 +164,12 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **⛔ CHECKPOINT:** You cannot proceed to Step 7 until the `Session N: [Topic] | Project: [[...]]` line appears in your response. Step 9b's Project check compares against this output — if Step 6 never emitted it, Step 9b is auditing internal memory rather than observable state. Small deviations here cascade. If you find yourself writing session content without having displayed this line, STOP and return to this step.
 
-7. **Check for continuation** (conditional on tier):
-   - **Quick tier:** Skip
-   - **Full tier:**
-     - Check if this session is continuing a previous one (from `/pickup` context)
-     - If continuing: Store continuation link for inclusion in summary (the `**Continues:**` line in Pickup Context)
+7. **Check for continuation:**
+   - Check if this session is continuing a previous one (from `/pickup` context)
+   - If continuing: Store continuation link for inclusion in summary (the `**Continues:**` line in Pickup Context)
 
-8. **Generate session summary** (format varies by tier):
+8. **Generate session summary** using the format below:
 
-**Quick Tier Format:**
-```markdown
-## Session N - [Topic/Name] ([Time]) [Q]
-
-[One-line summary of what was done]
-```
-
-**Full Tier Format:**
 ```markdown
 ## Session N - [Topic/Name] ([Time with seconds - HH:MM:SSam/pm])
 
@@ -261,10 +234,10 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
-9a. **⛔ Pickup Context section verification** (Full tier only):
+9a. **⛔ Pickup Context section verification:**
    After writing the session, verify the `### Pickup Context` section actually exists in the just-written entry. The write-session script writes whatever stdin you give it without validating that all required sections are present — it's possible to write a session entry that's missing sections entirely. The Pickup Context section is the load-bearing one because it carries both the next-session pointer AND the Project link.
 
-   **Scope the check to the just-written session block** (N = session number from Step 6), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier Full-tier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
+   **Scope the check to the just-written session block** (N = session number from Step 6), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
    # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
    awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
@@ -273,7 +246,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **⛔ CHECKPOINT:** You cannot proceed to Step 9b until `Pickup Context check:` output appears in your response.
 
-9b. **⛔ Project link verification** (Full tier only):
+9b. **⛔ Project link verification:**
    After confirming the Pickup Context section exists, verify the `**Project:**` line inside it matches Step 6's determination. Extract mechanically:
    ```bash
    grep '^\*\*Project:\*\*' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | tail -1
@@ -283,8 +256,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    **⛔ CHECKPOINT:** You cannot proceed to Step 10 until `Project check:` output appears in your response. If you find yourself writing continuation links without having displayed a project check result, STOP and return to this step.
 
-10. **Add continuation link** (full tier only, only if continuing previous work):
-   - **Quick tier:** Skip
+10. **Add continuation link** (only if continuing previous work):
    - **Only fires if this session continues a specific previous session** (from `/pickup` context). If not a continuation, skip this step entirely.
    - Do NOT add chronological "Next session:" links — sessions are already in order in the file. Only topical continuation links carry information.
    - Add "Continued in:" link to the original session being continued:
@@ -298,46 +270,43 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        ```
    - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
 
-11. **Check for at-risk work product** (Full tier only):
-   - **Quick tier:** Skip
-   - **Full tier:** Two failure modes to check.
+11. **Check for at-risk work product.** Two failure modes to check.
 
-     **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
+   **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
 
-     **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes.
+   **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes.
 
-     **Scope:** this-session contributions only. Pre-existing content sitting in a transient surface across multiple sessions is the user's intentional working buffer, not at-risk material from this session. Cross-session cleanup is `/weekly-hygiene` Step 6's job, not /park's.
+   **Scope:** this-session contributions only. Pre-existing content sitting in a transient surface across multiple sessions is the user's intentional working buffer, not at-risk material from this session. Cross-session cleanup is `/weekly-hygiene` Step 6's job, not /park's.
 
-     **Detection:** Use `find` with `mtime` filtering, **scoped to transient-surface parent directories** — never from `{VAULT}` itself. Finding from vault root crawls `.git` auto-save history, which on a long-lived vault can take minutes. Transient surfaces live in known top-level directories (`01 Now`, `02 Inbox`, daily-note folders) that don't contain `.git`, so scoping the find to those parents avoids the crawl cost entirely while keeping the check mechanical (filesystem fact, not Claude's memory) and proportionate. Do not gate on "I don't think I wrote there" — memory-based gating is the failure mode this check exists to prevent.
+   **Detection:** Use `find` with `mtime` filtering, **scoped to transient-surface parent directories** — never from `{VAULT}` itself. Finding from vault root crawls `.git` auto-save history, which on a long-lived vault can take minutes. Transient surfaces live in known top-level directories (`01 Now`, `02 Inbox`, daily-note folders) that don't contain `.git`, so scoping the find to those parents avoids the crawl cost entirely while keeping the check mechanical (filesystem fact, not Claude's memory) and proportionate. Do not gate on "I don't think I wrote there" — memory-based gating is the failure mode this check exists to prevent.
 
-     For a session of N minutes, use `-mmin -N` (a generous default for typical sessions is `-mmin -120`):
+   For a session of N minutes, use `-mmin -N` (a generous default for typical sessions is `-mmin -120`):
 
-     ```bash
-     # Scope the find to transient-surface parent directories.
-     # NEVER pass {VAULT} itself as a find root — it crawls .git auto-save history.
-     # Add vault-specific transient locations (daily-note folders, etc.) as additional roots.
-     find "{VAULT}/01 Now" "{VAULT}/02 Inbox" -maxdepth 2 -type f -name "*.md" -mmin -120 2>/dev/null
+   ```bash
+   # Scope the find to transient-surface parent directories.
+   # NEVER pass {VAULT} itself as a find root — it crawls .git auto-save history.
+   # Add vault-specific transient locations (daily-note folders, etc.) as additional roots.
+   find "{VAULT}/01 Now" "{VAULT}/02 Inbox" -maxdepth 2 -type f -name "*.md" -mmin -120 2>/dev/null
+   ```
+
+   For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
+
+   - **⛔ CHECKPOINT:** Display exactly one of:
      ```
-
-     For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
-
-     - **⛔ CHECKPOINT:** Display exactly one of:
-       ```
-       ✓ No at-risk work product to persist
-       ```
-       ```
-       🔧 Persisted N item(s): [paths]
-       ```
+     ✓ No at-risk work product to persist
+     ```
+     ```
+     🔧 Persisted N item(s): [paths]
+     ```
 
    - **Why this exists:** Added 2026-04-09 after a peer-review COI disclosure was persisted to Scratchpad in one session and silently destroyed by a later session's cleanup pass before the user needed it. The unconditional-read requirement prevents the "I don't remember writing there" failure from recurring.
 
-12. **Update Works in Progress** (conditional on tier):
-   - **Quick tier:** Skip WIP update (session too minor to warrant it)
-   - **Full tier:** Update WIP for related projects
+12. **Update Works in Progress:**
    - **"Last updated" timestamp bump is handled at Step 14c**, not here. Moved after Step 14 so bumping doesn't depend on predicting whether loop routing will modify planning files.
    - **If there is no related project to update at all, skip the rest of Step 12** (proceed to Step 13).
    - **Shipped one-shot work (published post, completed migration, resolved bug):** Do not create a new WIP entry or a new project file. Point the session log's `**Project:**` field at an existing area hub per the Shipped-one-shot-work rule in `_shared-rules.md` §2. Skip the rest of Step 12 (timestamp bump handled at Step 14c).
-   - **Multi-project operational sessions — link only entries that received a content write.** When this session is itself an operational pass (e.g. /goodnight, /morning, /weekly-review running inside another session — any session that touches several projects' state without being scoped to one), iterate the rest of Step 12 across each touched project, but only add a session link to entries where **this session wrote new content into the entry's section**. Reading/summarising the entry in a landscape pass does not count. The file-level "Last updated" bump at Step 14c does not count either — that's unconditional for Full tier and carries no per-entry signal. **The check is mechanism-independent** — it includes the Edit tool, the Write tool, Bash heredoc/sed/awk targeting WIP, and any `mcp__obsidian__*` tool (e.g. `mcp__obsidian__obsidian_update_note`, `mcp__obsidian__obsidian_search_replace`) that wrote to WIP. **Observable verification:** scan the conversation for tool calls whose target file is `01 Now/Works in Progress.md` — *regardless of which tool* — and for each one, check whether the change fell inside a project entry's heading-to-next-heading slice (Status / Last / Next / narrative content under `### Project Name`). Entries with no such write get no session link from this session; the file-level "Last updated" bump is their only signal. The 3-link FIFO cap is precious — don't burn slots on operational sessions that only traversed an entry.
+   - **Project link points at an area `_Index` (or any area home that doesn't appear as a WIP entry):** Skip the rest of Step 12 by definition — there's no WIP entry to update. The file-level "Last updated" bump at Step 14c is the WIP signal. This applies when the work is operational/area-hosted (e.g. updating a strategy doc, area hub) rather than tracked as in-flight project work. Distinct from the "no related project at all" case above — here the project link IS valid, it just lives in 04 Areas, not in WIP.
+   - **Multi-project operational sessions — link only entries that received a content write.** When this session is itself an operational pass (e.g. /goodnight, /morning, /weekly-review running inside another session — any session that touches several projects' state without being scoped to one), iterate the rest of Step 12 across each touched project, but only add a session link to entries where **this session wrote new content into the entry's section**. Reading/summarising the entry in a landscape pass does not count. The file-level "Last updated" bump at Step 14c does not count either — that's unconditional and carries no per-entry signal. **The check is mechanism-independent** — it includes the Edit tool, the Write tool, Bash heredoc/sed/awk targeting WIP, and any `mcp__obsidian__*` tool (e.g. `mcp__obsidian__obsidian_update_note`, `mcp__obsidian__obsidian_search_replace`) that wrote to WIP. **Observable verification:** scan the conversation for tool calls whose target file is `01 Now/Works in Progress.md` — *regardless of which tool* — and for each one, check whether the change fell inside a project entry's heading-to-next-heading slice (Status / Last / Next / narrative content under `### Project Name`). Entries with no such write get no session link from this session; the file-level "Last updated" bump is their only signal. The 3-link FIFO cap is precious — don't burn slots on operational sessions that only traversed an entry.
    - Read `{VAULT}/01 Now/Works in Progress.md`
    - Find the relevant project section (or sections — multi-project sessions iterate this routine across each touched project)
    - Update status with:
@@ -361,9 +330,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
        Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
    - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
 
-13. **Trace reference graph for status changes** (Full tier only):
-   - **Quick tier:** Skip
-   - **Full tier:** Review the session for any status changes. A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists).
+13. **Trace reference graph for status changes:**
+   Review the session for any status changes. A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists).
    - **⛔ CHECKPOINT — Enumerate before grepping.** List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response before any grep runs. If no values changed, state "No identifier values changed" explicitly. "Already traced during session" is not valid — the session edits targeted specific files, but the same identifiers appear in files you didn't edit.
      ```
      Changed values:
@@ -393,9 +361,8 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
      - [file2] - [what changed]
      ```
 
-14. **Route ALL open loops to SSOT** (Full tier only):
-   - **Quick tier:** Skip
-   - Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
+14. **Route ALL open loops to SSOT:**
+   Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
 
    **Routing logic (applied to each open loop):**
 
@@ -419,7 +386,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
 
    5. **If no date + no project + This Week.md stale/missing** → Tickler with tomorrow's date via write-tickler script
 
-   **Dedup check:** Before writing to any target file, grep for the item text (or a distinctive substring). If already present, skip. Items may have been manually added during the session.
+   **Dedup check:** Before writing to any target file, grep the item text (or a distinctive substring) across **all canonical SSOT locations** for open loops — `01 Now/This Week.md`, `01 Now/Tickler.md`, and any project file the loop could plausibly land in. Tickler especially: prior sessions may have routed the same loop to a future date, and the current park's own tracking won't surface that without an explicit grep. If found in any SSOT, skip with `✓ Skipped (already present in <file>)`. Items may have been routed by the current session pre-park, by a prior session, or manually added.
 
    **After routing, display brief summary:**
    ```
@@ -429,8 +396,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    ✓ Skipped (already present): [item]
    ```
 
-14a. **Backfill "Files Updated" in session log** (Full tier only):
-   - **Quick tier:** Skip
+14a. **Backfill "Files Updated" in session log:**
    - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
    - Collect all files modified during steps 12-14 (WIP update, reference graph tracing, open loop routing)
    - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session.
@@ -448,8 +414,7 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Only include files actually modified — if steps 12-14 didn't touch a file, don't list it
    - **Why this exists:** The session log is written at step 9 before steps 12-14 run, so "Files Updated" is always incomplete without this backfill. This was caught by audit — sessions were reporting "Files Updated: None" when WIP, This Week, and project files had all been modified.
 
-14b. **Export session transcript** (Full tier only):
-   - **Quick tier:** Skip
+14b. **Export session transcript:**
    - Export today's verbatim session transcripts to the vault:
      ```bash
      python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
@@ -458,22 +423,11 @@ The old "standard" tier was a false economy - saving 30 seconds of processing ti
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
    - **Why at park time:** Ensures transcripts exist for `/goodnight` provenance processing (step 16) and as a backstop against session data loss.
 
-14c. **Bump WIP "Last updated" timestamp** (Full tier only):
-   - **Quick tier:** Skip
-   - **Full tier: unconditional bump.** Use the Edit tool to replace the existing `Last updated: ...` line at the top of `01 Now/Works in Progress.md` with the current timestamp (e.g. `Last updated: YYYY-MM-DD HH:MM TZ`). No "did we modify planning files?" check — by Full-tier definition something was captured; the imperceptible cost of an over-bumped timestamp on a pure no-write session is preferable to the prediction-failure mode the old conditional produced.
+14c. **Bump WIP "Last updated" timestamp:**
+   - **Unconditional bump.** Use the Edit tool to replace the existing `Last updated: ...` line at the top of `01 Now/Works in Progress.md` with the current timestamp (e.g. `Last updated: YYYY-MM-DD HH:MM TZ`). No "did we modify planning files?" check — by definition something was captured; the imperceptible cost of an over-bumped timestamp on a pure no-write session is preferable to the prediction-failure mode the old conditional produced.
    - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ`. Do not proceed to Step 15 without this line.
 
-15. **Display completion message** (tier-appropriate):
-
-**Quick tier:**
-```
-⏭ Quality check: Skipped (Quick tier)
-✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
-
-Quick park complete. Minimal overhead for trivial task.
-```
-
-**Full tier:**
+15. **Display completion message:**
 ```
 ✓ Quality check: N files, M issues fixed [OR "no issues"]
 ✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
@@ -493,10 +447,9 @@ Parked. Pick up when ready.
 To pickup later: `claude` then `/pickup`
 ```
 
-**IMPORTANT:** The "Quality check" line is REQUIRED in all completion messages. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.
+**IMPORTANT:** The "Quality check" line is REQUIRED in the completion message. If you cannot produce this line, you skipped Step 5 - go back and complete it before finishing the park.
 
-16. **Audit recommendation** (Full tier only):
-   - **Quick tier:** Skip
+16. **Audit recommendation:**
    - Always recommend a post-park audit. No trigger evaluation — the default is "audit." The park's quality gate (Step 5) and reference graph (Step 13) catch many issues, but edits made *during* the park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Experience shows post-park audits reliably catch sync gaps even after a clean quality gate.
    - Display:
      ```
@@ -511,24 +464,20 @@ To pickup later: `claude` then `/pickup`
 ## Guidelines
 
 - **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. Use `update-session-section.sh` for all section edits (never ad-hoc sed — multiline sed fails silently). This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
-- **Capture ALL sessions:** Use `/park` for every session, even quick tasks. The system auto-detects appropriate tier.
-- **Two tiers only:** Quick (trivial) vs Full (everything else). If it's worth documenting, do it properly.
-- **Quick is rare:** Most sessions are Full. Quick is for 3-minute lookups where you literally just answered a question.
-- **Explicit override available:** Use `--quick` or `--full` to override auto-detection
+- **Capture ALL sessions:** Use `/park` for every session, even quick tasks. Default is the full bookkeeping pass; `--quick` flag is the rare opt-in for a one-line entry.
 - **Completed work has no open loops:** For finished sessions, write "None - work completed" (no bullets needed)
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
 - **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
 - **Timezone:** Per `_shared-rules.md` Section 7. Use system timezone.
 - **Continuation linking only:** Do NOT add chronological "Next session:" or "Previous session:" links — sessions are in chronological order in the file, so these are redundant. The only cross-session links that carry information are topical: `**Continues:**` (in the new session, pointing to the session being continued) and `**Continued in:**` (added to the original session, pointing forward to the continuation). These are triggered by `/pickup` loading a specific session to continue.
 - **File locking:** Per `_shared-rules.md` Section 5. Use scripts, not Edit tool.
-- **Quality gate is mandatory:** Step 5 MUST produce visible output for ALL tiers. Quick tier shows "Skipped", Full shows results. This prevents silent skipping.
-- **Four-part quality check:** Lint (syntax), Refactor (content quality), Verify (session accuracy, when updating), Proofread (language). All four categories checked for Full tier.
+- **Quality gate is mandatory:** Step 5 MUST produce visible output. This prevents silent skipping.
+- **Four-part quality check:** Lint (syntax), Refactor (content quality), Verify (session accuracy, when updating), Proofread (language). All four categories checked.
 - **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
 - **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
 - **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
 - **No checkboxes in session logs:** Open loops in "Next Steps / Open Loops" use plain bullets (`- `), never checkboxes (`- [ ]`). Checkboxes belong in files where items are tracked and checked off (This Week.md, Tasks.md, project files). Session logs are write-once records — the format signals the function.
 - **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
-- **Project context:** Full tier links projects; Quick tier skips
 - **Project linking:** Follow the rules in `_shared-rules.md` Section 2.
 - **File lists:** Only list files that were actually created/updated, not files that were just read. Step 14a backfills files modified during the park itself (steps 12-14) into the session log — don't try to predict these at step 9. For empty sections, write bare `None` on its own line (not `- None`, not `None (explanation)` — just `None`). The backfill script tolerates variations, but bare `None` is the canonical form. **Files Updated is not vault-scoped** — include external paths (scripts, configs, repos, remote-host files, `~/.claude/*` files) when the session modified them and they're load-bearing for the work. Step 14a's vault-shaped framing reflects which files *the park itself* typically touches in steps 12-14, not a restriction on what the section can contain. A grep across session logs for `Files Updated.*<external-path>` should surface sessions that touched that external resource.
 - **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
