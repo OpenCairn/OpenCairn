@@ -20,6 +20,7 @@ Batch transcribe audio or video files using WhisperX on a RunPod GPU instance. U
 - `--speakers N` — exact speaker count (implies diarisation)
 - `--output PATH` — output directory for transcripts (default: alongside source, or user-specified)
 - `--raw` — skip the LLM cleanup pass (save unprocessed WhisperX output)
+- `--language LANG` — force a Whisper language code (default `en`); set to `auto` for Whisper autodetect.
 
 If no arguments provided, ask the user what to transcribe and where to store results.
 
@@ -305,6 +306,7 @@ compute_type = "float16"
 batch_size = 16
 diarize = DIARIZE  # True or False
 num_speakers = NUM_SPEAKERS  # int or None
+language = LANGUAGE  # ISO code (e.g. "en", "es") or None for autodetect
 audio_dir = "/workspace/audio"
 output_dir = "/workspace/transcripts"
 os.makedirs(output_dir, exist_ok=True)
@@ -395,20 +397,24 @@ for i, audio_file in enumerate(files, 1):
     t0 = time.time()
 
     audio = whisperx.load_audio(audio_file)
-    result = model.transcribe(audio, batch_size=batch_size)
-    language = result["language"]
+    if language:
+        result = model.transcribe(audio, batch_size=batch_size, language=language)
+        detected_language = language
+    else:
+        result = model.transcribe(audio, batch_size=batch_size)
+        detected_language = result["language"]
 
     # Load alignment model once (after first transcription determines language)
     if align_model is None:
         align_model, align_metadata = whisperx.load_align_model(
-            language_code=language, device=device
+            language_code=detected_language, device=device
         )
 
     result = whisperx.align(
         result["segments"], align_model, align_metadata, audio, device
     )
 
-    output_obj = {"segments": result["segments"], "language": language}
+    output_obj = {"segments": result["segments"], "language": detected_language}
 
     if diarize:
         diarize_segments = diarize_model(audio, num_speakers=num_speakers)
@@ -453,7 +459,7 @@ for i, audio_file in enumerate(files, 1):
 print("Done.")
 ```
 
-Replace `DIARIZE` and `NUM_SPEAKERS` with actual values from arguments.
+Replace `DIARIZE`, `NUM_SPEAKERS`, and `LANGUAGE` with actual values from arguments. `LANGUAGE` defaults to `"en"`; set to `None` only when `--language auto` was passed.
 
 ### Phase 6: Retrieve results
 
