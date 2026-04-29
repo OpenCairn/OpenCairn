@@ -132,6 +132,8 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
 
    **Fix any issues found automatically.**
 
+   **⛔ Don't auto-revert changes you didn't make.** If a file has been modified between your Edit and the quality-gate scan and the change wasn't yours, surface it in the gate output and let the user decide — don't undo it. Auto-reverting silently overwrites work you didn't make, and you have no reliable way to attribute the source of the change anyway.
+
    **REQUIRED OUTPUT (exactly one of these MUST appear):**
 
    ```
@@ -395,6 +397,12 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
    ✓ Routed: [item] → Project: [Name]
    ✓ Skipped (already present): [item]
    ```
+
+   **⛔ Zero-routing checkpoint — show the dedup grep, not the conclusion.** When *no* items get routed (every loop deduped), the dedup-grep evidence must appear in the response — the actual grep command(s) and the line(s) found. `✓ No open loops to route` standing alone is reasoning-from-memory, which is the failure mode the dedup check exists to prevent. Format:
+   ```
+   ✓ No open loops to route — found in [file]:[line]: "[matching text]"
+   ```
+   This is the same shape as Step 13's "enumerate before grepping" checkpoint and Step 11's "filesystem fact, not memory" gate — make the underlying check observable in the output, not implicit in the conclusion. Without this, `✓ No open loops to route` can ship without anyone (including future-you reading the audit) being able to verify whether the dedup actually ran.
 
 14a. **Backfill "Files Updated" in session log:**
    - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
