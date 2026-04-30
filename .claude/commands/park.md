@@ -398,11 +398,11 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
    ✓ Skipped (already present): [item]
    ```
 
-   **⛔ Zero-routing checkpoint — show the dedup grep, not the conclusion.** When *no* items get routed (every loop deduped), the dedup-grep evidence must appear in the response — the actual grep command(s) and the line(s) found. `✓ No open loops to route` standing alone is reasoning-from-memory, which is the failure mode the dedup check exists to prevent. Format:
-   ```
-   ✓ No open loops to route — found in [file]:[line]: "[matching text]"
-   ```
-   This is the same shape as Step 13's "enumerate before grepping" checkpoint and Step 11's "filesystem fact, not memory" gate — make the underlying check observable in the output, not implicit in the conclusion. Without this, `✓ No open loops to route` can ship without anyone (including future-you reading the audit) being able to verify whether the dedup actually ran.
+   **⛔ Zero-routing checkpoint.** Always append the supporting observable to `✓ No open loops to route`. Two valid forms:
+   - Loops were deduped against existing SSOT → cite the grep match: `found in [file]:[line]: "[text]"`
+   - Session produced no loops → cite the section text: `session log: "None — work completed"`
+
+   Without an observable, the line is reasoning-from-memory and can ship without anyone verifying the check actually ran.
 
 14a. **Backfill "Files Updated" in session log:**
    - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
