@@ -408,6 +408,7 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
    - Steps 12-14 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 9 when the session log is written. Backfill these into the session log's "### Files Updated" section.
    - Collect all files modified during steps 12-14 (WIP update, reference graph tracing, open loop routing)
    - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session.
+   - **Description-completeness check on dedup hit:** When the dedup skip fires for a file already listed, check whether the existing description covers the new edit. If not (i.e. /park itself made an additional change to a file already touched in-session, e.g. a Step 13 reference-graph wikilink fix), append the new edit detail to the existing entry's description via Edit tool rather than skipping silently. Filename dedup prevents redundant entries; description completeness prevents silent under-reporting of what actually changed.
    - Use the backfill-files-updated script:
      ```bash
      cat << 'EOF' | "{VAULT}/.claude/scripts/backfill-files-updated.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" N
