@@ -330,7 +330,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - `*-transcript.md` → `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
    - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
    - Paths containing `/` → `{VAULT}/relative/path`
-   - Other (legacy) → try Session Logs, then vault root
+   - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
 
    **Re-hash and compare:**
    ```bash
@@ -343,7 +343,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/`. If upgrade succeeds, update the provenance log entry to "confirmed".
 
    **Verify OTS proofs:**
-   For entries with `.ots` files, run `ots verify`. Record as CONFIRMED, PENDING, FAILED, or MISSING.
+   For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"`. The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, `ots verify` looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. Record as CONFIRMED, PENDING, FAILED, or MISSING.
 
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
