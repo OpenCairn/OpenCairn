@@ -274,7 +274,7 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
 
 11. **Check for at-risk work product.** Two failure modes to check.
 
-   **(a) Conversation-only drafts.** Scan the conversation for drafts composed inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file).
+   **(a) Conversation-only drafts.** Scan the conversation for drafts *Claude composed* inline that only exist as text output — emails, messages, analysis, plans. Common triggers: `/reply` drafts, email compositions, multi-paragraph analysis. If found, write each to its semantic home in the vault (correspondence file, project doc, area file). Drafts the *user* authored and pasted (e.g. typing message text into a booking field, composing in their own client) are not at-risk — they're already the user's authored artefact, not session-only output.
 
    **(b) Work product persisted to transient capture surfaces.** Scratchpad, Inbox, and daily notes are designed to be cleared on a regular cadence — they are *not* durable homes.
 
