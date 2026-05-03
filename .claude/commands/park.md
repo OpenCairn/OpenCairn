@@ -325,7 +325,7 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
        1. **Has project/area doc:** `→ [[03 Projects/Project Name]]` — pointer only, project doc is SSOT for its task queue
        2. **No doc, has next action:** Single next action (one line max — if it needs more, create a project doc)
        3. **No doc, work complete:** Omit Next
-       Never a queue — one pointer or one action.
+       Never a queue — one pointer or one action. **Replace each park, don't inherit.** If a prior session left a queue in Next, dedup-check each item against canonical SSOT (This Week.md, Tickler, project doc, area files) and route any unrouted items (per Step 14 routing rules) before collapsing Next to the pointer/action form. **Why:** Next is a current-state field, like Last; inheriting a stale queue duplicates task tracking and risks letting items rot in WIP if they were never routed elsewhere. Mirrors the Last-field "replace, don't chain" rule above.
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
      - **FIFO cap at 3:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 3, remove the oldest by date until exactly 3 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
      - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
