@@ -343,7 +343,7 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
    Review the session for any status changes. A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists).
    - **⛔ CHECKPOINT — Enumerate before grepping.** List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response before any grep runs. "Already traced during session" is not valid — the session edits targeted specific files, but the same identifiers appear in files you didn't edit.
 
-     **The nil case is not a free pass.** "No identifier values changed" is a positive claim, not an off-ramp. To assert it, explicitly check each failure mode: row removals, row replacements, content corrections (fixing a misspelt name, wrong location, wrong date), naming changes, status flips. Each is an identifier change that may need propagation across the vault, even when you only edited one file. A row you removed because it was wrong implies the same wrong row may exist elsewhere. Format the nil case as an enumerated checklist, not a bare assertion.
+     **The nil case is not a free pass.** "No identifier values changed" is a positive claim, not an off-ramp. To assert it, explicitly check each failure mode: row removals, row replacements, content corrections (fixing a misspelt name, wrong location, wrong date), naming changes, status flips, **section relocations between files**. Each is an identifier change that may need propagation across the vault, even when you only edited one file. A row you removed because it was wrong implies the same wrong row may exist elsewhere. A section moved from File A to File B implies hub descriptions, anchor links, or cross-refs may still claim the section lives in File A or describe File A as containing its content. Format the nil case as an enumerated checklist, not a bare assertion.
      ```
      Changed values:
      - "6 events" → "7 events"
@@ -353,6 +353,7 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
      - Content corrections (misspellings, wrong locations, wrong dates): none
      - Naming changes: none
      - Status flips: none
+     - Section relocations between files: none
      → No identifier values changed.
      ```
      - **⛔ No regex alternation from memory when N>3.** When enumeration produces more than three identifiers (e.g. a batch file move), do NOT hand-construct a `foo|bar|baz` alternation pattern from memory for the grep step below — typed-from-memory alternation silently drops entries and you won't notice because the grep still returns results. Instead: iterate each identifier as a separate grep call, or mechanically construct the pattern from the enumeration you just wrote down. The enumeration is the authoritative list; the grep pattern must be built from it, not re-remembered.
