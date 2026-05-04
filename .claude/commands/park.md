@@ -314,13 +314,21 @@ Every session captures the full bookkeeping pass. The skill historically had a Q
    - Update status with:
      - **Last:** [Today's date and time from step 1] - [Brief description of progress]
      - **Last-field cap:** Single current entry — replace, don't chain. The Last field carries only the most recent session's update. **Do NOT prepend "Earlier [date]..." blocks for prior entries** — when updating Last, replace the prior value outright. Prior Last content is already preserved verbatim in the session-log archive and referenced by the 3-link session FIFO below; duplicating it inline as "Earlier" chains is the Last-field accretion anti-pattern. This is the prose-side parallel to the FIFO cap on session links: both rules keep WIP as a current-state dashboard, not a running log. If a prior entry contained durable thinking/lessons/decisions that belong in a project or area doc, migrate those to their natural home *before* replacing the Last field — the trimming check is "has the content been captured in an SSOT elsewhere?", not "does Last look tidy?"
-     - **⛔ CHECKPOINT — Verify cited identifiers before replacing Last.** When the prior Last cites identifiers (commit hashes, `[[wikilinks]]`, session refs like `Session N`, file paths), enumerate each and run a verification command before the WIP edit. Display the verification block in your response. Verification commands by shape:
+     - **⛔ Verify cited identifiers before replacing Last.** When the prior Last cites identifiers (commit hashes, `[[wikilinks]]`, session refs like `Session N`, file paths), enumerate each and run a verification command. Display the verification block in your response **before** the Edit tool replaces Last. Verification commands by shape:
        - **Commit hash:** `git -C <repo> log --oneline | grep <hash>`
        - **Session reference:** `grep '^## Session N ' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"`
-       - **Wikilink:** `ls "{VAULT}/<path>.md"` (or `head` if you want to confirm content, not just existence)
+       - **Wikilink:** `ls "{VAULT}/<path>.md"` (or `head` if confirming content)
        - **File path:** `ls <path>`
 
-       If any identifier fails verification, do **not** replace — migrate the unverified content to its cited home first, then re-verify. If the prior Last cites no identifiers (thin entry, just a date and one-liner), this checkpoint fires trivially with `No cited identifiers to verify` and replacement proceeds. **Why:** lucky-right replacements (where the SSOT happens to exist) hide the failure mode. Repeated park audits have caught the same shortcut — asserting SSOT-elsewhere from identifier shape without verification. Mechanical verification turns "I think the content is captured" into "the content is observably captured."
+       Display format (mirror of FIFO check pattern):
+       ```
+       Cited-identifier check:
+       - <identifier> → <command> → ✓ verified
+       - <identifier> → <command> → ✓ verified
+       ```
+       or, for the nil case: `Cited-identifier check: No cited identifiers in prior Last (thin entry)`.
+
+       If any identifier fails verification, do **not** replace — migrate the unverified content to its cited home first, then re-verify. **Why:** lucky-right replacements (where the SSOT happens to exist) hide the failure mode. Repeated park audits have caught this exact shortcut. Mechanical verification turns "I think the content is captured" into "the content is observably captured." Specific literal-output spec added (mirroring FIFO check) after audits found vague "verification block" wording produced unreliable firing.
      - **Next:** Three cases:
        1. **Has project/area doc:** `→ [[03 Projects/Project Name]]` — pointer only, project doc is SSOT for its task queue
        2. **No doc, has next action:** Single next action (one line max — if it needs more, create a project doc)
