@@ -508,7 +508,8 @@ For each JSON transcript file:
    **This means reading the transcript paragraph by paragraph, not running regex patterns.** Regex handles known-entity capitalisation (city names, product names); homophones (peace/piece, their/there) and garbled proper nouns (WhisperX maps unfamiliar names to common English words) only surface by reading in context. A regex-only pass will miss these and produce a transcript that looks clean but isn't.
 
    Rules:
-   - Fix non-words to their most likely intended word   - Fix obvious grammar/punctuation errors introduced by the transcription model (not the speaker's actual grammar — ESL patterns, filler words, etc. stay)
+   - Fix non-words to their most likely intended word
+   - Fix obvious grammar/punctuation errors introduced by the transcription model (not the speaker's actual grammar — ESL patterns, filler words, etc. stay)
    - Mark genuinely unclear sections as `[inaudible]` rather than guessing
    - For uncertain proper noun spellings (names of people, places), flag with `[?]` suffix so the user can correct — e.g. `Jayne Abernathy[?]`. **Don't silently guess at names** — the user will know the correct spelling and can fix the flagged ones in one pass.
    - Preserve the speaker's actual words and meaning — don't rewrite, paraphrase, or "improve"
