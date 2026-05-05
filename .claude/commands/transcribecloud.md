@@ -505,9 +505,10 @@ For each JSON transcript file:
 
 3. **LLM cleanup pass** (skip if `--raw` was passed):
 
-   Review the assembled transcript text and fix transcription errors. Rules:
-   - Fix non-words to their most likely intended word (e.g. "seduptresses" → "seductresses", "Zice lenses" → "Zeiss lenses")
-   - Fix obvious grammar/punctuation errors introduced by the transcription model (not the speaker's actual grammar — ESL patterns, filler words, etc. stay)
+   **This means reading the transcript paragraph by paragraph, not running regex patterns.** Regex handles known-entity capitalisation (city names, product names); homophones (peace/piece, their/there) and garbled proper nouns (WhisperX maps unfamiliar names to common English words) only surface by reading in context. A regex-only pass will miss these and produce a transcript that looks clean but isn't.
+
+   Rules:
+   - Fix non-words to their most likely intended word   - Fix obvious grammar/punctuation errors introduced by the transcription model (not the speaker's actual grammar — ESL patterns, filler words, etc. stay)
    - Mark genuinely unclear sections as `[inaudible]` rather than guessing
    - For uncertain proper noun spellings (names of people, places), flag with `[?]` suffix so the user can correct — e.g. `Jayne Abernathy[?]`. **Don't silently guess at names** — the user will know the correct spelling and can fix the flagged ones in one pass.
    - Preserve the speaker's actual words and meaning — don't rewrite, paraphrase, or "improve"
@@ -544,7 +545,7 @@ For each JSON transcript file:
 
 Diarisation labels are just `SPEAKER_00`, `SPEAKER_01`, etc. — which physical human each cluster corresponds to has to be inferred. The default pipeline uses "first appearance in time" which breaks when the user isn't the first to speak. A pre-computed voice embedding for each known recurring speaker lets the pipeline match clusters to names deterministically.
 
-**Where reference files live:** `04 Areas/Audio/voice-references/<name>.m4a` (or `.wav`). Filename stem (e.g. `alice`) is used as the speaker name in the transcript.
+**Where reference files live:** Search the vault for a `voice-references/` directory: `find "$VAULT_PATH" -type d -name voice-references 2>/dev/null`. Store `.m4a` or `.wav` files there — one per known speaker. Filename stem (e.g. `alice`) is used as the speaker name in the transcript.
 
 **Capture spec:** 20–30s of clean solo speech from each known speaker. Natural conversational register (not reading aloud — reading voice differs meaningfully). No background music, no second speaker bleed-through, no heavy compression. A phone voice-memo .m4a is fine.
 
@@ -649,7 +650,8 @@ def assign_names(cluster_embeddings, ref_embeddings, span_durations=None,
 # 1. Load transcript JSON
 # 2. embs = data.get("cluster_embeddings", {})
 # 3. durs = data.get("cluster_span_durations", {})
-# 4. refs = load_reference_embeddings(f"{os.environ['VAULT_PATH']}/04 Areas/Audio/voice-references")
+# 4. ref_dir = subprocess.check_output("find '$VAULT_PATH' -type d -name voice-references", shell=True).decode().strip()
+#    refs = load_reference_embeddings(ref_dir)  # returns {} if dir not found
 # 5. assignments = assign_names(embs, refs, span_durations=durs)
 # 6. When rendering markdown: if assignments[raw_speaker][0] is set AND flag == "ok",
 #    use the name; otherwise fall back to Speaker N (first-appearance order) and
