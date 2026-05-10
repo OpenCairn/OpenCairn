@@ -431,11 +431,57 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ`. Do not proceed to Step 14 without this line.
 
 14. **Auto-execute /audit on the just-completed park:**
-   - Run the /audit protocol now, with the just-completed park as the audit target. The audit applies the five-layer protocol from `~/.claude/commands/audit.md` to the park's effects: WIP updates, reference-graph propagation, session log accuracy, scratchpad cleanup, status-change cascades.
-   - **Audit's Phase 4 (Fix and Re-audit) runs inline.** Any remediation lands in the same response — no second /park, no merge-continuation. If the audit modifies session-log content (e.g. fixes a wrong date in the summary), use `update-session-section.sh` to preserve concurrency safety; for other files, use the Edit tool.
-   - **Iterate until clean** per audit's own protocol — keep going through fix → re-audit until a full pass finds nothing.
-   - Display audit findings inline as it runs. The completion message (Step 17) summarises the result in one line.
-   - **Why auto-run:** /park's existing quality gate (Step 4) and reference graph (Step 12) catch many issues, but edits made *during* /park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Empirically every /park benefits from /audit afterwards — making it default eliminates the recommendation-then-rerun overhead and ensures the audit's findings and remediation are captured by transcript export (Step 16), which now runs last.
+
+   Run the /audit five-layer protocol now, with the just-completed park as the audit target.
+
+   **⛔ This step's primary failure mode is phoning it in.** The most common way Step 14 silently fails is producing a five-bullet "audit" that confabulates layer labels (recalling them wrongly from memory) and rubber-stamps prior work as "clean" without applying the protocol. The discipline below mirrors Step 12's enumeration rules and exists to prevent that exact failure mode.
+
+   **(a) Load the protocol.** Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) into context before proceeding. **Do NOT recall the layers from memory** — recalled-from-memory layer definitions tend to be wrong (e.g. mislabelling Layer 4 as "reversibility" or Layer 5 as "skill gaps"), which collapses the audit into freeform commentary. The Read tool call is the observable proof the protocol was loaded.
+
+   **(b) Enumerate identifiers introduced or changed by this session.** This is the substrate Layer 3 operates on. Mirror Step 12's discipline: list every identifier as `old → new` pairs, plus any *new* named state introduced. The enumeration must appear in the response *before* any layer claim.
+
+   ```
+   Identifiers in scope:
+   - "old value" → "new value" (where: file path)
+   - NEW: "value" introduced (where: file path)
+   [OR (nil case, formatted as enumerated checklist, not bare assertion):]
+   - Row removals / replacements: none
+   - Content corrections: none
+   - Naming changes: none
+   - Status flips: none
+   - Section relocations: none
+   - New named state introduced: none
+   → No identifiers in scope for Layer 3 propagation.
+   ```
+
+   **The nil case is not a free pass.** "Nothing changed" is a positive claim requiring the explicit checklist. **New state introduced is the most-missed category** — a session can introduce a new booking, entity, project file, or status flag that needs cross-reference into existing SSOT docs, even when no prior identifier was modified. Treating "I didn't rename anything" as the whole Layer 3 question is the silent miss that makes this step fail.
+
+   **(c) For each enumerated identifier, run the Layer 3 propagation check.** Grep the wider repository excluding archive/session files; display the grep output (proves the grep ran); read each hit; assess whether it's a stale cross-reference (update it), a historical record (leave), or a different context (leave). For link-integrity questions, run the structural query (e.g. `obsidian unresolved` for an Obsidian vault) in addition to text grep — text grep is sensitive to format/encoding/exclusions that the structural query is indifferent to.
+
+   **(d) Walk Layers 1-5 with explicit per-layer outputs.** Each layer must produce *either* a specific finding *or* a nil-case statement that names what was checked. Generic affirmations ("approach is sound", "implementation correct", "all reversible") without naming what was assessed are not acceptable — they're the rubber-stamp pattern this discipline exists to prevent.
+
+   ```
+   Layer 1 (approach right?): [finding] OR [what was assessed and why no concern]
+   Layer 2 (operating environment): [finding] OR [what was assessed]
+   Layer 3 (existing state migration): [findings from (c) propagation check]
+   Layer 4 (implementation correct?): [finding] OR [files re-read, what was verified]
+   Layer 5 (does it actually work?): [scenario walked end-to-end, what was verified]
+   ```
+
+   **(e) Phase 4 (Fix and Re-audit) runs inline.** Any remediation lands in the same response — no second /park, no merge-continuation. If the audit modifies session-log content, use `update-session-section.sh` to preserve concurrency safety; for other files, use the Edit tool. **Re-audit requires re-reading** modified files (per audit.md Phase 4 step 3) — clean-pass claims without a Read tool call on the modified files are fabricated.
+
+   **(f) Iterate until clean.** Keep going through fix → re-audit until a full pass finds nothing.
+
+   **⛔ CHECKPOINT — required outputs, in this order:**
+   1. `Read` tool call on `audit.md` (proves protocol loaded)
+   2. Identifiers-in-scope enumeration block (real or nil-case checklist)
+   3. Per-identifier grep output for Layer 3 (or explicit nil)
+   4. Per-layer findings or nil-case statements (Layers 1-5)
+   5. Either remediation edits + re-audit, or `✓ Audit: clean pass`
+
+   You cannot proceed to Step 15 without all five outputs visible. If the response contains a single-paragraph audit summary instead, the discipline was skipped — return to the start of Step 14.
+
+   **Why auto-run:** /park's quality gate (Step 4) and reference graph (Step 12) catch many issues, but edits made *during* /park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Empirically every /park benefits from /audit afterwards — making it default eliminates the recommendation-then-rerun overhead and ensures the audit's findings and remediation are captured by transcript export (Step 16). The enumeration discipline above was added after Step 14 silently failed by producing rubber-stamp passes that missed real Layer 3 propagation gaps; a separately-invoked /audit on the same vault state caught the gaps within minutes. Same model, same data — the difference was discipline, not capability.
 
 15. **Skill monitor** (per shared rules §8):
    - Review the park execution just completed, **including the audit step (Step 14)**. Did you improvise any step not documented here? Did a documented step turn out unnecessary? Did you skip a step that should have a stronger gate?
