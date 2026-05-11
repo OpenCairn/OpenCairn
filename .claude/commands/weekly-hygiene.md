@@ -127,7 +127,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    - Read `{VAULT}/01 Now/This Week.md`
-   - Purge completed items: delete all `- [x]` lines from day sections in This Week.md and from Tasks.md. `- [ ]` items are untouched.
+   - Purge completed items: delete all `- [x]` lines from **past** day sections in This Week.md (date < today) and from Tasks.md. **Do not purge today's day section** — completed items there are at-a-glance context until `/goodnight` archives them to the daily report. Future day sections shouldn't have `[x]` items, but if they do, leave them. `- [ ]` items are always untouched.
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
