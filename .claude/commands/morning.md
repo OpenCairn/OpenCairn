@@ -75,10 +75,12 @@ For each day that now has a daily report (whether from /goodnight or 2a), check 
    - **Append** any completions to `## Completed`.
    - Do NOT modify other sections — the daily report's Tomorrow's Queue, Blockers, and Notes were set deliberately at close-out and remain valid.
    - Add a note at the end of the Sessions section: `*Sessions N–M added by /morning (ran after close-out)*`
+   - **Propagate the new count to This Week.md's day-section heading.** The parent `## [Day] [DD] [Mon] — N session(s): ...` line in This Week.md was set at /goodnight close-out and is now stale. Parse the existing `N session(s)` count, increment by the number of late sessions added, and extend the topic summary to include the new sessions' headline topics. Without this, the same-file cross-reference between This Week.md and the daily report it links to is self-contradicting.
    - Display:
      ```
      ✓ Reconciled: [N] post-goodnight session(s) added to yesterday's daily report
        - Session M: [Topic] - [outcome]
+     ✓ This Week.md day-section heading updated: [old count] → [new count] sessions
      ```
 
 ### 3. Surface the Landscape (auto, ~1 min)
@@ -376,6 +378,7 @@ You're clear. Go.
 - **Light touch:** This isn't therapy or heavy journaling. Quick check-in that can expand if needed.
 - **No guilt:** If the user skips steps or says "I'm good," respect that. The routine serves him, not vice versa.
 - **Capture means file writes:** If something comes up, write it to the right place (WIP, project, journal, Tickler) immediately. Don't just discuss routing — do the routing. Don't create new systems or files when an existing one fits.
+- **Preserve verbatim content on compression or move.** When folding multiple items into a single bullet OR moving an item between days, scan each source item for load-bearing verbatim content the user will execute against — exact quoted phrases inside `*"..."*`, explicit if/then decision trees, specific wordings, reference numbers, exact ask wording. For each: grep the destination project/area hub for the distinctive substring. If absent there, preserve verbatim in the new location (as sub-bullets under the compressed bullet if compressed) rather than abstracting to a topic summary. Default assumption: if the user wrote it down with specific wording, the wording is the artefact, not decoration.
 - **Morning pages complement:** This is operational/triage. Morning pages (journal) is generative/exploratory. They can happen same morning - this first (quick), then journal (if desired).
 
 ## Triggers
