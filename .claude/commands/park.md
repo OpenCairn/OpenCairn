@@ -73,48 +73,55 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
 ### Phase 2: Quality Assurance
 
-4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files**
+4. **⚠️ QUALITY GATE: Lint, refactor, proofread modified files (inline)**
+
+   Quality gate runs inline in the main session — Step 4 is at the start of /park, before cognitive load accumulates, and the main session has session memory that's load-bearing for the mid-session-direction-changes and hot-capture-habit checks. A sub-agent delegation here would lose that memory advantage and pay token cost without empirical justification of inline failure (see Step 14's tail for the contrast — Step 14 has documented inline-failure history; Step 4 does not).
 
    **This step MUST produce visible output. No silent skipping.**
 
-   Check all modified files (vault AND repo) + vault-wide broken link scan.
+   **(a) Enumerate modified files explicitly (required output).** Before running any checks, list every file the session created or edited — vault AND non-vault (`~/repos/`, `~/.claude/commands/`, scripts, configs). Display the list. This makes the scope observable and prevents "I checked everything" claims that skip files. Format:
 
-   **Four categories of checks:**
+   ```
+   Files to check:
+   - path/to/file1.md
+   - path/to/file2.py
+   - …
+   ```
 
-   **LINT** - Syntax and structure:
+   **(b) Hot-capture habit nudge.** If substantive insights surfaced during the session but weren't routed in the moment via a "save that to [file]" interjection, name the habit gap in one line — metacognitive only. Do NOT cold-read the transcript to enumerate/classify/route — that re-introduces the failure mode hot-capture interjection is designed to avoid. If no habit gap, omit silently.
+
+   **(c) Apply four check categories** to every file in the list:
+
+   **LINT** — Syntax and structure:
    - YAML frontmatter syntax errors
    - Broken file paths or internal links
    - Markdown syntax issues (unclosed code blocks, malformed lists)
    - Broken Obsidian wikilinks
 
-   **REFACTOR** - Content quality:
+   **REFACTOR** — Content quality:
    - Consolidate redundant content (did I repeat myself across files?)
    - Update stale references (outdated info, old dates, deprecated approaches)
    - Fix broken structure (illogical heading hierarchy, orphaned sections)
    - Remove dead/orphaned content created then abandoned
    - **Mid-session direction changes:** If the session's conclusion diverges from its starting position (e.g. an item went from "moot" to "live option", or a decision was reversed), re-read files edited earlier in the session and verify they reflect the final state, not the interim state. This is distinct from general staleness — these files were correct when written but became stale because the conversation changed direction.
    - **Research persistence:** Did this session produce research (subagent findings, web searches, analysis) that should be captured in a reference/area file, not just narrated in the session summary? If a stub entry exists for the researched topic, update it with the findings.
-   - **Hot-capture habit check (nudge, not enumeration):** If substantive insights, frameworks, or content-level corrections surfaced during the session but weren't routed in the moment via a mid-session "save that to [file]" interjection, name the habit gap in one line so the user can notice it. **Do not cold-read the transcript to enumerate, classify, or route those items here.** That's the failure mode hot-capture interjection is designed to avoid, and cold-running it at park time re-introduces the problem. The check is metacognitive only: surface when the habit slipped, don't substitute tooling for the habit.
-   - **Why this exists:** Cold-capture routing at session end has failure modes (misclassification, incorrect content extraction, cascading write errors) that hot-capture interjection avoids. This check is deliberately a nudge only, not a catch-up mechanism. Hot capture is primary; /park's role is to make habit gaps visible, not to substitute for the habit.
 
-   **VERIFY** - Session summary accuracy (if updating an already-parked session):
+   **VERIFY** — Session summary accuracy (if updating an already-parked session):
    - Do open loops still reflect reality? (If user completed something mid-conversation, remove it from the list)
    - Does pickup context still match? (If "ready for upload" is now uploaded, update the line)
    - Were any "Next Steps" completed during the session? Remove them from the list (they're no longer open)
 
-   **PROOFREAD** - Language and consistency:
-   - **Spelling localisation:** Skip if a PostToolUse spelling hook (e.g. britfix) already normalises spelling at write time. Otherwise: use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling (organise, categorise, prioritise, realise, analyse, summarise, colour, favour). If `en_US`: normalise to American spelling. If no locale set: skip spelling normalisation.
+   **PROOFREAD** — Language and consistency:
+   - **Spelling localisation:** Skip if a PostToolUse spelling hook (e.g. britfix) already normalises spelling at write time. Otherwise: use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling. If `en_US`: normalise to American. If no locale set: skip spelling normalisation.
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
-   - Tone consistency with the user's voice
-
-   **Scope:** Check ALL files modified during the session, not just vault files. If the session touched repo files (e.g. `~/repos/OpenCairn/`), command files (`~/.claude/commands/`), or scripts, include those in the quality gate. Spelling localisation applies primarily to vault prose; command/script files get lint and refactor checks but spelling is less critical there.
+   - Tone consistency with the user's voice (load `07 System/Context - Voice & Writing Style.md` if voice questions arise)
 
    **Fix any issues found automatically.**
 
    **⛔ Don't auto-revert changes you didn't make.** If a file has been modified between your Edit and the quality-gate scan and the change wasn't yours, surface it in the gate output and let the user decide — don't undo it. Auto-reverting silently overwrites work you didn't make, and you have no reliable way to attribute the source of the change anyway.
 
-   **REQUIRED OUTPUT (exactly one of these MUST appear):**
+   **(d) Display the required checkpoint output:**
 
    ```
    ✓ Quality check: N files checked, no issues found
@@ -122,11 +129,11 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    ```
    🔧 Quality check: Fixed N issues
-   - [specific fix 1]
-   - [specific fix 2]
+   - [path1] - [specific fix]
+   - [path2] - [specific fix]
    ```
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until one of the above outputs appears in your response. If you find yourself writing session metadata without having displayed a quality check result, STOP and return to this step.
+   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until the quality-check line appears in your response. The file enumeration in (a) is also required — if you skipped it, the count claim in the checkpoint output is unverifiable. If you find yourself writing session metadata without having displayed both the file list and a quality check result, STOP and return to this step.
 
 ### Phase 3: Document and Archive
 
@@ -327,44 +334,66 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
        Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
    - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
 
-12. **Trace reference graph for status changes:**
-   Review the session for any status changes. A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists).
-   - **⛔ CHECKPOINT — Enumerate before grepping.** List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response before any grep runs. "Already traced during session" is not valid — the session edits targeted specific files, but the same identifiers appear in files you didn't edit.
+12. **Trace reference graph for status changes (enumerate in main session, delegate propagation to sub-agent):**
 
-     **The nil case is not a free pass.** "No identifier values changed" is a positive claim, not an off-ramp. To assert it, explicitly check each failure mode: row removals, row replacements, content corrections (fixing a misspelt name, wrong location, wrong date), naming changes, status flips, **section relocations between files**. Each is an identifier change that may need propagation across the vault, even when you only edited one file. A row you removed because it was wrong implies the same wrong row may exist elsewhere. A section moved from File A to File B implies hub descriptions, anchor links, or cross-refs may still claim the section lives in File A or describe File A as containing its content. Format the nil case as an enumerated checklist, not a bare assertion.
-     ```
-     Changed values:
-     - "6 events" → "7 events"
-     - "status: pending" → "status: done"
-     [OR (nil case)]
-     - Row removals / replacements: none
-     - Content corrections (misspellings, wrong locations, wrong dates): none
-     - Naming changes: none
-     - Status flips: none
-     - Section relocations between files: none
-     → No identifier values changed.
-     ```
-     - **⛔ No regex alternation from memory when N>3.** When enumeration produces more than three identifiers (e.g. a batch file move), do NOT hand-construct a `foo|bar|baz` alternation pattern from memory for the grep step below — typed-from-memory alternation silently drops entries and you won't notice because the grep still returns results. Instead: iterate each identifier as a separate grep call, or mechanically construct the pattern from the enumeration you just wrote down. The enumeration is the authoritative list; the grep pattern must be built from it, not re-remembered.
-     - **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
-   - For each enumerated identifier:
-     1. Grep the vault for the **old** value, excluding archive/session files (historical records, not living docs). Use `rg` (ripgrep — respects `.gitignore`, skips `.git/` auto-save history automatically) not `grep -r` (which crawls `.git` and takes minutes on long-lived vaults). The `**/` prefix on the exclude glob matters: `!06 Archive/**` only matches when rg's cwd is the vault root; `!**/06 Archive/**` matches regardless of cwd:
-        ```bash
-        rg -l --type md "old value" "{VAULT}" -g '!**/06 Archive/**'
-        ```
-     2. Display the grep results (even if empty — the output proves the grep ran)
-     3. Read and update every living document that still references the old value
-   - **For file-path identifier changes specifically (rename, move, delete):** after the grep pass, run the vault's structural link-integrity query as a post-check (e.g. `obsidian unresolved` for an Obsidian vault; see /audit §Layer 3 for equivalent tools in other systems — `git grep` + LSP find-references for code repos, broken-link reports for wikis). If the vault has no such tool, skip the post-check and rely on the grep pass. The grep enumerates what-you-expect-to-find from your own memory of what changed; the structural query surfaces what's-actually-broken in the live link graph — catching cases enumeration missed (short-path wikilinks, display-text mismatches, historical/archive refs that rename-propagation mechanisms didn't reach). Text grep is sensitive to format/encoding/hidden-dir exclusions; the structural query isn't. Not a replacement for the grep pass — a cheap post-check for a specific failure mode.
-   - **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
-   - Display result:
-     ```
-     ✓ Reference graph: No identifier values changed
-     ```
-     or:
-     ```
-     ✓ Reference graph: [N] files updated for [identifier] status change
-     - [file1] - [what changed]
-     - [file2] - [what changed]
-     ```
+   The enumeration discipline stays in the main session — it's the load-bearing checkpoint that defends against silent miss-pattern. The grep + propagation work delegates to a fresh sub-agent for thoroughness without main-session fatigue.
+
+   **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
+
+   **The nil case is not a free pass.** "No identifier values changed" is a positive claim requiring the explicit checklist. Format the nil case as an enumerated checklist, not a bare assertion:
+
+   ```
+   Changed values:
+   - "old value" → "new value" (where: file path)
+   - NEW: "value" introduced (where: file path)
+   [OR (nil case)]
+   - Row removals / replacements: none
+   - Content corrections (misspellings, wrong locations, wrong dates): none
+   - Naming changes: none
+   - Status flips: none
+   - Section relocations between files: none
+   → No identifier values changed.
+   ```
+
+   **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
+
+   **(b) If the enumeration is the nil case, skip the sub-agent and display:**
+
+   ```
+   ✓ Reference graph: No identifier values changed
+   ```
+
+   **(c) Identifier count integrity check before despatch.**
+
+   Count the identifiers in your enumeration block. When you write the sub-agent prompt in (d), embed the enumeration verbatim — do NOT re-construct from memory. Main-session fatigue at Step 12 (after ~12 steps and several CHECKPOINTs) is documented; typing identifiers into a prompt from memory has the same drop-rate as typing them into a grep alternation pattern. Display:
+
+   ```
+   Identifier count check: enumeration N → prompt N ✓
+   ```
+
+   If mismatch, regenerate the prompt from the enumeration block, not from memory.
+
+   **(d) Spawn the propagation sub-agent** with `subagent_type: "general-purpose"`, foreground. The prompt must be **self-contained** — every value the sub-agent needs must be embedded verbatim. Include:
+
+   - **Enumerated identifiers** as `old → new` pairs — copied verbatim from your (a) enumeration block, not retyped from memory
+   - **Path-expansion rule (re-stated at execution point):** "For any enumerated identifier that is a file rename/move/delete, also grep for plausible full-path forms — old absolute path, old vault-relative path, and the bare filename without extension. Plain-text path references inside non-link contexts (e.g. `**Source:** /path/to/file.ext` in transcripts, embedded YAML, fenced code blocks) are NOT surfaced by structural link-integrity queries — only grep catches them. Iterate each form as a separate grep call."
+   - **Vault path** (resolved): the absolute path
+   - **Archive-exclusion glob:** `!**/06 Archive/**`
+   - **Tool guidance:** "Use `rg --type md` (ripgrep, respects `.gitignore`, skips `.git/` auto-save). Do not use `grep -r` — it crawls `.git/` and takes minutes on long-lived vaults."
+   - **No regex alternation from memory when N>3.** "If more than three identifiers, iterate each as a separate grep call. Typed-from-memory alternation silently drops entries."
+   - **For file-path identifier changes (rename, move, delete):** "After the per-identifier grep pass, run the vault's structural link-integrity query as a post-check (e.g. `obsidian unresolved` for an Obsidian vault; `git grep` + LSP find-references for code repos; broken-link reports for wikis). The grep catches plain-text path references; the structural query catches wikilink/symlink integrity. Both are needed — neither alone is sufficient. Watch for basename collisions: if `new-name.md` and `old-name.md` share a basename with some unrelated file, structural queries may resolve a `[[old-name]]` link to the wrong file rather than flagging unresolved. Flag any ambiguous basename collisions in the report."
+   - **Authority:** "For each grep hit, read the file and assess: stale cross-reference → update via Edit; historical record of what was actually said/sent → leave; different context that happens to share the identifier → leave. Display grep results in the report (output proves the grep ran)."
+   - **Report format expected back:** "Per-identifier: `[identifier]: N files updated` (with file list + brief change description), OR `[identifier]: no living refs found`. Plus structural-query results if file moves were in scope. Plus any basename-collision flags."
+
+   **(e) Display result based on sub-agent report:**
+
+   ```
+   ✓ Reference graph: [N] files updated for [identifier] status change
+   - [file1] - [what changed]
+   - [file2] - [what changed]
+   ```
+
+   **This step exists because:** WIP is one file. Status changes typically touch WIP, the project hub, area detail files, the tickler, This Week.md, and potentially other planning docs. Updating only WIP leaves stale state everywhere else. Without this step, the user has to manually ask for a full update pass after every status change.
 
 13. **Route ALL open loops to SSOT:**
    Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
@@ -430,58 +459,57 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Unconditional bump.** Use the Edit tool to replace the existing `Last updated: ...` line at the top of `01 Now/Works in Progress.md` with the current timestamp (e.g. `Last updated: YYYY-MM-DD HH:MM TZ`). No "did we modify planning files?" check — by definition something was captured; the imperceptible cost of an over-bumped timestamp on a pure no-write session is preferable to the prediction-failure mode the old conditional produced.
    - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ`. Do not proceed to Step 14 without this line.
 
-14. **Auto-execute /audit on the just-completed park:**
+14. **Delegate /audit to a fresh sub-agent:**
 
-   Run the /audit five-layer protocol now, with the just-completed park as the audit target.
+   The audit runs in a fresh model context via the Agent tool, NOT inline. This is the load-bearing change that makes Step 14 actually work — see the rationale at the end of this step before considering reverting to inline.
 
-   **⛔ This step's primary failure mode is phoning it in.** The most common way Step 14 silently fails is producing a five-bullet "audit" that confabulates layer labels (recalling them wrongly from memory) and rubber-stamps prior work as "clean" without applying the protocol. The discipline below mirrors Step 12's enumeration rules and exists to prevent that exact failure mode.
+   **(a) Collect the audit brief.** The sub-agent will start with zero /park context. The prompt must be **self-contained** — every value the sub-agent needs must be embedded verbatim, not referenced by name. Collect:
 
-   **(a) Load the protocol.** Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) into context before proceeding. **Do NOT recall the layers from memory** — recalled-from-memory layer definitions tend to be wrong (e.g. mislabelling Layer 4 as "reversibility" or Layer 5 as "skill gaps"), which collapses the audit into freeform commentary. The Read tool call is the observable proof the protocol was loaded.
+   - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}` placeholder
+   - **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+   - **Session number N** (from Step 5)
+   - **File list** — every file the session+park touched. Pull verbatim from the session log's `### Files Created` and `### Files Updated` sections (now backfilled at Step 13a). Embed the list inline as newline-separated paths in the prompt; do NOT tell the sub-agent to "look in the session log" — embed the actual values.
+   - **One-paragraph session summary** — pull verbatim from the session log's `### Summary` section. This is critical for Layer 3's "what world-state changes happened" question; without it the sub-agent only knows what /park edited, not what the session caused.
 
-   **(b) Enumerate identifiers introduced or changed by this session.** This is the substrate Layer 3 operates on. Mirror Step 12's discipline: list every identifier as `old → new` pairs, plus any *new* named state introduced. The enumeration must appear in the response *before* any layer claim.
+   **(b) Spawn the sub-agent** with the Agent tool, `subagent_type: "general-purpose"`. Foreground (not background) — Steps 15-17 need its result.
 
-   ```
-   Identifiers in scope:
-   - "old value" → "new value" (where: file path)
-   - NEW: "value" introduced (where: file path)
-   [OR (nil case, formatted as enumerated checklist, not bare assertion):]
-   - Row removals / replacements: none
-   - Content corrections: none
-   - Naming changes: none
-   - Status flips: none
-   - Section relocations: none
-   - New named state introduced: none
-   → No identifiers in scope for Layer 3 propagation.
-   ```
+   The prompt must brief the sub-agent like a smart colleague who just walked in. It must include verbatim:
 
-   **The nil case is not a free pass.** "Nothing changed" is a positive claim requiring the explicit checklist. **New state introduced is the most-missed category** — a session can introduce a new booking, entity, project file, or status flag that needs cross-reference into existing SSOT docs, even when no prior identifier was modified. Treating "I didn't rename anything" as the whole Layer 3 question is the silent miss that makes this step fail.
+   - **What to audit:** "Session N of `<session log path>` and all files the session+park touched. The session itself accomplished: <verbatim summary>. The park+session edited: <verbatim file list>. Layer 3 must include not just identifiers /park changed, but world-state framings rendered stale by what the session DID — e.g. if the session sent a message, hubs that previously described the send as upcoming may now be stale even though /park didn't edit them. Read each touched project/area hub IN FULL (not just the subsection that was edited) before claiming clean."
+   - **Protocol to follow:** "Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) first. Do not recall layers from memory."
+   - **Enumeration discipline:** "List identifiers as `old → new` pairs OR explicit nil-case checklist (Row removals, Content corrections, Naming changes, Status flips, Section relocations, New named state introduced, **Phase/status framings rendered historical by session actions**). The last category is the one inline audits keep missing — give it extra interrogation: for each project/area hub the session touched, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work the session completed; flag every hit."
+   - **Script paths the sub-agent will need** (substitute resolved vault):
+     - `<vault>/.claude/scripts/update-session-section.sh` — for session-log edits (preserves flock concurrency safety against parallel /park or /goodnight)
+     - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section
+   - **Locking constraint:** "For session-log edits, use `update-session-section.sh` — concurrent parks via Edit tool race and silently clobber. For other vault files, Edit tool is acceptable but assume single-session execution."
+   - **Read-coverage backstop:** "If the file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage. Sub-agent summaries have been observed to drift on ordinal detail under context pressure — bytes-read evidence prevents silent truncation."
+   - **Authority to remediate:** "Use Edit / Bash / the scripts above to fix findings inline. Re-audit after each fix; iterate until clean."
+   - **Report format expected back:** "Per-layer findings (or nil-case statements that explicitly name what was checked — generic affirmations like 'approach is sound' are not acceptable); list of remediation edits with file paths + summary of change; bytes-read-per-hub for read-coverage verification; final clean-pass confirmation OR explicit 'could not clean — N issues remain because X' if iteration stalled."
 
-   **(c) For each enumerated identifier, run the Layer 3 propagation check.** Grep the wider repository excluding archive/session files; display the grep output (proves the grep ran); read each hit; assess whether it's a stale cross-reference (update it), a historical record (leave), or a different context (leave). For link-integrity questions, run the structural query (e.g. `obsidian unresolved` for an Obsidian vault) in addition to text grep — text grep is sensitive to format/encoding/exclusions that the structural query is indifferent to.
+   **(c) Receive the sub-agent's report.** Display its summary in your response — this is the audit's user-facing output. Do NOT re-run the audit yourself; trust the sub-agent's report (the whole point is that you don't have the fresh-context advantage).
 
-   **(d) Walk Layers 1-5 with explicit per-layer outputs.** Each layer must produce *either* a specific finding *or* a nil-case statement that names what was checked. Generic affirmations ("approach is sound", "implementation correct", "all reversible") without naming what was assessed are not acceptable — they're the rubber-stamp pattern this discipline exists to prevent.
+   **(d) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size on disk — check via `stat -c%s`), re-despatch a focused sub-agent on that hub.
 
-   ```
-   Layer 1 (approach right?): [finding] OR [what was assessed and why no concern]
-   Layer 2 (operating environment): [finding] OR [what was assessed]
-   Layer 3 (existing state migration): [findings from (c) propagation check]
-   Layer 4 (implementation correct?): [finding] OR [files re-read, what was verified]
-   Layer 5 (does it actually work?): [scenario walked end-to-end, what was verified]
-   ```
+   **⛔ CHECKPOINT — required outputs:**
+   - Agent tool invocation with subagent_type=general-purpose targeting the audit task
+   - Display of sub-agent's report in your response (including bytes-read coverage if multiple hubs)
+   - One of: `✓ Audit: clean pass` OR `🔧 Audit: N findings fixed and re-audited clean — see [paths]`
 
-   **(e) Phase 4 (Fix and Re-audit) runs inline.** Any remediation lands in the same response — no second /park, no merge-continuation. If the audit modifies session-log content, use `update-session-section.sh` to preserve concurrency safety; for other files, use the Edit tool. **Re-audit requires re-reading** modified files (per audit.md Phase 4 step 3) — clean-pass claims without a Read tool call on the modified files are fabricated.
+   You cannot proceed to Step 15 without all three. If you find yourself walking the audit layers yourself in /park's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
-   **(f) Iterate until clean.** Keep going through fix → re-audit until a full pass finds nothing.
+   **Why a sub-agent and not inline:**
 
-   **⛔ CHECKPOINT — required outputs, in this order:**
-   1. `Read` tool call on `audit.md` (proves protocol loaded)
-   2. Identifiers-in-scope enumeration block (real or nil-case checklist)
-   3. Per-identifier grep output for Layer 3 (or explicit nil)
-   4. Per-layer findings or nil-case statements (Layers 1-5)
-   5. Either remediation edits + re-audit, or `✓ Audit: clean pass`
+   Inline Step 14 has empirically rubber-stamped real findings across many parks, despite repeated discipline hardening (CHECKPOINTs, enumeration rules, mandatory outputs). The failure has three stacked causes the discipline edits don't address:
 
-   You cannot proceed to Step 15 without all five outputs visible. If the response contains a single-paragraph audit summary instead, the discipline was skipped — return to the start of Step 14.
+   1. **Enumeration scoping.** Inline Step 14 enumerates "what /park changed," which is small and finite. But the deeper Layer 3 question is "what world-state changes did the session cause that have made existing-state framings stale?" The inline model has no instruction to widen scope to consequences in the wider repo, only to direct edits. So it enumerates honestly, finds nothing wider in scope, and declares clean.
 
-   **Why auto-run:** /park's quality gate (Step 4) and reference graph (Step 12) catch many issues, but edits made *during* /park itself (WIP updates, scratchpad cleanup, status propagation) don't get cross-reference checked. Empirically every /park benefits from /audit afterwards — making it default eliminates the recommendation-then-rerun overhead and ensures the audit's findings and remediation are captured by transcript export (Step 16). The enumeration discipline above was added after Step 14 silently failed by producing rubber-stamp passes that missed real Layer 3 propagation gaps; a separately-invoked /audit on the same vault state caught the gaps within minutes. Same model, same data — the difference was discipline, not capability.
+   2. **Cognitive load at step 14 of 17.** After ~30+ tool calls and several CHECKPOINTs, the model is pattern-matching toward procedure completion, not interrogating fresh. The path of least resistance is to treat enumeration as a box to tick.
+
+   3. **Recency bias on edited files.** /park just edited some subsection of a hub at Step 13. That creates a false sense of "I know this file" — but only the subsection is actually known. The rest of the hub remains pre-edit state never deeply read.
+
+   Fresh /audit invocations consistently catch what inline Step 14 misses, because the sub-agent has none of those gradients: no /park context loaded, no cognitive load from preceding steps, no "I just touched that file" recency bias. Empirical: same model, same data, the difference is context not capability.
+
+   **What this does NOT change:** Sub-agent runs the same protocol (audit.md), same enumeration discipline, same Phase 4 fix-and-re-audit loop. The only structural change is *who* runs it.
 
 15. **Skill monitor** (per shared rules §8):
    - Review the park execution just completed, **including the audit step (Step 14)**. Did you improvise any step not documented here? Did a documented step turn out unnecessary? Did you skip a step that should have a stronger gate?
@@ -510,7 +538,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
   [OR "No status changes to trace" if none]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
-✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean"]
+✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
 ✓ Skill monitor: No gaps detected [OR "🔧 Skill monitor: proposed N edits to /park"]
 ✓ Transcript exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
 

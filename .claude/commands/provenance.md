@@ -161,7 +161,7 @@ Transcript and session log hashing is always deferred to `/goodnight` — they'r
 
 ## Processing (by other skills)
 
-### `/goodnight` (step 16)
+### `/goodnight` (step 17)
 
 Processes today's flag files:
 1. Read each flag in `07 System/Provenance/pending/` matching today's date
@@ -191,7 +191,7 @@ Catches stragglers and verifies:
 ## Integration
 
 - **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs in `07 System/Provenance/`
-- **Processed by:** `/goodnight` (step 16), `/weekly-hygiene` (provenance section)
+- **Processed by:** `/goodnight` (step 17), `/weekly-hygiene` (provenance section)
 - **Verified by:** `/weekly-hygiene` (provenance verification section)
 
 ## Example JAMA Derm Disclosure
