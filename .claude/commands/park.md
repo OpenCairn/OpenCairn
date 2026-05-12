@@ -398,6 +398,44 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 13. **Route ALL open loops to SSOT:**
    Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
 
+   **Completed-item closure pass (run BEFORE routing new loops):**
+
+   For work the session completed, grep planning docs for unchecked items whose text matches and flip them to `[x]`. Scope (entire rolling-window file, not just past days — the motivating failure case was an unchecked future-day item):
+
+   - `{VAULT}/01 Now/This Week.md` — whole file (past 3 + today + future 6 day sections per `_shared-rules.md` §9)
+   - `{VAULT}/01 Now/Tasks.md` (if present)
+   - Project/area hubs the session wrote to inline (enumerate from the session log's Files Updated list as written at Step 7 — limit to `03 Projects/` and `04 Areas/` paths). Step 13a's backfill runs later in /park; don't wait for it.
+
+   Use a distinctive substring (the work's main noun or identifier) for the grep — exact-text match is too brittle when the user copy-pastes loosely. Run one grep call per planning-doc file:
+
+   ```bash
+   # Session completed something with identifier "FOO-123":
+   grep -nE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/This Week.md"
+   grep -nE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tasks.md"
+   # ...per relevant project hub
+   ```
+
+   For each match, flip `[ ]` → `[x]` via the Edit tool and append a backlink: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]` (skip the backlink if one already exists from a prior in-session edit).
+
+   **⛔ CHECKPOINT:** Display one of, with the grep evidence as the observable (mirrors Step 13's zero-routing checkpoint pattern):
+
+   ```
+   ✓ Closed N item(s) in planning docs:
+   - <file>:<line> "<item text>" — flipped
+   ```
+
+   ```
+   ✓ No completed items found in planning docs
+   Grepped with substring "<substring>":
+   - This Week.md → no [ ] match
+   - Tasks.md → no [ ] match
+   - <hub path> → no [ ] match
+   ```
+
+   Without grep-evidence lines, the nil case is reasoning-from-memory and ships unverified.
+
+   **Why this exists:** /park otherwise only handles NEW loops the session created. When the user copy-pastes a task FROM a planning doc into the conversation and the session closes it, the original `[ ]` lives on — the planning doc accumulates stale unchecked items pointing at completed work. Caught by audit in a session where a multi-host security-patch batch landed but the corresponding `[ ]` in the rolling weekly plan (on a future-day section, not the session day) stayed unchecked; the audit's Layer 3 stale-state pass caught it. Closing the loop in /park instead of relying on audit makes the check mechanical and routine rather than depending on a sub-agent re-discovery. **Window scoping note:** the motivating case lived on a future day section, which is why the scope is the whole This Week.md file, not a past-only window.
+
    **Routing logic (applied to each open loop):**
 
    1. **Parse for date patterns** (reuse existing date parsing):
