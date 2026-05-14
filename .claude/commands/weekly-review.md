@@ -56,7 +56,6 @@ The weekly review creates the crucial link between tactical execution (daily/ses
        ```
        Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section. If empty, fall back to the first commit of the day whose day section has a populated `### Morning` subsection.
      - **Daily report.** Reuse the daily report read above.
-     - **Load-bearing declaration.** Extract the `**Load-bearing today:** ...` line from the daily report (first content line under the heading, written by `/goodnight` step 8). If missing (days before step 6.5 rolled out), falls back to modal scheduled-items folder below.
      - **Vault attention profile.** Run:
        ```bash
        cd "{VAULT}" && git log --since="YYYY-MM-DD 00:00" --until="YYYY-MM-DD 23:59" --name-only --pretty=format: | sort -u
@@ -66,8 +65,6 @@ The weekly review creates the crucial link between tactical execution (daily/ses
      - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Romantic relationships/Katie Fu`, not just `04 Areas`).
      - Executed items from daily report: `- ✓` = checked; plain `- ` items with `rolled to` suffix or absent from post-morning state = migrated-out; `~~strike~~` = dropped; items in daily report not in post-morning state = added mid-day. Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
      - Actual attention: aggregate touched files into buckets defined by that week's scheduled-item wikilinks (longest-prefix match); files outside the vocabulary go to a catch-all `(outside scheduled vocabulary)` bucket.
-     - Declared top folder: load-bearing line's wikilink if present; else modal scheduled-items folder; else literal token `load-bearing not folder-mapped` (skip salience row for that day).
-     - Actual top folder: bucket with most files touched.
    - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
 
    **Sweep for tagged tasks:**
@@ -170,16 +167,14 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 ### Schedule vs Execution
 *[Populate from Schedule-vs-Execution data gathered in step 2. If the cadence gate failed, render just: "Schedule-vs-Execution reconciliation skipped — vault autocommit cadence below threshold (or no git repo)." Otherwise render the table + profile + divergence list below.]*
 
-| Day | Scheduled | Checked | Added | Migrated | Declared top | Actual top |
-|-----|-----------|---------|-------|----------|--------------|------------|
-| [Day DD] | N | N | N | N | [folder] | [folder] |
+| Day | Scheduled | Checked | Added | Migrated |
+|-----|-----------|---------|-------|----------|
+| [Day DD] | N | N | N | N |
 
 **Folder-attention profile ([period] total, distinct files touched):**
 - [folder at scheduled-vocabulary depth] — N
 - [folder] — N
 - *(outside scheduled vocabulary)* — N
-
-**Days where declared ≠ actual:** [list of days, or "none"]
 
 *[If any days flagged by the schema-drift sanity check, append:]*
 ⚠ Parser returned zero scheduled items for [day(s)] despite non-zero commits — This Week.md format may have drifted. Spot-check the day section.
