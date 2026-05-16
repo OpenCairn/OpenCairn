@@ -134,7 +134,9 @@ Ask:
 
 ### 8. Generate Daily Report
 
-Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
+Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`.
+
+**Include the goodnight session itself as the last numbered entry in the Sessions list.** The goodnight session log entry is written later (Step 14), but the Daily Report is the user-facing day index and should enumerate every session — including the goodnight close-out itself. Plan the topic/outcome line at Step 8 to match the entry you'll write at Step 14 so the two stay in sync. The reorder constraint (Step 8 before Step 14) is non-negotiable because Step 14's `### Files Created` references the Daily Report path — the Daily Report must exist on disk first.
 
 ```markdown
 # Daily Report - [Day], [Date]
@@ -146,6 +148,8 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`:
 ## Sessions
 1. [Topic] — [outcome]
 2. [Topic] — [outcome]
+...
+N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 14 session entry]
 
 ## Outside-Claude
 - [Off-Claude activity surfaced in Step 3 (pre-verification debrief) or Step 7 (additional captures) — wander/exercise/social/admin/errands done outside the assistant. Useful end-of-day signal that wouldn't otherwise be recorded anywhere. Omit section entirely if nothing to record.]
