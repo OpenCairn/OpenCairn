@@ -373,22 +373,17 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    If mismatch, regenerate the prompt from the enumeration block, not from memory.
 
-   **(d) Spawn the propagation sub-agent** with `subagent_type: "general-purpose"`, foreground. The protocol the sub-agent must execute lives in `~/.claude/commands/park-step12d-propagation-protocol.md` — the despatch prompt is a thin wrapper that hands over inputs and points to the protocol. Compose it as follows:
+   **(d) Spawn the propagation sub-agent** with `subagent_type: "general-purpose"`, foreground. The prompt must be **self-contained** — every value the sub-agent needs must be embedded verbatim. Include:
 
-   ```
-   You are the /park Step 12d propagation sub-agent.
-
-   Your first action MUST be: Read `~/.claude/commands/park-step12d-propagation-protocol.md`. Execute the protocol described there. Do not improvise from training — read the file.
-
-   Inputs for this dispatch:
-   - VAULT_PATH: <resolved absolute vault path>
-   - ENUMERATED_IDENTIFIERS (verbatim from Step 12a — do not retype from memory):
-     <paste enumeration block exactly>
-   ```
-
-   Embed VAULT_PATH and the verbatim enumeration block. Do not retype the enumeration from memory — copy from your (a) block.
-
-   **Why the protocol moved to a sibling file:** the defensive content (path-expansion, no-regex-alternation, structural-link-integrity post-check, archive-exclusion, tool guidance, authority, report format) is unchanged — only its location moved. Sub-agent reads it inside its own context, saving 15-25s of main-session token-gen per despatch (per park-profile-2026-05-18.md). The "MUST Read" instruction is the load-bearing gate; without that Read, the sub-agent has no protocol.
+   - **Enumerated identifiers** as `old → new` pairs — copied verbatim from your (a) enumeration block, not retyped from memory
+   - **Path-expansion rule (re-stated at execution point):** "For any enumerated identifier that is a file rename/move/delete, also grep for plausible full-path forms — old absolute path, old vault-relative path, and the bare filename without extension. Plain-text path references inside non-link contexts (e.g. `**Source:** /path/to/file.ext` in transcripts, embedded YAML, fenced code blocks) are NOT surfaced by structural link-integrity queries — only grep catches them. Iterate each form as a separate grep call."
+   - **Vault path** (resolved): the absolute path
+   - **Archive-exclusion glob:** `!**/06 Archive/**`
+   - **Tool guidance:** "Use `rg --type md` (ripgrep, respects `.gitignore`, skips `.git/` auto-save). Do not use `grep -r` — it crawls `.git/` and takes minutes on long-lived vaults."
+   - **No regex alternation from memory when N>3.** "If more than three identifiers, iterate each as a separate grep call. Typed-from-memory alternation silently drops entries."
+   - **For file-path identifier changes (rename, move, delete):** "After the per-identifier grep pass, run the vault's structural link-integrity query as a post-check (e.g. `obsidian unresolved` for an Obsidian vault; `git grep` + LSP find-references for code repos; broken-link reports for wikis). The grep catches plain-text path references; the structural query catches wikilink/symlink integrity. Both are needed — neither alone is sufficient. Watch for basename collisions: if `new-name.md` and `old-name.md` share a basename with some unrelated file, structural queries may resolve a `[[old-name]]` link to the wrong file rather than flagging unresolved. Flag any ambiguous basename collisions in the report."
+   - **Authority:** "For each grep hit, read the file and assess: stale cross-reference → update via Edit; historical record of what was actually said/sent → leave; different context that happens to share the identifier → leave. Display grep results in the report (output proves the grep ran)."
+   - **Report format expected back:** "Per-identifier: `[identifier]: N files updated` (with file list + brief change description), OR `[identifier]: no living refs found`. Plus structural-query results if file moves were in scope. Plus any basename-collision flags."
 
    **(e) Display result based on sub-agent report:**
 
@@ -516,26 +511,18 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **(b) Spawn the sub-agent** with the Agent tool, `subagent_type: "general-purpose"`. Foreground (not background) — Steps 15-17 need its result.
 
-   The task brief the sub-agent must execute lives in `~/.claude/commands/park-step14-audit-task-brief.md` — the despatch prompt is a thin wrapper that hands over inputs and points to the brief. Compose it as follows:
+   The prompt must brief the sub-agent like a smart colleague who just walked in. It must include verbatim:
 
-   ```
-   You are the /park Step 14 audit sub-agent.
-
-   Your first action MUST be: Read `~/.claude/commands/park-step14-audit-task-brief.md`. Execute the brief described there. Then Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) as the brief instructs.
-
-   Inputs for this dispatch:
-   - VAULT_PATH: <resolved absolute vault path>
-   - SESSION_LOG_PATH: <vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md
-   - SESSION_NUMBER: N
-   - FILE_LIST (verbatim from session log's Files Created + Files Updated sections):
-     <paste file list exactly, newline-separated>
-   - SESSION_SUMMARY (verbatim from session log's Summary section):
-     <paste one-paragraph summary exactly>
-   ```
-
-   Embed each input verbatim — do NOT tell the sub-agent to "look in the session log" for these. Embed them. (The exception is the script paths inside the brief, which use `<VAULT_PATH>` substitution and the sub-agent fills in from the input.)
-
-   **Why the brief moved to a sibling file:** every defensive element (read-coverage backstop, locking constraint, enumeration discipline including the framings-rendered-historical category, authority to remediate, report format) is unchanged — only its location moved. Sub-agent reads it inside its own context, saving 17-23s of main-session token-gen per despatch (per park-profile-2026-05-18.md). The "MUST Read" instruction is the load-bearing gate; without that Read, the sub-agent has no brief.
+   - **What to audit:** "Session N of `<session log path>` and all files the session+park touched. The session itself accomplished: <verbatim summary>. The park+session edited: <verbatim file list>. Layer 3 must include not just identifiers /park changed, but world-state framings rendered stale by what the session DID — e.g. if the session sent a message, hubs that previously described the send as upcoming may now be stale even though /park didn't edit them. Read each touched project/area hub IN FULL (not just the subsection that was edited) before claiming clean."
+   - **Protocol to follow:** "Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) first. Do not recall layers from memory."
+   - **Enumeration discipline:** "List identifiers as `old → new` pairs OR explicit nil-case checklist (Row removals, Content corrections, Naming changes, Status flips, Section relocations, New named state introduced, **Phase/status framings rendered historical by session actions**). The last category is the one inline audits keep missing — give it extra interrogation: for each project/area hub the session touched, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work the session completed; flag every hit."
+   - **Script paths the sub-agent will need** (substitute resolved vault):
+     - `<vault>/.claude/scripts/update-session-section.sh` — for session-log edits (preserves flock concurrency safety against parallel /park or /goodnight)
+     - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section
+   - **Locking constraint:** "For session-log edits, use `update-session-section.sh` — concurrent parks via Edit tool race and silently clobber. For other vault files, Edit tool is acceptable but assume single-session execution."
+   - **Read-coverage backstop:** "If the file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage. Sub-agent summaries have been observed to drift on ordinal detail under context pressure — bytes-read evidence prevents silent truncation."
+   - **Authority to remediate:** "Use Edit / Bash / the scripts above to fix findings inline. Re-audit after each fix; iterate until clean."
+   - **Report format expected back:** "Per-layer findings (or nil-case statements that explicitly name what was checked — generic affirmations like 'approach is sound' are not acceptable); list of remediation edits with file paths + summary of change; bytes-read-per-hub for read-coverage verification; final clean-pass confirmation OR explicit 'could not clean — N issues remain because X' if iteration stalled."
 
    **(c) Receive the sub-agent's report.** Display its summary in your response — this is the audit's user-facing output. Do NOT re-run the audit yourself; trust the sub-agent's report (the whole point is that you don't have the fresh-context advantage).
 
