@@ -138,30 +138,26 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 ### Phase 3: Document and Archive
 
 5. **Determine session metadata:**
-   - Session number for today — extract mechanically, do NOT count by reading:
-     ```bash
-     NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
-     echo "Session number: $NEW_NUM"
-     ```
+   - **Session number is resolved at write time (Step 8), not here.** This is intentional — pre-computing N via `next-session-number.sh` and then writing later is racy against parallel /park invocations from independent sessions (both can resolve to the same N before either acquires the write lock, producing duplicate `## Session N` headings). Step 8 uses `--auto-number` which resolves N inside the file lock. Treat N as unknown until then.
    - Topic/name for this session (concise, descriptive)
    - Use current time from step 1 (already checked)
    - Related project (if applicable) — follow Project Linking Rules in `_shared-rules.md` Section 2
-   - **Display the determination explicitly** — this is the single source for the project link used in Steps 7 and 11:
+   - **Display the determination explicitly** — this is the single source for the topic + project link used in Steps 7 and 11:
      ```
-     Session N: [Topic] | Project: [[03 Projects/Name]] (or "None")
+     Session: [Topic] | Project: [[03 Projects/Name]] (or "None")
      ```
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 6 until the `Session N: [Topic] | Project: [[...]]` line appears in your response. Step 8b's Project check compares against this output — if Step 5 never emitted it, Step 8b is auditing internal memory rather than observable state. Small deviations here cascade. If you find yourself writing session content without having displayed this line, STOP and return to this step.
+   **⛔ CHECKPOINT:** You cannot proceed to Step 6 until the `Session: [Topic] | Project: [[...]]` line appears in your response. Step 8b's Project check compares against this output — if Step 5 never emitted it, Step 8b is auditing internal memory rather than observable state. Small deviations here cascade. If you find yourself writing session content without having displayed this line, STOP and return to this step.
 
 6. **Check for continuation:**
    - Check if this session is continuing a previous one (from `/pickup` context)
    - If continuing: Store continuation link for inclusion in summary (the `**Continues:**` line in Pickup Context)
 
-7. **Generate session summary** using the format below:
+7. **Generate session summary** using the format below.
+
+   **Body only — no `## Session N - …` heading.** Step 8's `--auto-number` mode prepends the heading inside the lock. If you include a heading here, you'll get a duplicate.
 
 ```markdown
-## Session N - [Topic/Name] ([Time with seconds - HH:MM:SSam/pm])
-
 ### Summary
 [2-4 sentence narrative of what was accomplished. Focus on outcomes and decisions.]
 
@@ -185,30 +181,28 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 **Project:** [use exact link from Step 5 — do not rewrite]
 ```
 
-8. **Write the summary** (with file locking for concurrent safety):
+8. **Write the summary** (with file locking + atomic session numbering):
    - **CRITICAL: Use the write-session script, NOT inline flock or the Edit tool**
    - Inline flock commands corrupt `settings.local.json` (the entire command including session content gets saved as a permission pattern)
-   - The script handles locking, file creation, and atomic writes
+   - The script handles locking, file creation, atomic writes, and atomic session numbering
 
-   **✓ USE THE WRITE-SESSION SCRIPT:**
-
-   Use the dedicated script instead of inline bash (prevents permission system corruption):
+   **✓ USE `--auto-number` MODE.** The script resolves N inside the file lock, so parallel /park invocations cannot collide on the same session number.
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
-   ## Session N - [Topic] ([Time])
+   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "TOPIC" "HH:MM:SSam/pm"
+   ### Summary
 
-   [Session content here]
+   [Session body — no `## Session N` heading; the script prepends it.]
    EOF
    ```
 
    **Creating new file (first session of the day):**
    ```bash
-   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --create
-   ## Session 1 - [Topic] ([Time])
+   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --create --auto-number "TOPIC" "HH:MM:SSam/pm"
+   ### Summary
 
-   [Session content here]
+   [Session body]
    EOF
    ```
 
@@ -217,16 +211,24 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Lock timeout (10 seconds for NAS)
    - Date header generation (--create mode)
    - Directory creation if needed
+   - **Atomic session numbering** (--auto-number reads the file inside the lock and assigns the next N, prepending the `## Session N - <topic> (<time>)` heading)
+
+   **Capture N from stdout.** The script's final line is `Session number assigned: N`. Read it from the tool output and use that N for all downstream steps (8a, 8b, 11, 13, 13a, 14). Do NOT rely on a pre-computed N — under parallel /park, the number you'd predict and the number you got may differ.
 
    **If lock times out (exit code 1):** Display warning and retry once, then fail gracefully:
    ```
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
 
+   **Display N explicitly after the write** — this is the canonical source for downstream steps:
+   ```
+   Session number assigned: N
+   ```
+
 8a. **⛔ Pickup Context section verification:**
    After writing the session, verify the `### Pickup Context` section actually exists in the just-written entry. The write-session script writes whatever stdin you give it without validating that all required sections are present — it's possible to write a session entry that's missing sections entirely. The Pickup Context section is the load-bearing one because it carries both the next-session pointer AND the Project link.
 
-   **Scope the check to the just-written session block** (N = session number from Step 5), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
+   **Scope the check to the just-written session block** (N = session number assigned by Step 8's `--auto-number` output, not predicted in Step 5), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
    # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
    awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
@@ -505,7 +507,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}` placeholder
    - **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
-   - **Session number N** (from Step 5)
+   - **Session number N** (from Step 8's `--auto-number` output — `Session number assigned: N`)
    - **File list** — every file the session+park touched. Pull verbatim from the session log's `### Files Created` and `### Files Updated` sections (now backfilled at Step 13a). Embed the list inline as newline-separated paths in the prompt; do NOT tell the sub-agent to "look in the session log" — embed the actual values.
    - **One-paragraph session summary** — pull verbatim from the session log's `### Summary` section. This is critical for Layer 3's "what world-state changes happened" question; without it the sub-agent only knows what /park edited, not what the session caused.
 
