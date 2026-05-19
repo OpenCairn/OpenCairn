@@ -59,7 +59,17 @@ Read and compile:
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
-**Important:** Store this data in working memory - it's a DRAFT inventory, not ground truth.
+**Capture session-file baseline** (load-bearing for Step 13's concurrent-session detection — do NOT rely on remembering this later):
+
+```bash
+STEP2_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
+STEP2_LAST_N=$((STEP2_NEXT - 1))
+echo "Step 2 baseline: $STEP2_LAST_N session(s) present (next would be $STEP2_NEXT)"
+```
+
+**⛔ CHECKPOINT:** Display the literal line `Step 2 baseline: N session(s) present (next would be M)` in your response. Step 13's reconciliation compares against this number — if it's not on the page, the comparison is being done from internal memory rather than observable state. Shell variables don't persist between Bash tool calls; the displayed number is the source of truth for Step 13.
+
+**Important:** Store the rest of the gathered data in working memory - it's a DRAFT inventory, not ground truth.
 
 ### 3. Pre-Verification Debrief (BEFORE presenting report)
 
@@ -205,32 +215,37 @@ Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md
 
 Append a session entry for the goodnight session itself to today's session file.
 
-### 13. Determine Next Session Number
+### 13. Probe for Concurrent Sessions
 
-Extract the last session number mechanically — do NOT count by reading:
+Probe the session file to detect any sessions added by parallel Claude instances since /goodnight began. This is a **read-only diagnostic** — the goodnight session's own number is resolved atomically at write time in Step 14 via `--auto-number`, NOT pre-computed here.
+
 ```bash
-NEW_NUM=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_FILE")
-PREV_NUM=$((NEW_NUM - 1))
-echo "New session number: $NEW_NUM (last existing: $PREV_NUM)"
+PROBED_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_FILE")
+PROBED_LAST=$((PROBED_NEXT - 1))
+echo "Sessions present so far: 1..$PROBED_LAST (next would be $PROBED_NEXT)"
 ```
 
-**Concurrent session reconciliation:** Compare PREV_NUM against the last session number you saw during Step 2. If PREV_NUM is higher, one or more sessions were added by concurrent Claude instances between your initial read and now. For each missed session:
+**Concurrent session reconciliation:** Compare `PROBED_LAST` against `STEP2_LAST_N` — the baseline captured and displayed in Step 2. Use the literal value from Step 2's checkpoint output, not internal memory. If `PROBED_LAST > STEP2_LAST_N`, one or more sessions were added by concurrent Claude instances between Step 2 and now. For each missed session (numbered `STEP2_LAST_N + 1` through `PROBED_LAST`):
 1. Read its summary and completions from the session file
 2. Update your working memory (adjust session count, note outcomes)
 3. **Patch the daily report** (Step 9 output already on disc) — add the missed session(s) to the Sessions list
 
+Display the comparison explicitly: `Reconciliation: STEP2_LAST_N=X, PROBED_LAST=Y → N missed session(s)` (or `→ no missed sessions` if equal).
+
 This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
+
+**Note on residual race:** A /park firing between this probe and Step 14's write isn't caught by this reconciliation. Step 14 captures the actual assigned N from `--auto-number`'s output; if it's higher than `PROBED_NEXT`, a new session slipped in during the gap — see Step 14's post-write reconciliation.
 
 ### 14. Append Goodnight Session Entry
 
-**Use the write-session script** (same as `/park`) — this avoids the permission system corruption bug from inline flock commands and handles locking safely.
+**Use the write-session script with `--auto-number`** — same as `/park`. This avoids the permission system corruption bug from inline flock commands AND resolves the session number atomically inside the file lock (eliminates collision against parallel /park or /morning catch-up invocations).
 
 **Note on section structure:** The goodnight session log intentionally omits the `### Next Steps / Open Loops` section used in `/park` session entries. For goodnight specifically, the Pickup Context line below already names tomorrow's anchors (the entire purpose of goodnight is forward-routing), so the two sections would duplicate. Files Created and Files Updated are split per session-log convention — a freshly created Daily Report belongs under Created, not Updated.
 
-```bash
-cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
-## Session N - Goodnight: [Brief Topic Summary] (HH:MMam/pm)
+**Body only — no `## Session N - …` heading.** The script prepends the heading inside the lock. (The script will reject stdin starting with a `## Session N` heading.)
 
+```bash
+cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "Goodnight: [Brief Topic Summary]" "HH:MMam/pm"
 ### Summary
 [2-3 sentences covering what was reviewed/decided/updated during goodnight]
 
@@ -248,7 +263,15 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Cl
 EOF
 ```
 
-**If this is the first session of the day** (no session file exists yet), add `--create` to the script invocation. The script handles locking, file creation, and atomic writes.
+**Capture N from stdout.** The script's final line is `Session number assigned: N`. This N is the canonical source for downstream steps (15c sub-agent brief, completion message in Step 18). Display it explicitly:
+
+```
+Session number assigned: N
+```
+
+**Post-write reconciliation:** If the assigned N is greater than `PROBED_NEXT` from Step 13, one or more sessions slipped in between the probe and this write. Read sessions PROBED_NEXT through (assigned N − 1), and patch the daily report's Sessions list to include them — same logic as Step 13's reconciliation.
+
+**If this is the first session of the day** (no session file exists yet), add `--create` to the script invocation. The script handles locking, file creation, atomic numbering (N=1 in --create mode), and atomic writes.
 
 ### 14a. Update Works in Progress
 
@@ -308,7 +331,7 @@ If mismatch, regenerate the prompt from the enumeration block, not from memory.
 The prompt must be **self-contained** — the sub-agent has zero /goodnight context. Include verbatim:
 
 - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
-- **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N
+- **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout — not Step 13's probe, which may be stale)
 - **Daily report path**: `<vault>/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
 - **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. The session log doesn't yet contain all of these (Step 14 wrote the goodnight session entry but Steps 11-14a edits happen elsewhere); enumerate them from memory of the goodnight flow.
 - **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, WIP propagation done)

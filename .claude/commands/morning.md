@@ -50,13 +50,31 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
    b. **Generate the daily report** at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8: convert the day section into `## Today's Plan` with `[x]`→`✓` and `[ ]`→plain bullets; list sessions; list blockers. **Omit the `## Outside-Claude` section** — no debrief prompt fires during 2a (the user is async — the caught-up day is done, not memory-fresh). If the user surfaces off-Claude activity from any caught-up day during Steps 4–5, the Capture Gate will back-fill the section into that day's daily report at that point (see Step 5).
    c. **Route undone items** from the day section in This Week.md — same logic as /goodnight Step 9 (natural future day → move there; priority → today's section; low priority/no deadline → Tasks.md; already in future day → delete duplicate). Carry items forward intact including sub-items and checklists, applying /goodnight Step 9's block-boundary rule. **Date shift:** during catch-up, "tomorrow" (where /goodnight would route priority items) means **today**, not the day after today.
    d. **Collapse the day section** to a one-liner + daily report link (same format as /goodnight Step 10). Also collapse any earlier verbose day sections within the file.
-   e. **Log a catch-up session** to the day's session file via write-session.sh: `## Session N - Goodnight catch-up via /morning (HH:MMam/pm)` — brief summary of what was generated/routed.
+   e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel /park or /goodnight invocations):
+
+      ```bash
+      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "Goodnight catch-up via /morning" "HH:MMam/pm"
+      ### Summary
+      [Brief summary of what was generated/routed]
+
+      ### Files Created
+      - 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
+
+      ### Files Updated
+      - [Items routed by 2a.c/d]
+
+      ### Pickup Context
+      **For next session:** [pickup pointer for today]
+      EOF
+      ```
+
+      Body only — no `## Session N` heading; the script prepends it. Capture the assigned N from the `Session number assigned: N` stdout line for the audit brief in 5g.
    f. **Skip** (not part of catch-up): debrief prompt, provenance processing, WIP timestamp bump. These are either handled by /morning's own flow or are non-critical for a retroactive close-out.
    g. **Run /audit via a fresh sub-agent on the catch-up** — apply /goodnight Step 15 sub-steps (a)–(e) verbatim. Catch-up performs the same state-propagating actions as /goodnight (status flips on items the user may have already marked, day-section collapses, item routing, session-log writes) and is subject to the same Layer 3 failure mode (stale phase/status framings in project hubs and area files that referenced the caught-up day's now-historical state). Inline audit suffers the same cognitive-load / enumeration-scoping / recency-bias mechanisms documented in `/park` Step 14 tail. **Unconditional, not gated on substrate size:** even a "trivial" catch-up writes a NEW daily report file + NEW catch-up session entry, so the enumeration floor is never zero — same logic as /goodnight Step 15.
 
       Substrate-specific notes (when applying Step 15's checklist to the catch-up):
       - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — 2a generally inherits state, doesn't flip), day-section moves from 2a.c, Tasks.md routings from 2a.c, day-section collapses from 2a.d, NEW daily report file from 2a.b, NEW catch-up session entry from 2a.e. The last two are always present.
-      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number, the file list (different from /goodnight's — assemble from 2a.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`~/.claude/commands/audit.md` Phase 2 Layers 1–5), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace this morning's landscape pass (Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when Step 3 runs.
+      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from 2a.e's `Session number assigned: N` stdout), the file list (different from /goodnight's — assemble from 2a.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`~/.claude/commands/audit.md` Phase 2 Layers 1–5), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace this morning's landscape pass (Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when Step 3 runs.
       - After the sub-agent returns: verify any remediation edits were backfilled to the catch-up session entry via `backfill-files-updated.sh`. If not, run the backfill from the file list the sub-agent reported.
    h. Display:
       ```
