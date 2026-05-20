@@ -270,20 +270,37 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    **Read previous context version** to carry forward stable sections:
    - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/` (sorted by filename descending)
    - The file has two kinds of sections:
-     - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How I Like to Work): Carry forward from the previous version. Update only facts that changed this week. If no previous version exists, generate from CLAUDE.md and context files in `07 System/`.
-     - **Dynamic sections** (What I'm Working On Right Now, Recent Context, Active Research Interests, and any active personal threads from WIP): Regenerate fully from WIP, recent weekly reviews, and this week's review data.
+     - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
+     - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from WIP): Regenerate fully from WIP, recent weekly reviews, and this week's review data.
+
+   **Stable section verification (anti-confabulation pass).** Carrying-forward propagates whatever was true (or wrong) in the previous version. Errors that entered a stable section once will survive every subsequent week unless explicitly checked. Three rules:
+
+   - **Re-read the source context file at least once a month per stable section** (`07 System/Context - *.md`). Verification metadata lives in a **sibling tracking file at `06 Archive/Claude/Weekly Context/.verification-log.md`** (NOT inside the output doc — the output gets pasted into Claude Web Memory and must stay clean). Schema:
+     ```
+     # Weekly Context Verification Log
+     | Section | Last source-verified (YYYY-MM-DD) | Source file |
+     |---------|-----------------------------------|-------------|
+     | Photography | 2026-05-20 | Context - Photography.md |
+     | Health & Medications | 2026-04-15 | Context - Health.md |
+     ...
+     ```
+     Read this file before generating. For each stable section: if its row is missing OR the date is >30 days old, treat as stale → re-read the source file end-to-end, reconcile divergences, then update the row to today's date. Bootstrap (no log file yet): create it and seed every stable section by reading its source file. Absence is always stale.
+
+   - **Specifically distrust claims about lineage, tradition, methodology, school of thought, or specialist terminology** in stable sections — these are the categories most prone to confabulation. If a stable section names a school/lineage/methodology (e.g. "Dzogchen", "vipassana", "Stoicism", "Effective Altruism"), source-verify on every weekly review regardless of the 30-day timer. First-generation of any such claim requires explicit source-read — no inference from prior conversation, no pattern-match from training data.
+
+   - **No transient state in stable sections — but distinguish instance-status from standing-arrangement.** Stable sections (Photography, Health, Background, etc.) describe **durable** facts: standing arrangements ("primary insurer is X", "GP is at Y clinic"), gear ownership, credentials, relationships, conditions. They do NOT describe **current status of a specific instance**: "claim portal saved, not yet submitted", "awaiting X letter", "expecting reply by Y", "pending approval", "X still outstanding" — these belong in **Active threads** or **Recent Context** where the section regenerates fully each week from current vault state. Test: ask "is this true regardless of what happened in the last 30 days?" If the answer depends on a status that could have flipped within a typical review window, the line is mis-placed — relocate it.
 
    **Output structure:**
 
    ~~~
    Last updated: YYYY-MM-DD
 
-   [1-2 sentence identity/situation summary from CLAUDE.md]
+   [1-2 sentence identity/situation summary from CLAUDE.md. Write itinerary/location as a date-anchored timeline, not present-tense — see Staleness rules below.]
 
    [Active personal context from WIP that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't "projects" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
 
-   ## What I'm Working On Right Now
-   [Top 3-5 from "What's Next" section of this review, plus significant WIP entries. Include key dates/deadlines.]
+   ## Active threads
+   [Top 3-5 from "What's Next" section of this review, plus significant WIP entries. Include explicit absolute dates / deadlines — never relative ("today", "this week", "tomorrow").]
 
    ## Recent Context
    [Key decisions, changes, events from the review period. 2-4 bullets.]
@@ -322,22 +339,50 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - No vault file paths (irrelevant to Claude Web)
    - Factual and current
    - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
-   - **Stable sections: carry forward by default.** Only rewrite if facts changed. This preserves user edits and avoids churn.
+   - **Stable sections: carry forward, BUT verify per the Stable section verification rules above** (monthly source re-read, plus distrust lineage/tradition/methodology claims always).
    - **Dynamic sections: regenerate fully** from this week's review data with recency weighting.
-   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and WIP (gathered above). The first generation will require reading these files; subsequent weeks carry forward.
+   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and WIP (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
 
-9. **Display confirmation:**
+   **Staleness rules (mandatory).** Claude Web Memory persists between conversations and the doc may be re-pasted weeks after generation. The doc must read sensibly N weeks after the `Last updated:` date.
+
+   - **Banned vocabulary anywhere in the body:** `today`, `tonight`, `tomorrow`, `yesterday`, `currently`, `right now`, `now in`, `this week`, `next week`, `as of today`, `upcoming`, `imminent`, `shortly`, `soon`, `in flight`, `at present`, `of late`, `in the next` (e.g. "in the next few days"). Replace with absolute dates or "as of doc date".
+   - **Banned constructions:**
+     - **Day-counters that drift:** "day 5 of 6", "week 2 of retreat", "N nights in"
+     - **In-flight present-tense for transient events:** "departing 17:35", "checking in tonight", "flight lands at"
+     - **Bare day-name + day-of-month without month context:** any "Mon 18", "Sat 16", "Wed 13", "Thu 7" used outside a sentence that already names the month. Even inside a clearly-dated paragraph, prefer "Mon 18 May" — the doc may be re-read 6 months later when no nearby month anchor is in working memory.
+     - **Section titles or headings that are themselves stale-prone:** "What I'm Working On Right Now" → use "Active threads"; any "Now"-anchored heading is banned.
+   - **Required for dated claims:** every fact with a date should be either (a) an absolute date ("Mon 18 May 2026" or "Mon 18 May"), (b) date-bounded ("SLA expires Fri 22 May"), or (c) explicitly anchored ("as of 20 May" / "as of doc date").
+   - **Travel/itinerary framing:** write as a date-anchored timeline ("Trip 2 finished 14 May → leg 1 city 20 May – 2 Jun → leg 2 city 5-19 Jun → home ~20 Jun"), not as present location ("Currently in [city], day 5 of 6"). The reader infers location from the date stamp + timeline.
+   - **Present-tense state about transient things** (location, TZ, weight, med dose if changing, flight, claim/portal status that's days from resolution) must either include "as of doc date" or be reframed to past-tense with an action date ("Insurance claim lodged Thu 7 May" — the wait is implicit; "Medication X on-stack since 1 May 2026" — durable until restated).
+
+   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md`, run a literal Bash grep to verify the banned vocabulary is absent:
+
+   ```bash
+   grep -niE '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md"
+   ```
+
+   Acceptable hits: banned terms inside quoted text (someone else's email phrasing, e.g. a cited email saying "end of next week") that the doc is faithfully citing. Every other hit must be revised. Re-run grep after each revision. Iterate until clean (no hits or only quoted-citation hits remain). Report the final scrub result in the confirmation step (e.g. "Banned-vocab scan: 0 hits" or "Banned-vocab scan: 1 hit, in quoted email citation — acceptable").
+
+   After the grep is clean, re-read the file end-to-end with the test question: "would this read sensibly on [doc date + 4 weeks]?" If any line fails, fix it. The `Last updated:` stamp is a fallback, not a licence to write stale prose.
+
+9. **Display confirmation with pre-paste review gate:**
 
 ```
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
-✓ Claude Web context: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md (import via Settings > Capabilities > Memory)
+✓ Claude Web context drafted: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md
+  - Banned-vocab scrub: [N hits / clean; if hits, list location and whether quoted-citation acceptable]
+  - Lineage/methodology claims: [N found; all source-verified against `Context - *.md` / none found]
+  - Sections re-verified this run (>30 days stale or bootstrap): [list]
+  - Verification log updated: 06 Archive/Claude/Weekly Context/.verification-log.md
 ✓ What's next: [Top 2-3 priorities]
 
 Weekly review complete.
 
-Recommended: Skim this review at the start of next week to set the week's direction.
+⚠ BEFORE PASTING into Claude Web Memory: review the context doc end-to-end. The scrubs above are model-self-checks and have a known gloss-risk. Errors caught in past iterations: confabulated lineage attributions, stale insurance/claim status carried forward, sections describing transient state. Two-minute read by the user is the durable backstop.
+
+Recommended: Skim the weekly review itself at the start of next week to set the week's direction.
 ```
 
 ## Guidelines
