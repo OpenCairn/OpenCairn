@@ -259,6 +259,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
        # Cross-day:
        "{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>" "<target-date>.md"
        ```
+   - **`<new-topic>` must be byte-identical to the topic string passed to `write-session.sh` at Step 8** — the script builds the `#Session N - <topic>` anchor from it, so any divergence (shortening, re-punctuating) produces a dangling wikilink in the `Continued in:` reference.
    - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
 
 10. **Check for at-risk work product.** Two failure modes to check.

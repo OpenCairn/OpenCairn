@@ -232,7 +232,7 @@ Ensure day sections exist for today + 6 calendar days ahead (7 total including t
 2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
 3. Remove day sections beyond the 6-day window (heading + content until next `## ` heading)
 4. Format for days with no content: `## [Day] [DD] [Mon]` — just the heading
-5. Update the file heading date range: set start date to the earliest remaining day section, end date to the latest
+5. Update the file heading date range — this is a **required, emitted check**, not a silent edit. See **Update the heading** below.
 
 ### Populate new days from Tickler
 
@@ -240,4 +240,12 @@ For each newly created day section, convert to YYYY-MM-DD format and check Tickl
 
 ### Update the heading
 
-Update `# This Week — [start] – [new end] [YYYY]` to match the actual date range.
+Update `# This Week — [start] – [new end] [YYYY]` so the range equals the earliest and latest day-section dates currently in the file.
+
+**⛔ Required output — emit the check.** Whenever the window changes (a section added or trimmed), confirm the title against the actual first/last day sections and print the result. This is the load-bearing mechanism: the instruction to update the heading has always existed, so what recurs is *skipping it without noticing*, not not knowing to. A title edit with no emitted check is the failure signature. Format:
+
+```
+Window check: title "[start] – [end]" = sections [first day] … [last day] ✓
+```
+
+If the title and the first/last day sections disagree, the window edit is incomplete — fix the title before finishing the procedure.
