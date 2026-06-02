@@ -77,7 +77,7 @@ Write the brief once and save it to a scratch file with a unique name — e.g. `
 
 Send the brief to all reviewers in a **single message** with concurrent tool calls:
 
-1. **Fresh Claude** via the Agent tool. Use `subagent_type: general-purpose`. **Read the scratch file's contents and pass them verbatim as the Agent's `prompt` argument** — the identical string that the Gemini call receives. Do not paraphrase, summarise, or extract; the two reviewers must see the same text, byte for byte, or you've re-introduced framing asymmetry. Tell the Agent explicitly in the prompt: independent judgement, disagree where warranted, no sycophancy, no "looks good overall" hedging. If you skip the disagree directive, fresh Claude defaults to polite confirmation of whatever framing you gave it.
+1. **Fresh Claude** via the Agent tool. Use `subagent_type: general-purpose`. **Read the scratch file's contents and pass them verbatim as the Agent's `prompt` argument** — the identical string the Gemini and Codex calls receive. Do not paraphrase, summarise, or extract; all reviewers must see the same text, byte for byte, or you've re-introduced framing asymmetry. Tell the Agent explicitly in the prompt: independent judgement, disagree where warranted, no sycophancy, no "looks good overall" hedging. If you skip the disagree directive, fresh Claude defaults to polite confirmation of whatever framing you gave it.
 
    **After the tool call completes, surface the Agent ID in your user-visible response text** — e.g. `Panel spawned: Opus agent a5abc789520b0879a`. This makes the ID recoverable from the conversation transcript even after the raw tool result scrolls out of context, which matters for Mode B round 2. Don't rely on re-reading the tool result hours later.
 
