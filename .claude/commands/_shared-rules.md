@@ -274,7 +274,7 @@ If the title and the first/last day sections disagree, the window edit is incomp
 Two gotchas bite any skill that calls the `gemini` CLI:
 
 - **File reads are sandboxed to the home directory** (`~`, plus `~/.gemini/tmp/...`). Gemini cannot read a path outside `~` — e.g. anything under `/tmp`. **Pipe text via stdin** — `cat <file> | gemini -p "..."` — the shell reads the file and Gemini sees only stdin, so the sandbox never applies. (The panel pattern in `/second-opinion` and `/audit` is already safe for this reason.) Never hand Gemini an absolute `/tmp` path to read; if a skill must point Gemini at a file, stage it under `~` first.
-- **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install. Reference implementation: `/ocr-hand`.
+- **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install.
 
 ---
 
