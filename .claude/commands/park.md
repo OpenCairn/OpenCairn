@@ -409,7 +409,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - `{VAULT}/01 Now/Tasks.md` (if present)
    - Project/area hubs the session wrote to inline (enumerate from the session log's Files Updated list as written at Step 7 — limit to `03 Projects/` and `04 Areas/` paths). Step 13a's backfill runs later in /park; don't wait for it.
 
-   Use a distinctive substring (the work's main noun or identifier) for the grep — exact-text match is too brittle when the user copy-pastes loosely. Run one grep call per planning-doc file:
+   Use a distinctive substring for the grep — exact-text match is too brittle when the user copy-pastes loosely. Derive substrings from the session's *action* (the verb, e.g. "cancel") as well as its nouns/identifiers — stale tasks are often phrased as the action that was performed, not the artefact. **Run the grep against each listed file yourself — Step 12's reference-graph propagation does NOT satisfy this pass; it updates changed values, it does not flip completed `[ ]` checkboxes.** Run one grep call per planning-doc file:
 
    ```bash
    # Session completed something with identifier "FOO-123":
