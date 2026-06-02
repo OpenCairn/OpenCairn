@@ -409,8 +409,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Claude Memory
    - Total entries/lines: N across M files
-   - Migrate to vault: [list with destination, or "none"]
+   - Index health: `MEMORY.md` at N lines / N KB (cap 200 lines / 25 KB; flag ≥150 lines or ≥22 KB)
+   - Trimmed this sweep: [list of hooks compressed in place, or "none"]
    - Keep in memory: [list with reason, or "none"]
+   - Migrate to vault (exception): [list with destination, or "none"]
    - Delete: [list with reason, or "none"]
    - Migrated this sweep: [list of entry → vault path, or "none"]
 
