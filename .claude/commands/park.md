@@ -506,7 +506,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
 13b. **Bump WIP "Last updated" timestamp:**
    - **Unconditional bump.** Use the Edit tool to replace the existing `Last updated: ...` line at the top of `01 Now/Works in Progress.md` with the current timestamp (e.g. `Last updated: YYYY-MM-DD HH:MM TZ`). No "did we modify planning files?" check — by definition something was captured; the imperceptible cost of an over-bumped timestamp on a pure no-write session is preferable to the prediction-failure mode the old conditional produced.
-   - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ`. Do not proceed to Step 14 without this line.
+   - **Concurrent-write escape hatch.** If the Edit repeatedly fails "modified since read" because a parallel `/park` is actively writing WIP (the multi-session hazard this skill's header warns about), and the `Last updated:` line already shows a timestamp *within this park's window*, accept the concurrent bump rather than fighting the race — the intent (WIP reflects recent activity) is already satisfied, and forcing your write risks clobbering the other session's content edits via the lockless Edit tool. Do not retry more than twice. In this case display the alternate checkpoint: `✓ WIP timestamp: current at <value> (concurrent-session bump within window; own bump declined to avoid clobbering parallel writes)`.
+   - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ` (or the concurrent-write alternate above). Do not proceed to Step 14 without one of these lines.
 
 14. **Delegate /audit to a fresh sub-agent:**
 
