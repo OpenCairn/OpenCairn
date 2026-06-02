@@ -77,20 +77,25 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
 4. **Voice check (via `/de-ai-ify`)**
 
-   After drafting, invoke `/de-ai-ify` via the Skill tool on the draft text. This is a real skill invocation, not an inline approximation. `/de-ai-ify` will present the before/after comparison and apply its full checklist, including the voice refinement prompt (step 6 of `/de-ai-ify`). Do not duplicate `/de-ai-ify`'s logic here.
+   After drafting, invoke `/de-ai-ify` via the Skill tool on the draft text. This is a real skill invocation, not an inline approximation. `/de-ai-ify` will present the before/after comparison and apply its full checklist. Do not duplicate `/de-ai-ify`'s logic here.
+
+   Two constraints on this invocation:
+   - **Preserve the `[true?]` markers verbatim.** Instruct `/de-ai-ify` not to strip or reword around the factual-claims flags inserted in step 3 — they must survive into the de-ai-ified draft so the user still sees them at review. After the de-ai-ify pass, confirm the flags are still present; if any were lost, re-apply them before writing to scratchpad.
+   - **Defer `/de-ai-ify` step 6 (voice refinement).** Do NOT run its voice-refinement prompt now — nothing has been sent yet, so there is no "final version actually used" to diff against. Step 6 runs later, in this skill's step 5 "After output" block, against the message the user actually sends.
 
 5. **Output**
 
    **Always write to scratchpad:**
-   - Append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium]):**`
-   - If re-drafting the same reply (same sender + medium), replace the previous draft section rather than appending a duplicate
+   - Append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium] — [topic]):**`, where `[topic]` is a short discriminator (e.g. "cancel room", "executor ask"). Follow the draft with a `> Context:` (or `> Note:`) blockquote capturing the thread, any CRM wikilinks, and any send caveat.
+   - If re-drafting the same reply (same sender + medium + topic), replace that previous draft section rather than appending a duplicate. A reply to the same person on the same medium about a *different* topic is a separate section — don't overwrite it.
 
    **User override:**
    - "Just inline" → don't write to scratchpad
 
    **After output:**
    - Wait for user feedback: edits, "sent", etc.
-   - On "sent": acknowledge briefly (one line). Voice refinement is handled by `/de-ai-ify` (step 6) which already ran in step 4.
+   - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. This is the point of the whole loop: the draft→sent delta is where the voice profile learns. Then acknowledge briefly (one line).
+   - If the user just says "sent" without pasting text, ask once whether they changed anything before sending. If they didn't, there's no delta to diff — skip the refinement and acknowledge.
    - Don't clear scratchpad automatically.
 
 ## Conversation Continuity
