@@ -50,7 +50,7 @@ You are helping the user resume previous work with full context.
 5. **Load and present:**
 
    From whatever you found, read:
-   - The most recent matching session section — the scan script's DATE column (e.g. `2026-03-30`) maps directly to `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`, and SESSION_NUM tells you which `## Session N` block to read. Go straight there; don't re-search.
+   - The most recent matching session section — the scan script's DATE column (e.g. `2026-03-30`) maps to `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`, or `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` if that date has been archived into a year subfolder (logs >90 days old; `pickup-scan.sh` finds them via `-maxdepth 2`). SESSION_NUM tells you which `## Session N` block to read. Go straight there; don't re-search.
    - The project hub file if one exists
    - Relevant context files per CLAUDE.md routing table
 

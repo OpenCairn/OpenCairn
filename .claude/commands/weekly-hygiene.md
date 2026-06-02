@@ -339,7 +339,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve file path** from the File column:
    - `*-transcript.md` → `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
-   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by `/quarterly-hygiene` — the `YYYY` is the date's year)
    - Paths containing `/` → `{VAULT}/relative/path`
    - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
 
