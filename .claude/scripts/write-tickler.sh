@@ -7,7 +7,7 @@
 # Examples:
 #   "$VAULT_PATH/.claude/scripts/write-tickler.sh" "$VAULT_PATH/01 Now/Tickler.md" "2026-02-09" "- [ ] Task -> [[link]]"
 #
-# Behavior:
+# Behaviour:
 #   - Creates file with template if missing
 #   - Creates date header if missing (inserted in chronological order)
 #   - Appends item under the date header
@@ -36,12 +36,11 @@ if ! [[ "$TARGET_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
     exit 1
 fi
 
-# Derive lock file path (same directory as tickler file)
-LOCK_DIR="$(dirname "$TICKLER_FILE")"
-LOCK_FILE="$LOCK_DIR/.tickler-lock"
-
-# Ensure lock directory exists
-mkdir -p "$LOCK_DIR"
+# Canonical per-file lock (shared convention) so a Tickler edit via this script
+# and one via locked-edit.sh exclude each other. Was `.tickler-lock` — switched
+# to _lock_path_for so all writers of Tickler.md agree on the lock name.
+LOCK_FILE="$(_lock_path_for "$TICKLER_FILE")"
+mkdir -p "$(dirname "$TICKLER_FILE")"
 
 # Template for new Tickler file
 read -r -d '' TEMPLATE << 'ENDTEMPLATE' || true

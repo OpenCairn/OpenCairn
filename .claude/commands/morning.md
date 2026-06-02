@@ -19,6 +19,8 @@ This routine handles all four without forcing you into one mode. Start operation
 
 ## Instructions
 
+**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling).
+
 ### 0. Resolve Vault Path
 
 ```bash

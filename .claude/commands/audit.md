@@ -1,7 +1,7 @@
 ---
 name: audit
 aliases: [review, code-audit, code-review]
-description: Rigorous evaluation of any implementation - code, config, plans, processes, systems
+description: Rigorous five-layer evaluation of any implementation (code, config, plans, processes, systems) — by a cross-model panel by default, gracefully downgrading to whatever models are available, or a single model on request.
 ---
 
 # Audit - Rigorous Implementation Review
@@ -14,15 +14,48 @@ You are auditing an implementation. This applies to anything with logic and stru
 
 **Iterate until clean.** Every fix changes the system — re-audit after each fix. A single-pass audit is just a bug report. Keep going until a full pass finds nothing.
 
+**Many eyes, uncorrelated.** By default the audit runs as a cross-model panel — Claude, Gemini, and Codex each run the full five-layer audit independently, then you synthesise. Different model families have different blind spots; agreement is signal and disagreement is more signal. A single reviewer is faster and fine for routine checks (`--claude`), but for anything hard to reverse, the panel is worth three passes.
+
+## Reviewers and model selection
+
+**Default (no flag): panel.** Run all available reviewers — a fresh Claude agent + Gemini + Codex — each performing Phase 2 independently from source, then synthesise per Phase 3. Graceful degradation is the rule: probe availability first and run with whoever's present.
+
+**Flags** (parse from `$ARGUMENTS`):
+- *(no model flag)* → panel of all available models.
+- `--claude` → single Claude reviewer only.
+- `--gemini` → single Gemini reviewer only.
+- `--codex` → single Codex reviewer only.
+- Flags combine to force an explicit subset — `--gemini --codex` runs those two, no Claude.
+
+**Availability probe (do this in Phase 1, before despatch).** Run `gemini --version` and `codex --version`. Announce the resolved panel in one line: `"Panel: Claude + Gemini + Codex"`, or `"Codex unavailable — panel: Claude + Gemini"`. If a model was explicitly requested by flag but its CLI is missing, stop with a one-line install hint rather than silently dropping it. If no external CLI is available and no flag forced one, fall back to a single inline Claude audit and **say so** — `"No external model CLIs found — running single-Claude audit."`
+
+**Execution shape per reviewer:**
+- **Claude seat in panel mode** = a *fresh* Agent (`subagent_type: general-purpose`), independent of this conversation — important when auditing work produced in this same session (the running instance has already normalised its own choices).
+- **`--claude` single mode** = the running instance audits inline (cheapest, the classic single-pass audit); no agent spawn needed.
+- **Gemini / Codex seats** = dispatched via their CLIs. See `/second-opinion` Phase 2A for the canonical invocation, fallback, and session-handle capture; the compact form is in Phase 2 below.
+
+The panel despatch, attribution tags, and no-vote-counting tiebreak are `/second-opinion`'s machinery — this skill reuses it rather than reinventing it (see `_shared-patterns.md` #4). Read `second-opinion.md` if you need the full despatch mechanics.
+
 ## Instructions
 
 ### Phase 1: Identify and Scope the Target
 
-1. **If the user specified what to audit**, load it. **If not**, ask: "What should I audit?" — don't guess.
-2. **If the target is too large to read in full** (a whole repo, a multi-file system, a complex process), ask the user to narrow scope or state which parts to prioritise. An audit that silently skips things is worse than a scoped audit that's honest about its boundaries.
-3. **Read the full implementation within scope** before forming opinions. No drive-by observations.
+1. **Parse `$ARGUMENTS`** for the target and any model flags (above). Resolve the reviewer set and run the availability probe; announce the resolved panel.
+2. **If the user specified what to audit**, load it. **If not**, ask: "What should I audit?" — don't guess.
+3. **If the target is too large to read in full** (a whole repo, a multi-file system, a complex process), ask the user to narrow scope or state which parts to prioritise. An audit that silently skips things is worse than a scoped audit that's honest about its boundaries. In panel mode, scope it in the shared brief so every reviewer covers the same ground.
+4. **Read the full implementation within scope** before forming opinions. No drive-by observations. In panel mode, each reviewer reads from source — the brief gives the path and is flagged as supplementary, possibly-biassed context, not a substitute for reading.
 
 ### Phase 2: Five-Layer Audit
+
+This is the protocol every reviewer runs. In single mode you run it directly; in panel mode it's the body of the shared brief sent byte-identically to all reviewers (write it once to a scratch file — `mktemp -t audit-brief.XXXXXX.md` — read its contents verbatim into the Claude Agent's prompt, and pipe the same file to each CLI).
+
+Compact panel despatch (single message, concurrent calls; `timeout: 300000` on each CLI):
+```
+# Claude: Agent tool, subagent_type general-purpose, prompt = brief contents verbatim
+cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
+cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -
+```
+Surface each reviewer's session handle (Agent ID, Gemini index, Codex UUID) in visible text — you'll need them for a Phase 4 re-audit.
 
 Work through these layers in order. Each layer can invalidate everything below it, so don't skip ahead.
 
@@ -53,6 +86,7 @@ Change always meets existing reality. What's already there?
 - Is there data, state, or configuration that needs to carry forward?
 - For plans/processes: what habits, expectations, or workflows does this disrupt?
 - For content edits (docs, notes, config values): grep for key identifiers that changed (names, dates, refs, amounts) across the wider repository. For each hit, assess whether it's a stale cross-reference (update it), a historical record of what was actually said/sent (leave it), or a different context that happens to share the identifier (leave it). Stale cross-references are the most common Layer 3 miss in non-code edits.
+- **When a section, queue, or SSOT moved *out* of a document (even if the document still exists), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction.** The relocated content's inbound link is itself the identifier; a line pointing at the old home as "the project doc" / "full spec here" / "see [[…]]" is exactly the stale pointer that now misdirects, and it won't match an anchor-AND-topic-keyword grep. This is the complement to the structural-query rule below: structural queries (`obsidian unresolved`) catch dangling *wikilinks* but never the *plain-text/prose* references to a moved target — only a bare-anchor text grep does. Triage each hit (bare-anchor grep returns legitimate navigation links too).
 - **For link-integrity questions specifically, prefer structural queries over text grep.** A rename/move/delete that needs link-integrity verification is a structural question, not a text search. The system probably has a purpose-built query: an Obsidian vault has `obsidian unresolved` (queries the live link index); a codebase has language-server "find references" or `git grep` with the right filters; a wiki has a broken-link report; an EHR has a referential-integrity check. Read the project's tool-routing doc (e.g. CLAUDE.md, a contributor guide, or a "how to search" reference) before designing the verification step. Text grep is what you reach for when you don't know the system has a purpose-built tool — the grep-as-default reflex is a Layer 5 failure mode, because text search is sensitive to file format, encoding, hidden-directory exclusions, and ignore-pattern semantics that the structural query is indifferent to.
 
 #### Layer 4: Is the implementation correct?
@@ -75,29 +109,40 @@ Theory vs. reality. Can you verify it runs?
 
 ### Phase 3: Report Findings
 
-1. **State the audit scope** at the top of the report — what was audited, and any boundaries (e.g., "Auditing `src/auth/` only, not the calling code").
+1. **State the audit scope and the panel composition** at the top of the report — what was audited, any boundaries (e.g., "Auditing `src/auth/` only, not the calling code"), and which reviewers ran (e.g., "Panel: Claude + Gemini; Codex unavailable").
 
 2. **Present findings by layer**, not as a flat list. This makes severity obvious — a Layer 1 finding ("wrong approach") outranks ten Layer 4 findings ("minor bugs").
 
-3. **For each finding, state:**
+3. **In panel mode, tag every finding with attribution and tiebreak disagreements.** Name the reviewers who raised each finding — `[Claude]`, `[Gemini]`, `[Codex]`, combinations, or `[All]`. Then, within each layer:
+   - **Confirmed (multi-reviewer):** higher confidence, but correlated agreement is weak evidence, not ground truth — two models can share a blind spot.
+   - **Disputed:** reviewers split → investigate, pick a side, say *why*. Don't hedge, don't average, don't count votes.
+   - **Uniquely flagged:** one reviewer only → judge on merit (real issue → promote; idiosyncrasy → drop with a reason). Verify a unique find before acting on it — a confident single-reviewer claim is a hypothesis, not a fact.
+
+4. **For each finding, state:**
    - What's wrong (specific, no hedging)
    - Why it matters (consequence if left unfixed)
    - Suggested fix (concrete, not "consider improving")
 
-4. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents."
+5. **If no findings at a layer**, say so explicitly. "Layer 3: No migration concerns — this is net-new with no existing dependents." (In panel mode, silence from a reviewer is not endorsement — only an explicit "no findings here" counts.)
 
 ### Phase 4: Fix and Re-audit
 
 1. **If fixes are possible and authorised**, make them. If fixes aren't authorised or aren't possible (e.g., auditing someone else's work, a read-only review), the audit ends at Phase 3 — present findings and stop.
 2. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
 3. **⛔ Re-audit requires re-reading.** A re-audit pass must include at least one Read tool call on modified files. "Clean pass" without a preceding Read is a fabricated claim, not a verified result. Small, obvious fixes are the most dangerous — false confidence skips verification.
-4. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
+4. **Re-audit despatch is a choice.** Cheap: a single-model re-audit (`--claude`, or just the running instance) for mechanical fixes. Thorough: resume the panel via `/second-opinion` Mode B (`SendMessage` to the Agent, `gemini --resume <index>`, `codex exec resume <uuid>`) with a narrow follow-up — "you flagged X; the author did Y; does it resolve your concern?" — for findings where "does the fix land?" is itself a judgement call.
+5. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
 
 ## Guidelines
 
+- **Panel by default, single model by choice.** The panel is the default because uncorrelated reviewers catch what one misses. For a quick, low-stakes, or small-surface audit, `--claude` (single inline pass) is faster and proportionate — don't spin up three reviewers to check a typo fix.
+- **Graceful degradation, loudly.** Always announce the resolved panel and never silently drop a reviewer. A one-reviewer run is a single opinion, not a panel, and the synthesis must say so.
+- **Byte-identical brief across the panel.** Any framing asymmetry between reviewers defeats the cross-model signal. Write the Phase 2 brief once, send it verbatim to each.
+- **Cross-model, not cross-instance.** One Claude + one Gemini + one Codex. Two Claudes correlate; non-correlated error modes are the whole point.
 - **Specificity over breadth:** Five specific findings beat twenty vague observations.
 - **No hedging:** "This will fail when X" not "This might potentially have issues with X."
-- **Severity is implicit in the layer:** Don't add separate severity labels — Layer 1 findings are inherently more important than Layer 4.
+- **Severity is implicit in the layer:** Don't add separate severity labels — Layer 1 findings are inherently more important than Layer 4. A lone reviewer's Layer 1 finding outranks all three agreeing on a Layer 4 nit.
+- **The tiebreak is the work.** You're not chairing a committee or counting votes — investigate disagreements and decide. A panel that mechanically applies every suggestion is a slower single pass.
 - **Don't pad:** If the implementation is solid, say so. "Clean pass" is a valid audit result.
 - **Scope to what was asked:** Audit the target, not the surrounding codebase. Flag adjacent concerns briefly if they're blocking, but don't expand scope without asking.
 - **Earn the clean pass:** Layer 1-3 findings are uncomfortable but high-value — they mean the approach itself may be wrong. A clean pass at these layers must be earned by articulating *why* the approach is right, not assumed by jumping to implementation details.

@@ -17,14 +17,24 @@
 # Platform: Linux, macOS, Windows (Git Bash).
 # Uses flock where available, mkdir-based fallback otherwise.
 
+# Canonical lock path for a target file. EVERY writer of a given file must lock
+# the SAME path or mutual exclusion silently fails — so all scripts derive the
+# lock name from the target via this one function: <dir>/.<basename>.lock.
+_lock_path_for() {
+    local target="$1"
+    printf '%s/.%s.lock' "$(dirname "$target")" "$(basename "$target")"
+}
+
 _lock() {
     _LOCK_FILE="$1"
     local timeout="${2:-10}"
     if command -v flock &>/dev/null; then
+        _LOCK_MODE="flock"
         exec 9>"$_LOCK_FILE"
         flock -w "$timeout" 9 || { echo "Lock timeout after ${timeout}s" >&2; return 1; }
         trap '_unlock' EXIT
     else
+        _LOCK_MODE="mkdir"
         _LOCK_DIR="${_LOCK_FILE}.d"
         local waited=0
         while ! mkdir "$_LOCK_DIR" 2>/dev/null; do
@@ -48,10 +58,13 @@ _lock() {
     fi
 }
 
+# _unlock branches on the mode recorded by _lock (NOT a fresh `command -v flock`
+# probe — PATH can differ between lock and unlock, which would release with the
+# wrong primitive and leak the lock).
 _unlock() {
-    if command -v flock &>/dev/null; then
+    if [ "${_LOCK_MODE:-}" = "flock" ]; then
         exec 9>&- 2>/dev/null || true
-    else
+    elif [ "${_LOCK_MODE:-}" = "mkdir" ]; then
         rm -rf "${_LOCK_DIR:-}" 2>/dev/null || true
     fi
     trap - EXIT

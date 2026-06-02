@@ -1,6 +1,6 @@
 ---
 name: quarterly-hygiene
-description: Quarterly deep vault maintenance — heavy structural checks too slow or too rarely-needed for weekly: full context-file re-read, CRM stale-entry review, oversized/near-empty files, session-log archiving recommendation
+description: Quarterly deep vault maintenance — heavy structural checks too slow or too rarely-needed for weekly: full context-file re-read, CRM stale-entry review, session-log archiving, skill-library flywheel audit
 ---
 
 # Quarterly Hygiene - Deep Vault Maintenance
@@ -43,17 +43,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Flag entries with outdated roles, superseded contact details, or context that this quarter's events have overtaken.
    - **Don't auto-modify** — present findings and let the user decide.
 
-5. **Oversized / near-empty files.**
-   - Line-count detection needs a one-off tree walk (the Obsidian CLI reports file *count*, not line counts). Per `_shared-rules` (no recursive bash on the vault), **ask before running it.** On approval, scan the local vault copy (`{VAULT}`) — not a network or cloud mount, where bulk reads can stall — excluding archive and system dirs:
-     ```bash
-     find "{VAULT}" -name "*.md" -type f \
-       -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -not -path "*/.obsidian/*" \
-       -exec wc -l {} + | awk '$2!="total" && ($1>500 || $1<5)'
-     ```
-   - Apply the `{VAULT}/.claude/hygiene-excludes` filter if it exists (same pattern as weekly-hygiene step 12) to drop large embedded doc sets (darktable, Hugo themes).
-   - Oversized (>500 lines): split candidates. Near-empty (<5 lines): merge-or-delete candidates. Present candidates; the user triages. Splits/merges/deletes are confirmed, never automatic.
-
-6. **Session-log archiving (90-day rolling).**
+5. **Session-log archiving (90-day rolling).**
    Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 14b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
    - **Identify candidates** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago (`date -d "90 days ago" +%F`). List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"):
      ```bash
@@ -63,14 +53,20 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
        | awk -F. -v c="$CUTOFF" '$1 < c {print}'
      ```
    - **Dry-run first:** present the candidate list grouped by destination year — "would move N logs → `Session Logs/YYYY/`". Get explicit confirmation before moving anything.
-   - **On confirm, move with `obsidian move`** (heals wikilinks — never raw `mv`). Create the year folder first (single-dir `mkdir`, not a tree walk), then move each log; the destination year is the log date's year:
+   - **Move via Obsidian GUI drag-and-drop (preferred — heals wikilinks instantly).** Create the year folder first (single-dir `mkdir`, not a tree walk), then hand off to the user: have them multi-select the aged logs in Obsidian's file explorer and drag the batch into the `YYYY/` folder. Obsidian rewrites every inbound wikilink in one pass — a few seconds for the whole set. Report the count once the user confirms the drag is done.
      ```bash
-     mkdir -p "{VAULT}/06 Archive/Claude/Session Logs/2025"
-     obsidian move path="06 Archive/Claude/Session Logs/2025-01-15.md" \
-                   to="06 Archive/Claude/Session Logs/2025/2025-01-15.md"
+     mkdir -p "{VAULT}/06 Archive/Claude/Session Logs/YYYY"
      ```
+     **Do NOT use the `obsidian move` CLI for batches** — it boots a fresh Electron instance per call (loading the entire vault index) and deadlocks on the single-instance lock after a handful of files. Fine for a one-off move, unusable for a batch.
+   - **Headless fallback (no GUI, e.g. cron run): raw `mv`.** Session logs have globally-unique `YYYY-MM-DD.md` basenames, so Obsidian resolves any stale-path wikilink by basename fallback — no rewrite needed, and the subfolder-aware consumers above already find them. This is a *scoped* exception to the general "never raw `mv`" rule, justified by the unique-basename guarantee. Skip post-move CLI link-verification (`obsidian unresolved`/`backlinks` time out mid-reindex on a large vault); basename resolution makes it unnecessary.
    - **Idempotent:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs.
-   - Report the count moved per year in the hygiene report.
+
+6. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply).**
+   The library-level layer of the cross-pollination system — the per-edit layer is the skill-edit Stop hook, the index is `~/.claude/commands/_shared-patterns.md`. Once a quarter, look across *all* skills for infrastructure that's been reinvented rather than shared. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
+   - **Inventory** `~/.claude/commands/*.md`; grep for recurring mechanisms (manifest/JSONL + resume, `[i/N]` progress strings, parallel `gemini`/`codex` despatch, file-size + resize loops, `command -v` prereq blocks, cost estimation) and count distinct skills implementing each.
+   - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
+   - **Read `~/.claude/cross-pollination.log`:** index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones.
+   - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.
 
 ### Output
 
@@ -98,26 +94,31 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ## CRM Stale Entries
    - [Entry — what's outdated]
 
-   ## Oversized / Near-Empty Files
-   - Oversized (>500 lines): [list or "none"]
-   - Near-empty (<5 lines): [list or "none"]
-
    ## Session-Log Archiving
    - Flat session logs: N (keeping last ~90 days flat)
    - Archived this run: N logs → YYYY/ subfolders (or "none — nothing older than 90 days")
+
+   ## Skill-Library Flywheel (draft)
+   - Proposed new index entries (≥2 reuses, unindexed): [list or "none"]
+   - Divergent reimplementations of indexed patterns: [list or "none"]
+   - Dead/cold index entries (never surfaced): [list or "none"]
 
    ## Actions Taken / Routed
    - [Confirmed edits applied; everything else routed with ⚠ markers per weekly-hygiene's three-tier model]
    ```
 
-8. **Display confirmation:**
+8. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
+   The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, propose specific edits to this skill file (display for user approval — never auto-apply; edit the template copy if template-synced). If clean, state `✓ Skill self-review: no gaps this run`.
+
+9. **Display confirmation:**
    ```
    ✓ Quarterly hygiene report: 06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md
    ✓ Weekly-hygiene report: [carried / stale — re-run / not found]
    ✓ Context files re-read: N, M durable-drift flags
    ✓ CRM stale entries: N flagged
-   ✓ Oversized/near-empty: N / M
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out")
+   ✓ Flywheel audit (draft): N proposed entries, M divergences, K dead
+   ✓ Skill self-review: [no gaps / N edits proposed]
 
    Quarterly hygiene complete. Run /quarterly-review to fold these findings into the strategic review.
    ```
@@ -138,4 +139,4 @@ Quarterly (last week of March, June, September, December), or as a precursor to 
 
 - **Feeds `/quarterly-review`:** the strategic review consumes this report for its Vault Health section.
 - **Consumes `/weekly-hygiene`:** carries forward unresolved structural findings rather than re-scanning.
-- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, `obsidian move`); keeps the flat directory to ~one quarter of logs.
+- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, then Obsidian GUI drag-and-drop; raw `mv` headless fallback); keeps the flat directory to ~one quarter of logs.

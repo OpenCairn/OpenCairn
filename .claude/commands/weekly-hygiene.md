@@ -9,6 +9,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
+**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week purges, hub `**Status:**` propagation) go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
+
 0. **Resolve Vault Path**
 
    ```bash
@@ -188,6 +190,17 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    done
    ```
    Report per-directory counts (deleted and remaining).
+
+   **Shared-patterns pointer check** (if `~/.claude/commands/_shared-patterns.md` exists). The pattern index points each entry at a reference skill (`→ ` + backtick-quoted skill name). Verify every pointer still resolves to a live skill file; a dangling pointer means the reference skill was renamed or removed.
+   ```bash
+   PF=~/.claude/commands/_shared-patterns.md
+   if [ -f "$PF" ]; then
+     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sort -u | while read -r s; do
+       [ -f ~/.claude/commands/"$s".md ] || echo "STALE pointer: $s (no ~/.claude/commands/$s.md)"
+     done
+   fi
+   ```
+   Any `STALE pointer` lines are tier-2 findings: fix the pointer (renamed skill) or drop the entry (removed skill) in `_shared-patterns.md`. Per its staleness contract, this check is what keeps the index drift-proof.
 
 11. **Session Transcript Export**
 
