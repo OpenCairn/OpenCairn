@@ -407,14 +407,19 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    - `{VAULT}/01 Now/This Week.md` — whole file (past 3 + today + future 6 day sections per `_shared-rules.md` §9)
    - `{VAULT}/01 Now/Tasks.md` (if present)
+   - `{VAULT}/01 Now/Tickler.md` (if present) — whole file. A session that *resolves a documented problem* often closes a future-dated "investigate X" / "look into Y" item parked here; because the item is date-deferred it won't surface in This Week.md, so the reference-graph pass (Step 12) and a This-Week-only grep both miss it. **Flip a Tickler match only after confirming it is the item the session actually resolved** — a false-positive flip here silently suppresses deliberately-deferred future work that won't resurface on its date (a worse failure than in This Week.md, which the user re-reads daily).
    - Project/area hubs the session wrote to inline (enumerate from the session log's Files Updated list as written at Step 7 — limit to `03 Projects/` and `04 Areas/` paths). Step 13a's backfill runs later in /park; don't wait for it.
 
    Use a distinctive substring for the grep — exact-text match is too brittle when the user copy-pastes loosely. Derive substrings from the session's *action* (the verb, e.g. "cancel") as well as its nouns/identifiers — stale tasks are often phrased as the action that was performed, not the artefact. **Run the grep against each listed file yourself — Step 12's reference-graph propagation does NOT satisfy this pass; it updates changed values, it does not flip completed `[ ]` checkboxes.** Run one grep call per planning-doc file:
 
    ```bash
-   # Session completed something with identifier "FOO-123":
-   grep -nE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/This Week.md"
-   grep -nE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tasks.md"
+   # Session completed something with identifier "FOO-123".
+   # Use -i (case-insensitive): a substring derived from the session topic is
+   # often lowercase, but the task text may capitalise it — case-sensitive
+   # grep would silently miss the match.
+   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/This Week.md"
+   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tasks.md"
+   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tickler.md"
    # ...per relevant project hub
    ```
 
@@ -432,6 +437,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    Grepped with substring "<substring>":
    - This Week.md → no [ ] match
    - Tasks.md → no [ ] match
+   - Tickler.md → no [ ] match
    - <hub path> → no [ ] match
    ```
 
