@@ -341,7 +341,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    The enumeration discipline stays in the main session — it's the load-bearing checkpoint that defends against silent miss-pattern. The grep + propagation work delegates to a fresh sub-agent for thoroughness without main-session fatigue.
 
-   **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
+   **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **WIP tier demotions/promotions** (Active↔Backlog↔Cold — these must propagate to the project hub's own `**Status:**` field, not just the WIP entry), **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
 
    **The nil case is not a free pass.** "No identifier values changed" is a positive claim requiring the explicit checklist. Format the nil case as an enumerated checklist, not a bare assertion:
 

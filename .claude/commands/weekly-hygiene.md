@@ -37,6 +37,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Confirm with user:**
    - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — recommend demote or nudge
+   - **When a demote/promote is actioned in-session, propagate the tier change to the project's hub `**Status:**` field** (`03 Projects/<name>.md` or the relevant area hub), not just the WIP entry. The WIP tier and the hub's own Status line are the same fact in two places; moving the WIP entry while leaving the hub reading "Active" leaves a stale cross-reference.
 
    **If not resolved in-session:** For each stale entry the user doesn't address, append `⚠ Hygiene Wnn: Nd stale — demote?` after the entry's `**Status:**` line in WIP. Note in report as `→ routed to WIP entry`.
 
