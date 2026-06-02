@@ -8,7 +8,7 @@ description: Capture session with full bookkeeping — quality gate, WIP update,
 
 You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, conversation draft check, tickler.
 
-**⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The write-session script uses `--create` (truncate) for the first session of the day, which will destroy a parallel session's content. Session numbering also can't be resolved correctly when two sessions race. `/goodnight` also writes to WIP, This Week.md, and project files via the Edit tool, which has no locking — concurrent parks will silently clobber each other's edits. Park all sessions before starting goodnight, and capture one session at a time.
+**⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. Session-log *numbering* is now race-safe — `write-session.sh --auto-number` resolves N inside a flock — but two hazards remain: (1) the `--create` mode used for the first session of the day **truncates**, so racing first-session writes can destroy a parallel session's content; and (2) WIP, This Week.md, and project files are edited via the Edit tool, which has **no locking** — concurrent parks (and `/goodnight`) silently clobber each other's edits there. Park all sessions before starting goodnight, and capture one session at a time.
 
 ## Capture Philosophy
 
@@ -238,9 +238,10 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    **⛔ CHECKPOINT:** You cannot proceed to Step 8b until `Pickup Context check:` output appears in your response.
 
 8b. **⛔ Project link verification:**
-   After confirming the Pickup Context section exists, verify the `**Project:**` line inside it matches Step 5's determination. Extract mechanically:
+   After confirming the Pickup Context section exists, verify the `**Project:**` line inside it matches Step 5's determination. Extract mechanically — **scope to Session N's block**, not a whole-file grep: under concurrent parks a later session's `**Project:**` line can be the file's last one, so `grep … | tail -1` over the whole file can validate the wrong session. Reuse Step 8a's Session-N awk:
    ```bash
-   grep '^\*\*Project:\*\*' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | tail -1
+   # Letter-var z=0 works around the slash-command loader eating bare $-digit tokens (see Step 8a).
+   awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep '^\*\*Project:\*\*' | tail -1
    ```
    Compare against Step 5 output. If they differ, fix the session log before proceeding.
    Display: `Project check: [link] ✓` or, if fixed: `Project check: fixed [old] → [new]`
