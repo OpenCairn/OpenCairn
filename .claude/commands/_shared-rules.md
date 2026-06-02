@@ -60,16 +60,35 @@ When migrating Tickler items:
 
 **Use `flock` via dedicated scripts, NOT the Edit tool.** The Edit tool has no file locking — if two Claude instances edit the same file simultaneously, one write silently overwrites the other.
 
-**Why dedicated scripts instead of inline flock:** Claude Code's permission system saves the entire bash command as a permission pattern in `settings.local.json`. Multi-kilobyte session summaries inside flock commands bloat the settings file. The scripts (`write-session.sh`, `add-forward-link.sh`, `write-tickler.sh`, `update-session-section.sh`, `backfill-files-updated.sh`) receive content via stdin or arguments — the permission system only stores the short script invocation, not the payload.
+**Why dedicated scripts instead of inline flock:** Claude Code's permission system saves the entire bash command as a permission pattern in `settings.local.json`. Multi-kilobyte session summaries inside flock commands bloat the settings file. The scripts (`write-session.sh`, `add-forward-link.sh`, `write-tickler.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`) receive content via stdin or arguments — the permission system only stores the short script invocation, not the payload.
+
+### Planning-file writes go through `locked-edit.sh` (NOT the Edit tool)
+
+**Every mutation of a shared planning file — `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
+
+```bash
+# Replace a unique block (old_string must match exactly once, like the Edit tool):
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/01 Now/Works in Progress.md" --replace
+**Last:** 2026-06-01 — old state
+========OPENCAIRN-LOCKED-EDIT-SEP========
+**Last:** 2026-06-02 — new state
+EOF
+# Other modes: --replace-all (every occurrence), --append (stdin appended at EOF).
+# Exit codes: 0 ok · 2 no match · 3 ambiguous (>1 match under --replace) — treat 2/3 as a
+# real conflict (a parallel writer changed the region), re-Read the file and recompute, don't loop-retry.
+```
+
+`Tickler.md` has a structured inserter (`write-tickler.sh`) for adding dated items — keep using it; both it and `locked-edit.sh` lock the same canonical path, so they're mutually exclusive. Use `locked-edit.sh` for free-form Tickler edits (editing/removing an existing item). **Session logs are NOT planning files** — they keep their dedicated scripts (`write-session.sh` et al.), which lock the Session Logs directory, not the per-file path.
 
 **Lock files:**
 
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/Claude/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
+| `<dir>/.<basename>.lock` (canonical, via `_lock_path_for`) | A single planning/hub file's read-modify-write | locked-edit.sh, write-tickler.sh |
 | `07 System/.provenance-lock` | Provenance log writes | All provenance operations |
 
-**Lock ordering:** When both locks are needed, always acquire the session lock first, release it, then acquire the provenance lock. Never hold both simultaneously.
+**Lock ordering:** When both the session lock and provenance lock are needed, always acquire the session lock first, release it, then acquire the provenance lock. Never hold both simultaneously. Planning-file locks are held only for the duration of one `locked-edit.sh` write (auto-released on script exit), so they never overlap with the others.
 
 ## Failure modes for in-place file edits
 
@@ -87,21 +106,17 @@ Likely causes (in decreasing probability):
 
 **Diagnostic:** `stat -c '%y' "$file"` immediately before the Read and immediately before the Edit. If mtime advances between them with no intervening write from this session, an external process is touching the file.
 
-**Remediation:** Don't loop-retry the Edit tool. Fall back to an atomic Python rewrite with `fcntl.flock(LOCK_EX)` on the target file:
+**Remediation:** Don't loop-retry the Edit tool. Use `locked-edit.sh` (see Section 5) — for planning/hub files this is the primary path anyway, not just a fallback:
 
-```python
-import fcntl
-path = "/absolute/path/to/file.md"
-with open(path, 'r+', encoding='utf-8') as f:
-    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    content = f.read()
-    # ... modify content via str.replace(old, new, 1) / re.sub() ...
-    f.seek(0)
-    f.truncate()
-    f.write(content)
+```bash
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "/absolute/path/to/file.md" --replace
+<old_string>
+========OPENCAIRN-LOCKED-EDIT-SEP========
+<new_string>
+EOF
 ```
 
-The Python fallback works for this failure mode because it skips the Edit tool's mtime freshness check entirely and performs an atomic read-modify-write under a kernel-level exclusive lock on the target file.
+This skips the Edit tool's mtime freshness check entirely and performs an atomic read-modify-write under the file's canonical lock. It supersedes the old inline `fcntl.flock` snippet for this purpose: that snippet (a) is Unix-only — `fcntl` does not exist on Windows Git Bash, which the script suite supports — and (b) locked the target file directly rather than the canonical `.lock` sibling, so it didn't coordinate with the dedicated scripts. `locked-edit.sh` fixes both.
 
 ### Failure mode B: Session-management script times out on its lock
 
@@ -134,7 +149,7 @@ After killing, the lock releases and subsequent script invocations work normally
 
 - **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another Claude session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
 - **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
-- **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. For ad-hoc edits with no dedicated script (e.g. WIP mid-park), Python+flock is the primary tool regardless.
+- **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. WIP/This Week/Tickler/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
 
 ### Failure mode C: Bash tool backgrounds a command that finishes normally
 
@@ -216,6 +231,8 @@ When executing any slash command, also follow the instructions in `.claude/comma
 
 This procedure keeps the rolling 7-day window current. It runs during `/morning` (step 6) and `/goodnight` (step 11). If This Week.md doesn't exist, skip entirely.
 
+**Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, not the Edit tool (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections and `--append` to add trailing ones.
+
 ### Trim old day sections
 
 Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
@@ -249,3 +266,12 @@ Window check: title "[start] – [end]" = sections [first day] … [last day] �
 ```
 
 If the title and the first/last day sections disagree, the window edit is incomplete — fix the title before finishing the procedure.
+
+---
+
+## 10. Invoking Gemini (CLI sandbox + vision)
+
+Two gotchas bite any skill that calls the `gemini` CLI:
+
+- **File reads are sandboxed to the home directory** (`~`, plus `~/.gemini/tmp/...`). Gemini cannot read a path outside `~` — e.g. anything under `/tmp`. **Pipe text via stdin** — `cat <file> | gemini -p "..."` — the shell reads the file and Gemini sees only stdin, so the sandbox never applies. (The panel pattern in `/second-opinion` and `/audit` is already safe for this reason.) Never hand Gemini an absolute `/tmp` path to read; if a skill must point Gemini at a file, stage it under `~` first.
+- **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install. Reference implementation: `/ocr-hand`.

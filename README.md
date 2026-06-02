@@ -247,6 +247,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/transcribe` | Transcribes audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU — see `/transcribecloud` for the no-GPU path. |
 | `/transcribecloud` | Batch-transcribes audio/video on rented GPU cloud — for large jobs or when there's no local GPU. The cloud counterpart to `/transcribe`. |
 | `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
+| `/ocr-hand` | Transcribes handwritten pages (scanned PDFs or photos) using multi-model vision consensus — Claude + Gemini + GPT in parallel, word-level alignment, disagreements flagged for review. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
 | `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
 

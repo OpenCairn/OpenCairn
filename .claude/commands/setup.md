@@ -187,7 +187,7 @@ Capture: thinking style.
 Then, present the detected locale/timezone:
 > "I detected your system locale as [LANG] and timezone as [TZ]. Does that look right, or should I use something different?"
 
-Capture: locale string (e.g., `en_AU.UTF-8, TZ=Australia/Brisbane`).
+Capture: locale string (e.g., `en_GB.UTF-8, TZ=Europe/London`).
 
 Then:
 > "Three quick preferences for how I should communicate with you:
@@ -225,7 +225,7 @@ Use the Edit tool to replace bracketed placeholders with the user's answers:
 1. Replace `[Your name], [age]. [Brief description of your profession/life stage.]` with the user's identity line
 2. Replace `[1-2 sentences about what you're primarily working on or focused on right now.]` with current focus
 3. Replace the multi-line thinking style block — this spans 3 lines from `[Describe your thinking style.` through `or toward deliberation?]`. Replace all 3 lines with the user's answer.
-4. Replace `[e.g., en_AU.UTF-8, TZ=Australia/Brisbane]` with confirmed locale
+4. Replace `[e.g., en_GB.UTF-8, TZ=Europe/London]` with confirmed locale
 5. Replace `[Do you want to understand the "why" or just follow instructions?]` with evidence preference
 6. Replace `[Comfortable with complexity? Prefer simplified explanations?]` with technical depth
 7. Replace `[Do you want Claude to challenge your ideas or mostly agree?]` with pushback preference

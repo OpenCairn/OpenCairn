@@ -30,7 +30,7 @@ or toward deliberation?]
 
 ## Communication Preferences
 
-- **Locale:** [e.g., en_AU.UTF-8, TZ=Australia/Brisbane] *(Commands use this for spelling localisation: en_AU/en_GB → British spelling, en_US → American spelling)*
+- **Locale:** [e.g., en_GB.UTF-8, TZ=Europe/London] *(Commands use this for spelling localisation: en_AU/en_GB → British spelling, en_US → American spelling)*
 - **Evidence-based:** [Do you want to understand the "why" or just follow instructions?]
 - **Technical depth:** [Comfortable with complexity? Prefer simplified explanations?]
 - **Pushback:** [Do you want Claude to challenge your ideas or mostly agree?]

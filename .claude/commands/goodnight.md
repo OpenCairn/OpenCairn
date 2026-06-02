@@ -45,7 +45,7 @@ echo "Other active Claude sessions: $OTHER_CLAUDE"
 If `OTHER_CLAUDE > 0`: **Stop and warn the user.** Display:
 
 ```
-⚠ Found N other active Claude session(s). Park all sessions before running /goodnight — concurrent parks and goodnight write to shared files (WIP, This Week.md) without locking, so edits will silently clobber each other.
+⚠ Found N other active Claude session(s). Park all sessions before running /goodnight — WIP/This Week edits now serialise through locked-edit.sh (per _shared-rules.md §5), so they compose or fail loudly rather than silently clobbering, but parking first keeps the day's state coherent and avoids loud-fail churn.
 ```
 
 Wait for confirmation before proceeding. The user may say "go ahead" (they know the other sessions are idle) or park them first.
@@ -271,11 +271,13 @@ Session number assigned: N
 
 **Post-write reconciliation:** If the assigned N is greater than `PROBED_NEXT` from Step 13, one or more sessions slipped in between the probe and this write. Read sessions PROBED_NEXT through (assigned N − 1), and patch the daily report's Sessions list to include them — same logic as Step 13's reconciliation.
 
-**If this is the first session of the day** (no session file exists yet), add `--create` to the script invocation. The script handles locking, file creation, atomic numbering (N=1 in --create mode), and atomic writes.
+**First session of the day** (no session file exists yet): no special flag needed — the same invocation lays down the `# Claude Session - DATE` header automatically when the file is absent/empty, assigns N=1, and writes atomically inside the lock.
 
 ### 14a. Update Works in Progress
 
 If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
+
+**Write mechanism:** apply every WIP edit here (project-entry rewrites and the timestamp bump) — and the project-hub propagation edits below — through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
 
 **Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected `**Last:**` / `**Next:**` / `**Next action:**` fields across WIP *and* any matching project hub in `03 Projects/` or `04 Areas/`. A stale "awaiting X" line in WIP or a hub file will mislead the next `/morning` or `/pickup` into expecting something that has already happened.
 
@@ -340,7 +342,8 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
   - `<vault>/.claude/scripts/update-session-section.sh` — for session-log section edits (preserves flock concurrency safety)
   - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section
   - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
-- **Locking constraint:** "For session-log edits, use `update-session-section.sh` — concurrent /park or /goodnight on a parallel session can clobber Edit-tool writes."
+  - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (WIP, This Week, Tickler, project/area hubs)
+- **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (WIP, This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
 - **Audit protocol pointer**: read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) first; do NOT recall the protocol from memory.
 - **Special-focus instruction** (the empirically-missed Layer 3 category): "**Phase/status framings rendered historical by session actions** is the category prior inline audits silently miss. For each project/area hub touched by today's session work, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work completed today; flag every hit. Also: read each touched project/area hub IN FULL, not just the subsection that was edited."
 - **Read-coverage backstop**: "If your file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage."
@@ -352,14 +355,23 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 
 **(e) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size), re-despatch a focused sub-agent on that hub.
 
+**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 13/14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
+
+1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from 13/14's reconciliation, any audit remediation from (e)).
+2. Diff that list against the `### Files Updated` already in Session N's entry.
+3. Pipe the missing lines through `backfill-files-updated.sh "<session-file>" N`.
+
+This is the F4 fix: the session log's footprint record must match what goodnight actually changed, even on a clean audit. Skipping it because "the audit was clean" is the failure mode — a clean audit says nothing about whether the post-Step-14 edits were recorded.
+
 **⛔ CHECKPOINT — required outputs:**
 1. Identifier enumeration block (real or nil-case checklist) in main session response
 2. Identifier count check line (`enumeration N → brief N ✓`)
 3. Agent tool invocation with `subagent_type=general-purpose`
 4. Display of sub-agent's report
 5. One of: `✓ Audit: clean pass` OR `🔧 Audit: N findings fixed and re-audited clean — see [paths]`
+6. `✓ Files Updated backfilled: M post-Step-14 file(s) reconciled into Session N` (M may be 0 only if the entry already listed every post-Step-14 edit)
 
-You cannot proceed to Step 16 without all five. If you find yourself walking the audit layers yourself in /goodnight's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
+You cannot proceed to Step 16 without all six. If you find yourself walking the audit layers yourself in /goodnight's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
 **Why auto-run + delegate:** /goodnight propagates state across This Week.md, Tickler, project files, WIP, and project hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's /morning or /pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). See `~/.claude/commands/park.md` Step 14 tail for the full mechanism analysis.
 

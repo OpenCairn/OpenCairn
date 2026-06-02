@@ -42,9 +42,10 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
-   - **Domain:** "Does this project belong to a specific area (Health, Photography, Derm, etc.)?" (determines routing in Step 5)
+   - **Domain:** "Does this project belong to a specific area (Health, Hobbies, Work, etc.)?" (determines routing in Step 5)
 
 4. **Update project file:**
+   - **Write mechanism (F1):** apply this edit through `locked-edit.sh` (per `_shared-rules.md` §5), NOT the Edit tool. To prepend the completion block, `--replace` the file's first heading line with the block followed by that same heading line. (This is the in-place edit *before* the Step 5b `obsidian move`.)
    - Find project file (check all locations):
      - `{VAULT}/03 Projects/[Project Name].md` (active projects)
      - `{VAULT}/03 Projects/Backlog/[Project Name].md` (backlog projects)
@@ -88,12 +89,13 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    **Step 5c — Verify link integrity:**
    - Run `obsidian unresolved` and confirm the move introduced no new dangling links pointing at the project's old location. Path-based inbound links are the common breakage; `obsidian move` should have updated them, but verify rather than assume.
+   - **Also grep the moved project's bare anchor + path forms as plain text** (e.g. `rg -F '[[03 Projects/Project Name]]'` and `rg -F '03 Projects/Project Name'`). `obsidian move` rewrites `[[wikilink]]` references and `obsidian unresolved` catches dangling ones, but neither touches *prose/plain-text* references to the moved project ("see the Project Name doc", a path inside a fenced code block, a `**Source:**` line). Grep with NO keyword conjunction; triage each hit (stale pointer → update; historical record → leave).
 
 6. **Update Works in Progress:**
+   - **Write mechanism (F1):** WIP edits use `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
    - Read `{VAULT}/01 Now/Works in Progress.md`
    - Remove project from its current section (Active, Maintenance, Backlog, etc.). If the project had no WIP entry (a file-only stalled project, per Step 2), there's nothing to remove here — skip to the timestamp.
    - Update "Last updated" timestamp
-   - Note: this is an Edit-tool write with no lock. Don't run `/complete-project` concurrently with `/park` or `/goodnight`, which also write WIP and will silently clobber each other (per `park.md`).
 
 7. **Record the completion for the session log:**
    - **Do NOT hand-append to the session file with the Edit tool.** Session-file writes must go through the locked session scripts (`_shared-rules.md` §5); a raw append bypasses the flock and can be clobbered by a concurrent `/park` or `/goodnight`, and `/park` — which owns the day's session entry — may later truncate it.
