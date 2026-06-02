@@ -11,7 +11,7 @@
 <p align="center"><em>Park. Pickup. Flow.</em></p>
 
 <p align="center">
-  <a href="LICENCE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
@@ -104,7 +104,7 @@ A **tickler** sits underneath the day layer: `/park` offers to defer open loops 
 
 ### Quarter: Quarterly Review
 
-`/quarterly-review` is the deepest pass. Strategic alignment (are you working on the right things?), context file accuracy audit (are the `07 System/Context - *.md` files still true?), vault-wide broken link scan, CRM completeness check, and orphaned file detection. Too heavy for weekly, but accumulates real debt if never done.
+`/quarterly-review` is the deepest pass: strategic alignment (are you working on the right things?), priority drift, next quarter's Big Rocks, and a `Context - Direction.md` overhaul. Structural deep maintenance (full context-file re-read, CRM stale-entry review, oversized files, session-log archiving) is handled by `/quarterly-hygiene`, which the review consumes — mirroring how `/weekly-review` pairs with `/weekly-hygiene`. Too heavy for weekly, but accumulates real debt if never done.
 
 ### Extended Breaks: Hibernate and Awaken
 
@@ -211,7 +211,8 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | Command | What it does |
 |---------|-------------|
 | `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
-| `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, plus vault-wide maintenance (broken links, CRM completeness, orphaned files). |
+| `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, `Context - Direction.md` overhaul. Consumes `/quarterly-hygiene` for vault structural health. |
+| `/quarterly-hygiene` | Quarterly deep vault maintenance: full context-file re-read (non-temporal drift), CRM stale-entry review, oversized/near-empty files, 90-day-rolling session-log archiving into `YYYY/` folders. Mechanical companion to `/quarterly-review`. |
 
 **Learning loops:**
 
@@ -228,6 +229,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
 | `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. Aliases: `/tiebreak`, `/panel`. |
+| `/landscape-scan` | Scans curated sources (and/or a supplied URL pile) for AI / Claude Code / PKM developments and digests them against your current workflow. Run weekly or as needed. |
 
 **Prioritisation:**
 
@@ -242,9 +244,10 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 |---------|-------------|
 | `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
 | `/reply` | Drafts a reply to an inbound message with voice matching and CRM context. Always writes drafts to scratchpad. |
-| `/transcribe` | Transcribes audio files using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU. |
+| `/transcribe` | Transcribes audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU — see `/transcribecloud` for the no-GPU path. |
+| `/transcribecloud` | Batch-transcribes audio/video on rented GPU cloud — for large jobs or when there's no local GPU. The cloud counterpart to `/transcribe`. |
+| `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
-| `/archive-sessions` | Organises old session files from the flat sessions directory into year-based subdirectories. Args: `--older-than=N`, `--year=YYYY`, `--dry-run`. |
 | `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
 
 **Audit & provenance:**
@@ -304,4 +307,4 @@ Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidia
 
 ## Licence
 
-[CC BY-NC 4.0](LICENCE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licencing.
+[CC BY-NC 4.0](LICENSE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licencing.
