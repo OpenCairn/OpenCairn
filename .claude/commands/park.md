@@ -8,7 +8,7 @@ description: Capture session with full bookkeeping — quality gate, WIP update,
 
 You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, conversation draft check, tickler.
 
-**⚠ One capture at a time.** Do not run `/park`, `/checkpoint`, or `/goodnight` in parallel across multiple sessions. The session log is now race-safe — `write-session.sh --auto-number` resolves N inside a flock, and first-session writes lay the header down from file state inside the lock (no truncation, no lost content). WIP edits in this skill now route through `locked-edit.sh` (per `_shared-rules.md` §5), so concurrent parks/goodnights either compose or fail loudly there rather than silently clobbering. Two caveats remain: (1) `This Week.md` rolling-window edits and some project-hub writes outside this skill's Step 11/13b are not all converted yet (rollout in progress); (2) belt-and-braces, still park all sessions before starting goodnight and capture one session at a time.
+**Concurrent parks are safe.** All shared-file writes (session log, WIP, This Week, Tickler, Tasks, project hubs) go through locking infrastructure (`write-session.sh`, `locked-edit.sh`, `write-tickler.sh` — see `_shared-rules.md` §5). Concurrent edits to the same file either both land (disjoint regions) or fail loudly (exit 2/3 — re-read and recompute). **Stale-read caveat:** concurrent parks may redundantly route the same open loop or flip the same checkbox; this is harmless — the dedup check (Step 13) catches most cases, and the next `/weekly-hygiene` trims any residual duplicates. **Goodnight note:** `/goodnight` calls `/park` internally; running goodnight while other parks are in flight is safe with locking, but parking first keeps the day's state most coherent for goodnight's daily report.
 
 ## Capture Philosophy
 
@@ -119,7 +119,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice (load `07 System/Context - Voice & Writing Style.md` if voice questions arise)
 
-   **Fix any issues found automatically.**
+   **Fix any issues found automatically.** For fixes to shared planning files (WIP, This Week, Tickler, Tasks), use `locked-edit.sh` per `_shared-rules.md` §5.
 
    **⛔ Don't auto-revert changes you didn't make.** If a file has been modified between your Edit and the quality-gate scan and the change wasn't yours, surface it in the gate output and let the user decide — don't undo it. Auto-reverting silently overwrites work you didn't make, and you have no reliable way to attribute the source of the change anyway.
 
@@ -338,6 +338,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    The enumeration discipline stays in the main session — it's the load-bearing checkpoint that defends against silent miss-pattern. The grep + propagation work delegates to a fresh sub-agent for thoroughness without main-session fatigue.
 
+   **Write mechanism.** Stale-reference fixes to planning files go through `locked-edit.sh --replace`, not the Edit tool (see `_shared-rules.md` §5).
+
    **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **WIP tier demotions/promotions** (Active↔Backlog↔Cold — these must propagate to the project hub's own `**Status:**` field, not just the WIP entry), **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
 
    **The nil case is not a free pass.** "No identifier values changed" is a positive claim requiring the explicit checklist. Format the nil case as an enumerated checklist, not a bare assertion:
@@ -401,6 +403,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 13. **Route ALL open loops to SSOT:**
    Every open loop from the session must land in a canonical location. Session docs are plain-text records, not task trackers. Route automatically (no per-item prompting):
 
+   **Write mechanism.** Writes to This Week.md, Tasks.md, Tickler.md, and project/area files go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5). For This Week.md day-section insertions, use `--replace` (read the target day section, replace with section + new `- [ ]` line) — NOT `--append` (which adds at EOF, outside any day section). For Tasks.md, `--append` is correct. For checkbox flips and project/area edits, use `--replace`.
+
    **Completed-item closure pass (run BEFORE routing new loops):**
 
    For work the session completed, grep planning docs for unchecked items whose text matches and flip them to `[x]`. Scope (entire rolling-window file, not just past days — the motivating failure case was an unchecked future-day item):
@@ -423,7 +427,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    # ...per relevant project hub
    ```
 
-   For each match, flip `[ ]` → `[x]` via the Edit tool and append a backlink: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]` (skip the backlink if one already exists from a prior in-session edit).
+   For each match, flip `[ ]` → `[x]` via `locked-edit.sh --replace` (see `_shared-rules.md` §5) and append a backlink: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]` (skip the backlink if one already exists from a prior in-session edit).
 
    **⛔ CHECKPOINT:** Display one of, with the grep evidence as the observable (mirrors Step 13's zero-routing checkpoint pattern):
 
@@ -459,7 +463,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
       "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]"
       ```
 
-   3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session). Use the Edit tool. Format: `- [ ] [Loop text] → [[project/area doc]]`. Append a project/area link: `→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]` if tracked in WIP. The session's Project link (Step 5) identifies the target. No link for items with no project context.
+   3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session) via `locked-edit.sh --replace` (per write-mechanism note above). Format: `- [ ] [Loop text] → [[project/area doc]]`. Append a project/area link: `→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]` if tracked in WIP. The session's Project link (Step 5) identifies the target. No link for items with no project context.
 
       **Exception — trigger-contingent loops fall through to rule 4.** If the loop fires on a downstream trigger event rather than calendar time (e.g. "next time X runs, verify Y" or "test Z when next encountering W"), skip rule 3 and fall through to rule 4 (project file). Rule 3 assumes loops are actionable on a specific day; trigger-contingent loops aren't, and surfacing them on tomorrow's plan creates false urgency for work that shouldn't be date-bound at all. If the session has no Project link either, route directly to the Tickler with the date `today + 10 days` (computed via `date -d '+10 days' +"%Y-%m-%d"`) via write-tickler.sh — not rule 5, because rule 5's condition requires This Week.md to be stale, which isn't the trigger case here.
 
@@ -548,19 +552,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    You cannot proceed to Step 15 without all three. If you find yourself walking the audit layers yourself in /park's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
-   **Why a sub-agent and not inline:**
-
-   Inline Step 14 has empirically rubber-stamped real findings across many parks, despite repeated discipline hardening (CHECKPOINTs, enumeration rules, mandatory outputs). The failure has three stacked causes the discipline edits don't address:
-
-   1. **Enumeration scoping.** Inline Step 14 enumerates "what /park changed," which is small and finite. But the deeper Layer 3 question is "what world-state changes did the session cause that have made existing-state framings stale?" The inline model has no instruction to widen scope to consequences in the wider repo, only to direct edits. So it enumerates honestly, finds nothing wider in scope, and declares clean.
-
-   2. **Cognitive load at step 14 of 17.** After ~30+ tool calls and several CHECKPOINTs, the model is pattern-matching toward procedure completion, not interrogating fresh. The path of least resistance is to treat enumeration as a box to tick.
-
-   3. **Recency bias on edited files.** /park just edited some subsection of a hub at Step 13. That creates a false sense of "I know this file" — but only the subsection is actually known. The rest of the hub remains pre-edit state never deeply read.
-
-   Fresh /audit invocations consistently catch what inline Step 14 misses, because the sub-agent has none of those gradients: no /park context loaded, no cognitive load from preceding steps, no "I just touched that file" recency bias. Empirical: same model, same data, the difference is context not capability.
-
-   **What this does NOT change:** Sub-agent runs the same protocol (audit.md), same enumeration discipline, same Phase 4 fix-and-re-audit loop. The only structural change is *who* runs it.
+   **Why a sub-agent:** Inline Step 14 empirically rubber-stamps findings due to cognitive load at step 14 of 17, recency bias on just-edited files, and enumeration scoping limited to /park's direct edits (missing world-state consequences). A fresh sub-agent has none of these gradients — same model, same protocol, the difference is context not capability.
 
 15. **Skill monitor** (per shared rules §8):
    - Review the park execution just completed, **including the audit step (Step 14)**. Did you improvise any step not documented here? Did a documented step turn out unnecessary? Did you skip a step that should have a stronger gate?
@@ -602,27 +594,17 @@ To pickup later: `claude` then `/pickup`
 
 ## Guidelines
 
-- **Merge continuations, don't fork sessions:** If the current session is a trivial continuation of a recently parked session (same task, <5 minutes, just finishing a loose end), update that session's entry instead of creating a new one. Use `update-session-section.sh` for all section edits (never ad-hoc sed — multiline sed fails silently). This applies even if the session to update isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry. Step 2 handles this procedurally.
-- **Capture ALL sessions:** Use `/park` for every session, even quick tasks. The full bookkeeping pass runs unconditionally — there's no opt-out fast-path.
-- **Completed work has no open loops:** For finished sessions, write "None - work completed" (no bullets needed)
-- **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail
-- **Always check current date/time:** Run `date` command to get accurate timestamps with seconds. Never assume or use cached time
-- **Timezone:** Per `_shared-rules.md` Section 7. Use system timezone.
-- **Continuation linking only:** Do NOT add chronological "Next session:" or "Previous session:" links — sessions are in chronological order in the file, so these are redundant. The only cross-session links that carry information are topical: `**Continues:**` (in the new session, pointing to the session being continued) and `**Continued in:**` (added to the original session, pointing forward to the continuation). These are triggered by `/pickup` loading a specific session to continue.
-- **File locking:** Per `_shared-rules.md` Section 5. Use scripts, not Edit tool.
-- **Quality gate is mandatory:** Step 4 MUST produce visible output. This prevents silent skipping.
-- **Four-part quality check:** Lint (syntax), Refactor (content quality), Verify (session accuracy, when updating), Proofread (language). All four categories checked.
-- **Narrative tone:** Write summaries in the user's voice - direct, technical, outcome-focused
-- **Open loops clarity:** Each open loop should be specific enough to resume without re-reading the conversation
-- **SSOT routing:** All open loops are routed to canonical locations at park time (This Week.md, Tickler, or project files). Session docs contain plain-text records only — they are never task trackers. This ensures /morning, /goodnight, and /pickup read from authoritative sources, not stale session copies.
-- **No checkboxes in session logs:** Open loops in "Next Steps / Open Loops" use plain bullets (`- `), never checkboxes (`- [ ]`). Checkboxes belong in files where items are tracked and checked off (This Week.md, Tasks.md, project files). Session logs are write-once records — the format signals the function.
-- **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete)
-- **Project linking:** Follow the rules in `_shared-rules.md` Section 2.
-- **File lists:** Only list files that were actually created/updated, not files that were just read. Step 13a backfills files modified during the park itself (steps 11-13) into the session log — don't try to predict these at step 8. For empty sections, write bare `None` on its own line (not `- None`, not `None (explanation)` — just `None`). The backfill script tolerates variations, but bare `None` is the canonical form. **Files Updated is not vault-scoped** — include external paths (scripts, configs, repos, remote-host files, `~/.claude/*` files) when the session modified them and they're load-bearing for the work. Step 13a's vault-shaped framing reflects which files *the park itself* typically touches in steps 11-13, not a restriction on what the section can contain. A grep across session logs for `Files Updated.*<external-path>` should surface sessions that touched that external resource.
-- **Session naming:** Use descriptive names that will make sense weeks later ("Wezterm config fix" not "Terminal stuff")
+- **Merge continuations, don't fork sessions:** Step 2 handles this procedurally. Use `update-session-section.sh` for all section edits (never ad-hoc sed).
+- **Capture ALL sessions:** Full bookkeeping pass runs unconditionally — no opt-out fast-path.
+- **Continuation linking only:** No chronological "Next/Previous session:" links (redundant — sessions are ordered in the file). Only topical `**Continues:**` / `**Continued in:**` links, triggered by `/pickup`.
+- **File locking:** Per `_shared-rules.md` §5. Use scripts, not Edit tool.
+- **Narrative tone:** Write summaries in the user's voice — direct, technical, outcome-focused.
+- **Open loops:** Each must be specific enough to resume without re-reading the conversation. Route to SSOT (This Week, Tickler, project files) — session docs are plain-text records, never task trackers. Use plain bullets (`- `), never checkboxes (`- [ ]`) in session logs.
+- **One-sentence pickup:** The "For next session" line should be immediately actionable (or "No follow-up needed" if complete).
+- **Project linking:** Per `_shared-rules.md` §2.
+- **File lists:** Only files actually created/updated, not files just read. Empty sections: bare `None`. Files Updated is not vault-scoped — include external paths when load-bearing. Step 13a backfills park-time edits.
+- **Session naming:** Descriptive names that make sense weeks later ("Wezterm config fix" not "Terminal stuff").
 
 ## Shutdown Philosophy
 
-The goal is a clean "shutdown complete" — explicit acknowledgement of open loops so the mind can truly rest, or so you can keep working without losing track of anything. Every incomplete task is captured in a trusted system, eliminating mental residue whether you're closing for the night or reclaiming context window space mid-session.
-
-**For completed work:** Capture it anyway. The psychological closure ("this is done, documented, and archived") is valuable. Plus six months later you'll want to know "when did I make that decision?" The session archive answers that.
+Clean shutdown = every open loop captured in a trusted system, eliminating mental residue. Capture completed work too — the archive answers "when did I make that decision?" months later.

@@ -45,7 +45,7 @@ echo "Other active Claude sessions: $OTHER_CLAUDE"
 If `OTHER_CLAUDE > 0`: **Stop and warn the user.** Display:
 
 ```
-⚠ Found N other active Claude session(s). Park all sessions before running /goodnight — WIP/This Week edits now serialise through locked-edit.sh (per _shared-rules.md §5), so they compose or fail loudly rather than silently clobbering, but parking first keeps the day's state coherent and avoids loud-fail churn.
+⚠ Found N other active Claude session(s). Concurrent parks are safe — all shared-file writes serialise through locked-edit.sh (per _shared-rules.md §5). Parking first is no longer required for correctness, but keeps the day's state most coherent for the daily report. If sessions are still mid-park, goodnight can proceed — its own writes will compose or fail-and-retry.
 ```
 
 Wait for confirmation before proceeding. The user may say "go ahead" (they know the other sessions are idle) or park them first.
