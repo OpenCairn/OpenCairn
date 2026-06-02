@@ -90,7 +90,9 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **(b) Hot-capture habit nudge.** If substantive insights surfaced during the session but weren't routed in the moment via a "save that to [file]" interjection, name the habit gap in one line — metacognitive only. Do NOT cold-read the transcript to enumerate/classify/route — that re-introduces the failure mode hot-capture interjection is designed to avoid. If no habit gap, omit silently.
 
-   **(c) Apply four check categories** to every file in the list:
+   **(c) Read each file before checking.** For every file listed in (a), issue a Read tool call. Session memory of what you wrote is not a substitute — the quality gate exists to catch what memory misses (stale interim state, mid-session direction changes, typos normalised away from attention). A file that wasn't Read cannot appear in the "N files checked" count at the checkpoint. Non-vault files (scripts, configs) that were Read earlier in the session for editing purposes still need a fresh Read here — the gate checks the file's current state, not the state at edit time.
+
+   **(d) Apply four check categories** to every file just read:
 
    **LINT** — Syntax and structure:
    - YAML frontmatter syntax errors
@@ -121,7 +123,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **⛔ Don't auto-revert changes you didn't make.** If a file has been modified between your Edit and the quality-gate scan and the change wasn't yours, surface it in the gate output and let the user decide — don't undo it. Auto-reverting silently overwrites work you didn't make, and you have no reliable way to attribute the source of the change anyway.
 
-   **(d) Display the required checkpoint output:**
+   **(e) Display the required checkpoint output:**
 
    ```
    ✓ Quality check: N files checked, no issues found
@@ -133,7 +135,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - [path2] - [specific fix]
    ```
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until the quality-check line appears in your response. The file enumeration in (a) is also required — if you skipped it, the count claim in the checkpoint output is unverifiable. If you find yourself writing session metadata without having displayed both the file list and a quality check result, STOP and return to this step.
+   **⛔ CHECKPOINT:** You cannot proceed to Step 5 until the quality-check line appears in your response. The file enumeration in (a), Read calls in (c), and a quality check result are all required — if any are missing, the count claim in the checkpoint output is unverifiable. If you find yourself writing session metadata without having displayed all three, STOP and return to this step.
 
 ### Phase 3: Document and Archive
 
@@ -275,7 +277,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    find "{VAULT}/01 Now" "{VAULT}/02 Inbox" -maxdepth 2 -type f -name "*.md" -mmin -120 2>/dev/null
    ```
 
-   For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). If yes, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
+   For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). **Known at-risk signature:** `/reply` draft sections in Scratchpad, identified by headings starting with `**Reply to ` — see `_shared-rules.md` §11 for section boundaries and cleanup ownership. If durable work product is found, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
 
    - **⛔ CHECKPOINT:** Display exactly one of:
      ```

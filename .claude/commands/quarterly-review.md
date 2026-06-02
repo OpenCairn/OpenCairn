@@ -32,7 +32,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    - Read current `01 Now/Works in Progress.md`
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
-   - Read weekly reviews from `06 Archive/Claude/Weekly Reviews/` for the quarter
+   - Read weekly reviews from `06 Archive/Claude/Weekly Reviews/` for the quarter. **Boundary selection:** include any weekly review whose covered date range (from its `## Daily Reports` section) intersects the quarter; label partial-quarter reviews in the output. **Extraction guidance:** for each review, extract the Synthesis section, Projects Active, Alignment Check findings, and Course Corrections. Skip session counts, daily report links, and vault maintenance details (those are in the hygiene report).
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
    - **Consume the quarterly-hygiene report:** find the latest in `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/` (filename descending).
      - **Current quarter:** read it — its findings populate the Vault Health section of the output. Do not re-scan context files, CRM, or run structural queries; that work is done.
@@ -40,48 +40,55 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 ### Part 1: Strategic Review
 
-3. **Run the quarterly strategic interview:**
+3. **Mode choice.** Before the interview, ask the user once: interactive mode (walk through each section together) or auto-generate mode (compile answers from gathered data, present for validation). One question upfront — don't re-ask per section.
 
-**Retrospective — What happened this quarter:**
-- "Which projects were completed? Which stalled? Which were abandoned?"
-- "What emerged that wasn't planned 3 months ago?"
-- "What was planned but never started — why?"
-- "Looking at the weekly reviews, what patterns persisted across the full quarter?"
+4. **Synthesise and present.** Before asking questions, present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned (from WIP and project files), recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. This primes the user for the interview — they confirm, correct, and reflect rather than recall from memory.
 
-**Alignment — Are you working on the right things (reference Direction.md if loaded):**
-- "Have your priorities shifted since the start of the quarter?"
-- "Looking at your career and personal strategic plans — do they still reflect reality?"
-- "What's consuming time that shouldn't be?"
-- "What deserves more attention than it's getting?"
-- "Any projects that should be explicitly killed rather than lingering?"
-- "Any anti-goals that crept back in this quarter?"
-- "Are your disciplines holding? Any to add, remove, or adjust?"
+5. **Run the quarterly strategic interview:**
 
-4. **Direction.md overhaul (if Direction.md exists):**
-- Walk through each section of Direction.md with the user
-- Update strategic plans to reflect the current chapter (a quarterly review is a natural checkpoint for overhaul)
-- Review anti-goals list — any to add or remove (premises changed)?
-- Review disciplines — still the right set? Any to add, drop, or adjust?
-- **Always ask before editing** — Direction.md is high-trust, like context files. Edit only with user-provided text.
+   **Retrospective — What happened this quarter:**
+   1. "Which projects were completed? Which stalled? Which were abandoned?"
+   2. "What emerged that wasn't planned 3 months ago?"
+   3. "What was planned but never started — why?"
+   4. "Looking at the weekly reviews, what patterns persisted across the full quarter?"
 
-**Forward-looking — Next quarter:**
-- "What are the 3-5 Big Rocks for next quarter?"
-- "What needs to start now to be ready on time? (Long Poles)"
-- "What should you stop doing?"
+   **Alignment — Are you working on the right things (reference Direction.md if loaded):**
+   5. "Have your priorities shifted since the start of the quarter?"
+   6. "Looking at your career and personal strategic plans — do they still reflect reality?"
+   7. "What's consuming time that shouldn't be?"
+   8. "What deserves more attention than it's getting?"
+   9. "Any projects that should be explicitly killed rather than lingering?"
+   10. "Any anti-goals that crept back in this quarter?"
+   11. "Are your disciplines holding? Any to add, remove, or adjust?"
+
+   **Forward-looking — Next quarter:**
+   12. "What are the 3-5 Big Rocks for next quarter?"
+   13. "What needs to start now to be ready on time? (Long Poles)"
+   14. "What should you stop doing?"
+
+6. **Direction.md overhaul (if Direction.md exists):**
+   - Review these sections with the user: career strategic plan, personal strategic plan, anti-goals, disciplines, plus any section the user explicitly flags.
+   - **Always ask before editing** — Direction.md is high-trust, like context files. Propose draft changes separately; only edit after the user supplies or explicitly approves exact replacement text. Use the Edit tool (Direction.md is a context file, not a shared planning file — `locked-edit.sh` is not required).
 
 ### Part 2: Vault Health (from quarterly-hygiene)
 
-5. **Fold in the quarterly-hygiene findings.**
-   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its findings (context-file drift, CRM stale entries, oversized/near-empty files, carried weekly-hygiene structural items, session-log archiving status) into the output's Vault Health section. If no current report exists, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
+7. **Fold in the quarterly-hygiene findings.**
+   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its findings (carried weekly-hygiene structural items, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, actions taken/routed) into the output's Vault Health section. If no current report exists, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
+
+8. **Execute strategic edits (user-confirmed only):**
+   - Apply Direction.md updates the user approved during step 6 (user-provided text only). Re-read Direction.md immediately before each edit to avoid stale writes.
+   - Vault structural fixes (context corrections, file moves, archiving) are **not** done here — they belong to `/quarterly-hygiene`. If the user wants them actioned, point them at that command.
 
 ### Part 3: Output
 
-6. **Ensure output directory exists:**
+9. **Ensure output directory exists:**
    ```bash
    mkdir -p "{VAULT}/06 Archive/Quarterly Reviews"
    ```
 
-7. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
+10. **Check for existing review.** If `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md` already exists (e.g. a mid-quarter first run), read it and ask whether to overwrite, append an update section, or write with a `-2` suffix.
+
+11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
 ```markdown
 # Quarterly Review - YYYY QN ([Month] - [Month])
@@ -121,7 +128,7 @@ Projects to explicitly abandon rather than let linger:
 ## Vault Health
 *Source: Quarterly Hygiene Reports/YYYY-QN (current / not found — run /quarterly-hygiene)*
 
-[Summarised from the quarterly-hygiene report — context-file drift, CRM stale entries, oversized/near-empty files, carried weekly-hygiene structural findings, session-log archiving status. Not re-derived here.]
+[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, actions taken/routed. Not re-derived here.]
 
 ## Next Quarter
 
@@ -141,17 +148,16 @@ Projects to explicitly abandon rather than let linger:
 - ...
 ```
 
-8. **Execute strategic edits (user-confirmed only):**
-   - Apply Direction.md updates the user approved during step 4 (user-provided text only).
-   - Vault structural fixes (context corrections, file moves, archiving) are **not** done here — they belong to `/quarterly-hygiene`. If the user wants them actioned, point them at that command.
+12. **Skill self-review (explicit instantiation of `_shared-rules.md` §8 / `_skill-monitor.md`).**
+    This command runs ~4×/year, so the implicit skill-monitor watch is easy to skip. Before the final display, run the §8 / `_skill-monitor.md` review against this run end-to-end — did any step misfire, produce noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, propose specific edits to this skill file (display for user approval — never auto-apply; edit the template copy if template-synced). If clean, state `✓ Skill self-review: no gaps this run`.
 
-9. **Display confirmation:**
+13. **Display confirmation:**
 
 ```
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
 ✓ Quarterly-hygiene report: [folded in / not found — run /quarterly-hygiene]
 ✓ Direction.md: [N sections updated / no changes]
-✓ Projects reviewed: N active, M completed, P killed
+✓ Skill self-review: [no gaps / N edits proposed]
 
 Quarterly review complete.
 ```
