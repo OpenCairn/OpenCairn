@@ -24,7 +24,7 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 
 ## The two modes
 
-**Mode A — Independent panel (parallel, fresh reviewers).** Two reviewers from different model families, each seeing the work for the first time, running concurrently. Maximum non-anchoring; cross-model signal on agreement vs disagreement. Use when the question is "is my understanding of this right?" and you want judgement uncorrelated with the in-session conversation. This is the default mode and the one validated in real use.
+**Mode A — Independent panel (parallel, fresh reviewers).** Reviewers from different model families — Claude, Gemini, and Codex — each seeing the work for the first time, running concurrently. Maximum non-anchoring; cross-model signal on agreement vs disagreement. Use when the question is "is my understanding of this right?" and you want judgement uncorrelated with the in-session conversation. This is the default mode and the one validated in real use. If a CLI is unavailable, the panel runs with whoever's present (see Phase 2A step 4) — three families is the target, not a hard requirement.
 
 **Mode B — Iterative deepening (sequential, resumed reviewers) — unverified, see Phase 2B warning.** Bring the *same* reviewer(s) back for round 2, 3, or more. They carry their prior context forward — you don't have to re-brief them on the work or the history. Use when:
 - You've fixed the thing the reviewer flagged in round 1 and want to know whether the fix actually resolves their concern.
@@ -73,9 +73,9 @@ Write the brief once and save it to a scratch file with a unique name — e.g. `
 
 ### Phase 2A: Launch a fresh panel (Mode A)
 
-**Before launching: confirm Gemini is available** with `gemini --version` via Bash. If it errors out, the CLI isn't installed; use the single-reviewer fallback in step 3. If the version is older than 0.33, use the flag-less invocation in step 2.
+**Before launching: confirm the CLI reviewers are available** — run `gemini --version` and `codex --version` via Bash. If either errors out, that CLI isn't installed; drop it and note the reduced panel per step 4. If Gemini's version is older than 0.33, use the flag-less invocation in step 2.
 
-Send the brief to both reviewers in a **single message** with concurrent tool calls:
+Send the brief to all reviewers in a **single message** with concurrent tool calls:
 
 1. **Fresh Claude** via the Agent tool. Use `subagent_type: general-purpose`. **Read the scratch file's contents and pass them verbatim as the Agent's `prompt` argument** — the identical string that the Gemini call receives. Do not paraphrase, summarise, or extract; the two reviewers must see the same text, byte for byte, or you've re-introduced framing asymmetry. Tell the Agent explicitly in the prompt: independent judgement, disagree where warranted, no sycophancy, no "looks good overall" hedging. If you skip the disagree directive, fresh Claude defaults to polite confirmation of whatever framing you gave it.
 
@@ -94,9 +94,21 @@ Send the brief to both reviewers in a **single message** with concurrent tool ca
    cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly."
    ```
 
-   **After the call completes, capture and surface the Gemini session index.** Run `gemini --list-sessions | tail -3`; sessions are listed in ascending chronological order, so the **last/highest-numbered row** is the most recent. The leading numeric column (the `N.` before the prompt preview) is the index you want. Record it and surface it in the user-visible response text alongside the Agent ID (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12`). You'll need this for Mode B round 2, and "latest" is not a safe shortcut (see Phase 2B step 2). Verified against gemini 0.38.2; if the output format ever diverges (no header, different column layout, reversed ordering), note what you saw and flag it back to this file — gemini's `--resume` only accepts an index number or the string `"latest"`, so if index parsing breaks, Mode B round 2 isn't recoverable and you fall back to a fresh Mode A panel.
+   **After the call completes, capture and surface the Gemini session index.** Run `gemini --list-sessions | tail -3`; sessions are listed in ascending chronological order, so the **last/highest-numbered row** is the most recent. The leading numeric column (the `N.` before the prompt preview) is the index you want. Record it and surface it in the user-visible response text alongside the other handles (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12, Codex session 019e87a8-…`). You'll need this for Mode B round 2, and "latest" is not a safe shortcut (see Phase 2B step 2). Verified against gemini 0.38.2; if the output format ever diverges (no header, different column layout, reversed ordering), note what you saw and flag it back to this file — gemini's `--resume` only accepts an index number or the string `"latest"`, so if index parsing breaks, Mode B round 2 isn't recoverable and you fall back to a fresh Mode A panel.
 
-3. **If a reviewer is unavailable** — Gemini not installed, API unreachable, quota hit, Agent tool error, subagent timeout — fall back to the single available reviewer and **say so explicitly in the synthesis**. Do not silently pretend the panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim no longer applies.
+3. **Codex CLI** via Bash, in parallel with the Agent and Gemini calls. **Pass `timeout: 300000` (5 minutes) to the Bash tool call** — same reason as Gemini; the default 120 s will kill it mid-review.
+
+   Invocation — substitute `<prompt-path>` with the path recorded in Phase 1:
+   ```
+   cat <prompt-path> | codex exec --sandbox read-only --skip-git-repo-check -
+   ```
+   `--sandbox read-only` gives Codex read-only tool access (it can Read files but not edit them), matching the independent-review intent — the analogue of Gemini's `--approval-mode plan`. `--skip-git-repo-check` lets it run outside a git repository (the target often isn't one). The trailing `-` reads the brief from stdin. Output is plain text and pipe-friendly; a benign `failed to refresh available models` line may appear on stderr under flaky networks and can be ignored.
+
+   **Model:** don't pass `-m` — let Codex use its default. On a ChatGPT-account login the default resolves to the supported model for that plan; explicit `-codex`-suffixed models (e.g. `gpt-5.x-codex`) and the very newest point releases are often rejected for ChatGPT-account auth with a `not supported` or `requires a newer version of Codex` error. If the default itself errors, run `codex --version` and upgrade (`npm install -g @openai/codex@latest`) before pinning a model by hand.
+
+   **After the call completes, capture and surface the Codex session id.** The `codex exec` preamble prints a `session id: <uuid>` line; record that UUID and surface it in the user-visible response text alongside the other handles (e.g. `Panel spawned: Opus agent a5abc789, Gemini session #12, Codex session 019e87a8-…`). You'll need it for Mode B round 2; Codex resumes by UUID, which is more robust than Gemini's index.
+
+4. **If a reviewer is unavailable** — a CLI not installed, API unreachable, quota hit, Agent tool error, subagent timeout — fall back to the reviewers that are present and **say so explicitly in the synthesis**. Do not silently pretend the full panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim weakens with every family you drop.
 
 ### Phase 2B: Resume prior reviewers (Mode B)
 
@@ -112,7 +124,7 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
 
 3. **Look up the Gemini session index deterministically.** If you surfaced the index in Phase 2A (as instructed), use that. If not, run `gemini --list-sessions` and identify the right session by timestamp and project. **Do not use `--resume latest`** — "latest" resolves to the most recent gemini session for the project, so if you or any other process has run gemini for anything in between (even a quick one-shot), `latest` resumes the wrong session. Always resume by numeric index.
 
-4. **Invoke both reviewers in a single message with concurrent tool calls**, same as Phase 2A — parallel, not sequential:
+4. **Invoke the reviewers in a single message with concurrent tool calls**, same as Phase 2A — parallel, not sequential:
 
    - **SendMessage to the resumed Claude Agent**: `to` = the Agent ID recorded in Phase 2A, `content` = the round-2 prompt (read from the scratch file). The resumed Agent keeps its full prior context; you do **not** re-brief from scratch.
 
@@ -122,15 +134,21 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
      ```
      Replace `12` with your actual session index. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable. **In the Phase 3 synthesis, annotate this case explicitly** (e.g. `[Gemini r2, fresh-with-replay]`) so the reader can distinguish a true resume from a replayed brief — they're not equivalent signals.
 
+   - **Codex CLI via Bash** with `timeout: 300000` — resume by the UUID recorded in Phase 2A, substituting `<round2-path>`:
+     ```
+     cat <round2-path> | codex exec resume <SESSION_ID> --sandbox read-only --skip-git-repo-check -
+     ```
+     Replace `<SESSION_ID>` with the session UUID from round 1 (`codex exec resume --last` picks the most recent recorded session if you've lost it, but resume by explicit UUID when you have it — `--last` has the same wrong-session risk as Gemini's `latest` if any other codex run happened in between). The resumed session carries its round-1 context. Same fallback as Gemini if resume doesn't round-trip: run codex fresh with the round-1 output quoted in the brief, and annotate `[Codex r2, fresh-with-replay]` in the synthesis.
+
 5. **If only one reviewer is being iterated** (you only care about one reviewer's finding in round 2), run that one in Phase 2B and skip the other. Note clearly in the synthesis that round 2 is single-reviewer.
 
 ### Phase 3: Tiebreak and synthesise
 
-Once the reports come back, write the synthesis. **Tag every finding with attribution** — `[Opus+Gemini]` for shared finds, `[Opus]` or `[Gemini]` for unique ones, `[Opus r2]` or `[Gemini r2]` for points from a single reviewer's Mode B round-2 response, `[Opus+Gemini r2]` when both iterated reviewers land on the same round-2 finding. Attribution is not optional: without it, the panel's provenance is lost and the tiebreak becomes unreviewable. The user can't audit your reasoning if they can't see which reviewer raised what, or which round it came from.
+Once the reports come back, write the synthesis. **Tag every finding with attribution** — name the reviewers who raised it: `[Opus]`, `[Gemini]`, or `[Codex]` for unique finds; the combination for shared ones (`[Opus+Gemini]`, `[Gemini+Codex]`, …), with `[All]` reserved for findings every reviewer on the panel raised; append `r2` for Mode B round-2 points (`[Opus r2]`, `[All r2]`). Attribution is not optional: without it, the panel's provenance is lost and the tiebreak becomes unreviewable. The user can't audit your reasoning if they can't see which reviewer raised what, or which round it came from.
 
-1. **Confirmed by both `[Opus+Gemini]`** — findings both reviewers agree on. Highest-confidence action items, but *not* ground truth: correlated agreement is weak evidence, especially within a single model family. One line each.
+1. **Confirmed by multiple reviewers (`[All]`, `[Opus+Gemini]`, …)** — findings more than one reviewer agrees on; the more families that converge, the higher the confidence. Still *not* ground truth: correlated agreement is weak evidence, especially within a single model family. One line each.
 2. **Disputed** — points where the reviewers disagree, or where a round-2 reviewer revised their round-1 position, or where a reviewer's critique contradicts a claim the brief asserted on the author's behalf. For each, state your decision and *why*. Pick a side and justify it. Don't hedge. Don't "both are valid."
-3. **Uniquely flagged `[Opus]` or `[Gemini]`** — issues only one reviewer raised. Judge each on merit: a real issue, or a reviewer idiosyncrasy? Legitimate misses get promoted to the action list; shallow observations get dropped with a reason.
+3. **Uniquely flagged (`[Opus]`, `[Gemini]`, or `[Codex]`)** — issues only one reviewer raised. Judge each on merit: a real issue, or a reviewer idiosyncrasy? Legitimate misses get promoted to the action list; shallow observations get dropped with a reason.
 4. **Priority stack** — the full action list ordered by impact (critical → polish), attribution tags preserved. Be explicit about severity so nothing silently rides along on the coat-tails of something important.
 5. **"I don't know" items** — if either reviewer flagged something you can't confidently adjudicate without verification (docs, tests, running code, reading source), list it separately. Do *not* act on unverified claims just because they sound plausible. Especially true for claims about tool behaviour, platform quirks, and version-sensitive APIs.
 
@@ -149,10 +167,10 @@ Executing the fixes is outside the scope of this skill. Hand off to direct edits
 - **Pick the mode by question type, not by habit.** Fresh panel (Mode A) for "is my understanding right?"; iterative (Mode B) for "does my fix land?" or "defend or revise this critique." Default to Mode A if the question is genuinely open; default to Mode B if you're coming back to a specific thread from a prior review.
 - **Surface Agent IDs and Gemini session indices in visible response text after Phase 2A.** Raw tool results scroll out of context; visible transcript text persists. You can't resume a reviewer in Mode B if you can't find their handle.
 - **Brief fresh reviewers like colleagues walking in cold.** Mode A reviewers have zero prior knowledge of the task, the conversation, or why this matters. The brief must stand on its own. Mode B reviewers already have context — don't re-send the whole brief, send a tight continuation.
-- **Two reviewers is the default, not the ceiling.** Scale to three only if the first two agree on everything and you suspect they're correlating on a shared blind spot. Never run four — you're paying coordination cost for diminishing signal.
-- **Cross-model, not cross-instance.** Two fresh Claudes will correlate more than one Claude plus one Gemini. Use different model families when you can — non-correlated error modes is the whole value proposition.
+- **Three model families is the default panel.** Claude + Gemini + Codex — one reviewer per family. Don't add a fourth reviewer in the same family (e.g. a second Claude); you pay coordination cost for correlated signal. If a CLI is down, run the panel short and say so rather than backfilling with a same-family duplicate.
+- **Cross-model, not cross-instance.** Two fresh Claudes will correlate more than one Claude plus a Gemini and a Codex. Spread across model families — non-correlated error modes is the whole value proposition; a third independent family is exactly why Codex is on the panel.
 - **Report disagreement plainly.** When reviewers split, or when a Mode B reviewer revises a round-1 position, say so in the synthesis. That's often more useful than the individual verdicts.
-- **Attribution is mandatory.** Every finding in the synthesis carries a `[Opus]`, `[Gemini]`, `[Opus+Gemini]`, or `[... r2]` tag. This lets the user audit your tiebreak and catches the laundering failure mode where reviewer claims get presented as your own conclusions.
+- **Attribution is mandatory.** Every finding in the synthesis names the reviewers who raised it — `[Opus]`, `[Gemini]`, `[Codex]`, a combination, `[All]`, or any of these with an `r2` suffix. This lets the user audit your tiebreak and catches the laundering failure mode where reviewer claims get presented as your own conclusions.
 - **Don't over-iterate in Mode B.** Three rounds on the same thread and still disagreeing means the disagreement is substantive, not procedural. Escalate to the user with both positions clearly stated; don't run round 4.
 - **Scope discipline.** This is not `/audit` redone from scratch. Trust the reviewers to bring their own framework; your job is synthesis, not re-review.
 - **Verify before acting on unique finds.** A single reviewer confidently flagging a bug is a hypothesis, not a fact. Check it (read the code, test the command, look up the docs, read the source) before editing anything. Especially true for claims about tool behaviour, platform quirks, and version-sensitive APIs — a reviewer that confidently asserts "X doesn't work on Windows" can be wrong, and acting on it without verification means you've shipped a regression to fix a non-issue.

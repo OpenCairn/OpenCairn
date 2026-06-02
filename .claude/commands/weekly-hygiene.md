@@ -134,9 +134,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
    - Update header metadata: check the `**Location:**` line against the most recent daily report. Flag if stale. (The `**Status:**` line has been deprecated — if one is still present as legacy, flag it for removal rather than staleness.)
 
-9. **Claude Memory Audit & Migration**
+9. **Claude Memory Audit**
 
-   Claude Code's auto-memory (`~/.claude/projects/*/memory/MEMORY.md` and any topic files alongside it) accumulates observations across sessions. The vault is the canonical home for persistent knowledge — memory should be a temporary landing zone, not a permanent silo. Left unchecked, valuable lessons get trapped in a Claude-internal folder invisible to Obsidian search, backlinks, and the user's normal workflows.
+   Claude Code's auto-memory (`~/.claude/projects/*/memory/` — the topic files plus the `MEMORY.md` index) holds behavioural corrections, user preferences, and technical reference notes. Topic files are surfaced by **relevance matching** (loaded only when semantically relevant); the `MEMORY.md` index is loaded **in full every session** and is hard-capped.
+
+   **Doctrine: memory is a legitimate thin layer, not a silo to drain.** Most behavioural corrections belong *in memory* — relevance-matching fires them whenever the situation resembles the original, including cases no routing keyword would predict. Migrating such a rule to a keyword-routed context file (or into always-loaded `CLAUDE.md`) changes *when it fires* and can silently weaken it. So the weekly job is to keep memory **lean and the index under cap** — primarily by trimming bloated index hooks in place — *not* to relocate rules by default. Migration is the **exception**, reserved for entries that are genuinely mis-homed (below).
 
    **Gather:**
    - Locate the active memory directory: `ls ~/.claude/projects/*/memory/` — find the one matching the current working directory's path encoding
@@ -144,15 +146,23 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read `CLAUDE.md` from the vault root (needed for duplicate detection)
    - Count total entries/lines across all memory files
 
-   **For each memory entry, classify:**
-   - **Migrate to vault:** The memory contains a lesson, workflow insight, or reference that belongs near the relevant vault content (e.g., a workflow correction belongs near the workflow doc, a project lesson belongs in the project file). Propose the specific vault destination — verify the target file exists before proposing (if it's been moved/deleted, find the current location or flag for user).
-   - **Keep in memory:** The memory is about Claude's behaviour but too granular or context-dependent for CLAUDE.md (e.g., "when user says X, they mean Y in this repo"). If it's a general behaviour rule, it belongs in CLAUDE.md's "Working With Me" section, not memory. Genuine keeps should be rare.
+   **Index health (mechanical — check every week):**
+   - `wc -lc` the `MEMORY.md` index. The hard cap is **200 lines OR 25 KB, whichever first** — entries past it are *silently dropped* from the system prompt with no warning. Flag for action at **≥150 lines or ≥22 KB** (proactive, before the cap trips).
+   - Flag any index **hook** (the text after ` — `) longer than ~160 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.)
+
+   **For each memory entry, classify (migration is the exception, not the default):**
+   - **Trim (the usual index fix):** the index hook has bloated into a duplicate of its topic-file body. Compress the hook back to a one-line pointer and keep the entry — the detail stays in the topic file. This is the first remedy whenever the index is over (or near) cap; see *Index health* above.
+   - **Keep in memory (the default for behaviour rules):** a behavioural correction whose trigger is contextual or unpredictable. Relevance-matching is the correct mechanism — leave it. Keeps are common, not rare.
+   - **Migrate — only if genuinely mis-homed, and only if the destination actually loads on the entry's trigger:**
+     - *Pure technical reference* (knowledge content, not a behaviour rule) → a vault doc near the relevant content, so it's visible to Obsidian search/backlinks. Verify the target file exists.
+     - *A rule that genuinely fires in almost every session* → `CLAUDE.md`'s "Working With Me" section (accept the per-session token cost).
+     - Before moving any rule to a routing-matched context file, confirm `CLAUDE.md`'s routing table actually loads that file for the rule's trigger — otherwise the rule goes dark. If it won't reliably load there, keep it in memory.
    - **Delete:** Stale (completed project, resolved decision), duplicated in vault/CLAUDE.md, vague/unactionable, or contradicts current vault content.
 
    **Resolve in-session:**
    - Present each entry with its classification and recommended action
-   - For migrations: show the proposed vault destination and how the content would be integrated (appended to existing doc, new section, etc.)
-   - Execute confirmed deletions and migrations during the sweep. Delete memory files, update MEMORY.md index.
+   - For trims: show the compressed hook. For migrations: show the destination and confirm it loads on the entry's trigger before moving.
+   - Execute confirmed trims, deletions, and (rare) migrations during the sweep. Update the `MEMORY.md` index; delete memory files only for migrated or deleted entries.
    - **If user disengages:** route unresolved entries to Tasks.md with a hygiene report back-reference.
 
 10. **Claude Internal File Cleanup**
