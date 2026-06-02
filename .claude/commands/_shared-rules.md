@@ -275,3 +275,17 @@ Two gotchas bite any skill that calls the `gemini` CLI:
 
 - **File reads are sandboxed to the home directory** (`~`, plus `~/.gemini/tmp/...`). Gemini cannot read a path outside `~` — e.g. anything under `/tmp`. **Pipe text via stdin** — `cat <file> | gemini -p "..."` — the shell reads the file and Gemini sees only stdin, so the sandbox never applies. (The panel pattern in `/second-opinion` and `/audit` is already safe for this reason.) Never hand Gemini an absolute `/tmp` path to read; if a skill must point Gemini at a file, stage it under `~` first.
 - **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install. Reference implementation: `/ocr-hand`.
+
+---
+
+## 11. Scratchpad Work-Product Protection
+
+Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed to be cleared regularly, not durable homes. `/reply` drafts persisted there are at-risk work product until the user confirms lifecycle completion.
+
+**Draft identification.** `/reply` draft sections are identified by a heading line starting with `**Reply to ` and ending with `:**`. Example: `**Reply to Sarah (WhatsApp — dinner plans):**`.
+
+**Section boundary.** A draft section starts at the heading line, includes all content through the trailing `> Context:` / `> Note:` blockquote, and ends before the next line matching the same heading pattern, the next `#`-heading, or EOF.
+
+**Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 10(b) and `/weekly-hygiene` Step 6 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
+
+**Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.

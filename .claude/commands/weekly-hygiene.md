@@ -108,8 +108,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Find all Scratchpad.md files: `find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
    - For each non-empty scratchpad, note line count and days since last modified
 
-   **Resolve in-session:**
-   - Present all non-empty scratchpads to user and offer to triage during the sweep.
+   **At-risk work-product detection (before triage).** Grep each non-empty scratchpad for `/reply` draft headings (`**Reply to `). For each match:
+   - Flag as "unsent `/reply` draft — at-risk work product"
+   - Present file path, heading, and first non-empty body line to user
+   - Per-draft confirmation required: "sent" (→ remove section per §11 boundary rules via `locked-edit.sh`), "still needed" (→ route to durable location), or "discard" (→ remove section)
+   - **Routing for "still needed":** CRM dossier if one exists for the recipient; else relevant project/area doc; else `01 Now/Tasks.md` as fallback with a backlink
+   - Protected draft sections are excluded from general scratchpad triage below — handle them here first
+   - See `_shared-rules.md` §11 for section boundary rules and cleanup ownership
+
+   **Resolve in-session (non-draft content):**
+   - After draft sections are resolved above, present remaining non-empty scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
    - **If user declines:** add `⚠ Hygiene Wnn: NL, Nd since last edit — triage needed` at the top of each non-empty scratchpad file.
 
 7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
@@ -185,11 +193,24 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    ```bash
-   for dir in plans debug paste-cache shell-snapshots telemetry; do
+   # Non-plan directories: safe to delete unconditionally
+   for dir in debug paste-cache shell-snapshots telemetry; do
      find ~/.claude/$dir/ -type f -mtime +7 -delete 2>/dev/null
    done
    ```
-   Report per-directory counts (deleted and remaining).
+
+   **Plans directory — guarded deletion.** Plan files may be referenced by open work (WIP entries, Tasks). Before deleting each stale plan, grep its filename against `01 Now/Works in Progress.md` and `01 Now/Tasks.md`. Exclude matches — report them as "retained (referenced by open work)" instead.
+   ```bash
+   find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
+     base=$(basename "$f")
+     if grep -qF "$base" "{VAULT}/01 Now/Works in Progress.md" "{VAULT}/01 Now/Tasks.md" 2>/dev/null; then
+       echo "RETAINED (referenced): $base"
+     else
+       rm "$f" && echo "DELETED: $base"
+     fi
+   done
+   ```
+   Report per-directory counts (deleted, retained, and remaining).
 
    **Shared-patterns pointer check** (if `~/.claude/commands/_shared-patterns.md` exists). The pattern index points each entry at a reference skill (`→ ` + backtick-quoted skill name). Verify every pointer still resolves to a live skill file; a dangling pointer means the reference skill was renamed or removed.
    ```bash
@@ -410,7 +431,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Items needing routing: [list or "none"]
 
    ## Scratchpads
-   - Files with unprocessed items: [list or "none"]
+   - Protected /reply drafts: N [paths, or "none"]
+   - Drafts resolved this sweep: N (sent / routed / discarded)
+   - Ordinary unprocessed content: [list or "none"]
 
    ## CRM Candidates
    - New names (not in CRM, 2+ mentions): [list or "none"]

@@ -94,9 +94,10 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
    **After output:**
    - Wait for user feedback: edits, "sent", etc.
-   - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. This is the point of the whole loop: the draft→sent delta is where the voice profile learns. Then acknowledge briefly (one line).
-   - If the user just says "sent" without pasting text, ask once whether they changed anything before sending. If they didn't, there's no delta to diff — skip the refinement and acknowledge.
-   - Don't clear scratchpad automatically.
+   - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. This is the point of the whole loop: the draft→sent delta is where the voice profile learns.
+   - If the user just says "sent" without pasting text, ask once whether they changed anything before sending. If they didn't, there's no delta to diff — skip the refinement.
+   - **Scratchpad cleanup (after voice refinement is resolved).** Remove the draft section from `Scratchpad.md` — the draft served its purpose. Read Scratchpad, extract the exact section content per `_shared-rules.md` §11 boundary rules, then remove via `locked-edit.sh --replace` with empty `new_string`. Acknowledge briefly (one line) after removal.
+   - If the user said "just inline" in step 5 (no scratchpad write), skip the cleanup.
 
 ## Conversation Continuity
 
