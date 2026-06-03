@@ -117,7 +117,7 @@ For each day that now has a daily report (whether from /goodnight or 2a), check 
 ```bash
 curl -sf "https://api.open-meteo.com/v1/forecast?latitude=LAT&longitude=LON&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&timezone=TZ&forecast_days=7"
 ```
-API returns Celsius by default. Add `&temperature_unit=fahrenheit` if the user's locale uses Fahrenheit.
+API returns Celsius by default. Keep Celsius unless the user's **locale** (CLAUDE.md, e.g. `en_US`) uses Fahrenheit — only then add `&temperature_unit=fahrenheit`. Base this on locale/home preference, **never** on the current travel location: a Celsius user travelling in the US still wants Celsius.
 
 Parse the JSON and format as a compact markdown block:
 ```
