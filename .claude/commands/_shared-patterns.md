@@ -26,3 +26,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
+- **WhisperX audio→JSON core** — load model → align → optional diarise → emit segments JSON. → `transcribe`
