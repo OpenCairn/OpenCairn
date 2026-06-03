@@ -34,6 +34,7 @@ This is the "big picture" complement to session-level parking.
 
 2. **Read comprehensive context:**
    - `{VAULT}/01 Now/Works in Progress.md` - active projects
+   - `{VAULT}/01 Now/This Week.md` - the day-level SSOT for live status (deadlines, deferrals, current position); reconcile against it per step 3
    - Recent session files (last 10 days) - recent work
    - Last daily review (if exists) - recent progress
    - Last weekly review (if exists) - patterns and insights
@@ -43,6 +44,7 @@ This is the "big picture" complement to session-level parking.
    - All unchecked open loops from recent sessions
    - All time-sensitive items or deadlines
    - Any "waiting on" dependencies
+   - **Reconcile every status fact against This Week.md before it enters the snapshot** (deadlines, review dates, deferrals, "waiting on", current position) — WIP and session logs can lag the day plan by a session or two, and this snapshot is read back weeks/months later, so a stale fact rots the longest. The trap is promoting a *secondary-surface* value (a session-log "Files Updated" line, a WIP "Next" pointer, a prior snapshot) to current state: a date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles. If This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — don't snapshot a plausible-looking secondary-surface value as fact.
 
 4. **Interactive interview** (ask the user):
    - **Break duration:** "How long do you expect to be away?" (days/weeks/months)

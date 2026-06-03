@@ -267,6 +267,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    **Gather context for dynamic sections:**
    - Read `{VAULT}/01 Now/Works in Progress.md` — every active entry is a candidate for inclusion, not just "projects." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
    - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (sorted descending) for trajectory and recent events. The current week's review data is already available from earlier steps.
+   - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because WIP and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a WIP "Next" pointer, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
 
    **Read previous context version** to carry forward stable sections:
    - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/` (sorted by filename descending)
@@ -341,7 +342,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - Factual and current
    - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
    - **Stable sections: carry forward, BUT verify per the Stable section verification rules above** (monthly source re-read, plus distrust lineage/tradition/methodology claims always).
-   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting.
+   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting, reconciling every status fact against This Week.md per the gather-step rule above (the day plan wins over WIP/session-log/prior-doc surfaces).
    - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and WIP (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
 
    **Staleness rules (mandatory).** Claude Web Memory persists between conversations and the doc may be re-pasted weeks after generation. The doc must read sensibly N weeks after the `Last updated:` date.
