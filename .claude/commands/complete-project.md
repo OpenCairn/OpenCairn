@@ -89,7 +89,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    **Step 5c — Verify link integrity:**
    - Run `obsidian unresolved` and confirm the move introduced no new dangling links pointing at the project's old location. Path-based inbound links are the common breakage; `obsidian move` should have updated them, but verify rather than assume.
-   - **Also grep the moved project's bare anchor + path forms as plain text** (e.g. `rg -F '[[03 Projects/Project Name]]'` and `rg -F '03 Projects/Project Name'`). `obsidian move` rewrites `[[wikilink]]` references and `obsidian unresolved` catches dangling ones, but neither touches *prose/plain-text* references to the moved project ("see the Project Name doc", a path inside a fenced code block, a `**Source:**` line). Grep with NO keyword conjunction; triage each hit (stale pointer → update; historical record → leave).
+   - **Also grep the moved project's bare anchor + path forms as plain text** (e.g. `rg -Fi '[[03 Projects/Project Name]]'` and `rg -Fi '03 Projects/Project Name'` — `-i` catches lowercased prose forms like "the project name doc"). `obsidian move` rewrites `[[wikilink]]` references and `obsidian unresolved` catches dangling ones, but neither touches *prose/plain-text* references to the moved project ("see the Project Name doc", a path inside a fenced code block, a `**Source:**` line). Grep with NO keyword conjunction; triage each hit (stale pointer → update; historical record → leave).
 
 6. **Update Works in Progress:**
    - **Write mechanism (F1):** WIP edits use `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
