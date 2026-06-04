@@ -27,3 +27,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
 - **WhisperX audio→JSON core** — load model → align → optional diarise → emit segments JSON. → `transcribe`
+- **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`

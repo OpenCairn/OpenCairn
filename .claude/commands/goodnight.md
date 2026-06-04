@@ -355,6 +355,8 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 
 **(e) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size), re-despatch a focused sub-agent on that hub.
 
+- **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step d) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-goodnight state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03** (in `/park`, which shares this audit-delegation design): an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line as a fabrication.
+
 **(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 13/14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
 
 1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from 13/14's reconciliation, any audit remediation from (e)).
@@ -381,7 +383,7 @@ Export today's verbatim session transcripts to the vault. Claude Code auto-delet
 
 ```bash
 TODAY=$(date +"%Y-%m-%d")
-TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/Session Transcripts/$TODAY.md"
+TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/.Session Transcripts/$TODAY.md"
 if [[ -f "$TRANSCRIPT_FILE" ]]; then
   echo "Transcripts already exported for today (from /park) — skipping"
 else
@@ -389,7 +391,7 @@ else
 fi
 ```
 
-Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
+Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
 
 ### 17. Process Provenance Flags
 
@@ -418,7 +420,7 @@ If no flags exist, skip silently. See `/provenance` for flag file format and ful
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
 ✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
-✓ Transcripts exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
+✓ Transcripts exported: N sessions → 06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md
 ✓ Provenance: N files hashed [OR "no flags"]
 Goodnight.
 ```

@@ -79,7 +79,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **If not resolved in-session:** For each tier mismatch the user doesn't address, append `⚠ Hygiene Wnn: file in wrong tier — move to Cold/?` to the WIP entry (if one exists) or add to Tasks.md with a hygiene report back-reference (if no WIP entry).
 
-   **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Fix broken wikilinks in non-archive files. Leave archive/session log references as historical records.
+   **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Triage each hit per `_shared-rules.md §12` (grep-hit triage): fix stale wikilinks/locators in non-archive files; leave archive/session-log references as historical records; for a hash/provenance-log path, update the locator on the move, never the content hash/timestamp/proof.
 
 4. **Tickler Hygiene**
 
@@ -235,7 +235,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    The script:
    - Finds all JSONL files modified in the last 7 days in `~/.claude/projects/`
    - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
-   - Writes one file per day to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - Writes one file per day to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - Overwrites existing files for the same date (idempotent)
 
    Report the script's stdout summary in the hygiene report.
@@ -361,7 +361,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    If any flag files exist (these are sessions where `/provenance` was invoked but `/goodnight` didn't process them — missed goodnight, crashed session, etc.):
    - Read each flag to get the tag and work product list
    - Hash any work products not already hashed
-   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - Hash the session log for that date: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
    - OTS stamp all newly hashed files
    - Append entries to `07 System/AI Provenance Log.md`
@@ -372,9 +372,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    Read `{VAULT}/07 System/AI Provenance Log.md`. For each entry:
 
    **Resolve file path** from the File column:
-   - `*-transcript.md` → `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`
+   - `*-transcript.md` → `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by `/quarterly-hygiene` — the `YYYY` is the date's year)
-   - Paths containing `/` → `{VAULT}/relative/path`
+   - Paths containing `/` → `{VAULT}/relative/path`. **Self-heal on move:** if that literal path is absent (the file was moved/renamed since logging — e.g. a folder dot-prefixed), fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -type f -print -quit` (note: do NOT exclude `06 Archive/` here — relocated transcripts live there) and accept the hit **only if** its content hash matches the logged hash. A hash match confirms it's the same file at a new location → use it for verification and update the log's path to the found location. No hit, or a hit whose hash differs → record MISSING (never repoint to a non-matching file). This keeps the verify pass robust to moves without depending on `/park` having caught every path reference.
    - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
 
    **Re-hash and compare:**
