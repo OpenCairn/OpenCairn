@@ -125,7 +125,7 @@ This is the "big picture" complement to session-level parking.
 *To restore this context: `/awaken` or `/awaken --date=YYYY-MM-DD`*
 ```
 
-6. **Update Works in Progress:**
+6. **Update Works in Progress:** (via `locked-edit.sh`, not the Edit tool — WIP is a shared planning file, see `_shared-rules.md` §5)
    - Add "Last updated" note: "Hibernated YYYY-MM-DD - see hibernate snapshot"
    - Optionally add 🛌 emoji to active projects to indicate hibernation
 

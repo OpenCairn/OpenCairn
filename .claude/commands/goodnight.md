@@ -91,7 +91,7 @@ Wait for response.
 
 When the user reports a loop is complete, update the SSOT files (not session docs — those are historical records with plain bullets):
 
-1. **Update This Week.md:** If This Week.md is current and the completed item appears as unchecked in today's day section, mark it `[x]`. Use the Edit tool.
+1. **Update This Week.md:** If This Week.md is current and the completed item appears as unchecked in today's day section, mark it `[x]` via `locked-edit.sh --replace` (not the Edit tool — This Week.md is a shared planning file, see `_shared-rules.md` §5).
 2. **Update Tickler.md:** If the completed item appears in Tickler, delete the line.
 3. **Update project file:** If the item is scoped to a project, mark it complete in the project file.
 4. **Confirm the update:** Display brief acknowledgement:
