@@ -59,6 +59,8 @@ cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -
 ```
 Surface each reviewer's session handle (Agent ID, Gemini index, Codex UUID) in visible text — you'll need them for a Phase 4 re-audit. The Gemini index isn't printed in-band: capture it with `gemini --list-sessions | tail -3` (highest-numbered row, leading numeric column). Codex prints `session id: <uuid>` in its preamble. See `second-opinion.md` Phase 2A for the full capture recipe.
 
+**Integrity guard (same as `second-opinion.md` Phase 2A step 6).** `--approval-mode plan` is not a hard read-only guarantee — on gemini 0.40.x it blocks shell but still exposes the `replace` edit tool, so a reviewer can write its proposed fixes into the target. After the panel returns and before Phase 3, `git status` the target (if a repo) and revert any reviewer-introduced changes; compare any "proposes text that already exists" finding against committed HEAD, not the working tree.
+
 Work through these layers in order. Each layer can invalidate everything below it, so don't skip ahead.
 
 #### Layer 1: Is the approach right?
