@@ -1,0 +1,30 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "opencairn",
+  "description": "OpenCairn — Park, Pickup, Flow. Session chaining, daily/weekly/quarterly review loops, and a cross-model audit panel for Claude Code + Obsidian.",
+  "owner": {
+    "name": "Harrison Edwards",
+    "email": "harrisonaedwards@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "opencairn",
+      "source": "./",
+      "description": "Slash commands for Claude Code: park/pickup session chaining, morning/afternoon/goodnight day loops, weekly & quarterly reviews, a five-layer cross-model audit panel, and PKM utilities. Designed to pair with the OpenCairn NIPARAS vault, but the commands install standalone.",
+      "category": "productivity",
+      "keywords": [
+        "obsidian",
+        "pkm",
+        "productivity",
+        "session-management",
+        "park-pickup",
+        "niparas",
+        "second-brain",
+        "audit"
+      ],
+      "homepage": "https://hedwards.dev/",
+      "repository": "https://github.com/OpenCairn/OpenCairn",
+      "license": "CC-BY-NC-4.0"
+    }
+  ]
+}

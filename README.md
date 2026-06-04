@@ -170,6 +170,15 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 **Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
 
+**Install just the commands (optional):** OpenCairn is also a Claude Code plugin marketplace, so you can pull the slash commands into any project without cloning the vault:
+
+```bash
+/plugin marketplace add OpenCairn/OpenCairn
+/plugin install opencairn@opencairn
+```
+
+This installs the **command layer only** — the vault-coupled commands (`/park`, `/morning`, `/weekly-review`) still assume the NIPARAS folder structure and `VAULT_PATH`, while the portable ones (`/audit`, `/second-opinion`, `/de-ai-ify`) work standalone. For the full system, clone the template above.
+
 ---
 
 ## All Commands
