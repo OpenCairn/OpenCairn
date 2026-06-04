@@ -78,6 +78,13 @@ def atomic_write(path, data):
     try:
         with os.fdopen(fd, "w") as f:
             f.write(data)
+        # Preserve the target's existing mode: mkstemp creates the temp file
+        # 0600, so without this every locked edit would silently reset the
+        # planning file's permissions (breaking group-readable / NAS setups).
+        try:
+            os.chmod(tmp, os.stat(path).st_mode & 0o7777)
+        except FileNotFoundError:
+            pass
         os.replace(tmp, path)   # atomic within the same filesystem
     except BaseException:
         try: os.remove(tmp)
@@ -92,6 +99,11 @@ if mode == "--append":
     # Append verbatim; ensure exactly one newline boundary before the new block.
     if existing and not existing.endswith("\n"):
         existing += "\n"
+    # Terminate the appended block with a newline too: $(cat) strips stdin's
+    # trailing newline, so without this the file ends unterminated and a later
+    # foreign appender (Edit tool) concatenates onto the last line.
+    if stdin and not stdin.endswith("\n"):
+        stdin += "\n"
     atomic_write(target, existing + stdin)
     sys.exit(0)
 

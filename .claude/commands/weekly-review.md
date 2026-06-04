@@ -60,7 +60,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
        ```bash
        cd "{VAULT}" && git log --since="YYYY-MM-DD 00:00" --until="YYYY-MM-DD 23:59" --name-only --pretty=format: | sort -u
        ```
-       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
+       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/.Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
    - **Compute per day:**
      - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Relationships/[Person]`, not just `04 Areas`).
      - Executed items from daily report: `- ✓` = checked; plain `- ` items with `rolled to` suffix or absent from post-morning state = migrated-out; `~~strike~~` = dropped; items in daily report not in post-morning state = added mid-day. Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
