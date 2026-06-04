@@ -1,0 +1,22 @@
+{
+  "name": "opencairn",
+  "description": "Slash commands for Claude Code: park/pickup session chaining, morning/afternoon/goodnight day loops, weekly & quarterly reviews, a five-layer cross-model audit panel, and PKM utilities. Designed to pair with the OpenCairn NIPARAS vault, but the commands install standalone.",
+  "author": {
+    "name": "Harrison Edwards",
+    "email": "harrisonaedwards@gmail.com"
+  },
+  "homepage": "https://hedwards.dev/",
+  "repository": "https://github.com/OpenCairn/OpenCairn",
+  "license": "CC-BY-NC-4.0",
+  "keywords": [
+    "obsidian",
+    "pkm",
+    "productivity",
+    "session-management",
+    "park-pickup",
+    "niparas",
+    "second-brain",
+    "audit"
+  ],
+  "commands": "./.claude/commands"
+}
