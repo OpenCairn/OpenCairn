@@ -98,6 +98,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - YAML frontmatter syntax errors
    - Broken file paths or internal links
    - Markdown syntax issues (unclosed code blocks, malformed lists)
+     - **Concatenated list items:** after a session that removed list lines, run `grep -nE '[^[:space:]]- \[[ x]\]' <file>` on edited list-bearing docs — any non-space immediately before a `- [ ]`/`- [x]` is a join defect (a leading-`\n` removal ate the separator newline). Flag for review.
    - Broken Obsidian wikilinks
 
    **REFACTOR** — Content quality:
