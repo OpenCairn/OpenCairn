@@ -89,7 +89,7 @@ Send the brief to all reviewers in a **single message** with concurrent tool cal
    ```
    cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
    ```
-   `--approval-mode plan` gives Gemini read-only tool access — it can Read files but not edit them, matching the independent-review intent. `-o text` keeps the output pipe-friendly.
+   `--approval-mode plan` is Gemini's nominal read-only mode and `-o text` keeps the output pipe-friendly. **`plan` is not a hard guarantee, though:** on gemini 0.40.x it blocks `run_shell_command` but still exposes the `replace` (file-edit) tool, so a reviewer briefed to propose fixes can write them straight into the target instead of just describing them. A reviewer with no shell but a live edit tool is not read-only. Keep `plan` (it's the best available flag and blocks shell), but treat prevention as best-effort and **always run the integrity guard in step 6** after the panel. Gemini also has a real `-s/--sandbox`, but it needs a container runtime, so don't mandate it.
 
    Fallback if the flags aren't supported by the installed version:
    ```
@@ -113,6 +113,8 @@ Send the brief to all reviewers in a **single message** with concurrent tool cal
 4. **If a reviewer is unavailable** — a CLI not installed, API unreachable, quota hit, Agent tool error, subagent timeout — fall back to the reviewers that are present and **say so explicitly in the synthesis**. Do not silently pretend the full panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim weakens with every family you drop.
 
 5. **A passing `--version` doesn't prove a reviewer can authenticate.** A CLI whose auth comes from an API key in an environment variable can report its version yet still fail the actual call — Claude Code's Bash tool runs a *non-interactive* shell, which on some setups doesn't load the startup file the key is exported in (a Linux `~/.bashrc` commonly exits early for non-interactive shells; macOS/zsh and Windows 11 shells behave differently, so don't assume a specific file). If a reviewer fails on **auth** rather than launch, set its key where the CLI reads it itself regardless of how the shell was started — the CLI's own config/env file is the portable fix across Linux, macOS and Windows (e.g. Gemini reads `~/.gemini/.env` containing `GEMINI_API_KEY=<key>`). This is distinct from step 4's "not installed": the binary runs fine, the credential just isn't reaching it.
+
+6. **Integrity guard — confirm the panel didn't mutate the target.** A "read-only" reviewer can still write (see step 2 on Gemini's `plan` leak), so verify after the panel returns and before synthesising. If the target is in a git repo, run `git status` (and `git diff` on any unexpected paths); **any working-tree change a reviewer made is contamination — revert it** (`git checkout -- <file>`) before continuing. The contamination is also a synthesis trap: a finding that reads as "proposes text that already exists" usually means the reviewer already applied its own edit, so compare claims against committed HEAD (`git show HEAD:<file>`), not the live working tree, before dismissing them. For a non-git target, snapshot mtimes/hashes of the target files before the panel and diff after. Note any reverted reviewer writes in the synthesis.
 
 ### Phase 2B: Resume prior reviewers (Mode B)
 
