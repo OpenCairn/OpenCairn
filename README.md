@@ -266,6 +266,7 @@ This installs the **command layer only** — the vault-coupled commands (`/park`
 |---------|-------------|
 | `/audit` | Rigorous five-layer evaluation of any implementation (code, config, plans, processes). Layers: approach → environment → migration → implementation → execution. Iterates until clean. |
 | `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. Verification is handled automatically by `/weekly-hygiene`. |
+| `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 14b); this command just redirects there. |
 
 **Infrastructure:**
 

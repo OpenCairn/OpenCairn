@@ -309,6 +309,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
 
+   **Concatenated list items** (planning-doc structural integrity):
+   Item removals can eat the separator newline and join two list items onto one line — a leading-`\n` deletion that consumes the preceding line's terminator. Scan the planning docs:
+   ```bash
+   for f in "Works in Progress.md" "This Week.md" "Tasks.md" "Tickler.md"; do
+     grep -nHE '[^[:space:]]- \[[ x]\]' "{VAULT}/01 Now/$f" 2>/dev/null
+   done
+   ```
+   Any non-space immediately before a `- [ ]`/`- [x]` is a join defect (legit nested items are space- or tab-indented, so they don't match). Split the two items onto separate lines via `locked-edit.sh` and report each fix.
+
 13. **Context File Staleness Detection**
 
    Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
