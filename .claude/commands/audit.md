@@ -1,6 +1,6 @@
 ---
 name: audit
-aliases: [review, code-audit, code-review]
+aliases: [code-audit]
 description: Rigorous five-layer evaluation of any implementation (code, config, plans, processes, systems) — by a cross-model panel by default, gracefully downgrading to whatever models are available, or a single model on request.
 ---
 
@@ -27,14 +27,14 @@ You are auditing an implementation. This applies to anything with logic and stru
 - `--codex` → single Codex reviewer only.
 - Flags combine to force an explicit subset — `--gemini --codex` runs those two, no Claude.
 
-**Availability probe (do this in Phase 1, before despatch).** Run `gemini --version` and `codex --version`. Announce the resolved panel in one line: `"Panel: Claude + Gemini + Codex"`, or `"Codex unavailable — panel: Claude + Gemini"`. If a model was explicitly requested by flag but its CLI is missing, stop with a one-line install hint rather than silently dropping it. If no external CLI is available and no flag forced one, fall back to a single inline Claude audit and **say so** — `"No external model CLIs found — running single-Claude audit."`
+**Availability probe (do this in Phase 1, before despatch).** Run `gemini --version` and `codex --version`. Announce the resolved panel in one line: `"Panel: Claude + Gemini + Codex"`, or `"Codex unavailable — panel: Claude + Gemini"`. If a model was explicitly requested by flag but its CLI is missing, stop with a one-line install hint rather than silently dropping it. If no external CLI is available and no flag forced one, fall back to a single inline Claude audit and **say so** — `"No external model CLIs found — running single-Claude audit."` If the fresh Claude Agent (the Claude seat) fails to spawn, fall back to an inline Claude pass for that seat and say so — the announced panel covered availability, not spawn success.
 
 **Execution shape per reviewer:**
 - **Claude seat in panel mode** = a *fresh* Agent (`subagent_type: general-purpose`), independent of this conversation — important when auditing work produced in this same session (the running instance has already normalised its own choices).
 - **`--claude` single mode** = the running instance audits inline (cheapest, the classic single-pass audit); no agent spawn needed.
 - **Gemini / Codex seats** = dispatched via their CLIs. See `/second-opinion` Phase 2A for the canonical invocation, fallback, and session-handle capture; the compact form is in Phase 2 below.
 
-The panel despatch, attribution tags, and no-vote-counting tiebreak are `/second-opinion`'s machinery — this skill reuses it rather than reinventing it (see `_shared-patterns.md` #4). Read `second-opinion.md` if you need the full despatch mechanics.
+The panel despatch, attribution tags, and no-vote-counting tiebreak are `/second-opinion`'s machinery — this skill reuses it rather than reinventing it (see the *Parallel cross-model trio despatch* pattern in `_shared-patterns.md`). Read `second-opinion.md` if you need the full despatch mechanics.
 
 ## Instructions
 
@@ -47,15 +47,17 @@ The panel despatch, attribution tags, and no-vote-counting tiebreak are `/second
 
 ### Phase 2: Five-Layer Audit
 
-This is the protocol every reviewer runs. In single mode you run it directly; in panel mode it's the body of the shared brief sent byte-identically to all reviewers (write it once to a scratch file — `mktemp -t audit-brief.XXXXXX.md` — read its contents verbatim into the Claude Agent's prompt, and pipe the same file to each CLI).
+This is the protocol every reviewer runs. In single mode you run it directly; in panel mode it's the body of the shared brief. Write the brief once to a scratch file (`mktemp -t audit-brief.XXXXXX.md`), read its contents verbatim into the Claude Agent's prompt, and pipe the same file to each CLI. The brief *payload* is identical across seats; the per-channel wrappers (the Agent prompt frame, the CLI `-p` string) need only be semantically equivalent, not byte-equal — channels differ irreducibly, so "same brief" means same payload, not same bytes on the wire.
 
-Compact panel despatch (single message, concurrent calls; `timeout: 300000` on each CLI):
+The brief must contain: (a) the target path and what it is; (b) the scope boundaries (what's in, what's out); (c) the supplementary-context disclaimer — "read from source first; this summary is possibly biassed, not a substitute"; (d) the five-layer protocol body below; (e) the output format (findings by layer, explicit "clean" per empty layer). This mirrors `second-opinion.md` Phase 1 step 4 — read it if you want the worked field list.
+
+Compact panel despatch (single message, concurrent calls). `timeout: 300000` is a **Bash-tool argument** on each CLI call, not a shell flag — the default 120s kills reviewers mid-audit and the runner won't intuit it from prose alone. Despatch from the target's root; if the target lives outside the cwd, the CLI seats can't read it (Gemini's reads are sandboxed to `~`, Codex reads relative to its workdir) — pass `codex exec -C <root>` and gemini `--include-directories <root>`.
 ```
 # Claude: Agent tool, subagent_type general-purpose, prompt = brief contents verbatim
 cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
 cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -
 ```
-Surface each reviewer's session handle (Agent ID, Gemini index, Codex UUID) in visible text — you'll need them for a Phase 4 re-audit.
+Surface each reviewer's session handle (Agent ID, Gemini index, Codex UUID) in visible text — you'll need them for a Phase 4 re-audit. The Gemini index isn't printed in-band: capture it with `gemini --list-sessions | tail -3` (highest-numbered row, leading numeric column). Codex prints `session id: <uuid>` in its preamble. See `second-opinion.md` Phase 2A for the full capture recipe.
 
 Work through these layers in order. Each layer can invalidate everything below it, so don't skip ahead.
 
@@ -85,7 +87,7 @@ Change always meets existing reality. What's already there?
 - Are there consumers/dependents that expect the current interface/format/behaviour?
 - Is there data, state, or configuration that needs to carry forward?
 - For plans/processes: what habits, expectations, or workflows does this disrupt?
-- For content edits (docs, notes, config values): grep for key identifiers that changed (names, dates, refs, amounts) across the wider repository. For each hit, assess whether it's a stale cross-reference (update it), a historical record of what was actually said/sent (leave it), or a different context that happens to share the identifier (leave it). Stale cross-references are the most common Layer 3 miss in non-code edits.
+- For content edits (docs, notes, config values): grep **case-insensitively (`-i`)** for key identifiers that changed (names, dates, refs, amounts) across the wider repository — a restatement of the identifier often differs in case from the canonical form, and the case-sensitive default silently drops it. For each hit, assess whether it's a stale cross-reference (update it), a historical record of what was actually said/sent (leave it), or a different context that happens to share the identifier (leave it). Stale cross-references are the most common Layer 3 miss in non-code edits.
 - **When a section, queue, or SSOT moved *out* of a document (even if the document still exists), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction.** The relocated content's inbound link is itself the identifier; a line pointing at the old home as "the project doc" / "full spec here" / "see [[…]]" is exactly the stale pointer that now misdirects, and it won't match an anchor-AND-topic-keyword grep. This is the complement to the structural-query rule below: structural queries (`obsidian unresolved`) catch dangling *wikilinks* but never the *plain-text/prose* references to a moved target — only a bare-anchor text grep does. Triage each hit (bare-anchor grep returns legitimate navigation links too).
 - **For link-integrity questions specifically, prefer structural queries over text grep.** A rename/move/delete that needs link-integrity verification is a structural question, not a text search. The system probably has a purpose-built query: an Obsidian vault has `obsidian unresolved` (queries the live link index); a codebase has language-server "find references" or `git grep` with the right filters; a wiki has a broken-link report; an EHR has a referential-integrity check. Read the project's tool-routing doc (e.g. CLAUDE.md, a contributor guide, or a "how to search" reference) before designing the verification step. Text grep is what you reach for when you don't know the system has a purpose-built tool — the grep-as-default reflex is a Layer 5 failure mode, because text search is sensitive to file format, encoding, hidden-directory exclusions, and ignore-pattern semantics that the structural query is indifferent to.
 
@@ -129,15 +131,15 @@ Theory vs. reality. Can you verify it runs?
 
 1. **If fixes are possible and authorised**, make them. If fixes aren't authorised or aren't possible (e.g., auditing someone else's work, a read-only review), the audit ends at Phase 3 — present findings and stop.
 2. **After each round of fixes, re-audit from Layer 1.** Fixes can introduce new issues or invalidate prior findings.
-3. **⛔ Re-audit requires re-reading.** A re-audit pass must include at least one Read tool call on modified files. "Clean pass" without a preceding Read is a fabricated claim, not a verified result. Small, obvious fixes are the most dangerous — false confidence skips verification.
-4. **Re-audit despatch is a choice.** Cheap: a single-model re-audit (`--claude`, or just the running instance) for mechanical fixes. Thorough: resume the panel via `/second-opinion` Mode B (`SendMessage` to the Agent, `gemini --resume <index>`, `codex exec resume <uuid>`) with a narrow follow-up — "you flagged X; the author did Y; does it resolve your concern?" — for findings where "does the fix land?" is itself a judgement call.
-5. **Repeat until a full pass is clean.** Then report: "Clean pass — no further findings."
+3. **⛔ Re-audit requires re-reading.** A re-audit pass must include at least one Read tool call on modified files. "Clean pass" without a preceding Read is a fabricated claim, not a verified result. Small, obvious fixes are the most dangerous — false confidence skips verification. This is transcript-checkable only for the orchestrating instance (its own Read calls are visible); a delegated reviewer's reads are not, so in panel re-audit require each reviewer to **state in its output what it re-read**.
+4. **Re-audit despatch is a choice.** Cheap: a single-model re-audit (`--claude`, or just the running instance) for mechanical fixes. Thorough: resume the panel via `/second-opinion` Mode B (`SendMessage` to the Agent, `gemini --resume <index>`, `codex exec resume <uuid>`) with a narrow follow-up — "you flagged X; the author did Y; does it resolve your concern?" — for findings where "does the fix land?" is itself a judgement call. (Mode B is an unvalidated path — see the warning in `second-opinion.md` Phase 2B; the single-model re-audit is the proven option.)
+5. **Repeat until the audit reaches a terminal state**, then report it. Terminal states: **clean** (a full pass finds nothing — "Clean pass, no further findings"); **accepted residual risk** (findings remain but are knowingly accepted — name them); **blocked** (a fix needs a user decision); **unresolved disagreement** (reviewers still split after one cross-check round — present both sides). "Iterate until clean" is the goal, not a mandate to loop indefinitely on subjective findings.
 
 ## Guidelines
 
-- **Panel by default, single model by choice.** The panel is the default because uncorrelated reviewers catch what one misses. For a quick, low-stakes, or small-surface audit, `--claude` (single inline pass) is faster and proportionate — don't spin up three reviewers to check a typo fix.
+- **Panel by default, single model by choice.** The panel is the default because uncorrelated reviewers catch what one misses. For a quick, low-stakes, or small-surface audit, `--claude` (single inline pass) is faster and proportionate — don't spin up three reviewers to check a typo fix. **Trigger test:** panel when the target is hard to reverse or ships somewhere you can't easily recall it (a public repo, a sent message, a production config); `--claude` otherwise.
 - **Graceful degradation, loudly.** Always announce the resolved panel and never silently drop a reviewer. A one-reviewer run is a single opinion, not a panel, and the synthesis must say so.
-- **Byte-identical brief across the panel.** Any framing asymmetry between reviewers defeats the cross-model signal. Write the Phase 2 brief once, send it verbatim to each.
+- **Identical brief payload across the panel.** Any framing asymmetry between reviewers defeats the cross-model signal. Write the Phase 2 brief once and send the same payload to each — the transport wrappers differ (Agent prompt vs CLI `-p` string), so aim for semantic equivalence, not byte equality.
 - **Cross-model, not cross-instance.** One Claude + one Gemini + one Codex. Two Claudes correlate; non-correlated error modes are the whole point.
 - **Specificity over breadth:** Five specific findings beat twenty vague observations.
 - **No hedging:** "This will fail when X" not "This might potentially have issues with X."
