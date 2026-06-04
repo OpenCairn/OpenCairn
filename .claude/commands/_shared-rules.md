@@ -289,3 +289,14 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 **Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 10(b) and `/weekly-hygiene` Step 6 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
 
 **Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
+
+## 12. Grep-hit triage (reference-graph / Layer-3 propagation)
+
+When propagating a changed identifier across the vault — `park` Step 12 (reference graph), `audit` Layer 3, `complete-project`'s moved-anchor sweep — classify each grep hit **by what the value does, not by the file type** before editing:
+
+- **Stale cross-reference** — a pointer meant to track the current value but now wrong → **update it**. (The most common miss.)
+- **Live locator** — a path/link/ID a *current workflow resolves to locate or re-read an artefact* (e.g. a hash/provenance log's path column that a verify pass re-hashes; a `**Source:**` path a tool reads). On a **move/rename** of unchanged content → update **only the locator field**, never a content hash/timestamp/proof. On a **delete** → leave it and flag (a MISSING / unresolved result is the correct integrity signal). A locator inside an *otherwise-historical* record is still live — this is the subtlest case and the one propagation passes miss.
+- **Historical record** — a frozen record of what was actually said/sent/observed, or where an artefact lived *at event time* → **leave it** (or add a separate relocation note; don't overwrite).
+- **Different context** — unrelated content that merely shares the identifier string → **leave it**.
+
+If you can't tell whether a value is a live locator or a frozen record, **report the ambiguity instead of editing**. Use the file's lock if one exists. Always show the grep output (it proves the grep ran).

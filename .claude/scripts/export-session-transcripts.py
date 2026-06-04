@@ -190,7 +190,11 @@ def main():
         print("Error: Could not find session directory", file=sys.stderr)
         sys.exit(1)
 
-    output_dir = vault_path / "06 Archive" / "Claude" / "Session Transcripts"
+    # Dot-prefixed so Obsidian's metadata indexer ignores this tree: verbatim
+    # transcripts are the bulk of vault markdown and a full-vault cold index of
+    # them overflows Electron/V8's ~4GB heap cap (renderer OOM crash-loop). They
+    # stay on disk (still synced, git-backed, provenance-hashable), just unindexed.
+    output_dir = vault_path / "06 Archive" / "Claude" / ".Session Transcripts"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cutoff = datetime.now() - timedelta(days=days)

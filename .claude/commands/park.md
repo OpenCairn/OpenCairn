@@ -340,7 +340,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **Write mechanism.** Stale-reference fixes to planning files go through `locked-edit.sh --replace`, not the Edit tool (see `_shared-rules.md` §5).
 
-   **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **WIP tier demotions/promotions** (Active↔Backlog↔Cold — these must propagate to the project hub's own `**Status:**` field, not just the WIP entry), **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
+   **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **WIP tier demotions/promotions** (Active↔Backlog↔Cold — these must propagate to the project hub's own `**Status:**` field, not just the WIP entry), **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists, and factual claims the session reversed or refined — a property/characteristic/spec, not just status or dates). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
 
    **The nil case is not a free pass.** "No identifier values changed" is a positive claim requiring the explicit checklist. Format the nil case as an enumerated checklist, not a bare assertion:
 
@@ -351,6 +351,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    [OR (nil case)]
    - Row removals / replacements: none
    - Content corrections (misspellings, wrong locations, wrong dates): none
+   - Factual/claim corrections (a property/characteristic the session reversed or refined): none
    - Naming changes: none
    - Status flips: none
    - Section relocations between files: none
@@ -387,7 +388,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **No regex alternation from memory when N>3.** "If more than three identifiers, iterate each as a separate grep call. Typed-from-memory alternation silently drops entries."
    - **Already-updated docs are NOT complete.** "For any identifier flagged in the enumeration as 'already updated in doc X' (a fix the session made inline), do NOT treat doc X as done — re-grep doc X for OTHER instances of the same stale claim. A single in-session edit fixes one occurrence; the same fact is often asserted in several places within one document (summary callout + detail table + rationale prose) **and in different words** — a section header or bolded lead carrying the same current-state framing (e.g. a \"Current…\"/\"Now\"/\"Status\" section), an admonition/callout title line (\`> [!note]\`/\`> [!warning]\` headers), or an inbound cross-reference parenthetical pointing at the rewritten passage (e.g. \`(<status> <date> — see <section> below)\`) is the same stale claim even when it shares no token with the changed marker. When you rewrite a callout body, re-read its own title line and any same-file line that points at it (e.g. lines containing \`see\`/\`below\`/\`above\` or the callout's title) — update such a line only if it restates the changed fact; a bare navigation pointer carrying no status/date is not stale, leave it. Re-grep for the claim's *meaning*, not just the literal changed string, and scan the structure (headings + leads + callout titles) of every session-edited doc, not only token matches. (Known limit: a doc with stale current-state but no token hit is never opened by the per-identifier grep — this catches restatements inside docs you're already editing, not silent stragglers elsewhere.) Include every session-edited doc in the per-identifier grep pass, not just the unedited rest of the vault."
    - **For file-path identifier changes (rename, move, delete):** "After the per-identifier grep pass, run the vault's structural link-integrity query as a post-check (e.g. `obsidian unresolved` for an Obsidian vault; `git grep` + LSP find-references for code repos; broken-link reports for wikis). The grep catches plain-text path references; the structural query catches wikilink/symlink integrity. Both are needed — neither alone is sufficient. Watch for basename collisions: if `new-name.md` and `old-name.md` share a basename with some unrelated file, structural queries may resolve a `[[old-name]]` link to the wrong file rather than flagging unresolved. Flag any ambiguous basename collisions in the report."
-   - **Authority:** "For each grep hit, read the file and assess: stale cross-reference → update via Edit; historical record of what was actually said/sent → leave; different context that happens to share the identifier → leave. Display grep results in the report (output proves the grep ran)."
+   - **Authority:** "For each grep hit, read the file and triage it per `~/.claude/commands/_shared-rules.md §12` (grep-hit triage) — **read §12 yourself** before triaging. In brief: stale cross-reference → update; live locator (a path a current workflow resolves to re-read, e.g. a provenance log's path column) → update the locator on move/rename, never the content hash/timestamp/proof; historical record of what was said/sent/observed → leave; different context sharing the identifier → leave; ambiguous → report, don't guess. Display grep results in the report (output proves the grep ran)."
    - **Report format expected back:** "Per-identifier: `[identifier]: N files updated` (with file list + brief change description), OR `[identifier]: no living refs found`. Plus structural-query results if file moves were in scope. Plus any basename-collision flags."
 
    **(e) Display result based on sub-agent report:**
@@ -530,7 +531,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    - **What to audit:** "Session N of `<session log path>` and all files the session+park touched. The session itself accomplished: <verbatim summary>. The park+session edited: <verbatim file list>. Layer 3 must include not just identifiers /park changed, but world-state framings rendered stale by what the session DID — e.g. if the session sent a message, hubs that previously described the send as upcoming may now be stale even though /park didn't edit them. Read each touched project/area hub IN FULL (not just the subsection that was edited) before claiming clean."
    - **Protocol to follow:** "Read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) first. Do not recall layers from memory."
-   - **Enumeration discipline:** "List identifiers as `old → new` pairs OR explicit nil-case checklist (Row removals, Content corrections, Naming changes, Status flips, Section relocations, New named state introduced, **Phase/status framings rendered historical by session actions**). The last category is the one inline audits keep missing — give it extra interrogation: for each project/area hub the session touched, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work the session completed; flag every hit."
+   - **Enumeration discipline:** "List identifiers as `old → new` pairs OR explicit nil-case checklist (Row removals, Content corrections, Factual/claim corrections, Naming changes, Status flips, Section relocations, New named state introduced, **Phase/status framings rendered historical by session actions**). The last category is the one inline audits keep missing — give it extra interrogation: for each project/area hub the session touched, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work the session completed; flag every hit."
    - **Script paths the sub-agent will need** (substitute resolved vault):
      - `<vault>/.claude/scripts/update-session-section.sh` — for session-log edits (preserves flock concurrency safety against parallel /park or /goodnight)
      - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section
@@ -544,6 +545,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    **(c) Receive the sub-agent's report.** Display its summary in your response — this is the audit's user-facing output. Do NOT re-run the audit yourself; trust the sub-agent's report (the whole point is that you don't have the fresh-context advantage).
 
    **(d) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size on disk — check via `stat -c%s`), re-despatch a focused sub-agent on that hub.
+
+   - **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step c) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-park state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03:** an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line in the session log as a fabrication; the false correction would have shipped under a literal reading of step (c).
 
    **⛔ CHECKPOINT — required outputs:**
    - Agent tool invocation with subagent_type=general-purpose targeting the audit task
@@ -565,7 +568,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      ```bash
      python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
      ```
-   - Output goes to `{VAULT}/06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
+   - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
    - **Why at end of /park:** Earlier ordering (export before audit) meant the transcript missed the audit step entirely. Moving export to last ensures audit findings and remediation are captured for `/goodnight` provenance processing and as a backstop against session data loss.
 
@@ -583,7 +586,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
   [OR "✓ No open loops to route" if none]
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
 ✓ Skill monitor: No gaps detected [OR "🔧 Skill monitor: proposed N edits to /park"]
-✓ Transcript exported: N sessions → 06 Archive/Claude/Session Transcripts/YYYY-MM-DD.md
+✓ Transcript exported: N sessions → 06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md
 
 Parked. Pick up when ready.
 
