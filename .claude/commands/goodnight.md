@@ -359,7 +359,7 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 
 **(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 13/14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
 
-1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from 13/14's reconciliation, any audit remediation from (e)).
+1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from 13/14's reconciliation, any audit remediation from (e)). **Exclude WIP if the only change was the bare "Last updated" timestamp bump** — that bump is unconditional meta-bookkeeping, not content, so recording it adds a near-identical noise line to every goodnight log. If Step 11/14a wrote *content* to WIP (a project-entry Status/Last/Next rewrite), backfill that content change (not the bump); if WIP got nothing but the timestamp bump, omit it and don't let the audit flag its absence.
 2. Diff that list against the `### Files Updated` already in Session N's entry.
 3. Pipe the missing lines through `backfill-files-updated.sh "<session-file>" N`.
 

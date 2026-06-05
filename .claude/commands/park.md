@@ -349,6 +349,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    Changed values:
    - "old value" → "new value" (where: file path)
    - NEW: "value" introduced (where: file path)
+   - NEW (option/alternative on a pre-existing decision): "<option>" under anchor "<decision/record key>" (where: file path)
    [OR (nil case)]
    - Row removals / replacements: none
    - Content corrections (misspellings, wrong locations, wrong dates): none
@@ -356,8 +357,11 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Naming changes: none
    - Status flips: none
    - Section relocations between files: none
+   - New option/alternative added to a pre-existing decision/record (propagate via its anchor, not the new value): none
    → No identifier values changed.
    ```
+
+   **A `NEW:` entry that is an option/alternative added to a *pre-existing* decision/record (one the session did not create from scratch this session) is never nil — enumerate it with the decision's *anchor* (route/decision/record key, e.g. `<ORIGIN>→<DEST>`), not just the new value.** Sibling docs that still lack the new option contain the anchor but not the new value, so the anchor — not the option text — is the propagation join key.
 
    **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
 
@@ -368,6 +372,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    ```
    ✓ Reference graph: No identifier values changed
    ```
+
+   **Do not nil-skip a `NEW:` option/alternative on a pre-existing decision, and do not discharge it by self-certifying "already propagated" from memory** — it is non-nil per (a) and propagates via the (d) sub-agent. (A genuinely standalone new fact with no pre-existing cross-referenced home is nil-skippable as normal.)
 
    **(c) Identifier count integrity check before despatch.**
 
@@ -383,6 +389,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    - **Enumerated identifiers** as `old → new` pairs — copied verbatim from your (a) enumeration block, not retyped from memory
    - **Path-expansion rule (re-stated at execution point):** "For any enumerated identifier that is a file rename/move/delete, also grep for plausible full-path forms — old absolute path, old vault-relative path, and the bare filename without extension. Plain-text path references inside non-link contexts (e.g. `**Source:** /path/to/file.ext` in transcripts, embedded YAML, fenced code blocks) are NOT surfaced by structural link-integrity queries — only grep catches them. Iterate each form as a separate grep call. For a section/queue/SSOT that relocated *out* of a still-existing document, also grep that document's bare inbound anchor (`[[doc]]` and its path forms) with NO keyword conjunction — per the anchor-grep rule in (a); keyword-qualified greps drop semantic-variant pointers ('the project doc', 'full spec here')."
+   - **NEW attached-option rule:** "For any enumerated `NEW:` option/alternative added to a pre-existing decision/record, grep the decision's **anchor** (the route/decision/record key carried in the enumeration) across live docs — NOT only the new option text, which sibling docs that still lack the option won't contain. Read every live hit and propagate the new option into prose AND the parallel table-row / list / index representations of that decision."
    - **Vault path** (resolved): the absolute path
    - **Archive-exclusion glob:** `!**/06 Archive/**`
    - **Tool guidance:** "Use `rg --type md -i` (ripgrep, respects `.gitignore`, skips `.git/` auto-save). The `-i` is load-bearing: a session-derived identifier is often lowercase while the stale copy capitalises it (or vice-versa), and the case-sensitive default silently drops such hits — the later case-insensitive closure pass then catches what this step should have. Do not use `grep -r` — it crawls `.git/` and takes minutes on long-lived vaults."
@@ -492,6 +499,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 13a. **Backfill "Files Updated" in session log:**
    - Steps 11-13 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 8 when the session log is written. Backfill these into the session log's "### Files Updated" section.
    - Collect all files modified during steps 11-13 (WIP update, reference graph tracing, open loop routing)
+   - **Exclude the Step 13b WIP "Last updated" timestamp bump.** That bump is unconditional meta-bookkeeping, not session content — it fires on every park (including pure no-write sessions), so recording it would add a near-identical "Works in Progress.md - timestamp bump" line to every session log: noise, not signal. A Step 11 *content* write to WIP (Status/Last/Next/narrative under a project heading) IS a Files Updated entry; the bare timestamp bump alone is not. (If Step 11 wrote content, that content edit is what gets backfilled — describe the content change, not the bump.)
    - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session.
    - **Description-completeness check on dedup hit:** When the dedup skip fires for a file already listed, check whether the existing description covers the new edit. If not (i.e. /park itself made an additional change to a file already touched in-session, e.g. a Step 12 reference-graph wikilink fix), append the new edit detail to the existing entry's description via Edit tool rather than skipping silently. Filename dedup prevents redundant entries; description completeness prevents silent under-reporting of what actually changed.
    - Use the backfill-files-updated script:
@@ -512,6 +520,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 13b. **Bump WIP "Last updated" timestamp:**
    - **Unconditional bump.** Replace the existing `Last updated: ...` line at the top of `01 Now/Works in Progress.md` with the current timestamp (e.g. `Last updated: YYYY-MM-DD HH:MM TZ`) **via `locked-edit.sh --replace`** (per `_shared-rules.md` §5), NOT the Edit tool. No "did we modify planning files?" check — by definition something was captured; the imperceptible cost of an over-bumped timestamp on a pure no-write session is preferable to the prediction-failure mode the old conditional produced.
    - **Concurrent-write handling.** Because `locked-edit.sh` serialises through the WIP lock, there's no "modified since read" fight to lose. If it exits 2 (no match), a parallel `/park` already replaced the `Last updated:` line; re-Read the line and, if the timestamp is *within this park's window*, accept the concurrent bump rather than re-replacing — the intent (WIP reflects recent activity) is already satisfied. Display the alternate checkpoint: `✓ WIP timestamp: current at <value> (concurrent-session bump within window; own bump declined)`.
+   - **Not a Files Updated entry.** This bump is excluded from the session log's `### Files Updated` section (see Step 13a exclusion) — it's unconditional bookkeeping, not content. Don't backfill it, and the Step 14 audit should not flag its absence.
    - **⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ` (or the concurrent-write alternate above). Do not proceed to Step 14 without one of these lines.
 
 14. **Delegate /audit to a fresh sub-agent:**

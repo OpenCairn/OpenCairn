@@ -60,6 +60,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Cross-reference sweep:**
    - For each status change (battery disconnect, order placed, task completed), grep the vault for other files containing the stale value
+   - **Also for each NEW option/alternative added to a pre-existing decision/record** (surfaced while reconciling WIP/This Week, or from live docs modified since the last hygiene pass — a new option is not a "status change," so it slips the status-only sweep above): grep the decision's **anchor** (route/decision/record key) — NOT the new option text, which sibling docs that lack the option won't contain — across sibling docs (hubs, timelines, tables, indexes), and propagate the new entry into each, including parallel table rows a prose-only edit misses
    - Update cross-references in live files (project pages, area files, vehicle docs, etc.)
    - Leave Archive/, Session Logs/, and .stversions/ untouched — those are historical records or Syncthing versions
 
