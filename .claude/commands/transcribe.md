@@ -69,6 +69,7 @@ Flags (parsed from arguments):
    ```
    If no token, tell the user to run `huggingface-cli login` or set `HF_TOKEN` and stop.
 9. **Background decision:** If no GPU and (duration > 120s OR diarisation is enabled), tell the user the estimated wait and run as a **background task**. Diarisation on CPU is slow (~2-3x audio length on top of transcription time).
+   - **Cloud escape hatch:** when there's no GPU and the job is heavy — audio > ~30 min, or a batch of files — surface `/transcribecloud` (RunPod GPU; same WhisperX) as a faster **paid** alternative *before* committing to a long local grind, and let the user choose. It costs money and needs `runpodctl` + credits, so don't auto-switch: if those are absent, say so and fall back to the local background task. (This is the reciprocal of `/transcribecloud`'s own "use instead of `/transcribe` when no local GPU and audio > 30 min" trigger.)
 
 ### Phase 2: Transcribe
 
