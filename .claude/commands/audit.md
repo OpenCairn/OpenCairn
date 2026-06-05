@@ -54,12 +54,14 @@ The brief must contain: (a) the target path and what it is; (b) the scope bounda
 Compact panel despatch (single message, concurrent calls). `timeout: 300000` is a **Bash-tool argument** on each CLI call, not a shell flag — the default 120s kills reviewers mid-audit and the runner won't intuit it from prose alone. Despatch from the target's root; if the target lives outside the cwd, the CLI seats can't read it (Gemini's reads are sandboxed to `~`, Codex reads relative to its workdir) — pass `codex exec -C <root>` and gemini `--include-directories <root>`.
 ```
 # Claude: Agent tool, subagent_type general-purpose, prompt = brief contents verbatim
-cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
+# Gemini: write a one-off read-only Policy Engine file first, then pass --policy (HARD read-only — replaces --approval-mode plan, which still leaked the edit tool)
+RO_POLICY=$(mktemp --suffix=.toml -t gemini-ro-policy.XXXXXX); printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
+cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text
 cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -
 ```
 Surface each reviewer's session handle (Agent ID, Gemini index, Codex UUID) in visible text — you'll need them for a Phase 4 re-audit. The Gemini index isn't printed in-band: capture it with `gemini --list-sessions | tail -3` (highest-numbered row, leading numeric column). Codex prints `session id: <uuid>` in its preamble. See `second-opinion.md` Phase 2A for the full capture recipe.
 
-**Integrity guard (same as `second-opinion.md` Phase 2A step 6).** `--approval-mode plan` is not a hard read-only guarantee — on gemini 0.40.x it blocks shell but still exposes the `replace` edit tool, so a reviewer can write its proposed fixes into the target. After the panel returns and before Phase 3, `git status` the target (if a repo) and revert any reviewer-introduced changes; compare any "proposes text that already exists" finding against committed HEAD, not the working tree.
+**Integrity guard (same as `second-opinion.md` Phase 2A step 6).** The `--policy` read-only file above makes Gemini's edit tools "not found" (a hard guarantee on gemini 0.40.x), but keep this as a cheap backstop — it confirms the policy loaded and is the only protection on the no-`--policy` fallback. After the panel returns and before Phase 3, `git status` the target (if a repo) and revert any reviewer-introduced changes; compare any "proposes text that already exists" finding against committed HEAD, not the working tree.
 
 Work through these layers in order. Each layer can invalidate everything below it, so don't skip ahead.
 

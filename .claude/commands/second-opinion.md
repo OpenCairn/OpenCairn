@@ -85,11 +85,13 @@ Send the brief to all reviewers in a **single message** with concurrent tool cal
 
 2. **Gemini CLI** via Bash, in parallel with the Agent call. **Pass `timeout: 300000` (5 minutes) to the Bash tool call** — the default 120 s will kill Gemini mid-review on any non-trivial target. This is load-bearing; the runner won't intuit it from "budget 5 minutes" alone.
 
-   Preferred invocation (gemini ≥ 0.33) — substitute `<prompt-path>` with the path recorded in Phase 1:
+   Preferred invocation (gemini ≥ 0.40, which has the Policy Engine) — first write a one-off read-only **policy** file, then substitute `<prompt-path>` with the path recorded in Phase 1:
    ```
-   cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly." --approval-mode plan -o text
+   RO_POLICY=$(mktemp --suffix=.toml -t gemini-ro-policy.XXXXXX)
+   printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
+   cat <prompt-path> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text
    ```
-   `--approval-mode plan` is Gemini's nominal read-only mode and `-o text` keeps the output pipe-friendly. **`plan` is not a hard guarantee, though:** on gemini 0.40.x it blocks `run_shell_command` but still exposes the `replace` (file-edit) tool, so a reviewer briefed to propose fixes can write them straight into the target instead of just describing them. A reviewer with no shell but a live edit tool is not read-only. Keep `plan` (it's the best available flag and blocks shell), but treat prevention as best-effort and **always run the integrity guard in step 6** after the panel. Gemini also has a real `-s/--sandbox`, but it needs a container runtime, so don't mandate it.
+   `--policy` loads Gemini's **Policy Engine** (the non-deprecated successor to `--allowed-tools`); a `deny` rule strips the named tools from the model's toolset entirely. **Verified on gemini 0.40.x:** the reviewer reports `replace`/`write_file` as "not found" and physically cannot edit, while every read tool (`read_file`, `glob`, grep, `list_directory`) stays available — a *hard* read-only guarantee. This **replaces `--approval-mode plan`**, which was *not* read-only (plan blocked shell but still exposed the `replace` edit tool, so a reviewer briefed to propose fixes wrote them straight into the target — the contamination that motivated this change). `-o text` keeps output pipe-friendly. **Do not** drop the policy into `~/.gemini/policies/` — gemini auto-loads that directory for *every* invocation, which would silently make all your interactive gemini sessions read-only too; keep it in a temp path passed explicitly via `--policy`. The integrity guard in step 6 stays as a cheap backstop (and to confirm the policy loaded), but prevention is now real, not best-effort. Gemini also has a real `-s/--sandbox`, but it needs a container runtime, so don't mandate it.
 
    Fallback if the flags aren't supported by the installed version:
    ```
@@ -104,7 +106,7 @@ Send the brief to all reviewers in a **single message** with concurrent tool cal
    ```
    cat <prompt-path> | codex exec --sandbox read-only --skip-git-repo-check -
    ```
-   `--sandbox read-only` gives Codex read-only tool access (it can Read files but not edit them), matching the independent-review intent — the analogue of Gemini's `--approval-mode plan`. `--skip-git-repo-check` lets it run outside a git repository (the target often isn't one). The trailing `-` reads the brief from stdin. Output is plain text and pipe-friendly; a benign `failed to refresh available models` line may appear on stderr under flaky networks and can be ignored.
+   `--sandbox read-only` gives Codex read-only tool access (it can Read files but not edit them), matching the independent-review intent — the analogue of Gemini's `--policy` read-only deny-file (step 2). `--skip-git-repo-check` lets it run outside a git repository (the target often isn't one). The trailing `-` reads the brief from stdin. Output is plain text and pipe-friendly; a benign `failed to refresh available models` line may appear on stderr under flaky networks and can be ignored.
 
    **Model:** don't pass `-m` — let Codex use its default. On a ChatGPT-account login the default resolves to the supported model for that plan; explicit `-codex`-suffixed models (e.g. `gpt-5.x-codex`) and the very newest point releases are often rejected for ChatGPT-account auth with a `not supported` or `requires a newer version of Codex` error. If the default itself errors, run `codex --version` and upgrade (`npm install -g @openai/codex@latest`) before pinning a model by hand.
 
@@ -114,7 +116,7 @@ Send the brief to all reviewers in a **single message** with concurrent tool cal
 
 5. **A passing `--version` doesn't prove a reviewer can authenticate.** A CLI whose auth comes from an API key in an environment variable can report its version yet still fail the actual call — Claude Code's Bash tool runs a *non-interactive* shell, which on some setups doesn't load the startup file the key is exported in (a Linux `~/.bashrc` commonly exits early for non-interactive shells; macOS/zsh and Windows 11 shells behave differently, so don't assume a specific file). If a reviewer fails on **auth** rather than launch, set its key where the CLI reads it itself regardless of how the shell was started — the CLI's own config/env file is the portable fix across Linux, macOS and Windows (e.g. Gemini reads `~/.gemini/.env` containing `GEMINI_API_KEY=<key>`). This is distinct from step 4's "not installed": the binary runs fine, the credential just isn't reaching it.
 
-6. **Integrity guard — confirm the panel didn't mutate the target.** A "read-only" reviewer can still write (see step 2 on Gemini's `plan` leak), so verify after the panel returns and before synthesising. If the target is in a git repo, run `git status` (and `git diff` on any unexpected paths); **any working-tree change a reviewer made is contamination — revert it** (`git checkout -- <file>`) before continuing. The contamination is also a synthesis trap: a finding that reads as "proposes text that already exists" usually means the reviewer already applied its own edit, so compare claims against committed HEAD (`git show HEAD:<file>`), not the live working tree, before dismissing them. For a non-git target, snapshot mtimes/hashes of the target files before the panel and diff after. Note any reverted reviewer writes in the synthesis.
+6. **Integrity guard — confirm the panel didn't mutate the target.** With the `--policy` read-only file (step 2) Gemini's edit tools are stripped, so this is now a cheap backstop rather than the primary defence — but keep running it: it confirms the policy loaded, and it's the *only* protection on the no-`--policy` fallback path and for any reviewer whose sandbox leaks. Verify after the panel returns and before synthesising. If the target is in a git repo, run `git status` (and `git diff` on any unexpected paths); **any working-tree change a reviewer made is contamination — revert it** (`git checkout -- <file>`) before continuing. The contamination is also a synthesis trap: a finding that reads as "proposes text that already exists" usually means the reviewer already applied its own edit, so compare claims against committed HEAD (`git show HEAD:<file>`), not the live working tree, before dismissing them. For a non-git target, snapshot mtimes/hashes of the target files before the panel and diff after. Note any reverted reviewer writes in the synthesis.
 
 ### Phase 2B: Resume prior reviewers (Mode B)
 
@@ -136,7 +138,7 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
 
    - **Gemini CLI via Bash** with `timeout: 300000` — substitute `<round2-path>` with the path recorded in step 2:
      ```
-     cat <round2-path> | gemini -p "Continue the prior review." --resume 12 --approval-mode plan -o text
+     cat <round2-path> | gemini -p "Continue the prior review." --resume 12 --policy "$RO_POLICY" -o text   # recreate $RO_POLICY per Phase 2A step 2 if the temp file is gone
      ```
      Replace `12` with your actual session index. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable. **In the Phase 3 synthesis, annotate this case explicitly** (e.g. `[Gemini r2, fresh-with-replay]`) so the reader can distinguish a true resume from a replayed brief — they're not equivalent signals.
 
