@@ -295,6 +295,8 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 
 When propagating a changed identifier across the vault — `park` Step 12 (reference graph), `audit` Layer 3, `complete-project`'s moved-anchor sweep — classify each grep hit **by what the value does, not by the file type** before editing:
 
+**First, choose the right grep target — the value sibling docs actually contain.** For a *changed* value, grep the old value. For a **NEW option/alternative added to a pre-existing decision/record**, the new value is *absent* from the very sibling docs that need it (the stale timeline row, the index that lists only the incumbent) — so grep the decision's **anchor** (route/decision/record key), the join key those docs already share, **not** the new option text. Grepping the new value finds nothing and false-passes the propagation.
+
 - **Stale cross-reference** — a pointer meant to track the current value but now wrong → **update it**. (The most common miss.)
 - **Live locator** — a path/link/ID a *current workflow resolves to locate or re-read an artefact* (e.g. a hash/provenance log's path column that a verify pass re-hashes; a `**Source:**` path a tool reads). On a **move/rename** of unchanged content → update **only the locator field**, never a content hash/timestamp/proof. On a **delete** → leave it and flag (a MISSING / unresolved result is the correct integrity signal). A locator inside an *otherwise-historical* record is still live — this is the subtlest case and the one propagation passes miss.
 - **Historical record** — a frozen record of what was actually said/sent/observed, or where an artefact lived *at event time* → **leave it** (or add a separate relocation note; don't overwrite).
