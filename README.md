@@ -15,7 +15,7 @@
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
-Slash commands, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
+Skills, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
 
 <p align="center">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
@@ -88,7 +88,7 @@ All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), s
 
 ### Day: Morning, Afternoon, Goodnight
 
-| Command | When | What |
+| Skill | When | What |
 |---------|------|------|
 | `/morning` | Start of day | Read the landscape (WIP, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
 | `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
@@ -168,27 +168,27 @@ cc   # or: cd ~/Files && claude
 
 If using Obsidian, open it and select `~/Files` as your vault folder.
 
-**Staying current:** Run `/update` periodically to pull the latest commands and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
+**Staying current:** Run `/update` periodically to pull the latest skills and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
 
-**Install just the commands (optional):** OpenCairn is also a Claude Code plugin marketplace, so you can pull the slash commands into any project without cloning the vault:
+**Install just the skills (optional):** OpenCairn is also a Claude Code plugin marketplace, so you can pull the skills into any project without cloning the vault:
 
 ```bash
 /plugin marketplace add OpenCairn/OpenCairn
 /plugin install opencairn@opencairn
 ```
 
-This installs the **command layer only** — the vault-coupled commands (`/park`, `/morning`, `/weekly-review`) still assume the NIPARAS folder structure and `VAULT_PATH`, while the portable ones (`/audit`, `/second-opinion`, `/de-ai-ify`) work standalone. For the full system, clone the template above.
+This installs the **skills only** — the vault-coupled skills (`/park`, `/morning`, `/weekly-review`) still assume the NIPARAS folder structure and `VAULT_PATH`, while the portable ones (`/audit`, `/second-opinion`, `/de-ai-ify`) work standalone. For the full system, clone the template above.
 
 ---
 
-## All Commands
+## All Skills
 
 <details>
-<summary><strong>Click to expand the full command reference</strong></summary>
+<summary><strong>Click to expand the full skill reference</strong></summary>
 
 **Daily rhythm:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/morning` | Start-of-day check-in. Surfaces active projects, tickler items, yesterday's open loops, overnight queue. Helps plan the day and captures anything from overnight thinking. |
 | `/afternoon` | Mid-day recalibration. Checks whether you've drifted from priorities, helps reprioritise remaining time. Quick 2-5 min reset. |
@@ -196,28 +196,28 @@ This installs the **command layer only** — the vault-coupled commands (`/park`
 
 **Session lifecycle:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Loads project hub and last session context on selection. |
 | `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
 
 **Extended breaks:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/hibernate` | Pre-break snapshot before travel or sabbatical. Captures all active projects, open loops, and context into a durable snapshot file. Interactive interview about break duration and return priorities. |
 | `/awaken` | Post-break context restoration. Loads the hibernate snapshot, runs a reorientation interview, updates project statuses with post-break reality. Args: `--date=YYYY-MM-DD`. |
 
 **Project lifecycle:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/start-project` | Creates a new project file with goal/status/next actions, adds to Works in Progress, optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
 | `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves to archive, removes from WIP, logs completion. Args: optional project name. |
 
 **Reviews:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
 | `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, `Context - Direction.md` overhaul. Consumes `/quarterly-hygiene` for vault structural health. |
@@ -225,14 +225,14 @@ This installs the **command layer only** — the vault-coupled commands (`/park`
 
 **Learning loops:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/oops` | Captures a mistake. Extracts what went wrong, the correction, and the transferable lesson. Appends to Claude Corrections Log. Checks for patterns warranting promotion to CLAUDE.md. |
 | `/win` | Captures a success. Extracts what went well, why, and the transferable pattern. Appends to Claude Wins Log. The counterpart to `/oops`. |
 
 **Research & thinking:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
@@ -242,14 +242,14 @@ This installs the **command layer only** — the vault-coupled commands (`/park`
 
 **Prioritisation:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/longpoles` | Surfaces all `[LP]` (longpole) tagged items across the vault — critical-path items that block other work. |
 | `/cornerstones` | Surfaces high-value foundational tasks tagged `[CS]` across the vault. |
 
 **Utilities:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
 | `/reply` | Drafts a reply to an inbound message with voice matching and CRM context. Always writes drafts to scratchpad. |
@@ -262,22 +262,22 @@ This installs the **command layer only** — the vault-coupled commands (`/park`
 
 **Audit & provenance:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/audit` | Rigorous five-layer evaluation of any implementation (code, config, plans, processes). Layers: approach → environment → migration → implementation → execution. Iterates until clean. |
 | `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. Verification is handled automatically by `/weekly-hygiene`. |
-| `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 14b); this command just redirects there. |
+| `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 14b); this skill just redirects there. |
 
 **Infrastructure:**
 
-| Command | What it does |
+| Skill | What it does |
 |---------|-------------|
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
-| `/update` | Pulls latest OpenCairn commands/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
+| `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 
 **Aliases:**
 
-| Command | Alias for |
+| Skill | Alias for |
 |---------|-----------|
 | `/checkpoint` | `/park` |
 | `/regroup` | `/afternoon` |
@@ -304,7 +304,7 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 
 ## Tips
 
-**Context-aware status line.** Claude Code's default status line shows absolute tokens. A percentage with colour-coded warnings is more useful - see [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/) for the setup script. Startup commands (`/morning`, `/pickup`, etc.) consume significant context on their own - a fresh session typically starts around 15-20% just from loading context files and command prompts, so your usable working window is smaller than the raw percentage suggests.
+**Context-aware status line.** Claude Code's default status line shows absolute tokens. A percentage with colour-coded warnings is more useful - see [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/) for the setup script. Startup skills (`/morning`, `/pickup`, etc.) consume significant context on their own - a fresh session typically starts around 15-20% just from loading context files and skill prompts, so your usable working window is smaller than the raw percentage suggests.
 
 **More tips** on context management, workflow patterns, keyboard shortcuts, and MCP servers: [hedwards.dev/claude-code-tips/](https://hedwards.dev/claude-code-tips/)
 

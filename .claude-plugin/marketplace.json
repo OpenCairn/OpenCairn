@@ -10,7 +10,7 @@
     {
       "name": "opencairn",
       "source": "./",
-      "description": "Slash commands for Claude Code: park/pickup session chaining, morning/afternoon/goodnight day loops, weekly & quarterly reviews, a five-layer cross-model audit panel, and PKM utilities. Designed to pair with the OpenCairn NIPARAS vault, but the commands install standalone.",
+      "description": "Skills for Claude Code: park/pickup session chaining, morning/afternoon/goodnight day loops, weekly & quarterly reviews, a five-layer cross-model audit panel, and PKM utilities. Designed to pair with the OpenCairn NIPARAS vault, but the skills install standalone.",
       "category": "productivity",
       "keywords": [
         "obsidian",
