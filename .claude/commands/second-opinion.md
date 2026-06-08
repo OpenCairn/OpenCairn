@@ -144,9 +144,9 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
 
    - **Codex CLI via Bash** with `timeout: 300000` — resume by the UUID recorded in Phase 2A, substituting `<round2-path>`:
      ```
-     cat <round2-path> | codex exec resume <SESSION_ID> --sandbox read-only --skip-git-repo-check -
+     cat <round2-path> | codex exec --sandbox read-only --skip-git-repo-check resume <SESSION_ID> -
      ```
-     Replace `<SESSION_ID>` with the session UUID from round 1 (`codex exec resume --last` picks the most recent recorded session if you've lost it, but resume by explicit UUID when you have it — `--last` has the same wrong-session risk as Gemini's `latest` if any other codex run happened in between). The resumed session carries its round-1 context. Same fallback as Gemini if resume doesn't round-trip: run codex fresh with the round-1 output quoted in the brief, and annotate `[Codex r2, fresh-with-replay]` in the synthesis.
+     **Flag order matters:** `--sandbox`/`--skip-git-repo-check` belong to the parent `codex exec` and must come *before* `resume` — `codex exec resume <ID> --sandbox …` errors with `unexpected argument '--sandbox'` (verified codex-cli 0.136.0). The `resume` sub-subcommand only accepts `[SESSION_ID] [PROMPT]` plus its own options (`--last`, `-c key=value`, etc.). Replace `<SESSION_ID>` with the session UUID from round 1 (`codex exec --sandbox read-only --skip-git-repo-check resume --last -` picks the most recent recorded session if you've lost it, but resume by explicit UUID when you have it — `--last` has the same wrong-session risk as Gemini's `latest` if any other codex run happened in between). The resumed session carries its round-1 context. Same fallback as Gemini if resume doesn't round-trip: run codex fresh with the round-1 output quoted in the brief, and annotate `[Codex r2, fresh-with-replay]` in the synthesis.
 
 5. **If only one reviewer is being iterated** (you only care about one reviewer's finding in round 2), run that one in Phase 2B and skip the other. Note clearly in the synthesis that round 2 is single-reviewer.
 

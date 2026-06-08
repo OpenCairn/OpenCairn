@@ -15,7 +15,7 @@
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
-Skills, a 7-folder filing system, and session chaining for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/).
+Session chaining, day/week/quarter review loops, and a 7-folder vault for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/) — plus skills like `/audit` and `/second-opinion` that run standalone in any project.
 
 <p align="center">
   <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
@@ -43,6 +43,21 @@ What would you like to pick up?
 ```
 
 Zero reconstruction. Instant flow.
+
+---
+
+## Two Ways to Use This
+
+**Grab the portable skills.** `/audit`, `/second-opinion`, and `/thinking-partner` work in *any* Claude Code project — no vault, no folder structure. Install them as a plugin:
+
+```bash
+/plugin marketplace add OpenCairn/OpenCairn
+/plugin install opencairn@opencairn
+```
+
+`/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. None of them need a vault.
+
+**Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
 ---
 
@@ -177,7 +192,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 /plugin install opencairn@opencairn
 ```
 
-This installs the **skills only** — the vault-coupled skills (`/park`, `/morning`, `/weekly-review`) still assume the NIPARAS folder structure and `VAULT_PATH`, while the portable ones (`/audit`, `/second-opinion`, `/de-ai-ify`) work standalone. For the full system, clone the template above.
+This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, and `/thinking-partner`, plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
 ---
 
@@ -185,6 +200,8 @@ This installs the **skills only** — the vault-coupled skills (`/park`, `/morni
 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
+
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, plus the media utilities `/ocr`, `/transcribe`, `/podcast-digest`. Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 
 **Daily rhythm:**
 
