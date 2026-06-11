@@ -184,6 +184,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 **Project:** [use exact link from Step 5 — do not rewrite]
 ```
 
+   **Reconcile Files Created / Files Updated against the Step 4(a) enumeration.** Every file in that enumeration must appear in one of the two lists (created vs. updated). This is the backstop for in-session edits to planning files — a checkbox flip in This Week, a Tickler add — which are easy to omit here because they feel like bookkeeping rather than session work. (Files edited *later*, during park Steps 11-13, aren't in the 4(a) set yet — Step 13a backfills those.)
+
 8. **Write the summary** (with file locking + atomic session numbering):
    - **CRITICAL: Use the write-session script, NOT inline flock or the Edit tool**
    - Inline flock commands corrupt `settings.local.json` (the entire command including session content gets saved as a permission pattern)

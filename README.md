@@ -263,6 +263,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 |---------|-------------|
 | `/longpoles` | Surfaces all `[LP]` (longpole) tagged items across the vault — critical-path items that block other work. |
 | `/cornerstones` | Surfaces high-value foundational tasks tagged `[CS]` across the vault. |
+| `/guillotines` | Surfaces all `[GT]` (guillotine) tagged items across the vault — hard-deadline tasks that foreclose an option or cause irreversible loss if missed, sorted by how close the blade is. |
 
 **Utilities:**
 

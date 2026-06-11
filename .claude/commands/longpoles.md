@@ -57,5 +57,6 @@ If no `[LP]` items found, report that clearly:
 
 - **Speed over comprehensiveness.** This is a quick scan, not deep analysis. Present what's there; don't try to infer dependencies.
 - **Flag completed longpoles.** An `[LP]` on a checked-off item (`- [x]`) is stale — nudge the user to clean it up.
+- **Lead time, not deadlines.** `[LP]` is for long-lead-time items. A task whose risk is a hard drop-dead date belongs in `[GT]` / `/guillotines` instead — an item can carry both.
 - **Don't modify anything.** This is read-only. Never edit files during a longpole scan.
 - **Relative paths for display.** Show paths relative to vault root so the output is scannable.

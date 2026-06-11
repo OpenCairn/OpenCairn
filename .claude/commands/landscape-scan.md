@@ -132,7 +132,7 @@ Only if digest mode is active.
 For every finding worth reporting — from scan sources *or* digest pile:
 
 **Fit pass:**
-- Does this replace something we already have? (adopt candidate)
+- Does this replace something we already have? (adopt candidate) — *naming a specific local skill here triggers Step 7's ⛔ read-the-source gate; don't assert replacement from a name match.*
 - Does this extend or complement current workflow? (adapt candidate)
 - Is our implementation still superior? (note-and-move)
 
@@ -150,7 +150,16 @@ Report BOTH passes for each finding. Do not collapse into a single "verdict."
 
 Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit.
 
-For each relevant finding, compare against the user's existing skills:
+**⛔ Read-the-source gate (mandatory).** Any *comparative claim that names a specific local skill* — that an external finding obsoletes / upgrades / replaces / collides with / is inferior or superior to / makes redundant `/X` — MUST be backed by reading `/X`'s own source *this run*, **wherever the claim appears**: Step 6's fit pass ("replace something we already have"), this step, Step 8's classification, or any section of the report — not only here. The scan/digest sub-agents and any external write-up only ever see a name plus a one-line description, so their comparative claims are *structurally speculation*, almost always triggered by a name or description match. **Name/description overlap is a prompt to open the file, never a verdict.**
+
+- **Who reads:** the actor that writes the claim into the report. A sub-agent that can't load local skills must emit the finding as "name overlap — source unread" and leave the verdict to the **orchestrator**, which opens the named source itself before accepting, changing, or reporting it. Never launder a sub-agent's comparative claim through unread.
+- **What to read:** the named skill's source at `~/.claude/commands/<name>.md` (or the personal / template / plugin path that resolves it) — *enough of the body to establish its operating layer and mechanism, not just the frontmatter `description`* (that one-liner is exactly what the gate exists to look past). Read only the named skills, not the whole inventory — this stays lightweight.
+- **If no source file exists, the claim is *more* suspect, not less.** The skill may be harness/plugin-provided, or the name may be hallucinated (a real failure once invented a `/deep-research` skill that didn't exist). Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never to wave it through as a note.
+- **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded in the report's Skill-obsolescence section (`Source read: <path>`, or `no file — claim dropped`). If the source genuinely can't be read but the skill is confirmed to exist, **don't compare** — report only "unverified name overlap with `/X`, source unread; no obsolescence claim made." The downgrade is non-comparative; it is not licence to keep asserting overlap without reading.
+
+Watch both directions: a finding may *sound* like it competes when the named skill operates at a different layer (e.g. a spec-generator vs an execution loop), and may *sound* novel when the skill already does it — only the source settles which.
+
+For each relevant finding, compare against the user's existing skills — and for any comparison that names or appears to overlap a specific skill, pass the read-the-source gate above first:
 - Does this replace something we built? (adopt)
 - Does this do something better that we could extract a pattern from? (adapt)
 - Is our implementation still superior? (note)
@@ -228,6 +237,7 @@ For each:
 
 ## Skill-obsolescence check
 - [Skill domain] — [external tool/pattern, how it compares, classify: adopt/adapt/note/inferior]
+  - *Source read:* [`~/.claude/commands/<name>.md` read this run + one-line source-based basis | `no file — claim dropped` | `n/a — names no local skill`]
 - (or: "No new skill-obsoleting findings this week")
 
 ## No change since last scan

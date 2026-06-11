@@ -70,7 +70,8 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    **Sweep for tagged tasks:**
    - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
    - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
-   - Read the matched files and extract the tagged items for review
+   - Guillotines [GT]: `grep -r "\[GT\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+   - Read the matched files and extract the tagged items for review (for [GT], note each hard deadline and whether it's overdue/imminent)
 
    **Direction (strategic layer):**
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists)
@@ -194,7 +195,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 **Recommendation:** These have lingered for 2+ weeks. Either act or explicitly drop.
 
-### Long Poles [LP] & Cornerstones [CS]
+### Long Poles [LP], Cornerstones [CS] & Guillotines [GT]
 
 **Long Poles** - Need lead time, can't be rushed:
 - [LP task from file X] - Status/progress this week?
@@ -204,7 +205,11 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 - [CS task from file X] - Status/progress this week?
 - [CS task from file Y] - Status/progress this week?
 
-**Review:** Are LP items getting attention early enough? Are CS blockers being addressed?
+**Guillotines** - Hard deadlines; missing them forecloses the option or causes irreversible loss:
+- [GT task from file X] - Deadline DD Mon YYYY (X days left) - on track? (flag 🔴 overdue / 🟠 ≤30d)
+- [GT task from file Y] - Deadline DD Mon YYYY (X days left) - on track?
+
+**Review:** Are LP items getting attention early enough? Are CS blockers being addressed? Is any GT deadline overdue or imminent? *(For a focused, date-sorted view, run `/guillotines`.)*
 
 ### Claude Corrections Log Review
 **New entries this week:**
