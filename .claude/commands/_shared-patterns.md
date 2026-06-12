@@ -28,6 +28,6 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
-- **Launch-dir cd before cwd-keyed scripts** — persistent-shell cd drift silently mis-keys session discovery; cd to the launch dir (never `pwd`), fail closed. → `park` Step 16
+- **Launch-dir cd before cwd-keyed scripts** — cd to launch dir, never `pwd`; fail closed. → `park` Step 16
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`

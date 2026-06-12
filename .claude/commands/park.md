@@ -21,11 +21,11 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
-   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; `/setup` documents how to set it per-OS). Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
-   - Get current time with seconds: `date +"%I:%M:%S%p" | tr '[:upper:]' '[:lower:]'` (for session timestamp)
+   - Get current time with seconds: `LC_TIME=C date +"%I:%M:%S%p" | tr '[:upper:]' '[:lower:]'` (for session timestamp; `LC_TIME=C` guards `%p`, which expands empty under many non-English locales)
    - Store these for use in metadata and file paths
    - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
@@ -62,13 +62,13 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 4, 10, 11, 12, 13, 13a, 13b, 14, 15, 16, 17** (quality gate, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, timestamp bump, audit, skill monitor, transcript export, completion — all using the merged session's number). Skip Step 3 (transcript already in merge context) and Steps 5-9 (no new session entry needed).
-   - **Steps 10, 12, 13, 15 typically produce their clean-pass checkpoint output in a merge** — `✓ No at-risk work product to persist`, `✓ Reference graph: No identifier values changed`, `✓ No open loops to route`, `✓ Skill monitor: No gaps detected` — because the remediation already did the routing/graphing inline as it ran. Run the mechanical checks anyway (Scratchpad `find`, enumerate-before-grepping, loop scan) — the checkpoint emission is mandatory either way — but don't fabricate findings to fill the slots if the checks come up clean. Steps 4, 11, 13a, 13b, 14, 16, 17 typically still have at least a small amount of real work (quality gate on the remediation edits, backfill, WIP timestamp bump, audit re-execution against the merged state, transcript re-export, completion reporting), but may also come up clean — in which case their normal success outputs apply.
+   - **After merging, run Steps 4, 8a, 8b, 10, 11, 12, 13, 13a, 13b, 14, 15, 16, 17** (quality gate, Pickup Context + Project verification, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, timestamp bump, audit, skill monitor, transcript export, completion — all using the merged session's number). Steps 8a/8b matter here because the merge path is the one path that *rewrites* Pickup Context — scope them to the merged session's N and compare the Project line against the merged session's original link. Skip Step 3 (transcript already in merge context) and Steps 5-9 (no new session entry needed). Because Step 5 is skipped, emit the observable project source downstream steps need, immediately after the merge edits: `Merged session: [existing topic] | Project: [Project line from the merged session]`.
+   - **Steps 10, 12, 13, 15 typically produce their clean-pass checkpoint output in a merge** — `✓ No at-risk work product to persist`, `✓ Reference graph: No identifier values changed`, `✓ No open loops to route`, `✓ Skill monitor: No gaps detected` — because the remediation already did the routing/graphing inline as it ran. Run the mechanical checks anyway (Scratchpad `find`, enumerate-before-grepping, loop scan) — the checkpoint emission is mandatory either way — but don't fabricate findings to fill the slots if the checks come up clean. Steps 4, 8a, 8b, 11, 13a, 13b, 14, 16, 17 typically still have at least a small amount of real work (quality gate on the remediation edits, backfill, WIP timestamp bump, audit re-execution against the merged state, transcript re-export, completion reporting), but may also come up clean — in which case their normal success outputs apply.
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
    - If not a continuation, proceed normally:
 
-3. **Read the conversation transcript** to understand what was accomplished, decisions made, and what remains open.
+3. **Review the conversation context** to understand what was accomplished, decisions made, and what remains open. (The conversation itself is the source — no transcript artefact exists yet; the export happens at Step 16.)
 
 ### Phase 2: Quality Assurance
 
@@ -117,7 +117,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Spelling localisation:** Skip if a PostToolUse spelling hook (e.g. britfix) already normalises spelling at write time. Otherwise: use the locale from the user's CLAUDE.md (`**Locale:**` line). If `en_AU` or `en_GB`: normalise to British/Australian spelling. If `en_US`: normalise to American. If no locale set: skip spelling normalisation.
    - Terminology consistency (park/pickup not parking/resume/restore)
    - Typos, grammar, unclear phrasing
-   - Tone consistency with the user's voice (load `07 System/Context - Voice & Writing Style.md` if voice questions arise)
+   - Tone consistency with the user's voice (if the vault has a voice/style context file — see the user's CLAUDE.md routing — load it when voice questions arise; skip if none exists)
 
    **Fix any issues found automatically.** For fixes to shared planning files (WIP, This Week, Tickler, Tasks), use `locked-edit.sh` per `_shared-rules.md` §5.
 
@@ -157,7 +157,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
 7. **Generate session summary** using the format below.
 
-   **Body only — no `## Session N - …` heading.** Step 8's `--auto-number` mode prepends the heading inside the lock. If you include a heading here, you'll get a duplicate.
+   **Body only — no `## Session N - …` heading.** Step 8's `--auto-number` mode prepends the heading inside the lock. If you include a heading here, the script rejects the write with an explicit error (exit 1) — remove the heading and re-run.
 
 ```markdown
 ### Summary
@@ -212,7 +212,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **Capture N from stdout.** The script's final line is `Session number assigned: N`. Read it from the tool output and use that N for all downstream steps (8a, 8b, 11, 13, 13a, 14). Do NOT rely on a pre-computed N — under parallel /park, the number you'd predict and the number you got may differ.
 
-   **If lock times out (exit code 1):** Display warning and retry once, then fail gracefully:
+   **If the write fails (exit code 1):** the script exits 1 for several distinct causes — lock timeout, empty stdin, the heading-reject above, usage errors. Key the retry on the stderr text, not the bare exit code: only a `Failed to acquire lock` / `Lock timeout` message warrants the retry below; any other error means the invocation is wrong — fix it instead of retrying. On a lock-timeout message, display the warning and retry once, then fail gracefully:
    ```
    ⚠ Lock acquisition timed out - another session may be parking. Retrying...
    ```
@@ -228,7 +228,10 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    **Scope the check to the just-written session block** (N = session number assigned by Step 8's `--auto-number` output, not predicted in Step 5), not the global file count. A global `grep -c` across the whole day's log can pass when the session being verified is the one missing — e.g. if an earlier session already has Pickup Context and Session N doesn't, the count is still ≥1 and passes. The check must verify the specific block:
    ```bash
    # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
-   awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
+   # <N> is a substitute-me placeholder like {VAULT}: replace it with the literal session number from Step 8's output.
+   # Shell variables do NOT persist between Bash tool calls — a bare $N would be unset, the awk pattern would match
+   # nothing, and the count would return 0: a false "missing" that triggers a duplicate-section "fix".
+   awk -v n=<N> -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep -c '^### Pickup Context'
    ```
    Expected: exactly 1. If 0, Session N is missing Pickup Context — add it via the Edit tool (the script can't append a new section that doesn't exist). Display: `Pickup Context check: present ✓` or, if fixed: `Pickup Context check: section was missing, added via Edit`.
 
@@ -238,7 +241,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    After confirming the Pickup Context section exists, verify the `**Project:**` line inside it matches Step 5's determination. Extract mechanically — **scope to Session N's block**, not a whole-file grep: under concurrent parks a later session's `**Project:**` line can be the file's last one, so `grep … | tail -1` over the whole file can validate the wrong session. Reuse Step 8a's Session-N awk:
    ```bash
    # Letter-var z=0 works around the slash-command loader eating bare $-digit tokens (see Step 8a).
-   awk -v n="$N" -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep '^\*\*Project:\*\*' | tail -1
+   # <N> = literal session number, substituted as in Step 8a (shell vars don't persist between Bash calls).
+   awk -v n=<N> -v z=0 '$z ~ "^## Session " n " "{p=1; next} p && /^## Session /{exit} p' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" | grep '^\*\*Project:\*\*' | tail -1
    ```
    Compare against Step 5 output. If they differ, fix the session log before proceeding.
    Display: `Project check: [link] ✓` or, if fixed: `Project check: fixed [old] → [new]`
@@ -249,7 +253,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Only fires if this session continues a specific previous session** (from `/pickup` context). If not a continuation, skip this step entirely.
    - Do NOT add chronological "Next session:" links — sessions are already in order in the file. Only topical continuation links carry information.
    - Add "Continued in:" link to the original session being continued:
-     - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]] (DD Mon)`
+     - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]` (exactly what the script writes — no date suffix)
      - Use the forward-link script with `--continued-in`:
        ```bash
        # Same-day:
@@ -279,7 +283,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    find "{VAULT}/01 Now" "{VAULT}/02 Inbox" -maxdepth 2 -type f -name "*.md" -mmin -120 2>/dev/null
    ```
 
-   For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). **Known at-risk signature:** `/reply` draft sections in Scratchpad, identified by headings starting with `**Reply to ` — see `_shared-rules.md` §11 for section boundaries and cleanup ownership. If durable work product is found, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location.
+   For each result, judge whether it's a transient surface (Scratchpad.md, inbox capture, daily note) — skip durable files in the same directories that happen to have recent mtimes (e.g. `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`). For each transient-surface hit, read it and judge whether new content from this session is durable work product (a draft for a forthcoming submission, message, or document; anything a future session would need to retrieve). **Known at-risk signature:** `/reply` draft sections in Scratchpad, identified by headings starting with `**Reply to ` — see `_shared-rules.md` §11 for section boundaries and cleanup ownership. If durable work product is found, move it to its semantic home, remove it from the transient surface, and update This Week.md or project hubs that pointed at the old location. **Exception — `/reply` draft sections: per §11's confirmation gate, do NOT remove or route one without explicit per-draft user confirmation that it was sent or is no longer needed.** Other at-risk work product may be moved automatically.
 
    - **⛔ CHECKPOINT:** Display exactly one of:
      ```
@@ -305,7 +309,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      - **Last-field cap:** Single current entry — replace, don't chain. The Last field carries only the most recent session's update. **Do NOT prepend "Earlier [date]..." blocks for prior entries** — when updating Last, replace the prior value outright. Prior Last content is already preserved verbatim in the session-log archive and referenced by the 3-link session FIFO below; duplicating it inline as "Earlier" chains is the Last-field accretion anti-pattern. This is the prose-side parallel to the FIFO cap on session links: both rules keep WIP as a current-state dashboard, not a running log. If a prior entry contained durable thinking/lessons/decisions that belong in a project or area doc, migrate those to their natural home *before* replacing the Last field — the trimming check is "has the content been captured in an SSOT elsewhere?", not "does Last look tidy?" **SSOT here means a project or area doc — NOT auto-memory (which holds behavioural lessons, not project/commit records) and NOT a session log (a write-once archival record, not a canonical project SSOT). Before trimming durable identifiers (commit hashes, PR#s, issue#s, decisions) out of WIP, grep each dropped identifier against the target doc and display the verification block (mirror of the cited-identifier check below). Trimming on "I think it's captured" without the grep is the failure mode.**
      - **⛔ Verify cited identifiers before replacing Last.** When the prior Last cites identifiers (commit hashes, `[[wikilinks]]`, session refs like `Session N`, file paths), enumerate each and run a verification command. Display the verification block in your response **before** `locked-edit.sh` replaces Last. Verification commands by shape:
        - **Commit hash:** `git -C <repo> log --oneline | grep <hash>`
-       - **Session reference:** `grep '^## Session N ' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"`
+       - **Session reference:** `grep '^## Session <N> ' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"` (`<N>` = the literal cited session number)
        - **Wikilink:** `ls "{VAULT}/<path>.md"` (or `head` if confirming content)
        - **File path:** `ls <path>`
 
@@ -324,16 +328,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
        3. **No doc, work complete:** Omit Next
        Never a queue — one pointer or one action. **Replace each park, don't inherit.** If a prior session left a queue in Next, dedup-check each item against canonical SSOT (This Week.md, Tickler, project doc, area files) and route any unrouted items (per Step 13 routing rules) before collapsing Next to the pointer/action form. **Why:** Next is a current-state field, like Last; inheriting a stale queue duplicates task tracking and risks letting items rot in WIP if they were never routed elsewhere. Mirrors the Last-field "replace, don't chain" rule above.
      - Add link to session: `→ [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]]`
-     - **FIFO cap at 3:** After adding the new link, count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry. If there are more than 3, remove the oldest by date until exactly 3 remain. Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth. **Do not trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers.
-     - **⛔ FIFO verification:** After the WIP edit, mechanically verify the count. Do NOT trust your edit — count the actual lines in the file:
-       ```bash
-       # Extract the WIP entry for this project and count session links
-       # Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
-       # Uses awk index() for fixed-string matching (headings often contain / and &)
-       # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
-       awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
-       ```
-       Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
+     - **⛔ FIFO cap + verification:** Apply the WIP session-link FIFO cap per `_shared-rules.md` §6 — the SSOT for both the cap rule (3 links, trim oldest by date, never trim non-session-log reference links) and the mechanical awk verification snippet. After the WIP edit, run §6's verification — do NOT trust your edit; count the actual lines in the file. Required output: `FIFO check: N/3 session links`. If more than 3, fix before proceeding. (§6 is already in context — Step 0 reads `_shared-rules.md` in full.)
+     - **Append to the project hub's Session History.** If the Step 5 project link resolves to a hub file (typically `03 Projects/...`) containing a `## Session History` section, append the same session link there — `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]] (one-line gloss)` — via `locked-edit.sh --replace` on the section's current tail lines, NOT `--append` (Session History isn't guaranteed to be the file's last section). If the hub has no `## Session History` section, skip without creating one (older hubs may predate the template; don't impose structure). This is the durable per-project record that justifies the lossy 3-link FIFO above — the FIFO's rationale ("session history lives in the project hub pages") needs a writer, and this is it.
    - **Check CURRENT line:** If the WIP entry has a CURRENT line (date, location, or status), verify it's accurate as of today. Run `date +"%a %d %b"` to confirm the day-of-week — don't trust internal computation. Update if stale.
 
 12. **Trace reference graph for status changes (enumerate in main session, delegate propagation to sub-agent):**
@@ -366,6 +362,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
 
+   **Numeric/limit/count changes carry a second identifier: the constrained subject.** For a cap, count, or limit change (e.g. a "max 2" → "max 3"), restatements elsewhere often share no token with the changed value ("the 2 most recent", "two latest"). Enumerate the *subject phrase* (the capped noun phrase, e.g. `session link`) alongside the `old → new` pair — the subject is what sibling restatements share; the value is what drifted. The sub-agent greps it case-insensitively in addition to the old literal value.
+
    **Anchor-grep rule for relocated targets (not just file moves).** When a section, queue, or SSOT moves *out* of a document — even if the document itself stays put — the moved-from document's inbound `[[wikilink]]` (and its path forms) becomes a standalone identifier. Grep the **bare anchor with no keyword conjunction** (e.g. `rg -Fi '[[03 Projects/Project Name]]'` — `-i` catches lowercased prose path forms), NOT the anchor AND a topic keyword. A keyword conjunction (anchor + `queue`/`backlog`/`<section name>`) silently drops semantic-variant references — a line pointing at the moved-from doc as "the project doc" / "full spec here" / "see [[…]]" won't match anchor-plus-keyword but is exactly the stale pointer that now misdirects. The bare inbound link is the join key; the surrounding prose is not. Assess each hit per the stale / historical / unrelated rule in (d) — bare-anchor grep returns legitimate navigation links too, so triage, don't blind-rewrite.
 
    **(b) If the enumeration is the nil case, skip the sub-agent and display:**
@@ -391,9 +389,10 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Enumerated identifiers** as `old → new` pairs — copied verbatim from your (a) enumeration block, not retyped from memory
    - **Path-expansion rule (re-stated at execution point):** "For any enumerated identifier that is a file rename/move/delete, also grep for plausible full-path forms — old absolute path, old vault-relative path, and the bare filename without extension. Plain-text path references inside non-link contexts (e.g. `**Source:** /path/to/file.ext` in transcripts, embedded YAML, fenced code blocks) are NOT surfaced by structural link-integrity queries — only grep catches them. Iterate each form as a separate grep call. For a section/queue/SSOT that relocated *out* of a still-existing document, also grep that document's bare inbound anchor (`[[doc]]` and its path forms) with NO keyword conjunction — per the anchor-grep rule in (a); keyword-qualified greps drop semantic-variant pointers ('the project doc', 'full spec here')."
    - **NEW attached-option rule:** "For any enumerated `NEW:` option/alternative added to a pre-existing decision/record, grep the decision's **anchor** (the route/decision/record key carried in the enumeration) across live docs — NOT only the new option text, which sibling docs that still lack the option won't contain. Read every live hit and propagate the new option into prose AND the parallel table-row / list / index representations of that decision."
+   - **Numeric-change subject rule:** "For any enumerated numeric/limit/count change, also grep the constrained subject phrase (carried in the enumeration) case-insensitively — restatements of a cap/count often share no token with the changed number ('max 2' vs '2 most recent'). Triage subject-phrase hits per §12 as usual."
    - **Vault path** (resolved): the absolute path
    - **Archive-exclusion glob:** `!**/06 Archive/**`
-   - **Tool guidance:** "Use `rg --type md -i` (ripgrep, respects `.gitignore`, skips `.git/` auto-save). The `-i` is load-bearing: a session-derived identifier is often lowercase while the stale copy capitalises it (or vice-versa), and the case-sensitive default silently drops such hits — the later case-insensitive closure pass then catches what this step should have. Do not use `grep -r` — it crawls `.git/` and takes minutes on long-lived vaults."
+   - **Tool guidance:** "Use `rg --type md -i` (ripgrep, respects `.gitignore`, skips `.git/` auto-save). The `-i` is load-bearing: a session-derived identifier is often lowercase while the stale copy capitalises it (or vice-versa), and the case-sensitive default silently drops such hits — the later case-insensitive closure pass then catches what this step should have. Do not use bare `grep -r` — it crawls `.git/` and takes minutes on long-lived vaults. If `rg` is not installed, the fallback is `grep -rn -i --include='*.md' --exclude-dir=.git` — the `--exclude-dir=.git` carries the same don't-crawl constraint."
    - **No regex alternation from memory when N>3.** "If more than three identifiers, iterate each as a separate grep call. Typed-from-memory alternation silently drops entries."
    - **Already-updated docs are NOT complete.** "For any identifier flagged in the enumeration as 'already updated in doc X' (a fix the session made inline), do NOT treat doc X as done — re-grep doc X for OTHER instances of the same stale claim. A single in-session edit fixes one occurrence; the same fact is often asserted in several places within one document (summary callout + detail table + rationale prose) **and in different words** — a section header or bolded lead carrying the same current-state framing (e.g. a \"Current…\"/\"Now\"/\"Status\" section), an admonition/callout title line (\`> [!note]\`/\`> [!warning]\` headers), or an inbound cross-reference parenthetical pointing at the rewritten passage (e.g. \`(<status> <date> — see <section> below)\`) is the same stale claim even when it shares no token with the changed marker. When you rewrite a callout body, re-read its own title line and any same-file line that points at it (e.g. lines containing \`see\`/\`below\`/\`above\` or the callout's title) — update such a line only if it restates the changed fact; a bare navigation pointer carrying no status/date is not stale, leave it. Re-grep for the claim's *meaning*, not just the literal changed string, and scan the structure (headings + leads + callout titles) of every session-edited doc, not only token matches. (Known limit: a doc with stale current-state but no token hit is never opened by the per-identifier grep — this catches restatements inside docs you're already editing, not silent stragglers elsewhere.) Include every session-edited doc in the per-identifier grep pass, not just the unedited rest of the vault."
    - **For file-path identifier changes (rename, move, delete):** "After the per-identifier grep pass, run the vault's structural link-integrity query as a post-check (e.g. `obsidian unresolved` for an Obsidian vault; `git grep` + LSP find-references for code repos; broken-link reports for wikis). The grep catches plain-text path references; the structural query catches wikilink/symlink integrity. Both are needed — neither alone is sufficient. Watch for basename collisions: if `new-name.md` and `old-name.md` share a basename with some unrelated file, structural queries may resolve a `[[old-name]]` link to the wrong file rather than flagging unresolved. Flag any ambiguous basename collisions in the report."
@@ -431,9 +430,12 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    # Use -i (case-insensitive): a substring derived from the session topic is
    # often lowercase, but the task text may capitalise it — case-sensitive
    # grep would silently miss the match.
-   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/This Week.md"
-   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tasks.md"
-   grep -niE '^\s*-\s*\[ \].*FOO-123' "{VAULT}/01 Now/Tickler.md"
+   # [[:space:]] not \s: \s is a GNU extension — BSD/macOS grep silently matches
+   # nothing on it, turning every closure pass into a false nil.
+   # Tasks.md / Tickler.md are optional — skip absent files and note "absent" in the checkpoint.
+   grep -niE '^[[:space:]]*-[[:space:]]*\[ \].*FOO-123' "{VAULT}/01 Now/This Week.md"
+   grep -niE '^[[:space:]]*-[[:space:]]*\[ \].*FOO-123' "{VAULT}/01 Now/Tasks.md"
+   grep -niE '^[[:space:]]*-[[:space:]]*\[ \].*FOO-123' "{VAULT}/01 Now/Tickler.md"
    # ...per relevant project hub
    ```
 
@@ -473,11 +475,11 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
       "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] [Loop text] → [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]"
       ```
 
-   3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's if morning session) via `locked-edit.sh --replace` (per write-mechanism note above). Format: `- [ ] [Loop text] → [[project/area doc]]`. Append a project/area link: `→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]` if tracked in WIP. The session's Project link (Step 5) identifies the target. No link for items with no project context.
+   3. **If no date + This Week.md is current** (today falls within date range) → add to tomorrow's section in This Week.md (or today's, if parking before 12:00 local time) via `locked-edit.sh --replace` (per write-mechanism note above). Format: `- [ ] [Loop text] → [[project/area doc]]`. Append a project/area link: `→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]` if tracked in WIP. The session's Project link (Step 5) identifies the target. No link for items with no project context.
 
-      **Exception — trigger-contingent loops fall through to rule 4.** If the loop fires on a downstream trigger event rather than calendar time (e.g. "next time X runs, verify Y" or "test Z when next encountering W"), skip rule 3 and fall through to rule 4 (project file). Rule 3 assumes loops are actionable on a specific day; trigger-contingent loops aren't, and surfacing them on tomorrow's plan creates false urgency for work that shouldn't be date-bound at all. If the session has no Project link either, route directly to the Tickler with the date `today + 10 days` (computed via `date -d '+10 days' +"%Y-%m-%d"`) via write-tickler.sh — not rule 5, because rule 5's condition requires This Week.md to be stale, which isn't the trigger case here.
+      **Exception — trigger-contingent loops fall through to rule 4.** If the loop fires on a downstream trigger event rather than calendar time (e.g. "next time X runs, verify Y" or "test Z when next encountering W"), skip rule 3 and fall through to rule 4 (project file). Rule 3 assumes loops are actionable on a specific day; trigger-contingent loops aren't, and surfacing them on tomorrow's plan creates false urgency for work that shouldn't be date-bound at all. If the session has no Project link either, route directly to the Tickler with the date `today + 10 days` (computed via `date -d '+10 days' +"%Y-%m-%d"` — GNU date; on BSD/macOS use `date -v+10d +"%Y-%m-%d"`) via write-tickler.sh — not rule 5, because rule 5's condition requires This Week.md to be stale, which isn't the trigger case here.
 
-   4. **If no date + session has a Project link** → update that project file's next action section
+   4. **If no date + session has a Project link** → update that project file's next-action section. Deterministic target: prefer an existing `## Next Actions`, then `## Open Loops`; if neither exists, create `## Next Actions` above `## Session History` (or at EOF). Don't improvise other section names — consistency across hubs is what makes the queue greppable.
 
    5. **If no date + no project + This Week.md stale/missing** → Tickler with tomorrow's date via write-tickler script
 
@@ -501,7 +503,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Steps 11-13 modify vault files (WIP, This Week, Tickler, project hubs) that aren't known at step 8 when the session log is written. Backfill these into the session log's "### Files Updated" section.
    - Collect all files modified during steps 11-13 (WIP update, reference graph tracing, open loop routing)
    - **Exclude the Step 13b WIP "Last updated" timestamp bump.** That bump is unconditional meta-bookkeeping, not session content — it fires on every park (including pure no-write sessions), so recording it would add a near-identical "Works in Progress.md - timestamp bump" line to every session log: noise, not signal. A Step 11 *content* write to WIP (Status/Last/Next/narrative under a project heading) IS a Files Updated entry; the bare timestamp bump alone is not. (If Step 11 wrote content, that content edit is what gets backfilled — describe the content change, not the bump.)
-   - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session.
+   - **Dedup check:** Before calling the backfill script, grep the session's "Files Updated" section for each file path. If already listed (from a prior park/audit backfill of the same session), skip it. This matters when a session is parked, audited, and re-merged — multiple backfill passes target the same session. (The script also dedups by normalised path, but silently — the manual grep exists to feed the description-completeness check below, not to protect the script; don't delete it as redundant.)
    - **Description-completeness check on dedup hit:** When the dedup skip fires for a file already listed, check whether the existing description covers the new edit. If not (i.e. /park itself made an additional change to a file already touched in-session, e.g. a Step 12 reference-graph wikilink fix), append the new edit detail to the existing entry's description via Edit tool rather than skipping silently. Filename dedup prevents redundant entries; description completeness prevents silent under-reporting of what actually changed.
    - Use the backfill-files-updated script:
      ```bash
@@ -555,7 +557,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **(c) Receive the sub-agent's report.** Display its summary in your response — this is the audit's user-facing output. Do NOT re-run the audit yourself; trust the sub-agent's report (the whole point is that you don't have the fresh-context advantage).
 
-   **(d) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size on disk — check via `stat -c%s`), re-despatch a focused sub-agent on that hub.
+   **(d) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size on disk — check via `stat -c%s` on GNU/Linux, `stat -f%z` on BSD/macOS), re-despatch a focused sub-agent on that hub.
 
    - **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step c) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-park state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03:** an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line in the session log as a fabrication; the false correction would have shipped under a literal reading of step (c).
 
@@ -579,7 +581,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      ```bash
      cd "<session launch directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
      ```
-   - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory — the working directory stated in your environment context, which is static and does not track mid-session `cd`s. Do NOT use `pwd` (it returns the drifted directory, silently reproducing the bug).
+   - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory — the working directory stated in your environment context, which is static and does not track mid-session `cd`s. Do NOT use `pwd` (it returns the drifted directory, silently reproducing the bug). One more silent failure mode: if no project dir matches the launch directory at all, the script falls back to *any* project dir containing JSONL files — so sanity-check the reported session count against expectation before trusting the export.
    - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
    - **Why at end of /park:** Earlier ordering (export before audit) meant the transcript missed the audit step entirely. Moving export to last ensures audit findings and remediation are captured for `/goodnight` provenance processing and as a backstop against session data loss.
@@ -593,7 +595,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 ✓ Continuation link added: [Original Session] (only if this session continues previous work)
 ✓ Project updated: [Project Name] (if applicable)
 ✓ Reference graph: N files updated for [identifier] (if any status changes traced)
-  [OR "No status changes to trace" if none]
+  [OR "✓ Reference graph: No identifier values changed" if none — Step 12(b)'s exact string; don't paraphrase]
 ✓ Open loops routed: N items (This Week: X, Tickler: Y, Project: Z)
   [OR "✓ No open loops to route" if none]
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
