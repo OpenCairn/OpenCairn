@@ -7,7 +7,7 @@ description: Capture session with full bookkeeping — quality gate, WIP update,
 
 You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, conversation draft check, tickler.
 
-**Concurrent parks are safe.** All shared-file writes (session log, WIP, This Week, Tickler, Tasks, project hubs) go through locking infrastructure (`write-session.sh`, `locked-edit.sh`, `write-tickler.sh` — see `_shared-rules.md` §5). Concurrent edits to the same file either both land (disjoint regions) or fail loudly (exit 2/3 — re-read and recompute). **Stale-read caveat:** concurrent parks may redundantly route the same open loop or flip the same checkbox; this is harmless — the dedup check (Step 13) catches most cases, and the next `/weekly-hygiene` trims any residual duplicates. **Goodnight note:** `/goodnight` calls `/park` internally; running goodnight while other parks are in flight is safe with locking, but parking first keeps the day's state most coherent for goodnight's daily report.
+**Concurrent parks are safe.** All shared-file writes (session log, WIP, This Week, Tickler, Tasks, project hubs) go through locking infrastructure (`write-session.sh`, `locked-edit.sh`, `write-tickler.sh` — see `_shared-rules.md` §5). Concurrent edits to the same file either both land (disjoint regions) or fail loudly (exit 2/3 — re-read and recompute). **Stale-read caveat:** concurrent parks may redundantly route the same open loop or flip the same checkbox; this is harmless — the dedup check (Step 13) catches most cases, and the next `/weekly-hygiene` trims any residual duplicates. **Goodnight note:** `/goodnight` runs its own close-out using the same locked-write machinery (it does not invoke /park); running goodnight while other parks are in flight is safe with locking, but parking first keeps the day's state most coherent for goodnight's daily report.
 
 ## Capture Philosophy
 
@@ -583,7 +583,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      ```
    - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory — the working directory stated in your environment context, which is static and does not track mid-session `cd`s. Do NOT use `pwd` (it returns the drifted directory, silently reproducing the bug). One more silent failure mode: if no project dir matches the launch directory at all, the script falls back to *any* project dir containing JSONL files — so sanity-check the reported session count against expectation before trusting the export.
    - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
-   - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
+   - Each park re-exports (capturing all sessions up to this point in the day); `/goodnight` re-exports again at close-out so its provenance hash covers the final state.
    - **Why at end of /park:** Earlier ordering (export before audit) meant the transcript missed the audit step entirely. Moving export to last ensures audit findings and remediation are captured for `/goodnight` provenance processing and as a backstop against session data loss.
 
 17. **Display completion message:**

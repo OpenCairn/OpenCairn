@@ -19,6 +19,8 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 
 ## Instructions
 
+**Write mechanism — applies to every step below.** Mutations of `Works in Progress.md`, `This Week.md`, and project/area hub files go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5) — /afternoon can run alongside parks and other sessions, and lockless edits race.
+
 ### 0. Resolve Vault Path
 
 ```bash
@@ -42,7 +44,7 @@ Read:
 - **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
 - **Works in Progress:** `{VAULT}/01 Now/Works in Progress.md` - what's meant to be priority?
 - **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` - what's been done so far?
-- **This morning's intention:** Check if `/morning` set a "one thing" for today
+- **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by /morning; if the day section is empty or missing, report "None set".
 
 ### 3. Present Current State
 
@@ -53,7 +55,7 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 
 **Time remaining:** ~[N] hours of working time
 
-**Morning's intention:** [If set, or "None set"]
+**Morning's intention:** [Derived per Step 2, or "None set"]
 
 **This Week.md — today's timeline:** (if This Week.md current)
 - [x] [Completed items from timeline]
@@ -123,9 +125,9 @@ Consider:
 
 **If priorities significantly shifted:** Update `{VAULT}/01 Now/Works in Progress.md` with new status/priorities.
 
-**If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged. Include project/area links on new items (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`). This keeps the week plan current without rebuilding from scratch.
+**If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged — via `locked-edit.sh --replace` per the write-mechanism note above. Include project/area links on new items (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`). This keeps the week plan current without rebuilding from scratch.
 
-**If actionable decisions made:** Note them in today's session file if one exists.
+**If actionable decisions made:** Route them to the SSOT they belong to (WIP status field, This Week.md day section, or the project file) — not the session log. Session logs are written by /park and /goodnight; a decision reaches the log when the owning session parks. If anything was written, show a one-line receipt: `✓ [item] → [file]`.
 
 ### 7. Close
 

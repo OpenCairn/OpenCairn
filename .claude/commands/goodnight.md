@@ -42,13 +42,13 @@ OTHER_CLAUDE=$(( $(pgrep -c -x claude) - 1 ))
 echo "Other active Claude sessions: $OTHER_CLAUDE"
 ```
 
-If `OTHER_CLAUDE > 0`: **Stop and warn the user.** Display:
+If `pgrep` is unavailable (e.g. Git Bash on Windows), skip this check silently. If `OTHER_CLAUDE > 0`, display a non-blocking notice and proceed:
 
 ```
-⚠ Found N other active Claude session(s). Concurrent parks are safe — all shared-file writes serialise through locked-edit.sh (per _shared-rules.md §5). Parking first is no longer required for correctness, but keeps the day's state most coherent for the daily report. If sessions are still mid-park, goodnight can proceed — its own writes will compose or fail-and-retry.
+ℹ N other active Claude session(s). Concurrent writes are safe (locked per _shared-rules.md §5), and sessions parked after this point are caught by Step 14's post-write reconciliation. Parking them first keeps the daily report most coherent — say so now if you'd rather do that.
 ```
 
-Wait for confirmation before proceeding. The user may say "go ahead" (they know the other sessions are idle) or park them first.
+Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 14) exists precisely so goodnight can proceed safely. Pause only if the user actually interjects.
 
 ### 2. Gather Today's Activity (auto)
 
@@ -59,7 +59,7 @@ Read and compile:
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
-**Capture session-file baseline** (load-bearing for Step 13's concurrent-session detection — do NOT rely on remembering this later):
+**Capture session-file baseline** (load-bearing for Step 14's post-write concurrent-session reconciliation — do NOT rely on remembering this later):
 
 ```bash
 STEP2_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
@@ -67,7 +67,7 @@ STEP2_LAST_N=$((STEP2_NEXT - 1))
 echo "Step 2 baseline: $STEP2_LAST_N session(s) present (next would be $STEP2_NEXT)"
 ```
 
-**⛔ CHECKPOINT:** Display the literal line `Step 2 baseline: N session(s) present (next would be M)` in your response. Step 13's reconciliation compares against this number — if it's not on the page, the comparison is being done from internal memory rather than observable state. Shell variables don't persist between Bash tool calls; the displayed number is the source of truth for Step 13.
+**⛔ CHECKPOINT:** Display the literal line `Step 2 baseline: N session(s) present (next would be M)` in your response. Step 14's reconciliation compares against this number — if it's not on the page, the comparison is being done from internal memory rather than observable state. Shell variables don't persist between Bash tool calls; the displayed number is the source of truth for Step 14.
 
 **Important:** Store the rest of the gathered data in working memory - it's a DRAFT inventory, not ground truth.
 
@@ -211,30 +211,13 @@ Nothing with `- [ ]` should remain in any collapsed section. If it does, somethi
 
 Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md` Section 9). This ensures the file always extends 7 days ahead, preventing it from shrinking as days get collapsed.
 
-### 12. Log Goodnight Session
+### 12. Log Goodnight Session (deferred to Step 14)
 
-Append a session entry for the goodnight session itself to today's session file.
+The goodnight session entry is written at Step 14 via `write-session.sh --auto-number` — nothing is written at this step. (The step is kept as a stub so cross-references to Steps 13–18 stay stable.)
 
-### 13. Probe for Concurrent Sessions
+### 13. Concurrent-Session Detection (folded into Step 14)
 
-Probe the session file to detect any sessions added by parallel Claude instances since /goodnight began. This is a **read-only diagnostic** — the goodnight session's own number is resolved atomically at write time in Step 14 via `--auto-number`, NOT pre-computed here.
-
-```bash
-PROBED_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_FILE")
-PROBED_LAST=$((PROBED_NEXT - 1))
-echo "Sessions present so far: 1..$PROBED_LAST (next would be $PROBED_NEXT)"
-```
-
-**Concurrent session reconciliation:** Compare `PROBED_LAST` against `STEP2_LAST_N` — the baseline captured and displayed in Step 2. Use the literal value from Step 2's checkpoint output, not internal memory. If `PROBED_LAST > STEP2_LAST_N`, one or more sessions were added by concurrent Claude instances between Step 2 and now. For each missed session (numbered `STEP2_LAST_N + 1` through `PROBED_LAST`):
-1. Read its summary and completions from the session file
-2. Update your working memory (adjust session count, note outcomes)
-3. **Patch the daily report** (Step 9 output already on disc) — add the missed session(s) to the Sessions list
-
-Display the comparison explicitly: `Reconciliation: STEP2_LAST_N=X, PROBED_LAST=Y → N missed session(s)` (or `→ no missed sessions` if equal).
-
-This is the only exception to the "write-only after initial read" rule — you must re-read the session file here to discover what was missed, but only the specific new session blocks, not the whole file.
-
-**Note on residual race:** A /park firing between this probe and Step 14's write isn't caught by this reconciliation. Step 14 captures the actual assigned N from `--auto-number`'s output; if it's higher than `PROBED_NEXT`, a new session slipped in during the gap — see Step 14's post-write reconciliation.
+Pre-write probing is superseded: the goodnight session's number is resolved atomically at write time in Step 14 via `--auto-number`, and Step 14's **post-write reconciliation** compares the assigned N against Step 2's displayed baseline — which detects every session added since Step 2, with no probe-to-write blind window and no cross-Bash-call shell-variable hazard (the old probe's `$SESSION_FILE` was never defined in its own block, so it silently false-passed). Proceed to Step 14.
 
 ### 14. Append Goodnight Session Entry
 
@@ -269,7 +252,7 @@ EOF
 Session number assigned: N
 ```
 
-**Post-write reconciliation:** If the assigned N is greater than `PROBED_NEXT` from Step 13, one or more sessions slipped in between the probe and this write. Read sessions PROBED_NEXT through (assigned N − 1), and patch the daily report's Sessions list to include them — same logic as Step 13's reconciliation.
+**Post-write reconciliation (the concurrent-session check):** Compare the assigned N against `STEP2_LAST_N` — the baseline displayed at Step 2's checkpoint (use the literal value from the page, not internal memory). If `N − 1 > STEP2_LAST_N`, sessions `STEP2_LAST_N + 1` through `N − 1` were added by parallel instances since Step 2. For each: read its summary from the session file (the only exception to the write-only-after-initial-read rule — read just the new session blocks, not the whole file), update your working memory, and patch the daily report's Sessions list (Step 8 output, already on disk) to include it. Display: `Reconciliation: baseline X, assigned N → M missed session(s) patched` (or `→ no missed sessions`).
 
 **First session of the day** (no session file exists yet): no special flag needed — the same invocation lays down the `# Claude Session - DATE` header automatically when the file is absent/empty, assigns N=1, and writes atomically inside the lock.
 
@@ -333,7 +316,7 @@ If mismatch, regenerate the prompt from the enumeration block, not from memory.
 The prompt must be **self-contained** — the sub-agent has zero /goodnight context. Include verbatim:
 
 - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
-- **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout — not Step 13's probe, which may be stale)
+- **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
 - **Daily report path**: `<vault>/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
 - **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. The session log doesn't yet contain all of these (Step 14 wrote the goodnight session entry but Steps 11-14a edits happen elsewhere); enumerate them from memory of the goodnight flow.
 - **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, WIP propagation done)
@@ -357,9 +340,9 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 
 - **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step d) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-goodnight state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03** (in `/park`, which shares this audit-delegation design): an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line as a fabrication.
 
-**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 13/14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
+**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
 
-1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from 13/14's reconciliation, any audit remediation from (e)). **Exclude WIP if the only change was the bare "Last updated" timestamp bump** — that bump is unconditional meta-bookkeeping, not content, so recording it adds a near-identical noise line to every goodnight log. If Step 11/14a wrote *content* to WIP (a project-entry Status/Last/Next rewrite), backfill that content change (not the bump); if WIP got nothing but the timestamp bump, omit it and don't let the audit flag its absence.
+1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from Step 14's reconciliation, any audit remediation from (e)). **Exclude WIP if the only change was the bare "Last updated" timestamp bump** — that bump is unconditional meta-bookkeeping, not content, so recording it adds a near-identical noise line to every goodnight log. If Step 11/14a wrote *content* to WIP (a project-entry Status/Last/Next rewrite), backfill that content change (not the bump); if WIP got nothing but the timestamp bump, omit it and don't let the audit flag its absence.
 2. Diff that list against the `### Files Updated` already in Session N's entry.
 3. Pipe the missing lines through `backfill-files-updated.sh "<session-file>" N`.
 
@@ -383,22 +366,20 @@ Export today's verbatim session transcripts to the vault. Claude Code auto-delet
 
 ```bash
 cd "<session launch directory>" || exit 1   # load-bearing: script keys session discovery on cwd; persistent-shell cd drift silently exports 0 or the wrong project. Launch dir = the static working directory in your environment context, NOT pwd
-TODAY=$(date +"%Y-%m-%d")
-TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/.Session Transcripts/$TODAY.md"
-if [[ -f "$TRANSCRIPT_FILE" ]]; then
-  echo "Transcripts already exported for today (from /park) — skipping"
-else
-  python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
-fi
+python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
 ```
 
-Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message, or "already exported" if skipped.
+**Re-export unconditionally, even if /park already exported today.** The script regenerates the whole day file in <1 second, and Step 17 hashes the transcript as *final* — a skip-if-exists here would OTS-stamp a file missing everything since the last park, unconditionally including this goodnight conversation itself.
+
+Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message.
 
 ### 17. Process Provenance Flags
 
 Check for provenance flag files created during today's sessions:
 ```bash
-ls "{VAULT}/07 System/Provenance/pending/${TODAY}"*.md 2>/dev/null
+# Inline date — a variable set in a prior Bash tool call does not survive to this one; an empty
+# expansion would glob ALL pending flags and stamp/delete the wrong days' artefacts.
+ls "{VAULT}/07 System/Provenance/pending/$(date +%Y-%m-%d)"*.md 2>/dev/null
 ```
 
 **⚠ Ordering dependency:** Steps 14-16 MUST complete before this step. The session log and transcript must be in their final state before hashing — if you hash then append, the hash is immediately invalid and the OTS stamp covers the wrong content. This is the single most common execution error in this skill. The audit step (15) and transcript export (16) both potentially modify the session log and transcript, so both must finish before provenance hashing.
@@ -433,7 +414,7 @@ Goodnight.
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
 - **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
-- **File locking is mandatory:** Use `flock` via Bash for session file writes. Lock file: `{VAULT}/06 Archive/Claude/Session Logs/.lock`
+- **File locking is mandatory — via the dedicated scripts** (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`), never inline `flock` and never the Edit tool on shared files. Inline flock commands corrupt `settings.local.json` via the permission system — the exact failure class Step 14's script mandate exists to prevent (see `_shared-rules.md` §5).
 
 ### Working Memory Model (Critical)
 
@@ -466,6 +447,6 @@ This command should trigger when the user says:
 - **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
 - **Creates:** Daily Reports
 - **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Tasks.md), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
-- **Complements:** `/morning` (start of day), `/park` (end of session), `/regroup` (mid-day)
+- **Complements:** `/morning` (start of day), `/park` (end of session), `/afternoon` (mid-day)
 - **Auto-runs:** `/audit` on the just-completed goodnight (Step 15) — same protocol as `/park`'s Step 14
 - **Replaces:** `/daily-review` (deprecated)
