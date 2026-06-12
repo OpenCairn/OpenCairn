@@ -62,7 +62,7 @@ Run all checks first, display the result, then act on what's missing.
    fi
    ```
 
-6b. **Check python3 available** (needed for the session-transcript export in /park, /goodnight, and /weekly-hygiene):
+6b. **Check python3 available** (needed by `locked-edit.sh` — the write mechanism for ALL planning-file edits in /park, /goodnight, /morning, /weekly-hygiene, /weekly-review, /complete-project, /start-project — and by the session-transcript export):
    ```bash
    if command -v python3 >/dev/null 2>&1; then
      echo "PYTHON3_OK"
@@ -93,7 +93,7 @@ Run all checks first, display the result, then act on what's missing.
    VAULT_PATH:      [✓ /path/to/vault / ✗ not set]
    Bash version:    [✓ 5.x / ⚠ 3.2 — upgrade needed] (macOS only)
    Scripts:         [✓ executable / ✗ need chmod]
-   python3:         [✓ / ⚠ missing — transcript export won't run]
+   python3:         [✓ / ⚠ missing — planning-file writes (locked-edit.sh) + transcript export fail]
    CLAUDE.md:       [✓ personalised / ○ needs setup]
    ```
 
@@ -109,8 +109,9 @@ Run these commands:
   git init
   git remote add template https://github.com/OpenCairn/OpenCairn.git
   git fetch template
+  git add -A && git commit -m "Baseline before first /update"
 ```
-Wait for the user to confirm before proceeding.
+The baseline commit matters: on a repo with no commits, /update's diffs show every template file as a wholesale deletion (local files are untracked) and its rollback (`git checkout HEAD`) fails on the unborn HEAD — local customisations can be silently clobbered. Wait for the user to confirm before proceeding.
 
 **If no template remote:**
 ```
@@ -121,6 +122,8 @@ Run:
 ```
 
 **If VAULT_PATH not set:**
+
+<!-- The VAULT_PATH and macOS-bash blocks below are duplicated in update.md Step 7 — edit both copies together. -->
 
 Display OS-appropriate instructions:
 
@@ -156,8 +159,9 @@ echo "Scripts now executable"
 
 **If python3 missing:**
 ```
-The session-transcript export (/park, /goodnight, /weekly-hygiene) needs python3.
-Everything else works without it.
+python3 is required by locked-edit.sh, which performs every planning-file write
+(/park, /goodnight, /morning, /weekly-hygiene, /weekly-review, /complete-project,
+/start-project all fail without it), plus the session-transcript export.
 
 Install:
   Linux:   sudo apt install python3   (or your distro's equivalent)
@@ -165,7 +169,7 @@ Install:
   Windows: install from python.org, then ensure "python3" resolves in Git Bash
            (the python.org installer provides "python"/"py"; a shim or alias may be needed)
 ```
-Non-blocking — note it and continue.
+Treat as blocking for the full vault workflow — read-only skills work without it, but strongly encourage installing before continuing.
 
 After addressing all issues, re-run the checks from Phase 1 to confirm everything passes. Display the updated summary.
 
@@ -297,7 +301,7 @@ If the user provided Direction answers, edit `07 System/Context - Direction.md`:
 1. Replace `[List the roles that matter to you and what each means]` with the user's roles
 2. Replace `[The principles you try to live by — not aspirational platitudes, but things you actually use to make decisions]` with the user's values
 3. Replace the `- [ ] [Discipline N — ...]` placeholder items with the user's actual disciplines
-4. Replace the anti-goals table placeholder row with the user's anti-goals (one row per item, with today's date)
+4. Replace the anti-goals table placeholder row with the user's anti-goals (one row per item). The Date column records when each decision was made — ask the user when they decided each one; use today's date only if they can't say (these are usually pre-existing decisions, and stamping the interview date fabricates a value the user didn't give)
 5. Leave the strategic plan sections (Career, Personal) as placeholders — these require deeper thought than a setup interview
 
 If the user said "I'll fill this in later", leave the template as-is — the placeholders are self-explanatory.

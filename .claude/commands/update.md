@@ -1,9 +1,7 @@
 ---
 name: update
 description: Update OpenCairn commands and scripts from the template repository
-parameters:
-  - "--dry-run" - Preview changes without applying them
-  - "--force" - Accept all changes without per-file review
+argument-hint: "[--dry-run] [--force]"
 ---
 
 # Update - OpenCairn Template Sync
@@ -41,8 +39,15 @@ If you copied files instead of cloning, you can fix this:
   git init
   git remote add template https://github.com/OpenCairn/OpenCairn.git
   git fetch template
+  git add -A && git commit -m "Baseline before first /update"
 Then run /update again.
 ```
+
+**Also check for an unborn HEAD** (repo initialised but no commits yet — e.g. the user ran `git init` without a baseline commit):
+```bash
+git rev-parse --verify HEAD >/dev/null 2>&1 && echo "HEAD_OK" || echo "NO_COMMITS_YET"
+```
+If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked — the Step 4–6 diffs show the template as wholesale deletions (hiding local customisations right before checkout clobbers them) and Error Recovery's `git checkout HEAD` fails on the unborn HEAD.
 
 ### Step 2: Determine Template Remote
 
@@ -112,7 +117,7 @@ echo "$VERIFY_OUTPUT" | grep -q "allowedSignersFile"
 ℹ Signature verification is not configured on your machine.
   The template commit may be signed, but your git can't check it.
 
-  To enable verification, see: https://github.com/OpenCairn/OpenCairn#commit-signing
+  To enable verification, see: https://github.com/OpenCairn/OpenCairn/blob/main/CONTRIBUTING.md#commit-signing
 
   Continuing without signature check.
 ```
@@ -219,9 +224,11 @@ Then skip ahead to the commit step below.
 
 **Otherwise, iterate over each changed file:**
 
-Get the list of files that differ (excluding local-only files which aren't in the template):
+Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
-git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/
+comm -12 \
+  <(git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/ | sort) \
+  <(git ls-tree -r --name-only $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ | sort)
 ```
 
 For each file in this list:
@@ -233,7 +240,7 @@ For each file in this list:
 
 2. **Show a one-line summary** describing the change direction and size, e.g.:
    ```
-   audit.md — template adds 2 lines (105 → 103 locally, template is longer)
+   audit.md — template adds 2 lines (local 103 → template 105)
    ```
 
 3. **Ask the user:** "Accept template version? (y/n/d)"
@@ -272,12 +279,14 @@ If the commit fails (nothing to commit), that's fine — files are already updat
 
 ### Step 7: Post-Update Checks
 
+<!-- The VAULT_PATH and macOS-bash blocks below are duplicated in setup.md Phase 1/2 — edit both copies together. -->
+
 **Check VAULT_PATH:**
 ```bash
 if [[ -z "${VAULT_PATH:-}" ]]; then
   echo "VAULT_PATH_MISSING"
 else
-  echo "VAULT_PATH={VAULT}"
+  echo "VAULT_PATH=$VAULT_PATH"
 fi
 ```
 
