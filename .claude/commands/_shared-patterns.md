@@ -31,3 +31,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Launch-dir cd before cwd-keyed scripts** — cd to launch dir, never `pwd`; fail closed. → `park` Step 16
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
+- **Substitute-me placeholder for cross-call values** — literal placeholder, never shell var; substitute before running. → `_shared-rules.md §1`, `park` Step 8a
