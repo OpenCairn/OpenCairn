@@ -36,9 +36,12 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - If project name provided as parameter: Use that
    - Otherwise: Ask the user which project to complete
    - Validate the project exists — either as a WIP entry, **or** as a project file under `03 Projects/`, `03 Projects/Backlog/`, or `03 Projects/Cold/`. A long-stalled project may have a file but no WIP entry; that still completes.
+   - **Initiative check:** grep `03 Projects/` for `**Initiative:** [[03 Projects/[Project Name]]]`. Hits mean this is an initiative with child projects — list them and confirm with the user that each child is completed or re-homed before proceeding; an initiative completed out from under live children leaves them pointing at a moved hub.
+   - **Obsidian preflight:** Step 5's moves need the `obsidian` CLI with the app running. Probe now — `obsidian version 2>/dev/null` — **before any writes**. Step 4 marks the file COMPLETED; discovering the CLI is down after that strands a half-completed project (marked done, still in `03 Projects/`, still in WIP — exactly the zombie this skill exists to kill). If the probe fails, ask the user to launch Obsidian, or defer the whole completion — don't start.
 
 3. **Interactive completion interview:**
-   Ask the user:
+   First, scan the project file for unchecked `- [ ]` items. Each one gets resolved with the user before completion — done, abandoned, or migrated to a live home (WIP, Tickler, another project). A completed file leaves every surfacing loop; unchecked tasks moved with it become invisible zombie tasks.
+   Then ask the user:
    - **Outcome:** "How did this project end? (Completed successfully / Abandoned / Superseded / Merged into other work)"
    - **Result:** "What was accomplished or learned?"
    - **Why now:** "Why are you completing this now?" (helps catch premature completion)
@@ -58,6 +61,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
      ---
      ```
+   - **Then rewrite the file's original status line** (the `/start-project` template's `**Status:** Active | **Target:** ...` below the H1) with a second `locked-edit.sh --replace`: change `Active` (or whatever live state it reads) to `Completed`, keep the rest of the line. Left as-is, the file carries two contradictory Status fields and anything scanning the body still reads the project as live. If the file predates the template and has no body Status line, skip this — the prepended block is then the only Status field.
    - This preserves project history while marking completion
 
 5. **Route project artefacts:**
@@ -70,10 +74,12 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    obsidian move file="[Project Name]" to="04 Areas/[Area]/[Project Name].md"
    ```
 
-   Shell `mv` moves the bytes but leaves every inbound link dangling. This matters most for the **project file**: per `_shared-rules.md` §3, items link to projects with *path-based* references (`→ [[03 Projects/Project Name]]`), so the instant the file lands in `04 Areas/` or `06 Archive/` a raw `mv` breaks every one of them across This Week.md, Tickler, Tasks.md, day sections, and other project files. `obsidian move` rewrites those references for you. (Requires the Obsidian app running; if it isn't, do the move in the GUI instead — never fall back to `mv`.)
+   Shell `mv` moves the bytes but leaves every inbound link dangling. This matters most for the **project file**: per `_shared-rules.md` §3, items link to projects with *path-based* references (`→ [[03 Projects/Project Name]]`), so the instant the file lands in `04 Areas/` or `06 Archive/` a raw `mv` breaks every one of them across This Week.md, Tickler, Tasks.md, day sections, and other project files. `obsidian move` rewrites those references for you. (Requires the Obsidian app running — the Step 2 preflight verified this before anything was written.)
+
+   **Batch limit:** `obsidian move` boots a fresh Electron instance per call and deadlocks on the single-instance lock after a handful of files — fine for the project file and a few artefacts, unusable for a batch. For bulk artefacts, follow `/quarterly-hygiene`'s batch protocol: Obsidian GUI drag-and-drop (heals all inbound links in one pass), with raw `mv` acceptable only for files verified link-free via `obsidian backlinks` first.
 
    **Step 5a — Route useful artefacts to Areas:**
-   - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself
+   - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself — explicitly including `05 Resources/[Project Name]/` (created by `/start-project` Step 7) and anything linked from the project file's `## Resources` section, not just folders under `03 Projects/`
    - For each artefact, ask: "Is this information still useful for reference, or is it truly dead?" Route accordingly:
      - **Still useful** → move to the relevant `04 Areas/[Area]/` folder
      - **Truly dead** (old CSVs, superseded docs, one-time exports) → `06 Archive/`
@@ -89,7 +95,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    **Step 5c — Verify link integrity:**
    - Run `obsidian unresolved` and confirm the move introduced no new dangling links pointing at the project's old location. Path-based inbound links are the common breakage; `obsidian move` should have updated them, but verify rather than assume.
-   - **Also grep the moved project's bare anchor + path forms as plain text** (e.g. `rg -Fi '[[03 Projects/Project Name]]'` and `rg -Fi '03 Projects/Project Name'` — `-i` catches lowercased prose forms like "the project name doc"). `obsidian move` rewrites `[[wikilink]]` references and `obsidian unresolved` catches dangling ones, but neither touches *prose/plain-text* references to the moved project ("see the Project Name doc", a path inside a fenced code block, a `**Source:**` line). Grep with NO keyword conjunction; triage each hit per `_shared-rules.md §12` (grep-hit triage — stale pointer → update; live locator → update on move; historical record → leave).
+   - **Also grep the moved project's bare anchor + path forms as plain text** (e.g. `rg -Fi '[[03 Projects/Project Name]]' "{VAULT}"` and `rg -Fi '03 Projects/Project Name' "{VAULT}"`). Scope to `{VAULT}` explicitly — an unscoped `rg` searches whatever cwd the session happens to be in and false-passes. Grep the path the file was **actually found at** in Step 4: a `Backlog/` or `Cold/` project's path form is `03 Projects/Backlog/Project Name`, which the root form misses. `-i` catches lowercased prose forms like "the project name doc". `obsidian move` rewrites `[[wikilink]]` references and `obsidian unresolved` catches dangling ones, but neither touches *prose/plain-text* references to the moved project ("see the Project Name doc", a path inside a fenced code block, a `**Source:**` line). Grep with NO keyword conjunction; triage each hit per `_shared-rules.md §12` (grep-hit triage — stale pointer → update; live locator → update on move; historical record → leave).
 
 6. **Update Works in Progress:**
    - **Write mechanism (F1):** WIP edits use `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
