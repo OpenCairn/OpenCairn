@@ -323,7 +323,7 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 - **Enumerated identifiers** verbatim from (a)
 - **Script paths** the sub-agent will need (substitute resolved vault):
   - `<vault>/.claude/scripts/update-session-section.sh` — for session-log section edits (preserves flock concurrency safety)
-  - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section
+  - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section. **Caveat:** the script dedups by normalised path and *silently discards* the new text for a file already listed — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh … "Files Updated" --replace` instead
   - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
   - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (WIP, This Week, Tickler, project/area hubs)
 - **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (WIP, This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
@@ -386,12 +386,12 @@ ls "{VAULT}/07 System/Provenance/pending/$(date +%Y-%m-%d)"*.md 2>/dev/null
 
 If any flags exist, process each one:
 1. Read the flag file to get the project tag and work product list
-2. Hash any work products not already hashed (check the flag file's "Hashed Immediately" section and the provenance log for existing entries)
+2. Hash any work products not already hashed (check the flag file's "Hashed Immediately" section and the provenance log for existing entries). For entries already in "Hashed Immediately", re-hash and compare to the recorded hash — on mismatch (silent edit since the immediate hash), announce it and run `/provenance` Step 5's re-hash path (superseding row), don't skip silently
 3. Hash the session transcript (exported in step 16, now final)
 4. Hash the session log (now final — goodnight session appended in step 14, audit findings inlined in step 15)
 5. OTS stamp all hashed files in a single `ots stamp` invocation (batching reduces calendar submissions)
-6. Append entries to `07 System/AI Provenance Log.md`
-7. Delete the processed flag file
+6. Append entries to `07 System/AI Provenance Log.md` via `locked-edit.sh --append` (mechanism in `/provenance` Step 5)
+7. Delete the flag file only after verifying every listed item has a log row — a partially processed flag stays in `pending/` for `/weekly-hygiene`
 
 If no flags exist, skip silently. See `/provenance` for flag file format and full hashing instructions.
 
