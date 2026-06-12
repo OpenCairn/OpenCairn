@@ -60,3 +60,7 @@ You are the user's thinking partner. Your role is to explore ideas, surface assu
 - **Respect the user's time:** Concise questions, not essays. Get to insight quickly.
 
 
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

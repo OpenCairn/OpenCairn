@@ -404,3 +404,7 @@ Error: [specific error message]
 - **Idempotent:** Running `/update` twice in a row is safe — second run shows "Already up to date."
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

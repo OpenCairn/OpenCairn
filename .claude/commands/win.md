@@ -127,3 +127,7 @@ This command should trigger when the user says:
 - "capture this pattern"
 - "log this win"
 - "nailed it"
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

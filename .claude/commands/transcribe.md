@@ -224,3 +224,7 @@ Replace the placeholder variables with actual values.
 - On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.
 - On GPU: transcription is near-instant; diarisation adds ~20-30 min per hour of audio.
 - Diarisation accuracy is best with 2-3 speakers in clear audio. Specify `--speakers N` when you know the count.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

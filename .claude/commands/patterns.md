@@ -47,3 +47,7 @@ Find patterns, themes, and connections across files related to a topic.
 ```
 
 5. **Be concise** - This is for quick pattern recognition, not comprehensive summaries. Aim for actionable insights.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

@@ -59,3 +59,7 @@ If no `[LP]` items found, report that clearly:
 - **Lead time, not deadlines.** `[LP]` is for long-lead-time items. A task whose risk is a hard drop-dead date belongs in `[GT]` / `/guillotines` instead — an item can carry both.
 - **Don't modify anything.** This is read-only. Never edit files during a longpole scan.
 - **Relative paths for display.** Show paths relative to vault root so the output is scannable.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

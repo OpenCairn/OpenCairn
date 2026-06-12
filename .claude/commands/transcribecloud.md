@@ -708,3 +708,7 @@ First real-use of the untested pieces will likely surface minor issues — trust
 - **yt-dlp on pod vs local:** For YouTube URLs, always download directly on the pod — datacenter bandwidth is faster and eliminates the transfer step. Only use local download + `runpodctl send` for files that are already on disk.
 - **`runpodctl send/receive`:** P2P transfer. Must run `send` and `receive` simultaneously from both sides. Works for both files and directories.
 - **Pod lifecycle:** Always destroy the pod when done. `runpodctl pod delete <POD_ID>`. Stopped pods still incur disk charges.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

@@ -30,7 +30,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Per-entry line count (excluding session link lines starting with →): flag entries exceeding 30 lines
 
    **Auto-fix:**
-   - Trim session log links to **2 most recent per entry** — only lines matching `→ [[06 Archive/Claude/Session Logs/`. **Preserve all other reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers, not session history. Session history lives in the archive and project hub pages, not WIP.
+   - Trim session log links to **3 most recent per entry** (matching the `_shared-rules.md` §6 / `/park` FIFO cap — one number everywhere, so weekly trims don't churn against park's cap) — only lines matching `→ [[06 Archive/Claude/Session Logs/`. **Preserve all other reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers, not session history. Session history lives in the archive and project hub pages, not WIP.
    - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern)
    - Remove resolved open decisions (strikethrough decisions that were answered)
    - Collapse resolved inline narratives: when a paragraph or sub-section contains 3+ items all marked ✅/resolved/completed, replace with a single summary line referencing the linked project/area file
@@ -213,12 +213,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Report per-directory counts (deleted, retained, and remaining).
 
-   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference skill (`→ ` + backtick-quoted skill name). Verify every pointer still resolves to a live skill file; a dangling pointer means the reference skill was renamed or removed.
+   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test.
    ```bash
    CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
    PF="$CMDS/_shared-patterns.md"
    if [ -f "$PF" ]; then
-     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sort -u | while read -r s; do
+     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
        [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
      done
    fi

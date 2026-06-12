@@ -361,3 +361,7 @@ This command should trigger when the user says:
 - **Creates:** `07 System/Context - [Domain].md` stubs
 - **Updates:** CLAUDE.md (replaces placeholders with user's answers)
 - **Complements:** `/update` (ongoing template sync — setup is one-time)
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.
