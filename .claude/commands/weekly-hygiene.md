@@ -226,11 +226,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 11. **Session Transcript Export**
 
-   Backstop for `/park` step 14b and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
+   Backstop for `/park` step 16 and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
 
    **Auto-fix:**
    ```bash
-   python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 7
+   python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
    ```
 
    The script:
