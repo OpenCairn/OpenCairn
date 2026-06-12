@@ -382,6 +382,7 @@ You cannot proceed to Step 16 without all six. If you find yourself walking the 
 Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
 
 ```bash
+cd "<primary working directory>"   # load-bearing: script keys session discovery on cwd; persistent-shell cd drift silently exports 0 or the wrong project
 TODAY=$(date +"%Y-%m-%d")
 TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/.Session Transcripts/$TODAY.md"
 if [[ -f "$TRANSCRIPT_FILE" ]]; then

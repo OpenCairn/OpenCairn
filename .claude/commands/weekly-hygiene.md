@@ -231,8 +231,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    ```bash
-   python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
+   cd "<primary working directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
    ```
+   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory from your environment context.)
 
    The script:
    - Finds all JSONL files modified in the last 7 days in `~/.claude/projects/`
