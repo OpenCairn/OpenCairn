@@ -64,7 +64,7 @@ When migrating Tickler items:
 
 ### Planning-file writes go through `locked-edit.sh` (NOT the Edit tool)
 
-**Every mutation of a shared planning file — `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`, `01 Now/Tasks.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
+**Every mutation of a shared planning file — `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`, `01 Now/Tasks.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, `/start-project`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
 
 ```bash
 # Replace a unique block (old_string must match exactly once, like the Edit tool):

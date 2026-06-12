@@ -1,10 +1,7 @@
 ---
 name: start-project
 description: Spin up a new project - create file, add to WIP, link to initiative
-parameters:
-  - "[Project Name]" - Name of the project to create
-  - "--initiative=[Name]" - Link to existing initiative project (optional)
-  - "--backlog" - Create in Backlog folder instead of active
+argument-hint: "[Project Name] [--initiative=Name] [--backlog]"
 ---
 
 # Start Project - New Project Initialisation
@@ -58,6 +55,8 @@ Ask about initiative linkage:
 
 - Check if `{VAULT}/03 Projects/[Project Name].md` already exists
 - Check if `{VAULT}/03 Projects/Backlog/[Project Name].md` already exists
+- Check if `{VAULT}/03 Projects/Cold/[Project Name].md` already exists
+- Glob the vault for any other `[Project Name].md` — a completed project of the same name may live in `04 Areas/` or `06 Archive/Projects/`, and a basename collision breaks the basename wikilinks other skills write (e.g. `/complete-project`'s completion record). Warn on any hit.
 - If exists, warn and ask if they want to:
   - Resume existing project
   - Create with different name
@@ -112,31 +111,38 @@ Project initialised.
 
 ## Session History
 
-- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - [Topic]]] (created)
+<!-- /park appends session links here -->
 ```
+
+Leave Session History empty apart from the comment — `/park` is the writer (it appends `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]] (gloss)` when it runs). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
 
 ### 5. Update Works in Progress
 
+**Write mechanism (F1):** WIP edits use `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5). To insert the entry, `--replace` the target section's heading line with the heading followed by the new entry — `--append` lands at EOF, not in the section.
+
 Read `{VAULT}/01 Now/Works in Progress.md`
 
-Add to **Active** section (or appropriate priority section if specified):
+Add to the **Active** section — or the **Backlog** section if `--backlog` (the WIP section must match the file's folder tier; a Backlog-folder file listed under Active is a tier mismatch `/weekly-hygiene` flags):
 
 ```markdown
 ### [Project Name]
 **Status:** Just started
-**Created:** [Date]
+**Last:** [Date] - Created
 **Next:** → [[03 Projects/[Project Name]]]
 ```
 
-If part of an initiative, add under that initiative's section instead (if it exists in WIP).
+Use the file's **actual path** in the `**Next:**` link — `[[03 Projects/Backlog/[Project Name]]]` when `--backlog` (`/pickup` follows this link to load the hub; the root form dangles).
+
+Every project gets its own `###` entry. Initiative membership is carried by the template's `**Initiative:**` field and the Step 6 backlink — never by nesting the entry under the initiative's WIP section, which makes it invisible to `/pickup`'s per-`###` parse.
 
 Update "Last updated" timestamp.
 
 ### 6. Link from initiative (if applicable)
 
 If initiative specified:
+- **Write mechanism (F1):** initiative hubs live in `03 Projects/` — edit via `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5)
 - Read initiative file at `{VAULT}/03 Projects/[Initiative Name].md`
-- Add link to new project in appropriate section:
+- Add link to new project in appropriate section, using the file's actual path (`Backlog/` form if `--backlog`):
   ```markdown
   - [[03 Projects/[Project Name]]] - [brief description]
   ```
@@ -154,8 +160,8 @@ mkdir -p "{VAULT}/05 Resources/[Project Name]"
 ### 8. Display confirmation
 
 ```
-✓ Project created: 03 Projects/[Project Name].md
-✓ Added to Works in Progress
+✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
+✓ Added to Works in Progress ([Active / Backlog] section)
 ✓ Linked from initiative: [Initiative Name] (if applicable)
 ✓ Resources folder created: 05 Resources/[Project Name]/ (if applicable)
 
