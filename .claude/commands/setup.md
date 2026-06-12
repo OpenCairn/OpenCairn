@@ -62,6 +62,15 @@ Run all checks first, display the result, then act on what's missing.
    fi
    ```
 
+6b. **Check python3 available** (needed for the session-transcript export in /park, /goodnight, and /weekly-hygiene):
+   ```bash
+   if command -v python3 >/dev/null 2>&1; then
+     echo "PYTHON3_OK"
+   else
+     echo "PYTHON3_MISSING"
+   fi
+   ```
+
 7. **Check CLAUDE.md state:**
    ```bash
    if [[ ! -f CLAUDE.md ]]; then
@@ -84,6 +93,7 @@ Run all checks first, display the result, then act on what's missing.
    VAULT_PATH:      [✓ /path/to/vault / ✗ not set]
    Bash version:    [✓ 5.x / ⚠ 3.2 — upgrade needed] (macOS only)
    Scripts:         [✓ executable / ✗ need chmod]
+   python3:         [✓ / ⚠ missing — transcript export won't run]
    CLAUDE.md:       [✓ personalised / ○ needs setup]
    ```
 
@@ -143,6 +153,19 @@ No shebang or shell profile changes needed.
 chmod +x .claude/scripts/*.sh
 echo "Scripts now executable"
 ```
+
+**If python3 missing:**
+```
+The session-transcript export (/park, /goodnight, /weekly-hygiene) needs python3.
+Everything else works without it.
+
+Install:
+  Linux:   sudo apt install python3   (or your distro's equivalent)
+  macOS:   brew install python3
+  Windows: install from python.org, then ensure "python3" resolves in Git Bash
+           (the python.org installer provides "python"/"py"; a shim or alias may be needed)
+```
+Non-blocking — note it and continue.
 
 After addressing all issues, re-run the checks from Phase 1 to confirm everything passes. Display the updated summary.
 

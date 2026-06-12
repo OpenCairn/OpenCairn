@@ -27,7 +27,7 @@ This routine handles all four without forcing you into one mode. Start operation
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time
 
@@ -76,7 +76,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 
       Substrate-specific notes (when applying Step 15's checklist to the catch-up):
       - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — 2a generally inherits state, doesn't flip), day-section moves from 2a.c, Tasks.md routings from 2a.c, day-section collapses from 2a.d, NEW daily report file from 2a.b, NEW catch-up session entry from 2a.e. The last two are always present.
-      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from 2a.e's `Session number assigned: N` stdout), the file list (different from /goodnight's — assemble from 2a.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`~/.claude/commands/audit.md` Phase 2 Layers 1–5), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace this morning's landscape pass (Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when Step 3 runs.
+      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from 2a.e's `Session number assigned: N` stdout), the file list (different from /goodnight's — assemble from 2a.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`audit.md` Phase 2 Layers 1–5, in `~/.claude/commands/` or `{VAULT}/.claude/commands/`), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace this morning's landscape pass (Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when Step 3 runs.
       - After the sub-agent returns: verify any remediation edits were backfilled to the catch-up session entry via `backfill-files-updated.sh`. If not, run the backfill from the file list the sub-agent reported.
    h. Display:
       ```

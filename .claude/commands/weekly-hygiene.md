@@ -17,7 +17,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **WIP Metrics & Pruning**
 
@@ -213,12 +213,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Report per-directory counts (deleted, retained, and remaining).
 
-   **Shared-patterns pointer check** (if `~/.claude/commands/_shared-patterns.md` exists). The pattern index points each entry at a reference skill (`→ ` + backtick-quoted skill name). Verify every pointer still resolves to a live skill file; a dangling pointer means the reference skill was renamed or removed.
+   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference skill (`→ ` + backtick-quoted skill name). Verify every pointer still resolves to a live skill file; a dangling pointer means the reference skill was renamed or removed.
    ```bash
-   PF=~/.claude/commands/_shared-patterns.md
+   CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
+   PF="$CMDS/_shared-patterns.md"
    if [ -f "$PF" ]; then
      awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sort -u | while read -r s; do
-       [ -f ~/.claude/commands/"$s".md ] || echo "STALE pointer: $s (no ~/.claude/commands/$s.md)"
+       [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
      done
    fi
    ```
@@ -307,7 +308,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    If ghosts or conflict files are found, report them. In delete mode (`-d`), duplicates and conflict files are auto-removed; orphans are listed for user review. This catches files silently re-uploaded by a reconnecting phone via Obsidian Sync (known bug — Sync doesn't propagate deletions to offline devices). Skip silently if the script isn't installed.
 
-   **Terminology consistency** (if `~/.claude/commands/_terminology-checks.md` exists):
+   **Terminology consistency** (if `_terminology-checks.md` exists in the commands directory):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
 
    **Concatenated list items** (planning-doc structural integrity):

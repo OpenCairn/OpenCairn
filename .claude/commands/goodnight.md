@@ -26,7 +26,7 @@ Determine the vault base path. Run:
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time and concurrent sessions
 
@@ -287,7 +287,7 @@ If any project status changed significantly today, update `{VAULT}/01 Now/Works 
 
 ### 15. Delegate /audit to a fresh sub-agent
 
-The audit runs in a fresh model context via the Agent tool, NOT inline. /goodnight is 18 steps with heavy state propagation; inline audit at step 15 suffers cognitive load, recency bias on just-edited files, and enumeration scoping limited to "what /goodnight directly edited" rather than "what world-state changes the day caused." Sub-agent delegation eliminates all three. See `~/.claude/commands/park.md` Step 14 tail for the full empirical rationale — the same applies here a fortiori (/goodnight does heavier state propagation than /park).
+The audit runs in a fresh model context via the Agent tool, NOT inline. /goodnight is 18 steps with heavy state propagation; inline audit at step 15 suffers cognitive load, recency bias on just-edited files, and enumeration scoping limited to "what /goodnight directly edited" rather than "what world-state changes the day caused." Sub-agent delegation eliminates all three. See `park.md` (same commands directory) Step 14 tail for the full empirical rationale — the same applies here a fortiori (/goodnight does heavier state propagation than /park).
 
 **(a) Enumerate identifiers IN MAIN SESSION (required checkpoint).** The enumeration discipline must stay in the main session — it's the load-bearing defence against silent miss-pattern. List every identifier as `old → new` pairs, plus any *new* named state introduced, before dispatching the sub-agent.
 
@@ -344,7 +344,7 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
   - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
   - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (WIP, This Week, Tickler, project/area hubs)
 - **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (WIP, This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
-- **Audit protocol pointer**: read `~/.claude/commands/audit.md` Phase 2 (Layers 1-5) first; do NOT recall the protocol from memory.
+- **Audit protocol pointer**: read `audit.md` (same commands directory) Phase 2 (Layers 1-5) first; do NOT recall the protocol from memory.
 - **Special-focus instruction** (the empirically-missed Layer 3 category): "**Phase/status framings rendered historical by session actions** is the category prior inline audits silently miss. For each project/area hub touched by today's session work, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work completed today; flag every hit. This includes goodnight's OWN `Pickup Context` / Daily Report describing goodnight's already-run steps (this audit, item routing) as forthcoming — written before this audit fired, so a 'the audit will…' framing is already stale; reframe to completed/current tense. Do NOT flag legitimate forward-routing to tomorrow's anchors — Pickup Context naming tomorrow's work is its purpose, not staleness. Also: read each touched project/area hub IN FULL, not just the subsection that was edited."
 - **Read-coverage backstop**: "If your file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage."
 - **Layer 5 specifics for /goodnight**: "Trace tomorrow's /morning against current This Week.md / Tickler / WIP. Will it surface the right items, or is anything we marked complete still showing as open? Will collapsed-day one-liners' `[[…|Full report]]` links resolve? Will rolling-window day additions be visible to /morning's Step 6 maintenance pass without conflict?"
@@ -375,7 +375,7 @@ This is the F4 fix: the session log's footprint record must match what goodnight
 
 You cannot proceed to Step 16 without all six. If you find yourself walking the audit layers yourself in /goodnight's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
-**Why auto-run + delegate:** /goodnight propagates state across This Week.md, Tickler, project files, WIP, and project hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's /morning or /pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). See `~/.claude/commands/park.md` Step 14 tail for the full mechanism analysis.
+**Why auto-run + delegate:** /goodnight propagates state across This Week.md, Tickler, project files, WIP, and project hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's /morning or /pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). See `park.md` (same commands directory) Step 14 tail for the full mechanism analysis.
 
 ### 16. Export Session Transcripts
 
