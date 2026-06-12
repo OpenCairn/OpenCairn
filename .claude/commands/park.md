@@ -577,7 +577,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 16. **Export session transcript:**
    - Export today's verbatim session transcripts to the vault. **This step runs last** so the exported transcript captures the full park including the audit step (Step 14) and any remediation it produced.
      ```bash
-     cd "<primary working directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
+     cd "<session launch directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
      ```
    - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory — the working directory stated in your environment context, which is static and does not track mid-session `cd`s. Do NOT use `pwd` (it returns the drifted directory, silently reproducing the bug).
    - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
