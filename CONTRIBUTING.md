@@ -46,7 +46,7 @@ Before pushing, verify no personal information has leaked into the template:
 ```bash
 cd ~/repos/OpenCairn
 grep -rE -i "your_name|your_home_path|your_personal_details" \
-  --include="*.md" --include="*.sh" --include="*.json" | grep -v ".git/"
+  --include="*.md" --include="*.sh" --include="*.py" --include="*.json" | grep -v ".git/"
 # Should return nothing
 ```
 
