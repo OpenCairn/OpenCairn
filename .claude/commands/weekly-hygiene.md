@@ -231,12 +231,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    ```bash
-   cd "<primary working directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
+   cd "<session launch directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
    ```
-   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory from your environment context.)
+   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory: the static working directory from your environment context, NOT `pwd`.)
 
    The script:
-   - Finds all JSONL files modified in the last 7 days in `~/.claude/projects/`
+   - Finds JSONL session files modified in the last 7 days in the *launch project's* directory under `~/.claude/projects/` (cwd-keyed — it does not sweep other projects, so this backstop covers the vault-launched project only)
    - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
    - Writes one file per day to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - Overwrites existing files for the same date (idempotent)

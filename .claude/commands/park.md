@@ -579,7 +579,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      ```bash
      cd "<primary working directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
      ```
-   - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory (shown as "Primary working directory" in your environment context).
+   - **The `cd` prefix is load-bearing.** The script keys session-dir discovery on its cwd, and the Bash tool's cwd persists across calls — a mid-session `cd` (e.g. into a repo) makes the export silently find 0 sessions or the wrong project's. Substitute the session's launch directory — the working directory stated in your environment context, which is static and does not track mid-session `cd`s. Do NOT use `pwd` (it returns the drifted directory, silently reproducing the bug).
    - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.
    - **Why at end of /park:** Earlier ordering (export before audit) meant the transcript missed the audit step entirely. Moving export to last ensures audit findings and remediation are captured for `/goodnight` provenance processing and as a backstop against session data loss.
