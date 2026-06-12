@@ -153,7 +153,7 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 
 ## Quick Start
 
-**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
+**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended), Python 3 (optional — only the session-transcript export uses it). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
 
 ```bash
 git clone https://github.com/OpenCairn/OpenCairn.git ~/Files
@@ -290,7 +290,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 
 | Skill | What it does |
 |---------|-------------|
-| `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
+| `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 
 **Aliases:**
