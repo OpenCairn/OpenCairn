@@ -37,3 +37,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 5, `park` Step 8a
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
 - **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
+- **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
