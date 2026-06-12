@@ -29,14 +29,14 @@ This is the "big picture" complement to session-level parking.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
-   - Get current time: `date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'`
-   - Store for metadata
+   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` step 1)
+   - Combined stamp for the snapshot's `**Created:**` field: `YYYY-MM-DD at HH:MMam/pm`
 
 2. **Read comprehensive context:**
    - `{VAULT}/01 Now/Works in Progress.md` - active projects
    - `{VAULT}/01 Now/This Week.md` - the day-level SSOT for live status (deadlines, deferrals, current position); reconcile against it per step 3
-   - Recent session files (last 10 days) - recent work
-   - Last daily review (if exists) - recent progress
+   - Recent session metadata via `"{VAULT}/.claude/scripts/pickup-scan.sh"` (its default window is the same 10 days) — then read only the session blocks relevant to active projects, not 10 days of logs end-to-end. If the script errors (fresh vault, old bash), fall back to reading the most recent 2-3 session logs directly.
+   - Last daily report (if exists) - recent progress
    - Last weekly review (if exists) - patterns and insights
 
 3. **Extract active state:**
@@ -44,7 +44,7 @@ This is the "big picture" complement to session-level parking.
    - All unchecked open loops from recent sessions
    - All time-sensitive items or deadlines
    - Any "waiting on" dependencies
-   - **Reconcile every status fact against This Week.md before it enters the snapshot** (deadlines, review dates, deferrals, "waiting on", current position) — WIP and session logs can lag the day plan by a session or two, and this snapshot is read back weeks/months later, so a stale fact rots the longest. The trap is promoting a *secondary-surface* value (a session-log "Files Updated" line, a WIP "Next" pointer, a prior snapshot) to current state: a date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles. If This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — don't snapshot a plausible-looking secondary-surface value as fact.
+   - **Reconcile every status fact against This Week.md before it enters the snapshot** (deadlines, review dates, deferrals, "waiting on", current position) — WIP and session logs can lag the day plan by a session or two, and this snapshot is read back weeks/months later, so a stale fact rots the longest. The trap is promoting a *secondary-surface* value (a session-log "Files Updated" line, a WIP "Next" pointer, a prior snapshot) to current state: a date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles. If This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — don't snapshot a plausible-looking secondary-surface value as fact. **If This Week.md doesn't exist** (it's optional in the template), WIP and session logs are the primary sources — skip the reconciliation pass rather than omitting every status fact.
 
 4. **Interactive interview** (ask the user):
    - **Break duration:** "How long do you expect to be away?" (days/weeks/months)
@@ -117,7 +117,7 @@ This is the "big picture" complement to session-level parking.
 ## Session Links
 
 **Last session:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]
-**Last daily review:** [[06 Archive/Daily Reviews/YYYY-MM-DD]]
+**Last daily report:** [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]]
 **Last weekly review:** [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]]
 
 ---
