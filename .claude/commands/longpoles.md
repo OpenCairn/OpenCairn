@@ -1,6 +1,5 @@
 ---
 name: longpoles
-aliases: [lp, critical-path, blockers]
 description: Surface all [LP] (longpole) tagged items across the vault — critical-path items that block other work
 ---
 

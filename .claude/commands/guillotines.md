@@ -1,6 +1,5 @@
 ---
 name: guillotines
-aliases: [gt, guillotine, hard-deadlines]
 description: Surface all [GT] (guillotine) tagged items across the vault — hard-deadline tasks that foreclose an option or cause irreversible loss if missed, sorted by how close the blade is
 ---
 

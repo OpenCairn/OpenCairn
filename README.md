@@ -254,7 +254,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
-| `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. Aliases: `/tiebreak`, `/panel`. |
+| `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. |
 | `/landscape-scan` | Scans curated sources (and/or a supplied URL pile) for AI / Claude Code / PKM developments and digests them against your current workflow. Run weekly or as needed. |
 
 **Prioritisation:**

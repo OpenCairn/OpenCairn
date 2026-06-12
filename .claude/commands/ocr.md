@@ -1,6 +1,5 @@
 ---
 name: ocr
-aliases: [screenshot, read-screenshots]
 description: Extract text and structured content from image screenshots (chat logs, social-feed posts, documents). Defaults to local easyocr extraction with a text-only Claude post-pass for chat structuring; Vision is used only where image interpretation is required (moments image descriptions) or when explicitly requested.
 ---
 

@@ -1,6 +1,5 @@
 ---
 name: transcribecloud
-aliases: [cloud-transcribe, runpod-transcribe]
 description: Batch transcribe audio/video on RunPod GPU cloud — for large jobs or when no local GPU is available
 ---
 

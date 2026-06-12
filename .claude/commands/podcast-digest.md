@@ -1,6 +1,5 @@
 ---
 name: podcast-digest
-aliases: [digest, pod-digest, podcast]
 description: Digest an informational podcast/talk episode from a URL — existing transcript or captions, else local/cloud WhisperX — into a cruxes-first written summary
 ---
 

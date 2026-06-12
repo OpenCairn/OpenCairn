@@ -1,6 +1,5 @@
 ---
 name: park
-aliases: [shutdown-complete]
 description: Capture session with full bookkeeping — quality gate, WIP update, open loop routing, session log, inline audit.
 ---
 

@@ -1,6 +1,5 @@
 ---
 name: pickup
-aliases: [resume, restore]
 description: Resume previous work — pass a topic, keyword, or file path to jump straight in
 parameters:
   - "$ARGUMENTS" - Topic, keyword, or file path to pick up (optional — bare /pickup shows WIPs)
