@@ -397,6 +397,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
 
+   **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/Provenance/`) can still be verified against each other.
+
    **OTS availability guard:** if `ots` is not on PATH (`command -v ots`), skip the two OTS sub-steps below and record OTS status for affected entries as "skipped — ots CLI unavailable". Hash verification above still runs.
 
    **Upgrade OTS proofs:**
