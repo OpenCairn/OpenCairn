@@ -22,7 +22,8 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Manifest + resumability** — JSONL per-item status; resume from first incomplete. → `transcribecloud`
 - **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
-- **Parallel cross-model trio despatch** — Claude + Gemini + Codex, identical brief, concurrent. → `second-opinion`
+- **Parallel cross-model trio despatch** — Claude + Gemini + Codex, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
+- **Reviewer read-attestation** — brief demands files-read list; missing list discredits review. → `audit`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`

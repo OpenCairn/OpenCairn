@@ -1,6 +1,5 @@
 ---
 name: oops
-aliases: [lesson, mistake, catch]
 description: Capture a mistake and its lesson - "only get something wrong once"
 ---
 

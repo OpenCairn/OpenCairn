@@ -1,6 +1,5 @@
 ---
 name: inbox-processor
-aliases: [process-inbox, organise, categorise]
 description: Organise inbox captures into NIPARAS structure
 ---
 

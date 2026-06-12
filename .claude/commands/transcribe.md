@@ -1,6 +1,5 @@
 ---
 name: transcribe
-aliases: [transcription, whisper]
 description: Transcribe audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation
 ---
 

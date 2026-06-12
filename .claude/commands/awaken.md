@@ -1,6 +1,5 @@
 ---
 name: awaken
-aliases: [restore-hibernate, return]
 description: Restore context from hibernate snapshot after extended break - reconnect to pre-break state
 ---
 

@@ -1,6 +1,5 @@
 ---
 name: reply
-aliases: [draft-reply]
 description: Draft a reply to an inbound message with voice matching and CRM context
 ---
 

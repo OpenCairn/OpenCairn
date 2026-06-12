@@ -1,6 +1,5 @@
 ---
 name: win
-aliases: [nice, nailed-it, worked]
 description: Capture what went well and why - build a library of effective patterns
 ---
 

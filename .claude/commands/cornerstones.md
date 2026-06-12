@@ -1,6 +1,5 @@
 ---
 name: cornerstones
-aliases: [cs, foundations]
 description: Surface high-value foundational tasks tagged [CS] across the vault
 ---
 

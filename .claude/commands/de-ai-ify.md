@@ -1,6 +1,5 @@
 ---
 name: de-ai-ify
-aliases: [humanize, voice-check]
 description: Remove AI writing patterns and restore the user's authentic voice
 ---
 

@@ -1,6 +1,5 @@
 ---
 name: research-assistant
-aliases: [research, investigate]
 description: Deep vault search and synthesis - find what's known before searching externally
 ---
 
