@@ -15,7 +15,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 | Category | Path | Action |
 |----------|------|--------|
 | Commands | `.claude/commands/*.md` | Per-file review (accept/skip) |
-| Scripts | `.claude/scripts/*.sh` | Per-file review (accept/skip) |
+| Scripts | `.claude/scripts/*` (`.sh`, `.py`) | Per-file review (accept/skip) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
@@ -167,7 +167,7 @@ git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/
 Detect files that exist locally but NOT in the template (may be deprecated or user-created):
 ```bash
 # Local command/script files
-LOCAL_FILES=$(ls .claude/commands/*.md .claude/scripts/*.sh 2>/dev/null | sort)
+LOCAL_FILES=$(ls .claude/commands/*.md .claude/scripts/*.sh .claude/scripts/*.py 2>/dev/null | sort)
 
 # Template command/script files
 TEMPLATE_FILES=$(git ls-tree -r --name-only $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ | sort)

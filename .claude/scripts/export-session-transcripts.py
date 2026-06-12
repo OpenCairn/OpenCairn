@@ -25,7 +25,7 @@ def find_session_dir():
     claude_dir = Path.home() / ".claude" / "projects"
     # The directory name is the CWD path with / replaced by -
     # e.g., /home/user -> -home-user
-    cwd = os.environ.get("HOME", str(Path.home()))
+    cwd = os.getcwd()
     encoded = cwd.replace("/", "-")
     session_dir = claude_dir / encoded
     if session_dir.exists():

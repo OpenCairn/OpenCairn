@@ -577,7 +577,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 16. **Export session transcript:**
    - Export today's verbatim session transcripts to the vault. **This step runs last** so the exported transcript captures the full park including the audit step (Step 14) and any remediation it produced.
      ```bash
-     python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+     python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
      ```
    - Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count briefly.
    - Each park re-exports (capturing all sessions up to this point in the day). `/goodnight` skips this step if a transcript already exists.

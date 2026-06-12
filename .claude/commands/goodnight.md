@@ -387,7 +387,7 @@ TRANSCRIPT_FILE="{VAULT}/06 Archive/Claude/.Session Transcripts/$TODAY.md"
 if [[ -f "$TRANSCRIPT_FILE" ]]; then
   echo "Transcripts already exported for today (from /park) — skipping"
 else
-  python3 ~/.claude/scripts/export-session-transcripts.py "{VAULT}" --days 1
+  python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
 fi
 ```
 
