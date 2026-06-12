@@ -150,3 +150,7 @@ This command should trigger when the user says:
 - "lesson learned"
 - "don't do that again"
 - "capture this lesson"
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

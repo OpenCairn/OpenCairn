@@ -79,3 +79,7 @@ If no `[GT]` items found, report that clearly:
 - **Speed over comprehensiveness.** Quick scan, not deep analysis. Present what's there; don't infer dependencies.
 - **Don't modify anything.** This is read-only. Never edit files during a guillotine scan.
 - **Relative paths for display.** Show paths relative to vault root so the output is scannable.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

@@ -346,3 +346,7 @@ Whatever the user asked for in Phase 4 — summary, action items, Q&A, pattern s
 - For batches above ~25 images on the Vision path, prefer splitting into chunks. easyocr scales linearly on CPU without an upper bound; the practical limit is wall-clock time.
 - Dedup is intentionally conservative — exact-match only. If consecutive screenshots have overlapping content that isn't bit-identical (slight crop shift, different timestamp formatting), the dedup won't merge them and the operator must clean up manually.
 - This skill doesn't wire tesseract or PaddleOCR. If a verifiable text layer for archival is ever required, add a parallel engine flag and merge its output into the metadata header rather than the transcript body — don't blend engines mid-transcript.
+
+## Skill Monitor
+
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.

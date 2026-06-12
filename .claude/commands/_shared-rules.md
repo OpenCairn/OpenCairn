@@ -4,7 +4,7 @@ Operational rules referenced by multiple commands. Commands load this file in St
 
 > Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill.
 
-This prevents rule divergence across 30+ command files. Change a rule once here — all commands follow it.
+This prevents rule divergence across every command that loads it (~20 of the library's commands; standalone tools like `/transcribe` and `/ocr` don't). Change a rule once here — all loading commands follow it.
 
 ---
 
@@ -12,7 +12,7 @@ This prevents rule divergence across 30+ command files. Change a rule once here 
 
 After running `resolve-vault.sh`, if it errors: **abort — no vault accessible.** Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.
 
-**Use the resolved path for all file operations.** Code examples in commands use `{VAULT}` as a placeholder — substitute the resolved vault path before executing. Do NOT use `{VAULT}` in Bash tool calls — shell state does not persist between calls, so the variable will be empty.
+**Use the resolved path for all file operations.** Code examples in commands use `{VAULT}` as a placeholder — substitute the literal resolved path wherever `{VAULT}` appears before executing. Do NOT rely on a `$VAULT` shell variable persisting across Bash calls — shell state does not persist between calls, so the variable will be empty.
 
 ---
 
@@ -85,16 +85,18 @@ EOF
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/Claude/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
-| `<dir>/.<basename>.lock` (canonical, via `_lock_path_for`) | A single planning/hub file's read-modify-write | locked-edit.sh, write-tickler.sh |
+| `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A single planning/hub file's read-modify-write | locked-edit.sh, write-tickler.sh |
 | `07 System/.provenance-lock` | Provenance log writes | All provenance operations |
 
 **Lock ordering:** When both the session lock and provenance lock are needed, always acquire the session lock first, release it, then acquire the provenance lock. Never hold both simultaneously. Planning-file locks are held only for the duration of one `locked-edit.sh` write (auto-released on script exit), so they never overlap with the others.
 
-## Failure modes for in-place file edits
+### Failure modes for in-place file edits
 
 Three distinct failure modes can trip up file edits during a skill's execution. Each has a different root cause and a different remediation. **Diagnose before treating.**
 
-### Failure mode A: Edit tool refuses with "modified since read"
+> **Portability note:** the diagnostic commands below (`fuser`, `/proc/<PID>/wchan`, `pkill`, GNU `stat -c`) are Linux-specific. On macOS/Windows Git Bash, identify hung script processes with `ps -ef | grep <script-name>` and kill by PID; skip the `/proc` checks.
+
+#### Failure mode A: Edit tool refuses with "modified since read"
 
 Symptom: `Edit` tool returns "File has been modified since read, either by the user or by a linter." even after a fresh `Read`.
 
@@ -118,7 +120,7 @@ EOF
 
 This skips the Edit tool's mtime freshness check entirely and performs an atomic read-modify-write under the file's canonical lock. It supersedes the old inline `fcntl.flock` snippet for this purpose: that snippet (a) is Unix-only — `fcntl` does not exist on Windows Git Bash, which the script suite supports — and (b) locked the target file directly rather than the canonical `.lock` sibling, so it didn't coordinate with the dedicated scripts. `locked-edit.sh` fixes both.
 
-### Failure mode B: Session-management script times out on its lock
+#### Failure mode B: Session-management script times out on its lock
 
 Symptom: `write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, or `add-forward-link.sh` exits with code 1 and "Lock timeout after 10s / Failed to acquire lock."
 
@@ -151,7 +153,7 @@ After killing, the lock releases and subsequent script invocations work normally
 - **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
 - **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. WIP/This Week/Tickler/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
 
-### Failure mode C: Bash tool backgrounds a command that finishes normally
+#### Failure mode C: Bash tool backgrounds a command that finishes normally
 
 Symptom: A simple command (`ls`, `stat`, `wc -l`, `mount`, etc.) returns "Command running in background with ID: bXXXX" instead of returning its output inline. The command may have actually completed — check the task output file before assuming it's hung.
 
@@ -169,7 +171,7 @@ ps -p <PID from backgrounding message> 2>&1
 
 **Prevention:** For simple diagnostics, prefer small focused commands and read the output promptly. Avoid chaining many commands with `;` or `&&` in one Bash tool call — each chain element can trigger backgrounding heuristics.
 
-### Section-targeted append patterns (when scripts are unavailable)
+#### Section-targeted append patterns (when scripts are unavailable)
 
 When you need to append to or replace a specific section within a session log (`### Summary`, `### Files Updated`, `### Pickup Context`) and the dedicated script is unavailable, use these safe insertion points:
 
@@ -223,7 +225,7 @@ Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
 
 ## 8. Skill Monitor
 
-When executing any slash command, also follow the instructions in `.claude/commands/_skill-monitor.md`. Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and propose edits at the end.
+When executing any slash command, also follow the instructions in `_skill-monitor.md` (same commands directory as this file). Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and propose edits at the end.
 
 ---
 
@@ -231,7 +233,7 @@ When executing any slash command, also follow the instructions in `.claude/comma
 
 This procedure keeps the rolling 7-day window current. It runs during `/morning` (step 6) and `/goodnight` (step 11). If This Week.md doesn't exist, skip entirely.
 
-**Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, not the Edit tool (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections and `--append` to add trailing ones.
+**Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, not the Edit tool (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections. `--append` adds at EOF, so it is valid for new day sections **only when the file has no trailing non-day content**; if a `---` / `## Refs` / other trailing section exists, use `--replace` on the trailing boundary block instead (per the placement rule below).
 
 ### Trim old day sections
 
@@ -275,12 +277,13 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
 
 - **Gemini file reads are sandboxed to the workspace = the cwd it was launched from** (plus its project temp dir `~/.gemini/tmp/<hash>`) — NOT the home directory. Verified 2026-06-11 on gemini 0.40.1: launched from `~`, a read of `/tmp/<file>` fails "Path not in workspace"; launched from `/tmp`, a read under `~` fails the same way. Three remedies: launch from the target's root; pass `--include-directories <root>` (verified to extend the workspace); or **pipe text via stdin** — `cat <file> | gemini -p "..."` — so the sandbox never applies to the brief itself. Headless gemini also **hard-refuses to start in an untrusted directory** ("not running in a trusted directory") — when despatching from outside your trusted set, set `GEMINI_CLI_TRUST_WORKSPACE=true` or pass `--skip-trust`.
 - **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install.
-- **Keep Gemini read-only with a `--policy` file, not `--approval-mode plan`** — `plan` blocks `run_shell_command` but still exposes the `replace`/`write_file` edit tools, so a skill that briefs Gemini to propose changes can have them written straight into the target. Verified on gemini 0.40.x: a deny-rule policy strips the named tools from the model entirely (it reports them "not found") while reads stay intact — a hard guarantee. The policy file needs **no `.toml` extension** (verified 0.40.1), so create it with portable `mktemp` — GNU-only `--suffix` breaks BSD/macOS. **Don't** put the file in `~/.gemini/policies/` (auto-loaded for *every* invocation → would make all gemini sessions read-only); use an explicit temp path. After a panel run, confirm the reviewer reported the denied tools as unavailable — if it didn't, treat the run as contaminated and lean on the `git status`/snapshot backstop (which also remains the only protection on the no-`--policy` fallback).
+- **Keep Gemini read-only with a `--policy` file, not `--approval-mode plan`** — `plan` blocks `run_shell_command` but still exposes the `replace`/`write_file` edit tools, so a skill that briefs Gemini to propose changes can have them written straight into the target. Verified on gemini 0.40.x: a deny-rule policy strips the named tools from the model entirely (it reports them "not found") while reads stay intact — a hard guarantee. The policy file needs **no `.toml` extension** (verified 0.40.1), so create it with portable `mktemp` — GNU-only `--suffix` breaks BSD/macOS. **Don't** put the file in `~/.gemini/policies/` (auto-loaded for *every* invocation → would make all gemini sessions read-only); use an explicit temp path. After a panel run, check whether the reviewer **attempted** an edit: if it did, it must have reported the tool "not found"/unavailable — an edit that *succeeded* means the policy didn't load; treat the run as contaminated. A clean review with no edit attempt produces no such report (the tools are only reported missing when called) — for that case, and on the no-`--policy` fallback, the `git status`/snapshot backstop is the verification.
 - **Canonical read-only panel despatch block.** The Claude seat is the Agent tool with the brief contents verbatim as its prompt; the CLI seats run via Bash with `timeout: 300000` passed as the **Bash-tool argument** on each call (it is not a shell flag — the default 120s kills reviewers mid-review):
 
   ```bash
   RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
   printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
+  # Each CLI call below: pass timeout 300000 as the Bash TOOL argument (not a shell flag)
   cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
   cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -C <root> -
   ```
@@ -300,6 +303,8 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 **Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 10(b) and `/weekly-hygiene` Step 6 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
 
 **Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
+
+---
 
 ## 12. Grep-hit triage (reference-graph / Layer-3 propagation)
 
