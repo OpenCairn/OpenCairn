@@ -25,7 +25,7 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ### 1. Check current date/time
 

@@ -17,7 +17,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Check date and calculate quarter** using bash `date`:
    - Current date: `date +"%Y-%m-%d"`
@@ -62,8 +62,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - **Idempotent:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs.
 
 6. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply).**
-   The library-level layer of the cross-pollination system — the per-edit layer is the skill-edit Stop hook, the index is `~/.claude/commands/_shared-patterns.md`. Once a quarter, look across *all* skills for infrastructure that's been reinvented rather than shared. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
-   - **Inventory** `~/.claude/commands/*.md`; grep for recurring mechanisms (manifest/JSONL + resume, `[i/N]` progress strings, parallel `gemini`/`codex` despatch, file-size + resize loops, `command -v` prereq blocks, cost estimation) and count distinct skills implementing each.
+   The library-level layer of the cross-pollination system — the per-edit layer is the skill-edit Stop hook, the index is `_shared-patterns.md` (commands directory). Once a quarter, look across *all* skills for infrastructure that's been reinvented rather than shared. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
+   - **Inventory** the commands directory (`~/.claude/commands/*.md` or `{VAULT}/.claude/commands/*.md`); grep for recurring mechanisms (manifest/JSONL + resume, `[i/N]` progress strings, parallel `gemini`/`codex` despatch, file-size + resize loops, `command -v` prereq blocks, cost estimation) and count distinct skills implementing each.
    - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
    - **Read `~/.claude/cross-pollination.log`:** index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones.
    - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.

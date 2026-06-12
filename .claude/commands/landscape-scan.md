@@ -25,7 +25,7 @@ Research, not shopping. Surface patterns and architecture insights. A run that p
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout. All code below uses `{VAULT}` as placeholder — substitute the resolved vault path.
+If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout. All code below uses `{VAULT}` as placeholder — substitute the resolved vault path.
 
 ### 1. Current date + file naming
 
@@ -285,7 +285,7 @@ Run weekly (typical), or whenever the user explicitly requests it — including 
 
 ## Integration with Other Commands
 
-*Designed to complement — cross-references not currently wired in the consumer skills. Grep `~/.claude/commands/` for "landscape" to verify the integration state before relying on it; if value emerges, add the references into the consumer skills in a separate pass.*
+*Designed to complement — cross-references not currently wired in the consumer skills. Grep the commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`) for "landscape" to verify the integration state before relying on it; if value emerges, add the references into the consumer skills in a separate pass.*
 
 - **Intended to complement /quarterly-review:** quarterly's strategic-alignment step would benefit from landscape-scan findings accumulated over the quarter.
 - **Intended to complement /weekly-review:** weekly is internal (vault health, progress); landscape-scan is external (what's happening outside).

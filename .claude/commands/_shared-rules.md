@@ -2,7 +2,7 @@
 
 Operational rules referenced by multiple commands. Commands load this file in Step 0 after vault path resolution:
 
-> Read `~/.claude/commands/_shared-rules.md` and apply its rules throughout this skill.
+> Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill.
 
 This prevents rule divergence across 30+ command files. Change a rule once here — all commands follow it.
 
