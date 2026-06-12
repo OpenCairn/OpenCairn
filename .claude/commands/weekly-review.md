@@ -23,7 +23,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
-   - Get ISO week number: `date +"%Y-W%V"` (for file naming: YYYY-Wnn.md)
+   - Get ISO week number: `date +"%G-W%V"` (for file naming: YYYY-Wnn.md). `%G` (ISO year), not `%Y` — they differ in the 29 Dec–3 Jan boundary window, and `%Y-W%V` there produces a nonexistent week key that corrupts the latest-file sort.
    - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
    - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
@@ -42,19 +42,19 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    **Week's activity data:**
    - Read daily reports from `{VAULT}/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
    - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
-   - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range
+   - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
    - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
    - Read current `01 Now/Works in Progress.md` to see active projects
    - Check project files in `03 Projects/` that were active this week
 
    **Schedule-vs-Execution data (Alignment Check input):**
-   - **Cadence gate.** Run `cd "{VAULT}" && git log --since="7 days ago" --pretty=format:%H | wc -l`. If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
+   - **Cadence gate.** Run `cd "{VAULT}" && git rev-list --count --since="$PERIOD_START 00:00" HEAD` (count over the *actual review period*, so the window and the threshold measure the same span; `rev-list --count` also avoids the `wc -l` missing-final-newline undercount). If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
    - **Otherwise, for each day in the review period:**
-     - **Post-/morning This Week.md state.** Find the commit closest to 14:00 vault-local time that day:
+     - **Post-/morning This Week.md state.** Find the last commit at or before 14:00 vault-local time that day:
        ```bash
        cd "{VAULT}" && git rev-list -n 1 --before="YYYY-MM-DD 14:00" HEAD
        ```
-       Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section. If empty, fall back to the first commit of the day whose day section has a populated `### Morning` subsection.
+       Confirm the commit actually falls on the target day (`git show -s --format=%ci $COMMIT`) — `--before` returns the *latest prior* commit, which can be a previous day's. Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section. If the commit is from an earlier day, or the day section lacks a populated `### Morning` subsection (the marker `/morning` adds when expanding today — future-day sections have none, so its absence means the snapshot is pre-plan), fall back to the first commit *of that day* whose day section has one. No such commit → skip the day and note it in the table.
      - **Daily report.** Reuse the daily report read above.
      - **Vault attention profile.** Run:
        ```bash
@@ -63,7 +63,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
        Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/.Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
    - **Compute per day:**
      - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Relationships/[Person]`, not just `04 Areas`).
-     - Executed items from daily report: `- ✓` = checked; plain `- ` items with `rolled to` suffix or absent from post-morning state = migrated-out; `~~strike~~` = dropped; items in daily report not in post-morning state = added mid-day. Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
+     - Executed items, by comparing the daily report's day section against the post-morning state: `- ✓` = checked; `~~strike~~` = dropped; post-morning items absent from the daily report = migrated-out (rolled to a later day before `/goodnight` archived the section); daily-report items absent from the post-morning state = added mid-day. (The daily report carries only plain `- `/`- ✓` bullets — `/goodnight` converts checkboxes on archive and writes no migration suffix, so migrated-out is detectable only by this absence comparison.) Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
      - Actual attention: aggregate touched files into buckets defined by that week's scheduled-item wikilinks (longest-prefix match); files outside the vocabulary go to a catch-all `(outside scheduled vocabulary)` bucket.
    - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
 
@@ -91,7 +91,7 @@ Before diving into the lenses below, ask the user once whether they want interac
 - "What were the major accomplishments this week?"
 - "Which projects moved forward? Which stalled?"
 - "Time allocation: Where did the bulk of hours go?"
-- If hygiene report exists, reference its open loop / scratchpad / tickler findings here rather than re-gathering
+- If hygiene report exists, reference its scratchpad / tickler / working-memory findings here rather than re-gathering (open loops are not in the hygiene report — they come from the session-log sweep in step 2)
 
 **Reflect - What matters:**
 - "Key insights or learning from this week?"
@@ -119,7 +119,7 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 5. **Generate weekly review:**
 
-Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename):
+Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix sorts *after* the bare name, so step 1's `sort -r | head -1` previous-review lookup finds the latest run without changes.
 
 ```markdown
 # Weekly Review — [Date Range]
@@ -258,6 +258,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - **Write mechanism (F1):** apply these WIP edits through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
    - Update project statuses based on weekly progress
    - Add new projects if they emerged this week
+   - Propagate any status/tier change to the project hub's `**Status:**` line as well (`03 Projects/<name>.md` or the relevant area hub) — same two-places rule as `/weekly-hygiene` step 1; a WIP-only edit leaves a stale cross-reference
 
 8. **Generate Claude Web context summary:**
 
@@ -267,7 +268,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    **Output location:**
    - Ensure directory: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Context"`
-   - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week)
+   - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week, per step 1's `%G-W%V`; unlike the review file, overwriting a same-week context doc is correct — it's a regenerated current-state export, latest wins)
 
    **Gather context for dynamic sections:**
    - Read `{VAULT}/01 Now/Works in Progress.md` — every active entry is a candidate for inclusion, not just "projects." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.

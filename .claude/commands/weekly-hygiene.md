@@ -158,7 +158,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Count total entries/lines across all memory files
 
    **Index health (mechanical — check every week):**
-   - `wc -lc` the `MEMORY.md` index. The hard cap is **200 lines OR 25 KB, whichever first** — entries past it are *silently dropped* from the system prompt with no warning. Flag for action at **≥150 lines or ≥22 KB** (proactive, before the cap trips).
+   - `wc -lc` the `MEMORY.md` index. The hard cap is **200 lines OR 25 KB, whichever first** — entries past it are *silently dropped* from the system prompt with no warning. (Undocumented internals, observed as of 2026-06 — treat the numbers as approximate and re-verify if memory behaviour seems off after a Claude Code update.) Flag for action at **≥150 lines or ≥22 KB** (proactive, before the cap trips).
    - Flag any index **hook** (the text after ` — `) longer than ~160 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.)
 
    **For each memory entry, classify (migration is the exception, not the default):**
@@ -213,18 +213,6 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Report per-directory counts (deleted, retained, and remaining).
 
-   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test.
-   ```bash
-   CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
-   PF="$CMDS/_shared-patterns.md"
-   if [ -f "$PF" ]; then
-     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
-       [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
-     done
-   fi
-   ```
-   Any `STALE pointer` lines are tier-2 findings: fix the pointer (renamed skill) or drop the entry (removed skill) in `_shared-patterns.md`. Per its staleness contract, this check is what keeps the index drift-proof.
-
 11. **Session Transcript Export**
 
    Backstop for `/park` step 16 and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
@@ -233,10 +221,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    cd "<session launch directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
    ```
-   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory: the static working directory from your environment context, NOT `pwd`.)
+   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory: the static working directory from your environment context, NOT `pwd`. One silent failure mode: if no project dir matches the launch directory at all, the script falls back to *any* project dir containing JSONL files — sanity-check the reported session count against expectation before trusting the export.)
 
    The script:
-   - Finds JSONL session files modified in the last 7 days in the *launch project's* directory under `~/.claude/projects/` (cwd-keyed — it does not sweep other projects, so this backstop covers the vault-launched project only)
+   - Finds JSONL session files modified in the last 7 days in the *launch project's* directory under `~/.claude/projects/` (cwd-keyed — when the cwd-keyed dir exists it does not sweep other projects, so this backstop covers the vault-launched project only; see the fallback caveat above for when it doesn't)
    - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
    - Writes one file per day to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - Overwrites existing files for the same date (idempotent)
@@ -268,11 +256,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    # CLI (preferred): queries Obsidian's index directly
    obsidian unresolved counts format=tsv 2>/dev/null | filter
    ```
-   If CLI unavailable, fall back to grep (also apply `filter` here):
+   If CLI unavailable, fall back to a find+grep pipeline (also apply `filter` here). The `find` predicates do the path exclusion — don't pass `-not -path` to grep (not a grep option), and keep the link pattern non-greedy (`[^]]*`) so multiple links on one line extract separately:
    ```bash
-   grep -roh '\[\[.*\]\]' "{VAULT}" --include="*.md" \
-     -not -path "*/.stversions/*" -not -path "*/06 Archive/*" \
-     | sed 's/\[\[//;s/\]\]//' | sed 's/|.*//' | sed 's/#.*//' \
+   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -not -path '*/06 Archive/*' -print0 \
+     | xargs -0 grep -ohE '\[\[[^]]*\]\]' 2>/dev/null \
+     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//' \
      | sort -u | filter
    ```
    For each link target, check whether a matching .md file exists in the vault.
@@ -301,7 +289,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    obsidian deadends 2>/dev/null | filter | wc -l          # filtered dead-end count
    ```
 
-   **Obsidian Sync ghost detection** (if `~/repos/scripts/obsidian-ghost-check.sh` exists):
+   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test.
+   ```bash
+   CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
+   PF="$CMDS/_shared-patterns.md"
+   if [ -f "$PF" ]; then
+     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
+       [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
+     done
+   fi
+   ```
+   Any `STALE pointer` lines are tier-2 findings: fix the pointer (renamed skill) or drop the entry (removed skill) in `_shared-patterns.md`. Per its staleness contract, this check is what keeps the index drift-proof.
+
+   **Obsidian Sync ghost detection** (optional, user-supplied script — not shipped with the template; if `~/repos/scripts/obsidian-ghost-check.sh` exists):
    ```bash
    if [ -x ~/repos/scripts/obsidian-ghost-check.sh ]; then
      bash ~/repos/scripts/obsidian-ghost-check.sh --since "8 days ago" "{VAULT}"
@@ -396,6 +396,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
 
+   **OTS availability guard:** if `ots` is not on PATH (`command -v ots`), skip the two OTS sub-steps below and record OTS status for affected entries as "skipped — ots CLI unavailable". Hash verification above still runs.
+
    **Upgrade OTS proofs:**
    For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/`. If upgrade succeeds, update the provenance log entry to "confirmed".
 
@@ -407,7 +409,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 15. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
-   Write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
+   Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
 
    ```markdown
    # Vault Hygiene Report
@@ -482,8 +484,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
    - Dead-end files (03 Projects/ & 04 Areas/): [list top 10 or "none"]
    - Terminology flags: [list or "none"] (if _terminology-checks.md exists)
+   - Shared-patterns pointers: [stale list or "all resolve"] (if _shared-patterns.md exists)
+   - List-item joins fixed: N [file + line per fix, or "none"]
 
    ## Obsidian Sync Ghost Check
+   *(omit this section if the ghost-check script is not installed)*
    - Ghosts found: N (N duplicates, N orphans)
    - Conflict files: N
    - Auto-deleted: N
@@ -536,7 +541,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     - **Tier 2 items the user declined to engage with:** Write to Tasks.md: `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]`
     - Update the hygiene report's "Actions Routed" section to note where each item was sent.
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
-    - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run auto-removes strikethrough content (existing WIP pruning step).
+    - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers — in WIP via the step 1 pruning sweep; in the other routing destinations (Tasks.md, Working Memory, scratchpads) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
 17. **Display confirmation:**
 
@@ -556,6 +561,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run auto-removes strikethrough content.
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
+- **Portability note.** Code snippets assume GNU coreutils (`stat -c`, `grep -P`, `sha256sum`, GNU `date`) — same caveat as `_shared-rules.md` §5's Linux-specific diagnostics. On macOS/BSD, substitute equivalents (`stat -f`, `perl -ne`/`sed -E` for `-P` extractions, `shasum -a 256`, `date -v`/`-j`).
 
 ## Integration
 
