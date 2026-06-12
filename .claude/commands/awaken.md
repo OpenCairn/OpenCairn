@@ -1,6 +1,7 @@
 ---
 name: awaken
 description: Restore context from hibernate snapshot after extended break - reconnect to pre-break state
+argument-hint: "[--date=YYYY-MM-DD — optional, selects a specific snapshot]"
 ---
 
 # Awaken - Restore from Hibernate
@@ -29,12 +30,11 @@ This is the "return from sabbatical" complement to daily pickup.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
-   - Get current time: `date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'`
-   - Calculate time since last activity
+   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` step 1)
 
 2. **Find hibernate snapshot:**
    - Check `{VAULT}/06 Archive/Hibernate Snapshots/` for most recent snapshot
-   - If multiple exist, use the most recent unless user specifies: `/awaken --date=2026-01-17`
+   - If multiple exist, use the most recent unless user specifies: `/awaken --date=2026-01-17` (`--date` matches the filename prefix of `YYYY-MM-DD-hibernate.md` exactly; zero or multiple matches → display the candidates and ask)
    - If no snapshot exists, offer to run `/pickup` instead (it auto-extends search window)
 
 3. **Load hibernate snapshot:**
@@ -46,7 +46,7 @@ This is the "return from sabbatical" complement to daily pickup.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Welcome back, the user.
+Welcome back[, name from CLAUDE.md — omit if unknown].
 
 Last hibernate: [Date] ([N] days ago)
 Expected return: [Date from snapshot] (Actual: today)
@@ -89,9 +89,9 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 ```
 
 7. **Update based on the user's answers:**
-   - Mark completed loops as `[x]`
-   - Add new items from "what changed"
-   - Archive dropped projects
+   - Record completed loops in the awaken summary's "Completed during break" lines (step 8); flip any matching `- [ ]` items in the SSOT files (This Week.md, Tickler, project hubs) to `[x]`. The snapshot itself keeps plain bullets — there are no checkboxes to flip there, and it stays a frozen record.
+   - Capture new items from "what changed" in the awaken summary; route the actionable ones to SSOT via step 9 alongside the Immediate Next Actions.
+   - Completed or dropped projects → route through `/complete-project` (it owns artefact routing and link-safe archival — don't improvise an archive move here).
    - Update priorities based on new reality
 
 8. **Generate awaken summary** and append to the hibernate snapshot file:
@@ -103,7 +103,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 
 **Returned:** [Date and time]
 **Break duration:** [N days/weeks/months]
-**Actual vs expected:** [On time / Early by X days / Late by X days]
+**Actual vs expected:** [On time / Early by X days / Late by X days / Unknown — no expected return set]
 
 ### What Changed During Break
 
@@ -135,25 +135,25 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 - [Second thing to do]
 - [Third thing to do]
 
-**Note:** These actions are also routed to This Week.md/Tickler as the SSOT. The list above is a point-in-time record.
+**Note:** These actions are also routed to SSOT per step 9 (This Week.md / Tasks.md, or future-dated Tickler). The list above is a point-in-time record.
 
 ### Session Link
 
-**First session post-return:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]
+**First session post-return:** [placeholder — session numbers are assigned at park time, after this step; back-fill this link at the first `/park` after `/awaken`, or leave the placeholder]
 ```
 
-9. **Route Immediate Next Actions to SSOT:**
-   - For each action in "Immediate Next Actions":
-     - If This Week.md exists and is current → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`).
-     - If This Week.md is stale/missing → add to Tickler with today's date
-   - Dedup check: grep target file before writing. Skip if already present.
+9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
+   - For each action in "Immediate Next Actions" (plus actionable "what changed" items from step 7):
+     - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`).
+     - If This Week.md is stale/missing → add to `01 Now/Tasks.md` — not a today-dated Tickler entry; Tickler is for future-dated triggers (§4), and a genuinely future-dated action goes there via `write-tickler.sh`.
+   - Dedup check before each write: grep the target file, Tickler.md, and Tasks.md. Already present somewhere → skip the write; if the new placement supersedes a Tickler copy, delete the Tickler copy per §4 (Tickler SSOT transfer).
    - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes.
 
-10. **Update Works in Progress:**
+10. **Update Works in Progress** (via `locked-edit.sh`, not the Edit tool — WIP is a shared planning file, see `_shared-rules.md` §5):
    - Update "Last updated" timestamp
    - Update project statuses with post-break reality
    - Remove 🛌 emoji from active projects
-   - Archive completed/dropped projects
+   - Completed/dropped projects → `/complete-project` per step 7; remove only their WIP entries here, don't bare-archive project files
 
 11. **Display completion message:**
 

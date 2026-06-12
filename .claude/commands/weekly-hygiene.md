@@ -391,7 +391,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Re-hash and compare:**
    ```bash
-   CURRENT_HASH=$(sha256sum "$RESOLVED_FILE" | awk '{print $1}')
+   # cut, not awk '{print ...}' — the slash-command loader substitutes bare $0-$9 as argument placeholders
+   CURRENT_HASH=$(sha256sum "$RESOLVED_FILE" | cut -d' ' -f1)
    CURRENT_SHORT="${CURRENT_HASH:0:16}"
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.

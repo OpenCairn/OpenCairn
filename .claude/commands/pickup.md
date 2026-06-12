@@ -1,8 +1,7 @@
 ---
 name: pickup
 description: Resume previous work — pass a topic, keyword, or file path to jump straight in
-parameters:
-  - "$ARGUMENTS" - Topic, keyword, or file path to pick up (optional — bare /pickup shows WIPs)
+argument-hint: "[topic, keyword, or file path — optional; bare /pickup shows WIPs]"
 ---
 
 # Pickup - Session Pickup
@@ -38,7 +37,7 @@ You are helping the user resume previous work with full context.
      ```bash
      "{VAULT}/.claude/scripts/pickup-scan.sh" --days=30
      ```
-     Filter the TSV output for lines where TITLE, PROJECT, or SUMMARY match the user's input (case-insensitive). If no matches, extend to `--days=90`.
+     The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position). Filter for lines where TITLE, PROJECT, or SUMMARY match the user's input (case-insensitive). If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
 
    - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Backlog/`), WIP entries, and area files as needed.
 
@@ -80,10 +79,10 @@ You are helping the user resume previous work with full context.
 
    Read `{VAULT}/01 Now/Works in Progress.md`. Parse each `###` entry, extracting:
    - **Name** (the heading text)
-   - **Status** (from the `**Status:**` line — abbreviate to one word if verbose)
+   - **Status** (from the `**Status:**` line, if present — abbreviate to one word if verbose; omit the column for entries without one)
    - **Last touched** (date from the `**Last:**` line, if present)
 
-   Show only the **top section** (entries above `## Active`) and the **Active section**. These are the things worth picking up. Collapse Maintenance and Backlog into counts.
+   Show only the **top section** (entries above `## Active`, if any) and the **Active section**. These are the things worth picking up. Collapse any other sections (Maintenance, Backlog, etc.) into counts — only those that exist; a minimal vault may have just Active and Backlog.
 
 7. **Display a numbered WIP list:**
 
@@ -110,7 +109,7 @@ You are helping the user resume previous work with full context.
 
 8. **Wait for user response:**
 
-   - **Number** → Load that WIP's context: follow the first `[[03 Projects/...]]` link in `**Next:**` to read the project hub, read the most recent session log linked in `**Next:**`, and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
+   - **Number** → Load that WIP's context: follow the project/area link in `**Next:**` to read the project hub, then read the newest **standalone session-link line** in the entry (`→ [[06 Archive/Claude/Session Logs/...]]` — `/park` writes session links as separate lines under the entry, never inside `**Next:**`, which holds exactly one pointer or action), and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
    - **"show all"** → Redisplay with Maintenance and Backlog entries included
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally
