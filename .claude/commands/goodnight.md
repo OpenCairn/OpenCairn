@@ -365,7 +365,7 @@ You cannot proceed to Step 16 without all six. If you find yourself walking the 
 Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
 
 ```bash
-cd "<session launch directory>" || exit 1   # load-bearing: script keys session discovery on cwd; persistent-shell cd drift silently exports 0 or the wrong project. Launch dir = the static working directory in your environment context, NOT pwd
+cd "<session launch directory>" || exit 1   # load-bearing: script keys session discovery on cwd; persistent-shell cd drift would otherwise export the wrong project. Launch dir = the static working directory in your environment context, NOT pwd. Script now fails closed if no project matches and prints `Session directory: <path>` — confirm it names the expected project
 python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
 ```
 

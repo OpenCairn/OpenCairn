@@ -20,8 +20,13 @@ from pathlib import Path
 from collections import defaultdict
 
 
-def find_session_dir():
-    """Find the JSONL session directory for the current project."""
+def find_session_dir(allow_fallback=False):
+    """Resolve the JSONL session directory for the current working directory.
+
+    Returns (session_dir, encoded). session_dir is None when the cwd-encoded
+    directory doesn't exist and fallback is disabled — the caller must then fail
+    closed rather than export an arbitrary project's transcripts.
+    """
     claude_dir = Path.home() / ".claude" / "projects"
     # The directory name is the CWD path with / replaced by -
     # e.g., /home/user -> -home-user
@@ -29,13 +34,22 @@ def find_session_dir():
     encoded = cwd.replace("/", "-")
     session_dir = claude_dir / encoded
     if session_dir.exists():
-        return session_dir
+        return session_dir, encoded
 
-    # Fallback: find any project dir
-    for d in claude_dir.iterdir():
-        if d.is_dir() and list(d.glob("*.jsonl")):
-            return d
-    return None
+    # Fallback is OFF by default: returning an arbitrary project's transcripts here
+    # silently exports the WRONG project, which /goodnight then hashes as provenance.
+    # Only an explicit --fallback-any-project opts into that risk.
+    if allow_fallback:
+        for d in sorted(claude_dir.iterdir()):
+            if d.is_dir() and list(d.glob("*.jsonl")):
+                return d, encoded
+    return None, encoded
+
+
+def all_session_dirs():
+    """Every project dir containing JSONL — for the cross-project backstop sweep."""
+    claude_dir = Path.home() / ".claude" / "projects"
+    return [d for d in sorted(claude_dir.iterdir()) if d.is_dir() and list(d.glob("*.jsonl"))]
 
 
 def extract_text_from_content(content):
@@ -175,7 +189,7 @@ def format_session(messages, slug, session_start):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: export-session-transcripts.py <vault_path> [--days N]", file=sys.stderr)
+        print("Usage: export-session-transcripts.py <vault_path> [--days N] [--all-projects] [--fallback-any-project]", file=sys.stderr)
         sys.exit(1)
 
     vault_path = Path(sys.argv[1])
@@ -185,10 +199,24 @@ def main():
         if idx + 1 < len(sys.argv):
             days = int(sys.argv[idx + 1])
 
-    session_dir = find_session_dir()
-    if not session_dir:
-        print("Error: Could not find session directory", file=sys.stderr)
-        sys.exit(1)
+    all_projects = "--all-projects" in sys.argv
+    allow_fallback = "--fallback-any-project" in sys.argv
+
+    if all_projects:
+        scan_dirs = all_session_dirs()
+        if not scan_dirs:
+            print("Error: no project directories with JSONL under ~/.claude/projects/", file=sys.stderr)
+            sys.exit(1)
+        print(f"Session directories: {len(scan_dirs)} project(s) (--all-projects sweep)")
+    else:
+        session_dir, encoded = find_session_dir(allow_fallback=allow_fallback)
+        if not session_dir:
+            print(f"Error: no session directory for this cwd. Expected ~/.claude/projects/{encoded}", file=sys.stderr)
+            print("  cwd may have drifted, or this project has no sessions. Re-run from the session's", file=sys.stderr)
+            print("  launch directory, or pass --all-projects (backstop) / --fallback-any-project (may be wrong).", file=sys.stderr)
+            sys.exit(1)
+        print(f"Session directory: {session_dir}")  # attestation — confirm this is the expected project
+        scan_dirs = [session_dir]
 
     # Dot-prefixed so Obsidian's metadata indexer ignores this tree: verbatim
     # transcripts are the bulk of vault markdown and a full-vault cold index of
@@ -202,7 +230,10 @@ def main():
 
     # Group sessions by date
     sessions_by_date = defaultdict(list)
-    jsonl_files = sorted(session_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+    jsonl_files = sorted(
+        (p for d in scan_dirs for p in d.glob("*.jsonl")),
+        key=lambda p: p.stat().st_mtime,
+    )
 
     exported = 0
     skipped = 0

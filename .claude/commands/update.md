@@ -103,16 +103,14 @@ Every diff and checkout from here on targets a single ref, `$REF`. This is the *
 REF="$REMOTE/$BRANCH"
 ```
 
-**If `--tag VERSION` was passed** — pin to a specific signed release instead of tracking the branch:
+**If `--tag VERSION` was passed** — pin to a specific signed release instead of tracking the branch. Bind the version the user passed to a shell variable, then resolve it **against the remote**: a bare `git rev-parse --verify` only proves a *local* tag exists, so a stale or locally-created tag named like a release would pass.
 ```bash
-git fetch $REMOTE --tags 2>&1                                  # make sure release tags are present
-git rev-parse --verify "refs/tags/VERSION" >/dev/null 2>&1 && echo "TAG_OK" || echo "TAG_NOT_FOUND"
-REF="VERSION"
-```
-If `TAG_NOT_FOUND`, abort — the requested release doesn't exist on the remote:
-```
-✗ Tag VERSION not found on the template remote. Check the version at
-  https://github.com/OpenCairn/OpenCairn/releases
+VERSION="<the value passed to --tag, e.g. v0.7.13>"     # bind the user's argument once; use $VERSION below
+git ls-remote --exit-code --tags "$REMOTE" "refs/tags/$VERSION" >/dev/null 2>&1 \
+  || { echo "✗ Tag $VERSION not found on $REMOTE — check https://github.com/OpenCairn/OpenCairn/releases"; exit 1; }
+git fetch -f "$REMOTE" "refs/tags/$VERSION:refs/tags/$VERSION" 2>&1 \
+  || { echo "✗ Failed to fetch refs/tags/$VERSION from $REMOTE"; exit 1; }   # -f overwrites any stale local tag
+REF="refs/tags/$VERSION"
 ```
 
 ### Step 3c: Verify `$REF` is signed
@@ -121,27 +119,27 @@ Verification differs by mode. **Branch-follow warns and continues** — an early
 
 #### Pinned mode (`--tag`) — fail closed
 
-`--force` does **not** override a *bad* tag signature (its job is skipping per-file review, not bypassing tamper detection).
+Classify on **structured signals** — object type, verify exit code, config state — not on scraped stderr text (git's messages vary by version and locale, and don't reliably contain the config key name). `--force` is **not** consulted here: a requested pin that can't be verified aborts, full stop (matching `CONTRIBUTING.md`'s "unverifiable aborts"). `--force` only ever skips per-file review (Step 6).
 
 ```bash
-TAG_VERIFY=$(git verify-tag "$REF" 2>&1); TAG_RC=$?
+git verify-tag "$REF" >/dev/null 2>&1; TAG_RC=$?
+OBJTYPE=$(git cat-file -t "$REF" 2>/dev/null)
+ASF=$(git config --get gpg.ssh.allowedSignersFile)
+
+if [ "$OBJTYPE" != tag ]; then                          # lightweight tag → HARD ABORT (can't carry a signature)
+  echo "✗ $VERSION is a lightweight tag (a pre-signing release), not a verifiable signed release."
+  echo "  Pin to the first release cut by the signed /release procedure or later."; exit 1
+elif [ "$TAG_RC" -eq 0 ]; then                          # good signature → proceed
+  echo "✓ Release tag $VERSION is signed and verified"
+elif [ -z "$ASF" ] || [ ! -r "$ASF" ]; then            # verifier not configured → STOP (config gap, not tamper)
+  echo "✗ Signature verification isn't configured here (gpg.ssh.allowedSignersFile unset or unreadable),"
+  echo "  so $VERSION can't be verified. Set it up once, then re-run:"
+  echo "  https://github.com/OpenCairn/OpenCairn/blob/main/CONTRIBUTING.md#commit-signing"; exit 1
+else                                                    # tag object, verifier configured, still bad → HARD ABORT
+  echo "✗ $VERSION is not a verified signed release (unsigned, or signature invalid/tampered). Aborting."; exit 1
+fi
 ```
-- **Good signature** (`TAG_RC` = 0) → `✓ Release tag $REF is signed and verified`. Run the commit check below, then continue to Step 4.
-- **`allowedSignersFile` not configured** (`echo "$TAG_VERIFY" | grep -q allowedSignersFile`) → this machine can't *check* signatures. Because you requested a verified pin, **stop** instead of silently continuing:
-  ```
-  ✗ You pinned --tag $REF, but signature verification isn't configured here, so the
-    release can't be verified. Configure it (one-time), then re-run:
-    https://github.com/OpenCairn/OpenCairn/blob/main/CONTRIBUTING.md#commit-signing
-    (Or re-run with --force to apply unverified — only if you trust this local clone.)
-  ```
-  Abort — **unless `--force` is also set** (a config gap is not tamper, so `--force` may override, prepending the `⚠ UNVERIFIED` banner to all later output).
-- **Bad signature, or `not a tag object`** (a lightweight tag — every release `v0.7.12` and earlier) → **hard abort, not overridable**:
-  ```
-  ✗ Tag $REF is not a verified signed release.
-    git output: $TAG_VERIFY
-    A lightweight or unsigned tag fails closed in pinned mode. If this is an older
-    pre-signing release, pin to the first signed release or later.
-  ```
+Object-type is tested first because a lightweight tag can never carry a signature, so it must abort regardless of verifier config — and `git cat-file -t` is deterministic where stderr text is not. The config gap **stops** rather than continuing (the inversion from branch-follow): you *asked* for a verified pin, so an unverifiable one is a hard stop, and the fix is a one-time setup, not a `--force`.
 
 **Commit-signing check** (the tag proves the maintainer published this release; it does not prove the tagged commit itself meets the commit-signing policy):
 ```bash
@@ -150,7 +148,7 @@ git verify-commit "$TAG_COMMIT" >/dev/null 2>&1 \
   && echo "✓ Tagged commit $TAG_COMMIT is also signed" \
   || echo "⚠ Tag is signed but commit $TAG_COMMIT is not individually signed — proceeding on the tag's authority."
 ```
-The tag signature is the release authority, so a missing commit signature **warns but continues**; only the tag itself failing (the bad-signature/lightweight case above) aborts.
+The tag signature is the release authority, so a missing commit signature **warns but continues**; only the tag verification above aborts.
 
 #### Branch-follow mode (default, `$REF` = `$REMOTE/$BRANCH`) — warn and continue
 
@@ -166,13 +164,13 @@ VERIFY_OUTPUT=$(git verify-commit "$REF" 2>&1)
 ```
 Continue to Step 4.
 
-**If verification fails** (exit code non-zero), check whether the failure is a missing config or an actual signature problem:
+**If verification fails** (exit code non-zero), distinguish a missing-config gap from a real signature problem via the **config itself**, not the error text (git's stderr doesn't reliably contain the config key name):
 
 ```bash
-echo "$VERIFY_OUTPUT" | grep -q "allowedSignersFile"
+ASF=$(git config --get gpg.ssh.allowedSignersFile)
 ```
 
-**If `allowedSignersFile` is mentioned** — the user hasn't configured signature verification locally. This is a config gap, not a security problem. Display:
+**If `$ASF` is empty or unreadable** (`[ -z "$ASF" ] || [ ! -r "$ASF" ]`) — the user hasn't configured signature verification locally. This is a config gap, not a security problem. Display:
 ```
 ℹ Signature verification is not configured on your machine.
   The template commit may be signed, but your git can't check it.

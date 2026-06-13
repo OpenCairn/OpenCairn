@@ -27,11 +27,12 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 For every `[GT]` hit, pull the hard date from the item text (e.g. "expires 30 Sep 2026", "by 1 Jul", "due 2026-09-30"):
 
 - If a date is present, compute days remaining from today. Verify any ambiguous or weekday-bearing date with `date -d "<date>"` rather than trusting internal computation.
+- **Bare dates with no year** (e.g. "by 1 Jul") resolve to the *next* occurrence: if that date in the current year is already past, assume next year. Echo the resolved absolute date in the output so a mis-parse is visible.
 - If **no** date is present, the item is mis-tagged — a guillotine without a deadline is just a task. Surface it separately under "Undated" for correction.
 
 ### 4. Sort and Flag
 
-Order items by deadline **ascending — soonest blade first.** Apply status markers:
+Order items by deadline **ascending — soonest blade first.** Undated items are excluded from the sort and surfaced in their own section (see template below). Apply status markers:
 
 - 🔴 **OVERDUE** — deadline is in the past. The blade has dropped; surface first and loudest.
 - 🟠 **IMMINENT** — ≤30 days out.
