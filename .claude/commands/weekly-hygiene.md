@@ -219,12 +219,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    ```bash
-   cd "<session launch directory>" && python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7
+   python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
    ```
-   (The `cd` is load-bearing — the script keys session discovery on cwd; substitute the session's launch directory: the static working directory from your environment context, NOT `pwd`. One silent failure mode: if no project dir matches the launch directory at all, the script falls back to *any* project dir containing JSONL files — sanity-check the reported session count against expectation before trusting the export.)
+   (`--all-projects` makes this backstop sweep **every** project directory under `~/.claude/projects/`, not just the launch project — so it catches sessions run from any directory, which is the whole point of a backstop. No `cd` needed: `--all-projects` is cwd-independent, so it can't be defeated by a wrong launch-dir guess the way the per-session export can.)
 
    The script:
-   - Finds JSONL session files modified in the last 7 days in the *launch project's* directory under `~/.claude/projects/` (cwd-keyed — when the cwd-keyed dir exists it does not sweep other projects, so this backstop covers the vault-launched project only; see the fallback caveat above for when it doesn't)
+   - Finds JSONL session files modified in the last 7 days across **all** project directories under `~/.claude/projects/` (via `--all-projects`) — so the weekly backstop covers sessions launched from any directory, not just the vault-launched project
    - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
    - Writes one file per day to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
    - Overwrites existing files for the same date (idempotent)
