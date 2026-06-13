@@ -92,6 +92,8 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
+   **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. Name any `Tasks.md` / WIP / `Tickler.md` item by title/heading/content, never by line number, in this durable record.
+
 ```markdown
 # Quarterly Review - YYYY QN ([Month] - [Month])
 
