@@ -86,6 +86,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ```
    Write to `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md`:
 
+   **⛔ Cite report items by stable identifier, not line number** — see `_shared-rules.md` §13. Reference any `Tasks.md` / WIP / `Tickler.md` item by title/heading/content, never by line number; structural maintenance this run shifts line numbers, so an `Lnn` reference is stale on write.
+
    ```markdown
    # Quarterly Hygiene Report - YYYY QN
 

@@ -322,3 +322,13 @@ When propagating a changed identifier across the vault — `park` Step 12 (refer
 - **Different context** — unrelated content that merely shares the identifier string → **leave it**.
 
 If you can't tell whether a value is a live locator or a frozen record, **report the ambiguity instead of editing**. Use the file's lock if one exists. Always show the grep output (it proves the grep ran).
+
+---
+
+## 13. Cite Vault Items by Stable Identifier, Not Line Number
+
+When a skill writes a **durable artefact** — a report, review, session log, routed flag, or any note that will be re-read later — that references an item living in a churning planning file (a `Tasks.md` task, a WIP entry, a `Tickler.md` line, an open loop), name it by its **title / heading / content**, never by line number (`Tasks.md L43`).
+
+Line numbers rot the instant the file is edited — and several skills mutate a planning file *within the same run*, so any `Lnn` written after that point is stale on write. The canonical case: `/weekly-hygiene` step 8 purges completed `[x]` lines from `Tasks.md`, shifting every line below; a report generated later in the same run that cites `Tasks.md L43` already points at the wrong line. The durable artefact outlives the line-numbering; the title does not.
+
+Ephemeral, in-conversation references during a single turn (e.g. a grep result you act on immediately) are exempt — this rule governs what gets **persisted**.

@@ -121,6 +121,8 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix sorts *after* the bare name, so step 1's `sort -r | head -1` previous-review lookup finds the latest run without changes.
 
+**⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already purged Tasks.md, so any `Tasks.md Lnn` carried into this durable review is stale on write. Name items (tasks, WIP entries, Tickler lines, aged open loops) by title/heading/content.
+
 ```markdown
 # Weekly Review — [Date Range]
 

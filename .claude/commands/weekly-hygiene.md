@@ -414,6 +414,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
 
+   **⛔ Cite report/flag items by stable identifier, not line number** — see `_shared-rules.md` §13. Acute here: step 8's completed-`[x]` purge mutates Tasks.md *within this same run*, so any `Tasks.md Lnn` written into the report or a routed `⚠ Hygiene Wnn:` flag afterward is stale on write. Name items by title/heading/content.
+
    ```markdown
    # Vault Hygiene Report
 
