@@ -1,12 +1,14 @@
 ---
 name: update
 description: Update OpenCairn commands and scripts from the template repository
-argument-hint: "[--dry-run] [--force]"
+argument-hint: "[--dry-run] [--force] [--tag VERSION]"
 ---
 
 # Update - OpenCairn Template Sync
 
 You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts) — vault content and CLAUDE.md are never touched.
+
+**Two modes.** By default `/update` tracks the template's main branch (latest, possibly unreleased). Pass `--tag VERSION` to instead pin to a specific signed release and verify its tag signature before applying anything — the supply-chain-cautious path. The two modes differ only in *what* you compare against (Step 3b/3c); the per-file review and apply (Steps 4–6) are identical.
 
 ## What Gets Updated
 
@@ -90,14 +92,72 @@ If neither `main` nor `master` exists, abort:
 ✗ Couldn't find main or master branch on remote. The template repo may have changed — check the template repo URL.
 ```
 
-Store as `$BRANCH`. Use `$REMOTE/$BRANCH` for all subsequent steps.
+Store as `$BRANCH`.
 
-### Step 3b: Verify Commit Signature
+### Step 3b: Resolve the comparison ref (`$REF`)
+
+Every diff and checkout from here on targets a single ref, `$REF`. This is the **only** thing `--tag` changes — *what* you compare against, never *how* files are applied (Step 6's per-file review is identical in both modes).
+
+**Default — branch-follow:**
+```bash
+REF="$REMOTE/$BRANCH"
+```
+
+**If `--tag VERSION` was passed** — pin to a specific signed release instead of tracking the branch:
+```bash
+git fetch $REMOTE --tags 2>&1                                  # make sure release tags are present
+git rev-parse --verify "refs/tags/VERSION" >/dev/null 2>&1 && echo "TAG_OK" || echo "TAG_NOT_FOUND"
+REF="VERSION"
+```
+If `TAG_NOT_FOUND`, abort — the requested release doesn't exist on the remote:
+```
+✗ Tag VERSION not found on the template remote. Check the version at
+  https://github.com/OpenCairn/OpenCairn/releases
+```
+
+### Step 3c: Verify `$REF` is signed
+
+Verification differs by mode. **Branch-follow warns and continues** — an early adopter on a pre-signing commit shouldn't be locked out. **A `--tag` pin fails closed** — you explicitly asked for a verified release, so an unverifiable one aborts.
+
+#### Pinned mode (`--tag`) — fail closed
+
+`--force` does **not** override a *bad* tag signature (its job is skipping per-file review, not bypassing tamper detection).
+
+```bash
+TAG_VERIFY=$(git verify-tag "$REF" 2>&1); TAG_RC=$?
+```
+- **Good signature** (`TAG_RC` = 0) → `✓ Release tag $REF is signed and verified`. Run the commit check below, then continue to Step 4.
+- **`allowedSignersFile` not configured** (`echo "$TAG_VERIFY" | grep -q allowedSignersFile`) → this machine can't *check* signatures. Because you requested a verified pin, **stop** instead of silently continuing:
+  ```
+  ✗ You pinned --tag $REF, but signature verification isn't configured here, so the
+    release can't be verified. Configure it (one-time), then re-run:
+    https://github.com/OpenCairn/OpenCairn/blob/main/CONTRIBUTING.md#commit-signing
+    (Or re-run with --force to apply unverified — only if you trust this local clone.)
+  ```
+  Abort — **unless `--force` is also set** (a config gap is not tamper, so `--force` may override, prepending the `⚠ UNVERIFIED` banner to all later output).
+- **Bad signature, or `not a tag object`** (a lightweight tag — every release `v0.7.12` and earlier) → **hard abort, not overridable**:
+  ```
+  ✗ Tag $REF is not a verified signed release.
+    git output: $TAG_VERIFY
+    A lightweight or unsigned tag fails closed in pinned mode. If this is an older
+    pre-signing release, pin to the first signed release or later.
+  ```
+
+**Commit-signing check** (the tag proves the maintainer published this release; it does not prove the tagged commit itself meets the commit-signing policy):
+```bash
+TAG_COMMIT=$(git rev-parse "$REF^{commit}")
+git verify-commit "$TAG_COMMIT" >/dev/null 2>&1 \
+  && echo "✓ Tagged commit $TAG_COMMIT is also signed" \
+  || echo "⚠ Tag is signed but commit $TAG_COMMIT is not individually signed — proceeding on the tag's authority."
+```
+The tag signature is the release authority, so a missing commit signature **warns but continues**; only the tag itself failing (the bad-signature/lightweight case above) aborts.
+
+#### Branch-follow mode (default, `$REF` = `$REMOTE/$BRANCH`) — warn and continue
 
 Before applying any changes, verify the template commit is signed:
 
 ```bash
-VERIFY_OUTPUT=$(git verify-commit $REMOTE/$BRANCH 2>&1)
+VERIFY_OUTPUT=$(git verify-commit "$REF" 2>&1)
 ```
 
 **If verification succeeds** (exit code 0), display:
@@ -125,15 +185,15 @@ Continue to Step 4 (no user prompt needed — this is informational, not a secur
 
 **Otherwise** — the commit is genuinely unsigned or the signature is invalid. Display:
 ```
-⚠ WARNING: Template commit at $REMOTE/$BRANCH is NOT signed.
+⚠ WARNING: Template commit at $REF is NOT signed.
 
   This could mean:
   - The repository maintainer pushed without signing (ask them to fix it)
   - The repository has been compromised
 
-  Commit: $(git rev-parse --short $REMOTE/$BRANCH)
-  Author: $(git log -1 --format='%an <%ae>' $REMOTE/$BRANCH)
-  Date:   $(git log -1 --format='%ci' $REMOTE/$BRANCH)
+  Commit: $(git rev-parse --short $REF)
+  Author: $(git log -1 --format='%an <%ae>' $REF)
+  Date:   $(git log -1 --format='%ci' $REF)
 
   Do you want to continue anyway? (y/n)
 ```
@@ -151,7 +211,7 @@ Compare the user's **actual files on disc** (not committed state) against the te
 
 ```bash
 # Compare working tree against template (catches uncommitted local changes too)
-git diff --stat $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/
+git diff --stat $REF -- .claude/commands/ .claude/scripts/
 ```
 
 If no differences:
@@ -166,7 +226,7 @@ Categorise what changed by comparing the working tree against the template:
 
 ```bash
 # Files that differ between working tree and template
-git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/
+git diff $REF --name-only -- .claude/commands/ .claude/scripts/
 ```
 
 Detect files that exist locally but NOT in the template (may be deprecated or user-created):
@@ -175,7 +235,7 @@ Detect files that exist locally but NOT in the template (may be deprecated or us
 LOCAL_FILES=$(ls .claude/commands/*.md .claude/scripts/*.sh .claude/scripts/*.py 2>/dev/null | sort)
 
 # Template command/script files
-TEMPLATE_FILES=$(git ls-tree -r --name-only $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ | sort)
+TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | sort)
 
 # Files in local but not in template
 REMOVED_CANDIDATES=$(comm -23 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
@@ -218,7 +278,7 @@ For each changed file, show a short diff and let the user decide. This prevents 
 
 **If `--force` was specified**, skip per-file review — accept all files and apply them in bulk (use the bulk checkout approach):
 ```bash
-git checkout $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/
+git checkout $REF -- .claude/commands/ .claude/scripts/
 ```
 Then skip ahead to the commit step below.
 
@@ -227,15 +287,15 @@ Then skip ahead to the commit step below.
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \
-  <(git diff $REMOTE/$BRANCH --name-only -- .claude/commands/ .claude/scripts/ | sort) \
-  <(git ls-tree -r --name-only $REMOTE/$BRANCH -- .claude/commands/ .claude/scripts/ | sort)
+  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ | sort) \
+  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | sort)
 ```
 
 For each file in this list:
 
 1. **Show a compact diff** (the template version vs local version):
    ```bash
-   git diff $REMOTE/$BRANCH -- <file>
+   git diff $REF -- <file>
    ```
 
 2. **Show a one-line summary** describing the change direction and size, e.g.:
@@ -250,14 +310,14 @@ For each file in this list:
 
 4. **If accepted**, apply immediately:
    ```bash
-   git checkout $REMOTE/$BRANCH -- <file>
+   git checkout $REF -- <file>
    ```
 
 5. **If skipped**, note it for the summary. Move to the next file.
 
 **New files** (in template but not local) don't need review — apply them automatically:
 ```bash
-git checkout $REMOTE/$BRANCH -- <new-file>
+git checkout $REF -- <new-file>
 ```
 
 **After all files are processed**, commit everything that was accepted:
@@ -267,7 +327,7 @@ chmod +x .claude/scripts/*.sh 2>/dev/null
 git add .claude/commands/ .claude/scripts/
 
 # Commit with template version hash for traceability
-git commit -m "Update OpenCairn commands from template ($(git rev-parse --short $REMOTE/$BRANCH))"
+git commit -m "Update OpenCairn commands from template ($(git rev-parse --short $REF))"
 ```
 
 If nothing was accepted (user skipped everything), don't commit. Display:
@@ -368,7 +428,7 @@ If `BASH_UPGRADE_NEEDED`, display:
 
 ```bash
 # Get hash for display
-git rev-parse --short $REMOTE/$BRANCH
+git rev-parse --short $REF
 ```
 
 ```
@@ -413,6 +473,7 @@ Error: [specific error message]
 - **Idempotent:** Running `/update` twice in a row is safe — second run shows "Already up to date."
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
+- **Pinned releases (`--tag VERSION`):** pin to a specific signed release instead of tracking the branch, and verify its tag signature before applying. Unlike branch-follow (which warns and continues), pinned mode **fails closed** — an unsigned, lightweight, or unverifiable tag aborts. The per-file review and apply are otherwise identical; `--tag` only changes what you diff against.
 
 ## Skill Monitor
 
