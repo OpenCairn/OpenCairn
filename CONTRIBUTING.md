@@ -60,7 +60,7 @@ OpenCairn has real external users. Prompt-level changes (command `.md` files) ar
 
 ## Commit Signing
 
-All commits to this repository are signed with SSH keys. GitHub shows a "Verified" badge on each commit. `/update` checks whether the template commit is signed and emits an informational message if your local git isn't configured to verify signatures (not a security warning — the command still runs).
+All commits to this repository are signed with SSH keys. GitHub shows a "Verified" badge on each commit. `/update` checks whether the template commit is signed and emits an informational message if your local git isn't configured to verify signatures (not a security warning — the command still runs). Pinned mode (`/update --tag VERSION`) is stricter: it verifies the release tag's signature and **fails closed** — an unsigned, lightweight, or unverifiable tag aborts rather than continuing.
 
 To enable local verification:
 
