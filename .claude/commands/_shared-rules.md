@@ -321,7 +321,7 @@ When propagating a changed identifier across the vault — `park` Step 12 (refer
 - **Historical record** — a frozen record of what was actually said/sent/observed, or where an artefact lived *at event time* → **leave it** (or add a separate relocation note; don't overwrite).
 - **Different context** — unrelated content that merely shares the identifier string → **leave it**.
 
-If you can't tell whether a value is a live locator or a frozen record, **report the ambiguity instead of editing**. Use the file's lock if one exists. Always show the grep output (it proves the grep ran).
+If you can't tell whether a value is a live locator or a frozen record, **report the ambiguity instead of editing**. Use the file's lock if one exists. Always show the grep output (it proves the grep ran) — and the **full** hit-set, not a sampled subset: the grep's complete hit-list *is* the scope of the triage, so account for every returned hit (tag each `updated` / `left (historical)` / `left (different context)`). A "no remaining stale refs" conclusion is earned only by triaging the whole hit-list, never by checking the files you expected to matter or a hand-picked candidate list.
 
 ---
 
