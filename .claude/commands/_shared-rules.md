@@ -332,3 +332,26 @@ When a skill writes a **durable artefact** — a report, review, session log, ro
 Line numbers rot the instant the file is edited — and several skills mutate a planning file *within the same run*, so any `Lnn` written after that point is stale on write. The canonical case: `/weekly-hygiene` step 8 purges completed `[x]` lines from `Tasks.md`, shifting every line below; a report generated later in the same run that cites `Tasks.md L43` already points at the wrong line. The durable artefact outlives the line-numbering; the title does not.
 
 Ephemeral, in-conversation references during a single turn (e.g. a grep result you act on immediately) are exempt — this rule governs what gets **persisted**.
+
+## 14. Verbatim External Text vs In-Place Formatting Hooks
+
+When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — a `PostToolUse` formatting hook will silently corrupt it. The vault runs such a hook (a spelling normaliser) that fires on every `Write`/`Edit` to a `.md` file and rewrites the file **in place** (e.g. de-Americanising a US speaker's quotes: `color`→`colour`, `analyze`→`analyse`). The existing word-level ignore files cannot help — you can't enumerate every foreign-spelled word a speaker might use.
+
+**The hook fires on `Write`/`Edit`, not on a shell write (`cat`/`printf`).** That asymmetry is the lever.
+
+**Two defences (use both for belt-and-braces):**
+
+1. **Hook-safe append.** Write only your *own* prose (frontmatter + synthesis header) with the editor tool, then append the verbatim body via the shell:
+   ```bash
+   printf '\n' >> "$dest"      # guarantee a newline boundary
+   cat "$body_file" >> "$dest" # bypasses the PostToolUse hook
+   ```
+   Then **never `Write`/`Edit` that note again** — any later edit re-fires the hook on the whole file, body included.
+
+2. **Path-level exclude.** If the hook supports it, exclude the verbatim-output folder once so fidelity holds regardless of write method (if the hook reads an `exclude_paths` allowlist from a `config.local.json`-style file, add the verbatim-output folder there). This is the robust default; the append trick is the portable fallback for vaults without an exclude.
+
+**Precondition for the append trick:** it only holds if the hook's matcher is `Write|Edit` and does **not** intercept shell writes. Verify the matcher before relying on it; if a hook matches `Bash`/shell writes, the append silently corrupts the body with no error — fall back to the path-exclude.
+
+**Collateral edits.** Adding wikilinks/back-references to *other* notes (a dossier, a hub) after creating verbatim content also fires the hook on those notes. Short edits to already-normalised hub prose are safe; but if the target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
+
+**Inline identifiers.** For a stray foreign-spelled token in otherwise-normalised prose (a product name, a US institution, a code symbol), wrap it in an inline code span (backticks) — the markdown strategy preserves code spans. Use this for one-off tokens, not whole bodies.
