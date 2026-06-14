@@ -178,13 +178,17 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 ### Files Updated
 - path/to/file.md - [what changed and why]
 
+### Files Deleted
+- path/to/file.md - [why removed — e.g. merged into X, superseded by Y]
+[Optional — include only when the session deleted a vault file. Omit the whole section otherwise.]
+
 ### Pickup Context
 **For next session:** [One clear sentence about where to pick up - the very next action to take]
 **Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
 **Project:** [use exact link from Step 5 — do not rewrite]
 ```
 
-   **Reconcile Files Created / Files Updated against the Step 4(a) enumeration.** Every file in that enumeration must appear in one of the two lists (created vs. updated). This is the backstop for in-session edits to planning files — a checkbox flip in This Week, a Tickler add — which are easy to omit here because they feel like bookkeeping rather than session work. (Files edited *later*, during park Steps 11-13, aren't in the 4(a) set yet — Step 13a backfills those.)
+   **Reconcile Files Created / Files Updated / Files Deleted against the Step 4(a) enumeration.** Every file in that enumeration must appear in one of the three lists (created, updated, or deleted). This is the backstop for in-session edits to planning files — a checkbox flip in This Week, a Tickler add — which are easy to omit here because they feel like bookkeeping rather than session work. (Files edited *later*, during park Steps 11-13, aren't in the 4(a) set yet — Step 13a backfills those.)
 
 8. **Write the summary** (with file locking + atomic session numbering):
    - **CRITICAL: Use the write-session script, NOT inline flock or the Edit tool**
