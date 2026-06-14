@@ -241,6 +241,9 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Cl
 ### Files Updated
 - [List any files modified during goodnight]
 
+### Files Deleted
+- [Any vault files deleted during goodnight — path + why removed. Omit section if none.]
+
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
 EOF
