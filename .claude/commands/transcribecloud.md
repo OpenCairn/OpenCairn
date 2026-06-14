@@ -522,6 +522,8 @@ For each JSON transcript file:
 
 5. **Save as markdown** in the output directory:
 
+   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** the vault's formatting hook rewrites spelling in place on `Write`/`Edit` and corrupts the speaker's verbatim words. Write the metadata header with the editor, then **append the transcript body via the shell** (`cat >>`) and don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+
 ```markdown
 # Transcript: {title}
 

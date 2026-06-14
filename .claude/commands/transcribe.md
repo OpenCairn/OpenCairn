@@ -199,6 +199,8 @@ Replace the placeholder variables with actual values.
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
+   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** saving via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). Write the metadata header with the editor, then **append the transcript body via the shell** (`cat >>`) and don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+
    ```markdown
    # Transcript: {video title or filename}
 
