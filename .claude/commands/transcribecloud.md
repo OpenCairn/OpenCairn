@@ -20,6 +20,7 @@ Batch transcribe audio or video files using WhisperX on a RunPod GPU instance. U
 - `--output PATH` — output directory for transcripts (default: alongside source, or user-specified)
 - `--raw` — skip the LLM cleanup pass (save unprocessed WhisperX output)
 - `--language LANG` — force a Whisper language code (default `en`); set to `auto` for Whisper autodetect.
+- `--no-published` — skip the published-transcript check (Phase 1.5) for single-source runs; go straight to the cloud pipeline
 
 If no arguments provided, ask the user what to transcribe and where to store results.
 
@@ -62,6 +63,19 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
    Secure-cloud variants cost ~2× community but provision faster and more reliably. For jobs under ~1 hour of audio, the hourly difference is negligible at job total cost.
 6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~1 min setup + ~1 min per hour of audio on mid-tier GPU), estimated cost.
 7. **Confirm output location** with user if not specified via `--output`.
+
+### Phase 1.5: Published-transcript check (single-source runs only)
+
+A cloud run **costs money**, so the bar to spend pod time is *lower* than for local `/transcribe`: a free human-edited published transcript should win even more decisively here. Run this check after scoping (so single-vs-batch is known) and **before** provisioning a pod.
+
+**Gate — skip this phase entirely unless ALL of the following hold:**
+- The job is a **single source** — exactly one YouTube video (not a playlist) or one named podcast/talk episode. Skip for batches (5+ files), directories, playlists, or `mixed` sources — a per-file published check doesn't fit a batch and isn't worth the latency.
+- `--no-published` was **not** passed.
+- The source has a plausible online origin (YouTube URL, or a podcast episode the user named/linked). Skip for opaque local files with no obvious published page.
+
+When the gate passes, run the **full discover → validate → choose** logic from `/transcribe` Phase 0 steps 1–5 (user-supplied URL wins; else scan the YouTube description / show-notes / one web search; validate it's a *full verbatim transcript*, not show-notes or a summary; present the choice and wait — don't auto-pick). The only cloud-specific change to the choice framing: option 2 is **"run WhisperX on a paid RunPod GPU"**, so state the *dollar* cost of the cloud run alongside the fidelity tradeoff.
+
+**If the user picks the published transcript:** fetch the page, extract *just the transcript body*, and write it as a single known file — do **not** enter Phase 8's `For each JSON transcript file` loop (there is no JSON here). Use the extracted text directly as `{formatted transcript text}` (no segment parsing, no LLM cleanup pass). Confirm the output dir/filename here if Phase 1 step 7 didn't (its prompt assumes a cloud run; the episode title is a sensible default filename). Build the header from Phase 8 step 5's template, honouring its `_shared-rules.md` §14 verbatim-save caveat (header via editor, body appended via shell): **Source** = transcript URL, add an **Original media:** line for the YouTube/audio URL, **Model:** `published transcript (human-edited)`, mark **Diarisation** and **Cleanup** `n/a` (or drop them), keep **Duration** only if known. **Skip Phases 2–8's loop entirely — no pod is provisioned, no money spent.** Otherwise continue to Phase 2.
 
 ### Phase 2: Provision pod
 
