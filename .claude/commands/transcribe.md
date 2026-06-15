@@ -30,8 +30,31 @@ Flags (parsed from arguments):
 - `--min-speakers N` / `--max-speakers N` — speaker count range (implicitly enables diarisation)
 - `--raw` — skip LLM cleanup pass (save unprocessed WhisperX output)
 - `--no-timestamps` — omit timestamps from output
+- `--no-published` — skip the published-transcript check (Phase 0); go straight to WhisperX
 
 ## Workflow
+
+### Phase 0: Check for a published transcript
+
+A human-edited published transcript (podcast show site, Substack, official transcript page) is higher text-fidelity than any machine transcription. Check for one *before* committing to a download + WhisperX run. Skip this phase entirely if `--no-published` was passed, or if the source is a local audio file with no obvious online origin, or if the user explicitly said to transcribe the audio.
+
+1. **User-supplied transcript wins.** If the user provided a transcript URL or pointed at one ("the transcript is at X"), use it directly — go to step 4.
+2. **Discover a candidate** (best-effort, for YouTube / named-podcast sources only):
+   - YouTube, *if `yt-dlp` is installed* (it isn't verified until Phase 1 — check `command -v yt-dlp` first): scan the description for a transcript link — `yt-dlp --print "%(description)s" "URL"` — for links whose text or target contains "transcript" or points to the show's own site. (Description only — fetching pinned/top comments needs `--write-comments` and isn't worth it; treat comments as out of scope.)
+   - Run **one** web search (if a web-search tool is available): `"<video/episode title>" transcript`. Prefer the official show/publisher page; treat third-party aggregator sites (usually auto-generated, not human-edited) as no better than WhisperX.
+   - If neither `yt-dlp` nor a web-search/fetch tool is available, skip discovery and fall through to Phase 1 — rely only on a user-supplied URL (step 1).
+3. If no credible candidate is found, say so in one line and fall through to Phase 1. Don't over-search — this is a quick best-effort check, not a research task.
+4. **Fetch and validate the candidate.** Fetch the page and extract *just the transcript body* (strip site nav, ads, comments). Judge it on structure — accept as a genuine transcript if it has sustained episode-specific prose AND either (a) speaker turn-taking, (b) continuous single-speaker prose (lectures/monologues have no turns), or (c) the page explicitly labels itself a transcript. Reject show notes, a summary, an excerpt, or a paywalled stub. As a sanity floor, *if you can cheaply get duration* (`yt-dlp --print "%(duration)s" "URL"` for YouTube), expect ≳80–100 words per minute of audio — but don't reject a labelled transcript just for running light, and skip the floor when duration is unknown. If it's a summary or partial, discard it and fall through to Phase 1.
+5. **Present the choice** (numbered list) and wait — don't auto-pick:
+   1. **Use the published transcript** — higher text fidelity, human-edited; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler.
+   2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
+6. **If the user picks the published transcript:** use the transcript body extracted in step 4 as the `{formatted transcript text}` — this *replaces* Phase 3 steps 1–3 (there's no WhisperX JSON to parse or format, and you do **not** run the LLM cleanup pass on an already-edited transcript). Display it (Phase 3 step 4), then save via Phase 3 step 7 — skipping Phases 1–2 and Phase 3 steps 1–3 and 5 entirely (no download, no WhisperX, no diarisation). Adjust the metadata header:
+   - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
+   - **Model:** `published transcript (human-edited)`
+   - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
+   - The verbatim-fidelity save rule in Phase 3 step 7 (`_shared-rules.md` §14) still applies — append the body via the shell, not the editor.
+
+   Otherwise (user picks WhisperX, or no transcript was found/accepted), continue to Phase 1.
 
 ### Phase 1: Validate
 
