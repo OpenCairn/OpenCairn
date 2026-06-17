@@ -24,7 +24,7 @@ Run the `_shared-rules.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4
 
 ## Phase 2 — Fetch the verbatim transcript to a file
 
-Use the **`_shared-rules.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode, each in its own temp dir, leaving:
+Use the **`_shared-rules.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode (the per-URL slug keeps a multi-episode batch from colliding), leaving:
 
 - `<BODY_FILE>` — the clean verbatim transcript body (parser-selected container, chrome stripped, converted to markdown, gated on word + leak count; the body never enters your context). This is §15's printed `BODY=` path, a **deterministic function of the URL** — reuse that exact path in Phase 3/4 (or re-derive it from the URL); there is no random temp name to carry across the tool-call boundary.
 - the published **description** and the `## `/`### ` **section outline** — the raw material for the Phase 3 synthesis header.
