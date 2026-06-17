@@ -357,3 +357,79 @@ When a skill writes **verbatim external text** to the vault — a transcript, a 
 **Collateral edits.** Adding wikilinks/back-references to *other* notes (a dossier, a hub) after creating verbatim content also fires the hook on those notes. Short edits to already-normalised hub prose are safe; but if the target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
 
 **Inline identifiers.** For a stray foreign-spelled token in otherwise-normalised prose (a product name, a US institution, a code symbol), wrap it in an inline code span (backticks) — the markdown strategy preserves code spans. Use this for one-off tokens, not whole bodies.
+
+---
+
+## 15. Published-Transcript Extraction (fetch a verbatim body to a file)
+
+The canonical procedure for pulling an **already-published** transcript (a podcast/show page, Substack, an official transcript page) off the web as a clean verbatim markdown body **in a file, never through context**. Single source of truth: `/archive-transcript` (its core job) and the published-transcript fast-path in `/transcribe` (Phase 0) and `/transcribecloud` (Phase 1.5) all use this — point here rather than re-describing extraction in the skill. Each caller keeps its own *whether-to-use-it* framing (the cost/fidelity choice, dedup, the header it writes); this section owns only the fetch-and-extract mechanism. (Validated against Ghost sites and the Complex Systems `c-content` template; `curl`+`bs4`+`pandoc` beats reader APIs such as jina, which manufacture phantom pagination on static pages.)
+
+**Prereqs** — confirm before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe:
+```bash
+command -v curl pandoc python3 || echo "MISSING a core tool"
+python3 -c 'import bs4, lxml' || echo "MISSING python bs4/lxml"
+```
+If a tool is missing, stop and tell the user (or fall back to machine transcription — see the fallback note below).
+
+**Code blocks below sit at column 0 deliberately** — the Python heredoc is indentation-sensitive, so copy it flush-left, not indented under a list item.
+
+**Confirm static HTML:** `curl -sL "<URL>" | wc -c` — a large byte count is necessary but not sufficient (a JS shell can be large too); the real gate is the word count below.
+
+**Extract → clean → markdown, per page in its own temp dir** (so a multi-page batch never collides on intermediates). `$WORK` is that temp dir, and later caller steps (validate, write the header, append the body) reuse `$WORK/body.md` — but shell variables do **not** survive across separate tool calls, so if those steps run in later Bash calls, substitute the concrete `mktemp -d` path rather than relying on `$WORK` (the substitute-me rule in `_shared-patterns.md`):
+
+```bash
+WORK=$(mktemp -d)
+curl -sL "<URL>" -o "$WORK/ep.html"
+python3 - "$WORK/ep.html" > "$WORK/body.md" <<'PY'
+import sys, re, subprocess
+from bs4 import BeautifulSoup
+soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
+# most-specific content container by PRIORITY (not densest — densest grabs the outer page wrapper)
+node = None
+for sel in ('section.gh-content', '.post-content', '.gh-content', '.c-content', 'article', 'main'):
+    node = soup.select_one(sel)
+    if node:
+        break
+node = node or soup.body
+for t in node.select('script, style, nav, footer, form, button, iframe, figure, .kg-card, img, svg, audio, video'):
+    t.decompose()
+for h in node.find_all(re.compile(r'^h[1-6]$')):          # strip in-heading timestamp/permalink links, KEEP heading text
+    for a in h.find_all('a'):
+        atext = a.get_text().strip()
+        if not atext or re.fullmatch(r'[\d:apm.\s()]+', atext, flags=re.I):
+            a.decompose()                                 # empty or bare-timestamp anchor → drop it
+        else:
+            a.unwrap()                                    # anchor wraps real heading text → keep the text, drop the tag
+    txt = re.sub(r'\s*\(\s*[\d:apm.\s]*\)\s*$', '', h.get_text(), flags=re.I).strip()
+    h.clear(); h.append(txt)
+for t in node.find_all(['div', 'span']):                  # flatten residual wrappers pandoc would emit as raw HTML
+    t.unwrap()
+md = subprocess.run(['pandoc', '-f', 'html', '-t', 'gfm', '--wrap=none'],
+                    input=node.decode_contents(), text=True, capture_output=True).stdout
+md = re.sub(r'\n{3,}', '\n\n', md)
+md = '\n'.join(l for l in md.split('\n')
+               if 'An error occurred' not in l and 'Unable to execute JavaScript' not in l)
+print(md.strip())
+PY
+echo "body words: $(wc -w < "$WORK/body.md")"
+grep -cE '<div|</div|<span|base64' "$WORK/body.md" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
+```
+
+**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$WORK/ep.html" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `body.md` (a few lines) to confirm it starts/ends in transcript content.
+
+**Metadata for the header, without reading the body** — published description (covers Ghost's `og:`/`twitter:` variants) and the section outline:
+
+```bash
+python3 - "$WORK/ep.html" <<'PY'
+import sys
+from bs4 import BeautifulSoup
+soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
+for sel in ('meta[name=description]', 'meta[property="og:description"]', 'meta[name="twitter:description"]'):
+    m = soup.select_one(sel)
+    if m and m.get('content'):
+        print('DESC:', m['content']); break
+PY
+grep -E '^#{2,3} ' "$WORK/body.md"      # section outline, for the cruxes
+```
+
+**Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`/transcribe` locally, `/transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
