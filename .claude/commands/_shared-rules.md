@@ -375,10 +375,11 @@ If a tool is missing, stop and tell the user (or fall back to machine transcript
 
 **Confirm static HTML:** `curl -sL "<URL>" | wc -c` — a large byte count is necessary but not sufficient (a JS shell can be large too); the real gate is the word count below.
 
-**Extract → clean → markdown, per page in its own temp dir** (so a multi-page batch never collides on intermediates). `$WORK` is that temp dir, and later caller steps (validate, write the header, append the body) reuse `$WORK/body.md` — but shell variables do **not** survive across separate tool calls, so if those steps run in later Bash calls, substitute the concrete `mktemp -d` path rather than relying on `$WORK` (the substitute-me rule in `_shared-patterns.md`):
+**Extract → clean → markdown, per page in its own temp dir** (so a multi-page batch never collides on intermediates). The block prints its temp dir on the `WORKDIR=` line — **note that literal path** and use `<BODY_FILE>` = `<that dir>/body.md` as the body's path in **every later step** (validate, write the header, append the body). Shell variables do **not** survive across separate tool calls, so downstream steps that run in their own Bash call must use the literal `<BODY_FILE>` path, never `$WORK` (the substitute-me rule in `_shared-patterns.md`) — a later `cat "$WORK/body.md"` in a fresh call reads `/body.md` and silently appends nothing:
 
 ```bash
 WORK=$(mktemp -d)
+echo "WORKDIR=$WORK"   # ← note this literal path; <BODY_FILE> = $WORK/body.md, reused by literal path in later tool calls
 curl -sL "<URL>" -o "$WORK/ep.html"
 python3 - "$WORK/ep.html" > "$WORK/body.md" <<'PY'
 import sys, re, subprocess
@@ -401,7 +402,10 @@ for h in node.find_all(re.compile(r'^h[1-6]$')):          # strip in-heading tim
         else:
             a.unwrap()                                    # anchor wraps real heading text → keep the text, drop the tag
     txt = re.sub(r'\s*\(\s*[\d:apm.\s]*\)\s*$', '', h.get_text(), flags=re.I).strip()
-    h.clear(); h.append(txt)
+    if not txt:
+        h.decompose()                                     # heading was nothing but a timestamp link → drop the empty heading
+    else:
+        h.clear(); h.append(txt)
 for t in node.find_all(['div', 'span']):                  # flatten residual wrappers pandoc would emit as raw HTML
     t.unwrap()
 md = subprocess.run(['pandoc', '-f', 'html', '-t', 'gfm', '--wrap=none'],
