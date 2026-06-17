@@ -34,6 +34,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Grep with path exclusion** — exclusion via find/rg/pipe, never grep flags. → `park` Step 12(d), `weekly-hygiene` Step 12
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
 - **Substitute-me placeholder for cross-call values** — literal placeholder, never shell var; substitute before running. → `_shared-rules.md §1`, `park` Step 8a
+- **Deterministic temp path for cross-call files** — when work spans tool calls (so a self-contained block can't hold it), derive the path from a stable input (URL/ID slug + hash), never a random `mktemp` name; a later call reconstructs it with nothing carried. → `_shared-rules.md §15`, `podcast-digest` Phase 0
 - **Collision filenames take letter suffixes** — letters sort after bare name; `-N` sorts before. → `weekly-review` Step 5, `quarterly-review` Step 10
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 5, `park` Step 8a
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
