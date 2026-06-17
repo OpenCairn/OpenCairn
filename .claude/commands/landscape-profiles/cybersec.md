@@ -1,6 +1,6 @@
 # Landscape Profile — Cybersecurity / Threat Intel
 
-Threat-intelligence lens, not tool-adoption. Invoked via `/landscape-scan cybersec`. The question this profile answers is **"does a disclosed threat reach something the user actually runs, and what do they do about it?"** — not "should I adopt this tool." It complements `/security-audit` (internal posture: what's misconfigured on the machine now) by covering the external axis (what got disclosed that touches the stack).
+Threat-intelligence lens, not tool-adoption. Invoked via `/landscape-scan cybersec`. The question this profile answers is **"does a disclosed threat reach something the user actually runs, and what do they do about it?"** — not "should I adopt this tool." It complements an internal-posture security audit (what's misconfigured on the machine now — if you run one) by covering the external axis (what got disclosed that touches the stack).
 
 **One-liner:** Cybersecurity threat intel — filter disclosures against the user's stack inventory; output exposure + action (patch now / cooldown / monitor), not adopt/skip.
 
@@ -13,8 +13,8 @@ Threat-intelligence lens, not tool-adoption. Invoked via `/landscape-scan cybers
 
 The whole profile pivots on **what the user actually runs**. Load, every run:
 
-- **The stack-inventory doc** — `{VAULT}/04 Areas/Computers/Security/Stack Inventory.md` (the canonical list of OS/kernel, NAS + its apps, router/network gear, browsers, and security-critical packages, each with how it's exposed). This is the allow-list against which every finding's exposure pass runs. If the doc is missing or looks stale (e.g. an OS version that no longer matches `lsb_release -ds`), say so in the report and offer to refresh it — don't assess exposure against a stale inventory.
-- **The most recent `/security-audit` output** (if one exists in `{VAULT}/04 Areas/Computers/Security/`) — tells you what's already been hardened/flagged, so a finding that the audit already covered is a cross-reference, not a fresh action.
+- **The stack-inventory doc** — `{VAULT}/04 Areas/Computers/Security/Stack Inventory.md` (the canonical list of OS/kernel, NAS + its apps, router/network gear, browsers, and security-critical packages, each with how it's exposed). This is the allow-list against which every finding's exposure pass runs — **the profile cannot do its core exposure pass without it.** If the doc is **missing entirely** (e.g. a fresh clone — there's nothing to refresh), stop and ask the user to create it first: a list of OS/kernel, NAS + its apps, router/network gear, browsers, and security-critical packages, each with how it's exposed. If the doc exists but **looks stale** (e.g. an OS version that no longer matches `lsb_release -ds`), say so in the report and offer to refresh it — don't assess exposure against a stale inventory.
+- **The most recent internal security-audit output** (if one exists in `{VAULT}/04 Areas/Computers/Security/`) — tells you what's already been hardened/flagged, so a finding that the audit already covered is a cross-reference, not a fresh action.
 - **Just-in-time:** if a finding touches a component whose current version matters, verify the installed version live (`dpkg-query -W -f='${Version}' <pkg>`, `uname -r`, NAS/app admin UI) rather than trusting the inventory's recorded version for a patch decision.
 
 ## Sources
@@ -29,7 +29,7 @@ Focus on what's new since the last cybersec scan. Threat intel has a faster cade
 - Vendor advisories for stack-specific gear: TrueNAS / iXsystems security page, the router vendor's firmware/security page (fill in per the stack inventory)
 
 **Security news (secondary — use to surface, then chase to the primary advisory):**
-- https://cybersecuritynews.com/ — broad coverage (the source that surfaced the FFmpeg 0-days)
+- https://cybersecuritynews.com/ — broad coverage (good for surfacing items to then chase to a primary advisory)
 - https://thehackernews.com/ — broad coverage
 - https://www.bleepingcomputer.com/ — broad coverage, good on Linux/NAS/router items
 - https://www.phoronix.com/ — Linux-specific (kernel, distro, package CVEs)
@@ -45,7 +45,7 @@ Two passes per finding. Run both, report both, never collapse to one verdict.
 
 **Exposure pass — does it reach the stack?**
 - Does the affected product/version appear on the stack inventory? Match on *product AND version range*, not product name alone — a CVE in versions < X doesn't touch the user if they run ≥ X. Verify the installed version live before claiming exposed.
-- What's the *attack path*? Network-facing (listening service, internet-exposed) vs local-only (needs a malicious file opened) vs physical. A network-RCE on a service the user doesn't expose is far lower priority than the CVSS implies. (Worked example: the FFmpeg AV1/RTP RCE only fires on `ffmpeg -i rtsp://untrusted` — irrelevant to a user who only transcodes local files, critical to one running an RTSP-ingesting media server.)
+- What's the *attack path*? Network-facing (listening service, internet-exposed) vs local-only (needs a malicious file opened) vs physical. A network-RCE on a service the user doesn't expose is far lower priority than the CVSS implies. (Illustrative example, not a live advisory: an FFmpeg AV1/RTP RCE that only fires on `ffmpeg -i rtsp://untrusted` is irrelevant to a user who only transcodes local files, critical to one running an RTSP-ingesting media server.)
 - If it names a stack component, check it against the inventory — **don't assert exposure from a product-name match.**
 
 **Action pass — what does the user do?**

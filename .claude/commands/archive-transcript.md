@@ -21,7 +21,7 @@ command -v curl pandoc python3 || echo "MISSING a core tool"
 python3 -c 'import bs4, lxml' || echo "MISSING python bs4/lxml"
 ```
 
-If anything is missing, tell the user and stop (or fall back to Phase 2 step 4).
+If anything is missing, tell the user and stop (or use the Phase 2 **Fallback** path — transcribe the audio/video — after confirming with the user).
 
 ## Phase 1 — Resolve the sources
 
@@ -55,9 +55,13 @@ for sel in ('section.gh-content', '.post-content', '.gh-content', '.c-content', 
 node = node or soup.body
 for t in node.select('script, style, nav, footer, form, button, iframe, figure, .kg-card, img, svg, audio, video'):
     t.decompose()
-for h in node.find_all(re.compile(r'^h[1-6]$')):          # drop in-heading timestamp links, keep heading text
+for h in node.find_all(re.compile(r'^h[1-6]$')):          # strip in-heading timestamp/permalink links, KEEP heading text
     for a in h.find_all('a'):
-        a.decompose()
+        atext = a.get_text().strip()
+        if not atext or re.fullmatch(r'[\d:apm.\s()]+', atext, flags=re.I):
+            a.decompose()                                 # empty or bare-timestamp anchor → drop it
+        else:
+            a.unwrap()                                    # anchor wraps real heading text → keep the text, drop the tag
     txt = re.sub(r'\s*\(\s*[\d:apm.\s]*\)\s*$', '', h.get_text(), flags=re.I).strip()
     h.clear(); h.append(txt)
 for t in node.find_all(['div', 'span']):                  # flatten residual wrappers pandoc would emit as raw HTML
@@ -70,7 +74,7 @@ md = '\n'.join(l for l in md.split('\n')
 print(md.strip())
 PY
 echo "body words: $(wc -w < "$WORK/body.md")"
-grep -cE '<div|</div|<span|base64' "$WORK/body.md"   # leak check — expect 0
+grep -cE '<div|</div|<span|base64' "$WORK/body.md" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
 ```
 
 **Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$WORK/ep.html" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `body.md` (a few lines) to confirm it starts/ends in transcript content.

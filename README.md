@@ -57,6 +57,8 @@ Zero reconstruction. Instant flow.
 
 `/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. None of them need a vault.
 
+**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the three above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
+
 **Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
 ---

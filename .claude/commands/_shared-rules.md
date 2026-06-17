@@ -333,9 +333,11 @@ Line numbers rot the instant the file is edited — and several skills mutate a 
 
 Ephemeral, in-conversation references during a single turn (e.g. a grep result you act on immediately) are exempt — this rule governs what gets **persisted**.
 
+---
+
 ## 14. Verbatim External Text vs In-Place Formatting Hooks
 
-When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — a `PostToolUse` formatting hook will silently corrupt it. The vault runs such a hook (a spelling normaliser) that fires on every `Write`/`Edit` to a `.md` file and rewrites the file **in place** (e.g. de-Americanising a US speaker's quotes: `color`→`colour`, `analyze`→`analyse`). The existing word-level ignore files cannot help — you can't enumerate every foreign-spelled word a speaker might use.
+When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — a `PostToolUse` formatting hook will silently corrupt it. Some vaults run such a hook (a spelling normaliser) that fires on every `Write`/`Edit` to a `.md` file and rewrites the file **in place** (e.g. de-Americanising a US speaker's quotes: `color`→`colour`, `analyze`→`analyse`); if one is configured, the rule below is mandatory whenever exact wording matters. The existing word-level ignore files cannot help — you can't enumerate every foreign-spelled word a speaker might use.
 
 **The hook fires on `Write`/`Edit`, not on a shell write (`cat`/`printf`).** That asymmetry is the lever.
 
