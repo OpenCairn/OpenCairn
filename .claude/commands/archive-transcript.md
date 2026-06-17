@@ -14,14 +14,7 @@ Two principles drive this skill:
 
 ## Phase 0 — Preflight
 
-Confirm the pipeline's tools exist before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe:
-
-```bash
-command -v curl pandoc python3 || echo "MISSING a core tool"
-python3 -c 'import bs4, lxml' || echo "MISSING python bs4/lxml"
-```
-
-If anything is missing, tell the user and stop (or use the Phase 2 **Fallback** path — transcribe the audio/video — after confirming with the user).
+Run the `_shared-rules.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4`/`lxml`) before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe. If anything is missing, tell the user and stop (or use the §15 transcription fallback — transcribe the audio/video — after confirming with the user).
 
 ## Phase 1 — Resolve the sources
 
@@ -31,70 +24,14 @@ If anything is missing, tell the user and stop (or use the Phase 2 **Fallback** 
 
 ## Phase 2 — Fetch the verbatim transcript to a file
 
-Most podcast/show sites publish the full transcript in **server-rendered HTML** (Ghost and similar). The extractor below picks the content container with a parser, strips chrome, and converts to markdown — **no fragile line-marker slicing, no regex div-stripping**. The body never enters your context. (Validated against Ghost sites and Complex Systems' `c-content` template.)
+Use the **`_shared-rules.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode, each in its own temp dir, leaving:
 
-**Code blocks below sit at column 0 deliberately** — the Python heredoc is indentation-sensitive, so copy it flush-left, not indented under a list item.
+- `$WORK/body.md` — the clean verbatim transcript body (parser-selected container, chrome stripped, converted to markdown, gated on word + leak count; the body never enters your context).
+- the published **description** and the `## `/`### ` **section outline** — the raw material for the Phase 3 synthesis header.
 
-**Confirm static HTML:** `curl -sL "<URL>" | wc -c` — a large byte count is necessary but not sufficient (a JS shell can be large too); the real gate is the word count below.
+§15 owns the mechanism (prereqs, static-HTML confirm, the extractor, the word/leak gate, the metadata pull) and the fallback. This skill owns what surrounds it: Phase 1 resolved the sources, and Phase 3 writes the note.
 
-**Extract → clean → markdown, per episode in its own temp dir** (so a multi-episode batch never collides on intermediates):
-
-```bash
-WORK=$(mktemp -d)
-curl -sL "<URL>" -o "$WORK/ep.html"
-python3 - "$WORK/ep.html" > "$WORK/body.md" <<'PY'
-import sys, re, subprocess
-from bs4 import BeautifulSoup
-soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
-# most-specific content container by PRIORITY (not densest — densest grabs the outer page wrapper)
-node = None
-for sel in ('section.gh-content', '.post-content', '.gh-content', '.c-content', 'article', 'main'):
-    node = soup.select_one(sel)
-    if node:
-        break
-node = node or soup.body
-for t in node.select('script, style, nav, footer, form, button, iframe, figure, .kg-card, img, svg, audio, video'):
-    t.decompose()
-for h in node.find_all(re.compile(r'^h[1-6]$')):          # strip in-heading timestamp/permalink links, KEEP heading text
-    for a in h.find_all('a'):
-        atext = a.get_text().strip()
-        if not atext or re.fullmatch(r'[\d:apm.\s()]+', atext, flags=re.I):
-            a.decompose()                                 # empty or bare-timestamp anchor → drop it
-        else:
-            a.unwrap()                                    # anchor wraps real heading text → keep the text, drop the tag
-    txt = re.sub(r'\s*\(\s*[\d:apm.\s]*\)\s*$', '', h.get_text(), flags=re.I).strip()
-    h.clear(); h.append(txt)
-for t in node.find_all(['div', 'span']):                  # flatten residual wrappers pandoc would emit as raw HTML
-    t.unwrap()
-md = subprocess.run(['pandoc', '-f', 'html', '-t', 'gfm', '--wrap=none'],
-                    input=node.decode_contents(), text=True, capture_output=True).stdout
-md = re.sub(r'\n{3,}', '\n\n', md)
-md = '\n'.join(l for l in md.split('\n')
-               if 'An error occurred' not in l and 'Unable to execute JavaScript' not in l)
-print(md.strip())
-PY
-echo "body words: $(wc -w < "$WORK/body.md")"
-grep -cE '<div|</div|<span|base64' "$WORK/body.md" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
-```
-
-**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$WORK/ep.html" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `body.md` (a few lines) to confirm it starts/ends in transcript content.
-
-**Metadata for the header, without reading the body** — published description (covers Ghost's `og:`/`twitter:` variants) and the section outline:
-
-```bash
-python3 - "$WORK/ep.html" <<'PY'
-import sys
-from bs4 import BeautifulSoup
-soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
-for sel in ('meta[name=description]', 'meta[property="og:description"]', 'meta[name="twitter:description"]'):
-    m = soup.select_one(sel)
-    if m and m.get('content'):
-        print('DESC:', m['content']); break
-PY
-grep -E '^#{2,3} ' "$WORK/body.md"      # section outline, for the cruxes
-```
-
-**Fallback (no published transcript / JS-rendered):** use the vault's transcription path (a WhisperX/transcribe skill) on the audio or video. Much heavier — tell the user before launching a batch.
+**If §15's fallback applies** (no published transcript, or a JS-rendered page §15 can't extract): machine-transcribe the audio/video via the WhisperX path (`/transcribe` or `/transcribecloud`). Much heavier — tell the user before launching a batch.
 
 ## Phase 3 — Write the note (header via editor, body via shell)
 
