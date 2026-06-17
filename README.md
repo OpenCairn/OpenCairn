@@ -255,7 +255,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
 | `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. |
-| `/landscape-scan` | Scans curated sources (and/or a supplied URL pile) for AI / Claude Code / PKM developments and digests them against your current workflow. Run weekly or as needed. |
+| `/landscape-scan` | Topic-parameterised scan + digest of curated sources (and/or a supplied URL pile). Default topic is the AI / Claude Code / PKM landscape, assessed against your current workflow; pass a topic (e.g. `cybersec`) to run a different profile. Run weekly or as needed. |
 
 **Prioritisation:**
 
