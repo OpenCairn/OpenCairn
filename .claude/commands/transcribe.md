@@ -222,7 +222,9 @@ Replace the placeholder variables with actual values.
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
-   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** saving via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). Write the metadata header with the editor, then **append the transcript body via the shell** (`cat >>`) and don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** saving the whole note via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+
+   **Write the header only** with the editor tool (down to and including the `---`):
 
    ```markdown
    # Transcript: {video title or filename}
@@ -235,8 +237,15 @@ Replace the placeholder variables with actual values.
    **Cleanup:** {yes | no (--raw)}
 
    ---
+   ```
 
+   **Then append the body via the shell** so the hook never touches it (the formatted text is in your context after the cleanup pass — stage it to a temp file, then append):
+
+   ```bash
+   cat > /tmp/transcript-body.md <<'BODY'
    {formatted transcript text}
+   BODY
+   printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
    ```
 
 8. **If the user chose to discuss**, proceed with whatever they asked for (summary, Q&A, extraction, etc.).

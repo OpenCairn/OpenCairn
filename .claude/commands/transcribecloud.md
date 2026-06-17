@@ -536,7 +536,9 @@ For each JSON transcript file:
 
 5. **Save as markdown** in the output directory:
 
-   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** the vault's formatting hook rewrites spelling in place on `Write`/`Edit` and corrupts the speaker's verbatim words. Write the metadata header with the editor, then **append the transcript body via the shell** (`cat >>`) and don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** the vault's formatting hook rewrites spelling in place on `Write`/`Edit` and corrupts the speaker's verbatim words. So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+
+**Write the header only** with the editor tool (down to and including the `---`):
 
 ```markdown
 # Transcript: {title}
@@ -549,8 +551,15 @@ For each JSON transcript file:
 **Cleanup:** {yes (LLM pass) | no (--raw)}
 
 ---
+```
 
+**Then append the body via the shell** so the hook never touches it (stage the formatted text to a temp file, then append):
+
+```bash
+cat > /tmp/transcript-body.md <<'BODY'
 {formatted transcript text}
+BODY
+printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
 ```
 
 6. **If batch job (multiple files):** Create index file (`00 - Index.md`) with wikilinks to all transcripts, sorted by filename. Skip for single-file jobs.

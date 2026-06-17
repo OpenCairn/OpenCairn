@@ -14,7 +14,7 @@ The default profile. Tool-adoption lens on the AI / Claude Code / Obsidian-PKM l
 Relevance is filtered through both "what I do privately" and "what I publicly claim to do."
 
 - **Current Claude Code usage patterns** — sample 2–4 recent files from `{VAULT}/06 Archive/Claude/` (daily logs, weekly reviews, corrections log). Get a feel for session shape, what gets delegated, friction points, and what the user praises.
-- **Public-facing work relevant to the domain** — e.g. `hedwards.dev` for Claude Code / Obsidian / self-hosting content; other sites the user runs for other domains.
+- **Public-facing work relevant to the domain** — the user's public site(s), if any are listed in CLAUDE.md (e.g. a personal site posting Claude Code / Obsidian / self-hosting content); other sites the user runs for other domains.
 
 ## Sources
 
@@ -99,7 +99,7 @@ Per relevant finding, compare against the user's existing skills:
 - Does this do something better that we could extract a pattern from? (adapt)
 - Is our implementation still superior? (note)
 
-If the vault contains a capability audit project doc (e.g. `03 Projects/OpenCairn Capability Audit.md`), update the relevant domain section.
+If the vault contains a capability-audit project doc (e.g. `03 Projects/<Capability Audit>.md`), update the relevant domain section.
 
 ## Report sections
 

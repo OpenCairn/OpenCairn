@@ -31,7 +31,7 @@ The engine never collapses a profile's passes into a single verdict, and never s
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Let **`COMMANDS_DIR`** = the directory this command file itself loaded from (the resolved skill source — either `~/.claude/commands/` or `{VAULT}/.claude/commands/`). Resolve every sibling file — `_shared-rules.md`, the profiles — relative to `COMMANDS_DIR`, **not** by re-picking "whichever exists": both directories can be present (the template syncs one down from the other) and may hold divergent versions, so the only correct rule is "wherever *this* file came from." Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and the resolved commands directory respectively; they are not pre-set shell variables.
+If error, abort. Let **`COMMANDS_DIR`** = the directory this command file itself loaded from (the resolved skill source — either `~/.claude/commands/` or `{VAULT}/.claude/commands/`). Resolve every sibling file — `_shared-rules.md`, the profiles — relative to `COMMANDS_DIR`, **not** by re-picking "whichever exists": both directories can be present (the template syncs one down from the other) and may hold divergent versions, so the rule is "wherever *this* file came from." **If you genuinely can't tell which directory this file loaded from** (the slash-command's own path isn't exposed to you), fall back deterministically: prefer `~/.claude/commands/` if it exists, else `{VAULT}/.claude/commands/`; if both exist, use `~/.claude/commands/` and note in the report that resolution was a fallback — the two copies should match after a `/sync-template`, so a divergence is itself worth surfacing. Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and the resolved commands directory respectively; they are not pre-set shell variables.
 
 ### 1. Resolve topic and load the profile
 
@@ -65,6 +65,7 @@ File naming: `YYYY-Www<suffix>.md` (ISO week). The default `ai-cc-pkm` profile u
 
 Determine which mode(s) apply, in precedence order:
 
+- **Bare invocation — just `/landscape-scan` (or `/landscape-scan <topic>`), no URLs and no extra natural-language request** → **scan mode** on the resolved profile. Don't ask; this is the original default behaviour. (The clarifying question below is only for an ambiguous *natural-language* scan request.)
 - **User said "both" or similar** → both modes. (Explicit user intent wins.)
 - **URLs present AND a scan verb ("scan" / "landscape scan" / "run landscape scan")** → both modes.
 - **URLs present in the triggering message (or as args), no scan verb** → digest mode only.
@@ -218,8 +219,8 @@ Drop a `landscape-profiles/<topic>.md` file defining the seven profile keys (`On
 
 ## Integration with Other Commands
 
-*Designed to complement — cross-references not currently wired in the consumer skills. Grep the commands directory for "landscape" to verify integration state before relying on it.*
+*These are intended complements; the cross-references are not yet wired into the consumer skills.*
 
-- **Intended to complement /quarterly-review:** quarterly's strategic-alignment step would benefit from accumulated landscape findings.
-- **Intended to complement /weekly-review:** weekly is internal (vault health, progress); landscape-scan is external.
-- **The `cybersec` profile complements /security-audit:** the audit is internal posture (what's misconfigured on the machine *now*); the cybersec scan is external threat intel (what got disclosed that touches the stack). Neither subsumes the other.
+- **/quarterly-review:** quarterly's strategic-alignment step would benefit from accumulated landscape findings.
+- **/weekly-review:** weekly is internal (vault health, progress); landscape-scan is external.
+- **The `cybersec` profile and an internal security-audit pass:** the audit is internal posture (what's misconfigured on the machine *now*); the cybersec scan is external threat intel (what got disclosed that touches the stack). Neither subsumes the other.
