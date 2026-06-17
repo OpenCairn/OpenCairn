@@ -295,6 +295,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 |---------|-------------|
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
+| `/setup-hooks` | Opt in to the optional skill-edit cross-pollination survey hook (a Stop hook that nudges a sibling-skill review when you edit a skill). Idempotently wires it into `settings.json`; `--remove` to disable. Needs `jq`. |
 
 **Aliases:**
 

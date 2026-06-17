@@ -71,6 +71,16 @@ Run all checks first, display the result, then act on what's missing.
    fi
    ```
 
+6c. **Check jq available (optional)** — needed *only* if the user later opts into the
+   cross-pollination hook via `/setup-hooks`; core OpenCairn does not require it:
+   ```bash
+   if command -v jq >/dev/null 2>&1; then
+     echo "JQ_OK"
+   else
+     echo "JQ_MISSING"
+   fi
+   ```
+
 7. **Check CLAUDE.md state:**
    ```bash
    if [[ ! -f CLAUDE.md ]]; then
@@ -94,6 +104,7 @@ Run all checks first, display the result, then act on what's missing.
    Bash version:    [✓ 5.x / ⚠ 3.2 — upgrade needed] (macOS only)
    Scripts:         [✓ executable / ✗ need chmod]
    python3:         [✓ / ⚠ missing — planning-file writes (locked-edit.sh) + transcript export fail]
+   jq:              [✓ / ○ missing — only needed for the optional /setup-hooks cross-pollination hook]
    CLAUDE.md:       [✓ personalised / ○ needs setup]
    ```
 
@@ -338,6 +349,7 @@ Next steps:
   • Use /pickup to resume where you left off
   • Use /morning to start your day (surfaces landscape, tickler, disciplines)
   • Use /update periodically to pull the latest commands
+  • Optional: run /setup-hooks to enable the skill-edit cross-pollination survey (needs jq)
   • Open Obsidian and select this folder as your vault (optional but recommended)
 ```
 
