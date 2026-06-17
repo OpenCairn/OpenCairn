@@ -26,7 +26,7 @@ Run the `_shared-rules.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4
 
 Use the **`_shared-rules.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode, each in its own temp dir, leaving:
 
-- `<BODY_FILE>` — the clean verbatim transcript body (parser-selected container, chrome stripped, converted to markdown, gated on word + leak count; the body never enters your context). Note §15's printed `WORKDIR=` line and carry that **literal path** into Phase 3/4 — `$WORK` won't survive across the tool-call boundary, so a later `cat "$WORK/body.md"` would silently append nothing.
+- `<BODY_FILE>` — the clean verbatim transcript body (parser-selected container, chrome stripped, converted to markdown, gated on word + leak count; the body never enters your context). This is §15's printed `BODY=` path, a **deterministic function of the URL** — reuse that exact path in Phase 3/4 (or re-derive it from the URL); there is no random temp name to carry across the tool-call boundary.
 - the published **description** and the `## `/`### ` **section outline** — the raw material for the Phase 3 synthesis header.
 
 §15 owns the mechanism (prereqs, static-HTML confirm, the extractor, the word/leak gate, the metadata pull) and the fallback. This skill owns what surrounds it: Phase 1 resolved the sources, and Phase 3 writes the note.
@@ -52,7 +52,7 @@ Per `_shared-rules.md` §14:
 4. **Append the verbatim body via the shell** (bypasses the hook — §14):
    ```bash
    printf '\n' >> "<DESTINATION_NOTE>.md"      # guarantee a newline boundary
-   cat "<BODY_FILE>" >> "<DESTINATION_NOTE>.md"   # <BODY_FILE> = §15's literal WORKDIR/body.md, not $WORK
+   cat "<BODY_FILE>" >> "<DESTINATION_NOTE>.md"   # <BODY_FILE> = §15's printed BODY= path (deterministic from the URL)
    ```
 
 5. **Never `Write`/`Edit` the note again after appending** — it re-fires the hook on the whole file, body included. Fix the header *before* appending, or re-append a fresh body.
@@ -62,7 +62,7 @@ Per `_shared-rules.md` §14:
 1. **Link** the new transcript from the relevant person/dossier or topic hub. ⚠️ These are `Edit`s on *other* `.md` notes and fire the same formatting hook on them (§14 "collateral edits"): short edits to already-normalised hub prose are safe, but if a target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
 2. **Verify the append landed** — shell only, no context bloat:
    ```bash
-   wc -w "<BODY_FILE>" "<DESTINATION_NOTE>.md"   # destination should exceed body (<BODY_FILE> = §15's literal path)
+   wc -w "<BODY_FILE>" "<DESTINATION_NOTE>.md"   # destination should exceed body (<BODY_FILE> = §15's printed BODY= path)
    tail -n 5 "<DESTINATION_NOTE>.md"               # confirm it ends in transcript, intact
    ```
 3. **Report:** file paths, final word counts, any episodes that fell back to transcription, and any fidelity caveats.

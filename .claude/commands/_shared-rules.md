@@ -375,13 +375,17 @@ If a tool is missing, stop and tell the user (or fall back to machine transcript
 
 **Confirm static HTML:** `curl -sL "<URL>" | wc -c` — a large byte count is necessary but not sufficient (a JS shell can be large too); the real gate is the word count below.
 
-**Extract → clean → markdown, per page in its own temp dir** (so a multi-page batch never collides on intermediates). The block prints its temp dir on the `WORKDIR=` line — **note that literal path** and use `<BODY_FILE>` = `<that dir>/body.md` as the body's path in **every later step** (validate, write the header, append the body). Shell variables do **not** survive across separate tool calls, so downstream steps that run in their own Bash call must use the literal `<BODY_FILE>` path, never `$WORK` (the substitute-me rule in `_shared-patterns.md`) — a later `cat "$WORK/body.md"` in a fresh call reads `/body.md` and silently appends nothing:
+**Extract → clean → markdown.** The intermediate paths are a **deterministic function of the `<URL>`**, so they survive across tool-call boundaries with nothing to remember: a later step re-derives the same `$BODY` from the same `<URL>`, or just reuses the `BODY=` path the block prints (`<BODY_FILE>` in callers). This is the cross-tool-call hazard from `_shared-patterns.md` (shell vars don't persist), solved by making the path *reconstructable* rather than carried — no random `mktemp` name to lose. A multi-page batch never collides because the slug is per-URL:
 
 ```bash
-WORK=$(mktemp -d)
-echo "WORKDIR=$WORK"   # ← note this literal path; <BODY_FILE> = $WORK/body.md, reused by literal path in later tool calls
-curl -sL "<URL>" -o "$WORK/ep.html"
-python3 - "$WORK/ep.html" > "$WORK/body.md" <<'PY'
+TMP="${TMPDIR:-/tmp}"   # TMPDIR is often unset on Linux; /tmp is the reliable fallback
+# deterministic per-URL slug (lowercase host+path prefix + cksum of the full URL) → reconstructable path, no random temp name
+SLUG="$(printf '%s' "<URL>" | tr '[:upper:]' '[:lower:]' | sed -E 's#^https?://##; s#[^a-z0-9]+#-#g; s#(^-|-$)##g' | cut -c1-30)-$(printf '%s' "<URL>" | cksum | cut -d' ' -f1)"
+HTML="$TMP/transcript_$SLUG.html"
+BODY="$TMP/transcript_$SLUG.md"
+echo "BODY=$BODY"   # the body path (<BODY_FILE> in callers); reconstruct it by re-deriving TMP+SLUG from <URL> in any later tool call
+curl -sL "<URL>" -o "$HTML"
+python3 - "$HTML" > "$BODY" <<'PY'
 import sys, re, subprocess
 from bs4 import BeautifulSoup
 soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
@@ -415,16 +419,16 @@ md = '\n'.join(l for l in md.split('\n')
                if 'An error occurred' not in l and 'Unable to execute JavaScript' not in l)
 print(md.strip())
 PY
-echo "body words: $(wc -w < "$WORK/body.md")"
-grep -cE '<div|</div|<span|base64' "$WORK/body.md" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
+echo "body words: $(wc -w < "$BODY")"
+grep -cE '<div|</div|<span|base64' "$BODY" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
 ```
 
-**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$WORK/ep.html" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `body.md` (a few lines) to confirm it starts/ends in transcript content.
+**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$HTML" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `$BODY` (a few lines) to confirm it starts/ends in transcript content.
 
 **Metadata for the header, without reading the body** — published description (covers Ghost's `og:`/`twitter:` variants) and the section outline:
 
 ```bash
-python3 - "$WORK/ep.html" <<'PY'
+python3 - "$HTML" <<'PY'
 import sys
 from bs4 import BeautifulSoup
 soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
@@ -433,7 +437,7 @@ for sel in ('meta[name=description]', 'meta[property="og:description"]', 'meta[n
     if m and m.get('content'):
         print('DESC:', m['content']); break
 PY
-grep -E '^#{2,3} ' "$WORK/body.md"      # section outline, for the cruxes
+grep -E '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 ```
 
 **Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`/transcribe` locally, `/transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
