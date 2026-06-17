@@ -5,7 +5,7 @@ A **pointer index** of reusable infrastructure patterns that recur across comman
 - `_shared-rules.md` holds *rules you obey at runtime* — commands load it and follow it.
 - This file holds *where to find the battle-tested version of a pattern* you'd want when building or improving a skill.
 
-**Consult it** whenever you build or substantially edit a skill: scan for patterns this skill wants, then **read the named reference skill for the real implementation** and adapt it. Cross-pollination is the point — skills get sharper by sharing infrastructure. (A Stop hook on skill edits can automate the reminder; the template doesn't ship one yet.)
+**Consult it** whenever you build or substantially edit a skill: scan for patterns this skill wants, then **read the named reference skill for the real implementation** and adapt it. Cross-pollination is the point — skills get sharper by sharing infrastructure. (A Stop hook on skill edits automates this reminder; it ships with the template — opt in with `/setup-hooks`.)
 
 ## Staleness contract (load-bearing — keep this file drift-proof)
 
