@@ -1,21 +1,27 @@
 ---
 name: landscape-scan
-description: Weekly (or as-needed) scan + digest of AI/Claude Code/PKM landscape — curated-source scan, user-provided URL pile, or both. Contextualises against current workflow AND assesses for latent capability.
+description: Topic-parameterised external-intelligence scan + digest. Default topic is the AI/Claude Code/PKM landscape; pass a topic name (e.g. `cybersec`) to run a different profile. Curated-source scan, user-provided URL pile, or both — assessed through the active profile's lens.
 ---
 
 # Landscape Scan — External Intelligence (Scan + Digest)
 
-A focused external-intelligence pass. Two modes that can run separately or together:
+A focused external-intelligence pass. The **engine** (this file) is domain-agnostic orchestration: mode selection, fetch mechanics, verification discipline, supply-chain cooldown, report wrapper. The **profile** (a file under `landscape-profiles/`) supplies everything domain-specific: which sources to scan, what to read for context, how to assess findings, and which report sections to emit.
 
-- **Scan mode** — go check a curated list of sources (proactive).
+Two modes that can run separately or together:
+
+- **Scan mode** — go check the profile's curated source list (proactive).
 - **Digest mode** — the user has dropped a pile of URLs / tweets / posts they want reviewed (reactive).
 - **Both** — run scan, then layer digest on top.
 
 ## Philosophy
 
-Research, not shopping. Surface patterns and architecture insights. A run that produces zero actionable findings is a valid result — not every week will have something worth adopting.
+Research, not shopping. Surface patterns, architecture insights, and (for threat-style profiles) exposure. A run that produces zero actionable findings is a valid result — not every week has something worth acting on.
 
-**Two lenses, both reported** — fit pass (how it interacts with current workflow) *and* capability pass (what it unlocks that isn't being done today). Operational definition in Step 6. Object lesson behind the discipline: Obsidian CLI (OCLI) was nearly dismissed from a Zvi post because it didn't slot into the then-current vault-search pattern — turned out to be a major search-functionality upgrade and is now core infrastructure. Novel tools don't pattern-match current workflow by design; the more different a finding feels, the more carefully capability pass runs.
+The assessment *frame* lives in the profile, because what "actionable" means is domain-specific:
+- a tool-adoption profile (the default `ai-cc-pkm`) asks "should this change how I work?" — **fit** + **capability** passes;
+- a threat-intel profile (`cybersec`) asks "does this reach something I run, and what do I do about it?" — **exposure** + **action** passes.
+
+The engine never collapses a profile's passes into a single verdict, and never skips the second pass based on the first.
 
 ## Instructions
 
@@ -25,267 +31,195 @@ Research, not shopping. Surface patterns and architecture insights. A run that p
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout. All code below uses `{VAULT}` as placeholder — substitute the resolved vault path.
+If error, abort. Let **`COMMANDS_DIR`** = the directory this command file itself loaded from (the resolved skill source — either `~/.claude/commands/` or `{VAULT}/.claude/commands/`). Resolve every sibling file — `_shared-rules.md`, the profiles — relative to `COMMANDS_DIR`, **not** by re-picking "whichever exists": both directories can be present (the template syncs one down from the other) and may hold divergent versions, so the only correct rule is "wherever *this* file came from." Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and the resolved commands directory respectively; they are not pre-set shell variables.
 
-### 1. Current date + file naming
+### 1. Resolve topic and load the profile
+
+Determine the **topic** from the invocation:
+
+- A topic word in the triggering message or args (e.g. `/landscape-scan cybersec`, "run a cybersec landscape scan") → that topic.
+- No topic word → default topic **`ai-cc-pkm`** (preserves the original AI/Claude Code/PKM behaviour exactly).
+
+Resolve the profile file: `$COMMANDS_DIR/landscape-profiles/<topic>.md` (under the `COMMANDS_DIR` fixed in Step 0 — do not re-pick between the two commands dirs). If the named profile doesn't exist, list the available profiles (`ls "$COMMANDS_DIR/landscape-profiles/"`) and ask the user which to run — don't silently fall back to default when a topic was explicitly named.
+
+**Read the profile now.** It defines, for the rest of this run (step numbers below refer to this engine's steps):
+- `One-liner` — the profile's one-line self-description; surface it in the Step 10 report header.
+- `Contextualising reads` — what to load in Step 4.
+- `Sources` — the curated list for Step 5 (scan mode), plus any source-specific mandatory-digest rules.
+- `Assessment frame` — the passes to run in Step 7 and their definitions.
+- `Report sections` — the finding-sections Step 9 classifies into and Step 10 inserts (the engine supplies the common wrapper).
+- `File naming` — the filename suffix + prior-scan glob (default profile: none; others: `-<topic>`).
+- `Obsolescence check` — its **value** governs whether Step 8 runs (tool-adoption profiles only).
+
+Everything below that says "per the profile" reads from this file.
+
+### 2. Current date + file naming
 
 ```bash
 date +"%Y-W%V"
 ```
 
-File naming: `YYYY-Www.md` (ISO week, e.g. `2026-W16.md`).
+File naming: `YYYY-Www<suffix>.md` (ISO week). The default `ai-cc-pkm` profile uses no suffix (`2026-W16.md`) so existing files and delta logic are unaffected; other profiles use `-<topic>` (`2026-W16-cybersec.md`). Prior-scan lookups in later steps glob **only the active profile's pattern** so topics don't cross-contaminate each other's deltas.
 
-### 2. Mode selection
+### 3. Mode selection
 
 Determine which mode(s) apply, in precedence order:
 
 - **User said "both" or similar** → both modes. (Explicit user intent wins.)
 - **URLs present AND a scan verb ("scan" / "landscape scan" / "run landscape scan")** → both modes.
 - **URLs present in the triggering message (or as args), no scan verb** → digest mode only.
-- **Scan verb, no URLs** → **ask first**: "Scan mode (curated sources only), or do you also have URLs for a digest pass?" Default to scan-only if the user confirms no URLs. Do NOT lock in scan-only silently — the cost of asking is one question; the cost of mis-classification is the user having to supply URLs mid-run, which forces a mode switch and re-planning of the report structure. **Worked example:** 2026-W17 run was invoked as `/landscape-scan` (scan verb, no URLs in the first message). Assistant locked in scan-only per the pre-existing rule; user had URLs coming and was surprised they needed to be flagged upfront. The ask-first rule prevents the re-plan.
+- **Scan verb, no URLs** → **ask first**: "Scan mode (curated sources only), or do you also have URLs for a digest pass?" Default to scan-only if the user confirms no URLs. Do NOT lock in scan-only silently — the cost of asking is one question; the cost of mis-classification is the user having to supply URLs mid-run, which forces a mode switch and re-planning of the report structure.
 - **Ambiguous** → ask the user: "Scan (curated sources), digest (you have URLs), or both?"
 
-### 3. Contextualising preamble (ALWAYS — before any assessment)
+### 4. Contextualising preamble (ALWAYS — before any assessment)
 
-Relevance judgement requires knowing what the user is *already doing* AND what they're *publicly positioning*. Without this, assessments default to generic-audience relevance and miss what actually matters.
+Relevance judgement requires knowing what the user is *already doing* (and, for tool profiles, what they're *publicly positioning*; for threat profiles, *what they actually run*). Without this, assessments default to generic-audience relevance and miss what matters.
 
-Load, proportionate to the scope of the run:
+**Load the profile's `Contextualising reads` list**, proportionate to the scope of the run. Also:
 
-- **Current Claude Code usage patterns** — sample 2–4 recent files from `{VAULT}/06 Archive/Claude/` (daily logs, weekly reviews, corrections log). Get a feel for session shape, what gets delegated, friction points, and what the user praises.
-- **Public-facing work relevant to the domain** — e.g. `hedwards.dev` for Claude Code / Obsidian / self-hosting content; other websites the user runs for other domains. Relevance is filtered through both "what I do privately" and "what I publicly claim to do."
-- **Prior scan** (if one exists from the last week or two) from `{VAULT}/06 Archive/Landscape Scans/` — don't re-report things already classified unless their status has changed. Sort the folder by file mtime (`ls -t`) rather than by filename — legacy `YYYY-MM.md` files (if any) would sort lexicographically before new `YYYY-Www.md` files and give a stale "most recent."
-- **Just-in-time routing-table context** — if a specific finding later touches a CLAUDE.md routing-table topic (health, photography, crypto, etc.), load that context before assessing that finding.
+- **Prior scan** (if one exists from the last week or two) for *this topic*, from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`), sort by mtime (`ls -t`), don't re-report things already classified unless their status changed. If the glob returns nothing, that's a genuine cold start — say so; don't silently treat a mis-written pattern as "no prior scans."
+- **Just-in-time routing-table context** — if a specific finding later touches a CLAUDE.md routing-table topic, load that context before assessing that finding.
 
-Keep this light — 2–4 reads, not an exhaustive survey. The goal is *calibration*, not total recall.
+Keep this light — the goal is *calibration*, not total recall.
 
-### 4. Scan mode — curated sources
+### 5. Scan mode — curated sources
 
-Only if scan mode is active. For each, focus on what's new or changed since the last scan.
+Only if scan mode is active. Work the profile's `Sources` list; for each, focus on what's new or changed since the last scan for this topic. Honour any source-specific mandatory-digest rules the profile defines (e.g. the default profile's Zvi end-to-end digest).
 
-**Claude Code ecosystem:**
-- https://github.com/hesreallyhim/awesome-claude-code — curated skills, hooks, slash commands, agent orchestrators, plugins
-- https://github.com/rohitg00/awesome-claude-code-toolkit — comprehensive toolkit (agents, skills, commands, plugins, hooks, rules, templates, MCP configs)
-- https://github.com/travisvn/awesome-claude-skills — skills and workflow customisation
-- https://github.com/ComposioHQ/awesome-claude-skills — practical skills across Claude.ai, Claude Code, and Claude API
-- https://github.com/BehiSecc/awesome-claude-skills — skills collection incl. claude-starter (40 auto-activating skills, TOON format)
-- https://github.com/FlorianBruniaux/claude-code-ultimate-guide — beginner-to-power-user guide with production-ready templates
-- https://github.com/affaan-m/everything-claude-code — config collection with longform guide (skills, hooks, subagents, MCPs, plugins)
-- https://github.com/luongnv89/claude-howto — visual, example-driven guide to every Claude Code feature
-- https://github.com/davepoon/buildwithclaude — plugin marketplace/discovery platform for Claude Code
-- https://awesomeclaude.ai/ — web directory aggregating Claude AI tools, integrations, and resources
-- https://code.claude.com/docs/en/ — official docs (new features, patterns since last scan)
-- https://claude.com/blog — Anthropic engineering/product blog (Claude Code + API updates)
-- https://www.anthropic.com/news — Anthropic model and product announcements
+If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on. Flag it in the *Sources list updates* section so the profile file gets cleaned up.
 
-**Obsidian + Claude PKM systems** (direct OpenCairn comparables):
-- https://github.com/ballred/obsidian-claude-pkm - starter kit with agents, skills, auto-commit hooks, goal hierarchy
-- https://github.com/ArtemXTech/claude-code-obsidian-starter - starter kit with skills for projects, tasks, daily routines
-- https://github.com/ashish141199/obsidian-claude-code - vault template optimised for networked thinking + Claude Code
-- https://github.com/aplaceforallmystuff/daily-patterns-pack - session logging to daily notes, pattern analysis, automations
+### 6. Digest mode — user-provided URL pile
 
-**Practitioner writeups** (people building similar systems):
-- Recent posts on Claude Code + PKM workflows, Obsidian + AI second brain patterns
-- Obie Fernandez's "Personal CTO Operating System with Claude Code" (Medium)
-- Matt Stockton's "How Claude Code Became My Knowledge Management System"
-- Noah Brier / Every.to — "How to Use Claude Code as a Second Brain" (podcast + transcript)
-- Peter Polgar — "Knowledge workflow 2026 updates: Obsidian, Claude" (polgarp.com)
-- N9O — "PMing with Claude Code" series (n9o.xyz, 4-part, incl. second brain chapter)
-- r/ClaudeCode + r/ClaudeAI — search for recent "second brain", "PKM", "Obsidian" posts
-
-**AI + productivity thought leaders:**
-- Tiago Forte / Forte Labs (https://fortelabs.com/blog/) — PARA creator, "The AI Second Brain" (Mar 2026). Evolving BASB methodology for AI-native workflows.
-- Nat Eliason (https://blog.nateliason.com/) — building OpenClaw, "Build Your Own Software with AI" course. AI agents for personal/business automation.
-- **Zvi Mowshowitz (https://thezvi.substack.com/)** — weekly AI roundups; historically high signal on tool launches (OCLI was first surfaced here, buried mid-post).
-  - **Mandatory mechanical digest:** fetch *every* post published since the last scan run. Scan each post end-to-end (not just headlines/TOC) for any Claude Code / AI-tool / PKM / agent-workflow / AI-coding-infra item. Extract every such item regardless of how buried. The OCLI near-miss is the load-bearing precedent — headline-scan is not sufficient for this source.
-  - **Bootstrap (first-ever scan run):** no prior scan exists, so "since last run" is undefined. Default window: last **4 weeks** of posts. Compute cutoff explicitly: `date -d "4 weeks ago" +%Y-%m-%d`. Acknowledge in the report that this is a cold-start pass, not a delta pass.
-  - **Subsequent runs:** delta from the most recent scan file's date in `{VAULT}/06 Archive/Landscape Scans/` — use `ls -t` (mtime sort) to find the most recent file, then parse its report-date header.
-
-**Docs-for-AI / knowledge structuring:**
-- Mintlify — docs-as-code with AI search, structuring for dual human/AI consumption
-- Documentation.AI — AI agents for documentation structure and maintenance
-- GitBook — docs-as-code with AI features
-
-**PKM landscape:**
-- PKM Weekly newsletter (https://www.pkmweekly.com/) — weekly digest of the space
-- AFFiNE, Tana — AI-native alternatives to Obsidian worth monitoring
-
-If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on. Flag it in the *Sources list updates* section so the command file gets cleaned up.
-
-### 5. Digest mode — user-provided URL pile
-
-Only if digest mode is active.
+Only if digest mode is active. These verification disciplines are domain-agnostic — they apply whatever the topic:
 
 - **Fetch all URLs in parallel.** Don't serialise.
-- **Handle fetch failures gracefully.** If WebFetch returns 403/429/timeout/blocked (common on npm registry, X/Twitter, Cloudflare-protected sites), try `mcp__firecrawl__firecrawl_scrape` as fallback. If both fail, log the URL under "unfetchable" in the URLs-digested list and continue — don't halt the run. Flag unfetchables in the output so the user can either re-try later, paste content inline, or accept the gap.
-- **Verify suspicious sources before trusting the pitch.** Red flags include:
-  - Engagement-ratio anomalies (e.g. many retweets, zero likes/replies → bot amplification signature).
-  - Self-promotion by the tool's author without independent endorsement.
-  - Unverifiable superlative claims ("99% accuracy," "permanent solution to X," "10x faster").
-  - Brand-new repo with unusually high star counts (astroturfing in hyped ecosystems).
-- **When a tweet/blog points to a tool, fetch the underlying tool's repo or product page** and report on what's actually shipped (last commit, issues, licence, integration pattern) — not just the pitch.
-- **Check commit activity on `main`, not just releases.** A stale release doesn't mean the project is dead, and an active release cadence doesn't mean `main` is alive — independent signals, look at both. Worked example: opcode had a v0.2.0 from Aug 2025 *and* a last commit on main from Oct 2025 — both stale, confirming dead-ish, not "release-stale-but-maintained."
-- **Verify WebFetch summary claims against raw source when the claim is falsifiable and structural.** If a summary asserts the project is archived, deprecated, forked, superseded, renamed, or rewritten, re-fetch the raw `README.md` (e.g. `https://raw.githubusercontent.com/<owner>/<repo>/main/README.md`) and quote the verbatim text before acting on the claim. WebFetch summarisers occasionally confabulate plausible-sounding structural claims; high-stakes assertions need verbatim confirmation.
-- **Flag red flags explicitly in the output.** Don't smooth them over, but don't let them pre-empt capability-pass assessment either.
+- **Handle fetch failures gracefully.** If WebFetch returns 403/429/timeout/blocked (common on npm registry, X/Twitter, Cloudflare-protected sites, and some vendor advisories), try `mcp__firecrawl__firecrawl_scrape` as fallback. If both fail, log the URL under "unfetchable" and continue — don't halt the run.
+- **Verify suspicious sources before trusting the pitch.** Red flags: engagement-ratio anomalies (many retweets, zero likes → bot amplification); self-promotion by the author without independent endorsement; unverifiable superlatives ("99% accuracy," "permanent fix"); brand-new repo with improbable star counts (astroturfing). For threat profiles, add: unsubstantiated severity claims, vendor marketing dressed as advisory, and "patch available" claims with no CVE or commit to point to.
+- **Fetch the underlying primary source, not just the pitch.** A tweet/blog pointing to a tool → fetch the repo/product page (last commit, issues, licence). A post describing a vulnerability → fetch the CVE record / vendor advisory / commit, and report what's actually confirmed.
+- **Check commit activity on `main`, not just releases.** Stale release ≠ dead; active releases ≠ live `main`. Independent signals — look at both.
+- **Verify falsifiable structural claims against raw source.** If a summary asserts a project is archived/deprecated/forked/superseded/renamed/rewritten — or that a vuln is patched/exploited-in-the-wild/disputed — re-fetch the raw source (e.g. `raw.githubusercontent.com/<owner>/<repo>/main/README.md`, the NVD entry, the vendor bulletin) and quote verbatim before acting. Summarisers occasionally confabulate plausible structural claims; high-stakes assertions need verbatim confirmation.
+- **Flag red flags explicitly in the output.** Don't smooth them over, but don't let them pre-empt the profile's second-pass assessment either.
 
-### 6. Two-pass assessment (BOTH modes)
+### 7. Assessment — per the profile's frame (BOTH modes)
 
-For every finding worth reporting — from scan sources *or* digest pile:
+For every finding worth reporting — from scan sources *or* digest pile — run the profile's `Assessment frame`. Each profile defines two passes; **run both, report both, never collapse to one verdict, never skip the second based on the first.**
 
-**Fit pass:**
-- Does this replace something we already have? (adopt candidate) — *naming a specific local skill here triggers Step 7's ⛔ read-the-source gate; don't assert replacement from a name match.*
-- Does this extend or complement current workflow? (adapt candidate)
-- Is our implementation still superior? (note-and-move)
+The active profile's frame is authoritative; the two below are illustrative of the shipped profiles, not a closed set:
+- Default `ai-cc-pkm`: **Fit** (does it replace / extend / lose-to what we have?) + **Capability** (what does it unlock that isn't being done today?).
+- `cybersec`: **Exposure** (does it reach something on the stack inventory, and by what path?) + **Action** (severity → patch now / cooldown-then-patch / monitor / not-exposed-note).
 
-**Capability pass (independent — do not skip based on fit-pass outcome):**
-- What does this *unlock* that isn't being done today?
-- Would adopting it change the shape of the work, or just optimise an existing step?
-- If the user were willing to pivot or expand usage, does this open a new axis?
-- If the tool doesn't slot into current workflow — is that because it's irrelevant, or because it's novel enough to reshape the workflow?
+The default profile's fit pass may name a specific local skill — that triggers the read-the-source gate in Step 8. The cybersec profile's exposure pass may name a specific stack component — that requires checking it against the stack-inventory doc, not asserting exposure from a product-name match.
 
-Report BOTH passes for each finding. Do not collapse into a single "verdict."
+### 8. Obsolescence / collision check — only if the profile's `Obsolescence check` value calls for it
 
-### 7. Skill-obsolescence check (runs regardless of mode)
-
-*Distinct from Step 6's capability pass.* Step 6 asks "what does this finding unlock for the user?" — Step 7 asks "does this finding obsolete one of our existing skills?" Two different questions; run both.
+*Tool-adoption profiles only.* Branch on the **value** of the profile's `Obsolescence check` key, not on whether the heading exists — every profile defines the key, so heading-presence is not the signal. Run this step only if that value specifies a check: the default `ai-cc-pkm` does; `cybersec` sets it to "does not run," so skip the step entirely for it.
 
 Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit.
 
-**⛔ Read-the-source gate (mandatory).** Any *comparative claim that names a specific local skill* — that an external finding obsoletes / upgrades / replaces / collides with / is inferior or superior to / makes redundant `/X` — MUST be backed by reading `/X`'s own source *this run*, **wherever the claim appears**: Step 6's fit pass ("replace something we already have"), this step, Step 8's classification, or any section of the report — not only here. The scan/digest sub-agents and any external write-up only ever see a name plus a one-line description, so their comparative claims are *structurally speculation*, almost always triggered by a name or description match. **Name/description overlap is a prompt to open the file, never a verdict.**
+**⛔ Read-the-source gate (mandatory).** Any *comparative claim that names a specific local skill* — that an external finding obsoletes / upgrades / replaces / collides with / is inferior or superior to / makes redundant `/X` — MUST be backed by reading `/X`'s own source *this run*, **wherever the claim appears** (Step 7's fit pass, this step, or any section of the report). Sub-agents and external write-ups only ever see a name plus a one-line description, so their comparative claims are *structurally speculation*. **Name/description overlap is a prompt to open the file, never a verdict.**
 
-- **Who reads:** the actor that writes the claim into the report. A sub-agent that can't load local skills must emit the finding as "name overlap — source unread" and leave the verdict to the **orchestrator**, which opens the named source itself before accepting, changing, or reporting it. Never launder a sub-agent's comparative claim through unread.
-- **What to read:** the named skill's source at `~/.claude/commands/<name>.md` (or the personal / template / plugin path that resolves it) — *enough of the body to establish its operating layer and mechanism, not just the frontmatter `description`* (that one-liner is exactly what the gate exists to look past). Read only the named skills, not the whole inventory — this stays lightweight.
-- **If no source file exists, the claim is *more* suspect, not less.** The skill may be harness/plugin-provided, or the name may be hallucinated (a real failure once invented a `/deep-research` skill that didn't exist). Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never to wave it through as a note.
-- **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded in the report's Skill-obsolescence section (`Source read: <path>`, or `no file — claim dropped`). If the source genuinely can't be read but the skill is confirmed to exist, **don't compare** — report only "unverified name overlap with `/X`, source unread; no obsolescence claim made." The downgrade is non-comparative; it is not licence to keep asserting overlap without reading.
+- **Who reads:** the actor that writes the claim. A sub-agent that can't load local skills emits "name overlap — source unread" and leaves the verdict to the orchestrator, which opens the named source itself before accepting or reporting it.
+- **What to read:** the named skill's source at `~/.claude/commands/<name>.md` (or the path that resolves it) — enough of the body to establish its operating layer and mechanism, not just the frontmatter one-liner.
+- **If no source file exists, the claim is *more* suspect, not less.** Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never wave it through.
+- **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded as `Source read: <path>` (or `no file — claim dropped`).
 
-Watch both directions: a finding may *sound* like it competes when the named skill operates at a different layer (e.g. a spec-generator vs an execution loop), and may *sound* novel when the skill already does it — only the source settles which.
+If the vault contains a capability audit project doc, update the relevant domain section.
 
-For each relevant finding, compare against the user's existing skills — and for any comparison that names or appears to overlap a specific skill, pass the read-the-source gate above first:
-- Does this replace something we built? (adopt)
-- Does this do something better that we could extract a pattern from? (adapt)
-- Is our implementation still superior? (note)
+### 9. Classify findings
 
-If the vault contains a capability audit project doc (e.g. `03 Projects/OpenCairn Capability Audit.md`), update the relevant domain section.
+Classification labels come from the profile's `Report sections`. For each finding state what it does, what problem it solves (handled or not today), and place it in the right section.
 
-### 8. Classify findings
+**For any finding whose action is "install / adopt a package" (either profile — a Claude Code tool, or a security tool), compute supply-chain cooldown explicitly.** Days since latest release (npm/PyPI/Docker) or last commit (source installs). Compare against a ≥3–7 day cooldown window — don't install a package the day it publishes; let downstream users surface supply-chain compromises (malicious publishes, typosquats, compromised maintainer accounts) first. State the recommendation — **install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD** — don't leave arithmetic to the user. (This discipline is doubly load-bearing for the `cybersec` profile, whose own beat is supply-chain attacks.)
 
-For each:
-- What does it do?
-- What problem does it solve — manually handled or not handled today?
-- **Classify:** adopt (use directly) / adapt (extract the pattern) / note (interesting, not actionable now) / skip (hype or low-value — document *why* so next scan doesn't re-surface it).
-- **For adopt candidates — compute supply-chain cooldown explicitly.** Days since latest release (npm/PyPI/Docker/etc.) or last commit (for source-install tools). Compare against a ≥3–7 day cooldown window — don't install a package the day it publishes; let downstream users surface supply-chain compromises (malicious publishes, typosquats, compromised maintainer accounts) first. State the actionable recommendation in the output — **install now / pin earlier version vX.Y.Z / defer install until YYYY-MM-DD** — don't leave arithmetic to the user.
-
-### 9. Generate scan report
+### 10. Generate scan report
 
 ```bash
 mkdir -p "{VAULT}/06 Archive/Landscape Scans"
 ```
 
-Create a file at `{VAULT}/06 Archive/Landscape Scans/YYYY-Www.md`:
+Create `{VAULT}/06 Archive/Landscape Scans/YYYY-Www<suffix>.md`. The engine supplies the common wrapper; the profile supplies the middle finding-sections:
 
 ```markdown
-# Landscape Scan — YYYY-Www
+# Landscape Scan (<topic>) — YYYY-Www
 
+**Topic / profile:** <topic> — <profile `One-liner`>
 **Modes run:** [scan / digest / both]
 **Date generated:** [YYYY-MM-DD (day-of-week), location if relevant]
 
 ## Contextualising reads
-
-- [files/sources loaded in step 3]
+- [files/sources loaded in step 4]
 
 ## Scan sources checked *(scan mode only)*
-
 - [N sources; flag any unavailable]
 
 ## URLs digested *(digest mode only)*
-
 - [N, list each]
 
 ## Derived via abstraction-expansion *(only if rule fired this run)*
-
 - [N sources surfaced via the Guidelines category-abstraction rule — NOT in the input pile]
 
 ## Unfetchable
-
 - [URLs that failed both WebFetch and firecrawl-scrape, with reason; or "None this run."]
 
 ---
 
 *Convention: single-value fields inline at top (`**X:** Y`); multi-item fields as section headings below.*
 
-## Adopt (use directly)
-For each:
-- **[Tool/pattern]** — [what it does, link]
-  - *Fit:* [how it interacts with current workflow]
-  - *Capability:* [what it unlocks that isn't being done today]
-  - *Supply-chain cooldown:* [latest version + publish date; N days old; passes / fails ≥3–7 day cooldown; recommendation: install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD]
-
-## Adapt (extract the pattern)
-- **[Pattern]** — [how to apply it, link]
-  - *Fit:* …
-  - *Capability:* …
-
-## Note (interesting, not actionable now)
-- **[Thing]** — [why it's interesting, when it might become relevant]
-  - *Fit:* …
-  - *Capability:* …
-
-## Skip (hype / low-value)
-- **[Thing]** — [why skipped, so it isn't re-surfaced]
+<<< PROFILE REPORT SECTIONS — insert the active profile's `Report sections` here >>>
 
 ## Red flags flagged
 - [Source] — [what was suspicious; was the underlying thing verified or not]
-
-## Skill-obsolescence check
-- [Skill domain] — [external tool/pattern, how it compares, classify: adopt/adapt/note/inferior]
-  - *Source read:* [`~/.claude/commands/<name>.md` read this run + one-line source-based basis | `no file — claim dropped` | `n/a — names no local skill`]
-- (or: "No new skill-obsoleting findings this week")
 
 ## No change since last scan
 - [Sources that had nothing new]
 
 ## Sources list updates
-- [New sources to add or stale ones to remove from this command]
+- [New sources to add or stale ones to remove from the profile file]
 
 ## Actions executed this run
-- [Any edits made to CLAUDE.md, memories saved/updated, skills edited, tasks added to This Week.md or project hubs, configuration changes, etc. — anything the scan surfaced that resulted in immediate in-session action before report-write time. Makes the report self-contained rather than relying on the reader to remember what happened in the triggering session. If no in-session actions: "None."]
+- [Any edits made to CLAUDE.md, memories, skills, profile files, tasks added to This Week / project hubs, config changes — anything the scan surfaced that resulted in immediate in-session action. Makes the report self-contained. If none: "None."]
 ```
 
-### 10. Update this command's source list
+### 11. Update the profile's source list
 
-If any sources should be added or removed (repos deleted, new high-quality sources discovered), edit this command file directly.
+If any sources should be added or removed (repos deleted, new high-quality sources discovered), edit the **profile file** directly (not this engine file).
 
-### 11. Display confirmation
+### 12. Display confirmation
 
 ```
-Landscape scan saved to: 06 Archive/Landscape Scans/YYYY-Www.md
+Landscape scan (<topic>) saved to: 06 Archive/Landscape Scans/YYYY-Www<suffix>.md
 Modes run: [scan / digest / both]
 Sources checked: N    URLs digested: N    Derived: N    Unfetchable: N
-Findings: N adopt, N adapt, N note, N skip
+Findings: [per profile's section counts]
 Red flags flagged: N
-Skill-obsolescence check: N domains with new findings (or "no new findings")
+Obsolescence check: [N domains / n/a for this profile]
 Actions executed this run: N
-Source list updates: [any changes made to this command]
+Source list updates: [any changes made to the profile file]
 ```
 
 ## Guidelines
 
-- **Research, not shopping.** "How did they solve X?" beats "should I switch to Y?"
-- **Two passes, always.** Fit-pass dismissal does not close capability pass. Report both.
-- **Delta over repeat.** Only report what's new since the last scan. Don't re-list stable repos that haven't changed.
-- **Verify before trusting pitches.** Tweets and blog posts hype; repos and product pages ship. Fetch the underlying thing.
-- **Update the source list.** If a source goes stale or a new one emerges, update this command file.
-- **Quick and focused.** Scan mode: 10–20 minutes. Digest mode: scales with URL count but still snappy.
-- **Expand category abstraction when a direct-match search returns nothing.** If an exact-match search yields zero hits, do not conclude "none exists." Abstract up one level and search again — from "Linux repackage of product X" to "Linux-native alternatives that serve the same need as X," or from "extension for tool Y" to "plugins/wrappers/bridges for tool Y's ecosystem." Worked example: searching "Linux build of Claude Code Desktop redesign" returned no hits; only after abstracting to "GUI frontends for Claude Code CLI on Linux" did CloudCLI / opcode / Code Harness surface. Direct-match null is a capability-pass failure mode if not expanded.
+- **Research, not shopping.** "How did they solve X?" / "Does this reach me?" beats "should I switch to Y?"
+- **Two passes, always.** First-pass dismissal does not close the second pass. Report both, per the profile's frame.
+- **Delta over repeat.** Only report what's new since the last scan *for this topic*. Don't re-list stable sources that haven't changed.
+- **Verify before trusting pitches.** Tweets/blogs/vendor marketing hype; repos, product pages, CVE records, and commits ship. Fetch the underlying thing.
+- **Update the profile source list,** not this engine, when a source goes stale or a new one emerges.
+- **Quick and focused.** Scan mode: 10–20 minutes. Digest mode: scales with URL count but stays snappy.
+- **Expand category abstraction when a direct-match search returns nothing.** If an exact-match search yields zero hits, don't conclude "none exists." Abstract up one level and search again. Direct-match null is a second-pass failure mode if not expanded.
 - **Honest about signal.** A null result is fine — say so.
-- **Review the Zvi mandatory-digest rule after 3 runs.** The rule is single-point-justified (OCLI only). After the third weekly run with Zvi digest performed, explicitly evaluate: did Zvi surface anything non-obvious that headline-scan would have missed? If no, downgrade to headline-scan with selective deep-read on Claude-Code-adjacent sections. Record the evaluation in that run's report.
 
 ## Frequency
 
-Run weekly (typical), or whenever the user explicitly requests it — including ad-hoc digest-only runs when they've batched up a pile of URLs.
+Run weekly (typical) per topic, or whenever the user explicitly requests it — including ad-hoc digest-only runs when they've batched up a pile of URLs.
+
+## Adding a new topic
+
+Drop a `landscape-profiles/<topic>.md` file defining the seven profile keys (`One-liner`, `Contextualising reads`, `Sources`, `Assessment frame`, `Report sections`, `File naming`, `Obsolescence check` — the last with an explicit value, e.g. "does not run", since Step 8 branches on the value). No engine edits needed. Keep profiles template-suitable where possible: cite the user's real infrastructure by pointing the profile at a vault doc (e.g. a stack-inventory note) rather than hardcoding personal specifics into the profile.
 
 ## Integration with Other Commands
 
-*Designed to complement — cross-references not currently wired in the consumer skills. Grep the commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`) for "landscape" to verify the integration state before relying on it; if value emerges, add the references into the consumer skills in a separate pass.*
+*Designed to complement — cross-references not currently wired in the consumer skills. Grep the commands directory for "landscape" to verify integration state before relying on it.*
 
-- **Intended to complement /quarterly-review:** quarterly's strategic-alignment step would benefit from landscape-scan findings accumulated over the quarter.
-- **Intended to complement /weekly-review:** weekly is internal (vault health, progress); landscape-scan is external (what's happening outside).
+- **Intended to complement /quarterly-review:** quarterly's strategic-alignment step would benefit from accumulated landscape findings.
+- **Intended to complement /weekly-review:** weekly is internal (vault health, progress); landscape-scan is external.
+- **The `cybersec` profile complements /security-audit:** the audit is internal posture (what's misconfigured on the machine *now*); the cybersec scan is external threat intel (what got disclosed that touches the stack). Neither subsumes the other.
