@@ -98,6 +98,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Broken file paths or internal links
    - Markdown syntax issues (unclosed code blocks, malformed lists)
      - **Concatenated list items:** after a session that removed list lines, run `grep -nE '[^[:space:]]- \[[ x]\]' <file>` on edited list-bearing docs — any non-space immediately before a `- [ ]`/`- [x]` is a join defect (a leading-`\n` removal ate the separator newline). Flag for review.
+     - **Blank-line residue:** after a session that deleted a section, day, or block, run `awk 'NF{n=0;next}{n++}n==3{print FILENAME":"FNR": 3+ blank lines"}' <file>` on edited docs — a run of 3+ consecutive blank lines is deletion residue (the match removed the block but left its surrounding blanks). Collapse to the file's modal gap (1–2). Sibling defect to concatenated-list-items: same root cause (a block-boundary match that mis-handles separator newlines), opposite symptom (too many blanks vs too few).
    - Broken Obsidian wikilinks
 
    **REFACTOR** — Content quality:
