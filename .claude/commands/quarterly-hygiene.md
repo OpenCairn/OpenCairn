@@ -44,7 +44,15 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Flag entries with outdated roles, superseded contact details, or context that this quarter's events have overtaken.
    - **Don't auto-modify** — present findings and let the user decide.
 
-5. **Session-log archiving (90-day rolling).**
+5. **Corrections-log Domain Index refresh.** (if `{VAULT}/07 System/Claude Corrections Log.md` has a curated index/summary header)
+   `/oops` appends entries without re-classifying them, so any curated summary at the top of the log — a domain/category breakdown, per-category counts, an "as of" date — drifts between quarters. The per-entry append is deliberately kept cheap (a logging task shouldn't carry classification ceremony), so the re-bucketing is a synthesis pass that belongs here, once a quarter:
+   - Read entries appended since the index's "as of" date (or the whole log if undated).
+   - Bucket each new entry into the existing domain taxonomy; add a category only if several entries cluster outside the current set.
+   - Refresh the approximate per-category counts and bump the index's "as of" date to today.
+   - **Avoid brittle precision:** keep counts approximate (`~N`); do NOT (re)introduce an absolute total that rots on the next `/oops` append — the index is a navigational aid, not a ledger. If the header still asserts a precise entry count, drop it in favour of the "as of" date.
+   - Apply the count/date refresh directly; present any *taxonomy* change (a new or removed category) for user approval before writing — the buckets are a high-trust curation, the counts are not.
+
+6. **Session-log archiving (90-day rolling).**
    Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 14b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
    - **Identify candidates** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). Written without bare dollar-digit awk fields — the slash-command loader substitutes `$0`–`$9` as argument placeholders and would mangle them before the executor sees the snippet; ISO date names make plain string comparison correct:
      ```bash
@@ -71,7 +79,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      Full CLI link-verification is still skipped (`obsidian unresolved`/`backlinks` time out mid-reindex on a large vault) — but the basename-fallback claim is GUI behaviour this repo can't prove, so **spot-check once per run**: pick one moved log with a known inbound link and confirm it resolves (in the GUI next session, or `obsidian unresolved` filtered to that basename once reindex settles). Record the result in the report.
    - **Idempotent:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs.
 
-6. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
+7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
    The library-level layer of the cross-pollination system — the per-edit layer is the skill-edit Stop hook (ships with the template; opt in via `/setup-hooks` — see `_shared-patterns.md`), the index is `_shared-patterns.md` (commands directory). Once a quarter, look across *all* skills for infrastructure that's been reinvented rather than shared. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
    - **Inventory** the commands directory (`~/.claude/commands/*.md` or `{VAULT}/.claude/commands/*.md`); grep for recurring mechanisms (manifest/JSONL + resume, `[i/N]` progress strings, parallel `gemini`/`codex` despatch, file-size + resize loops, `command -v` prereq blocks, cost estimation) and count distinct skills implementing each.
    - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
@@ -80,7 +88,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
 ### Output
 
-7. **Write the quarterly hygiene report:**
+8. **Write the quarterly hygiene report:**
    ```bash
    mkdir -p "{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports"
    ```
@@ -106,6 +114,10 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ## CRM Stale Entries
    - [Entry — what's outdated]
 
+   ## Corrections-Log Domain Index
+   - Entries re-bucketed since last curation: N (or "no curated index present")
+   - Index refreshed: ["as of" date bumped to YYYY-MM-DD / n/a]
+
    ## Session-Log Archiving
    - Flat session logs: N (keeping last ~90 days flat)
    - Archived this run: N logs → YYYY/ subfolders (or "none — nothing older than 90 days")
@@ -121,15 +133,16 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - [Flywheel proposals stay in this report as pending user decisions — they are not routed]
    ```
 
-8. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
+9. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
    The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, propose specific edits to this skill file (display for user approval — never auto-apply; edit the template copy if template-synced). If clean, state `✓ Skill self-review: no gaps this run`.
 
-9. **Display confirmation:**
+10. **Display confirmation:**
    ```
    ✓ Quarterly hygiene report: 06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md
    ✓ Weekly-hygiene report: [carried / carried (stale — re-run recommended) / not found]
    ✓ Context files re-read: N, M durable-drift flags
    ✓ CRM stale entries: N flagged
+   ✓ Corrections-log index: [refreshed (N entries re-bucketed) / no curated index present]
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out")
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Skill self-review: [no gaps / N edits proposed]
