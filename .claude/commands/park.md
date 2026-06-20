@@ -469,6 +469,28 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **Why this exists:** /park otherwise only handles NEW loops the session created. When the user copy-pastes a task FROM a planning doc into the conversation and the session closes it, the original `[ ]` lives on — the planning doc accumulates stale unchecked items pointing at completed work. Caught by audit in a session where a multi-host security-patch batch landed but the corresponding `[ ]` in the rolling weekly plan (on a future-day section, not the session day) stayed unchecked; the audit's Layer 3 stale-state pass caught it. Closing the loop in /park instead of relying on audit makes the check mechanical and routine rather than depending on a sub-agent re-discovery. **Window scoping note:** the motivating case lived on a future day section, which is why the scope is the whole This Week.md file, not a past-only window.
 
+   **Adjacent-open-items sweep (surface, don't action — run after the closure pass):**
+
+   The closure pass above keys on what the session *finished*. It has no signal for a still-open task that targets a file the session *edited for a different reason*. For each vault content file this session **edited** (from the Step 4(a) enumeration; skip the session log and the planning files themselves), grep the planning docs for unchecked `[ ]` items that mention that file — by basename/slug, in either the item text or its `→ [[link]]` target (an item may link to an area hub while naming the file in its text, so match the text too):
+
+   ```bash
+   # Per edited content file, grep planning docs for open items naming it.
+   grep -niE '^[[:space:]]*-[[:space:]]*\[ \].*<edited-file-basename-or-slug>' "{VAULT}/01 Now/Tasks.md" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md"
+   ```
+
+   These are **not** items the session completed — **do not flip them, do not action them.** They are adjacent opportunities: a tracked task pointing at a file you just had open. **Surface each in the session's Pickup Context** (e.g. "Adjacent open task if you revisit this file: …") so a future pickup sees it and so the Pickup Context line doesn't overstate closure. The session's scope was its own work, not the backlog for every file it touched — hence surface, not action.
+
+   **⛔ CHECKPOINT:** Display one of:
+   ```
+   ✓ Adjacent-open-items: none found for edited files
+   ```
+   ```
+   ✓ Adjacent-open-items: N surfaced to Pickup Context
+   - <file>:<line> "<item text>" → targets <edited file>
+   ```
+
+   **Why this exists:** a session can edit a file that already has an open task against it; the completed-item pass won't catch that task (nothing was completed), so Pickup Context can read "nothing pending" while a tracked item targets the very file just changed. This is a completeness gap, not a propagation miss (no status changed) — surfacing it (not actioning it) closes the gap without scope creep.
+
    **Routing logic (applied to each open loop):**
 
    1. **Parse for date patterns** (reuse existing date parsing):

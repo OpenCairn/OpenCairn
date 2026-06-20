@@ -409,7 +409,27 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
-15. **Write Hygiene Report**
+15. **Supply-chain config tripwire** (AI-assistant hook integrity)
+
+   A 2026 class of npm/PyPI worm (Shai-Hulud / "Miasma" / "Hades" family) persists by writing `SessionStart` hooks into AI-assistant config files (`.claude/`, `.cursor/`, `.gemini/`) so the payload re-executes on every project open — uninstalling the offending package does **not** remove it. This weekly tripwire surfaces such hooks for a human eyeball; it does not auto-judge.
+
+   ```bash
+   # User-level AI-assistant configs (fixed paths — no recursive vault walk)
+   for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.cursor/*.json ~/.gemini/settings.json; do
+     [ -e "$f" ] && grep -lEi 'SessionStart|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
+   done
+   # Vault-local Claude config, if present (single file, not a tree walk)
+   ls "{VAULT}/.claude/settings.json" "{VAULT}/.claude/settings.local.json" 2>/dev/null
+   # Python interpreter-startup hooks (the .pth vector): files that run code on import
+   python3 -c "import site,glob,os; [print(p) for d in site.getsitepackages()+[site.getusersitepackages()] for p in glob.glob(os.path.join(d,'*.pth'))]" 2>/dev/null
+   ```
+
+   For each hit, read the hook / `.pth` and confirm it's expected (a known editor hook, a template's own hook, a setuptools/distutils `.pth`). The malicious signature: shells out to `curl`/`wget`/`node`/`python` against an unfamiliar URL or path, base64-decodes a blob, or touches `~/.ssh`, a password-manager store, or a wallet keystore. **Three outcomes, not one:**
+   - **Clean** (no hits, or every hit is known-legit) → record "config tripwire: clean" and move on.
+   - **Unexplained hit you can't classify** → surface it to the user *in this session, now* — don't bury it in the report or defer it.
+   - **Hit matching the malicious signature** → treat as an **active compromise, not a hygiene item.** Do NOT route it to Tasks.md as a backlog line — that is the wrong severity channel. Halt: stop opening projects in the affected directory, tell the user immediately and in plain language, and run incident response — assume everything reachable during the exposure window was already exfiltrated (1Password items unlocked in that window, SSH keys, API tokens, `.claude`/`.cursor`/`.gemini` configs), so rotate/revoke those, remove the hook from the config file, and trace which package introduced it. The weekly cadence is the *detection* budget; the *response* to a true positive is immediate, not weekly.
+
+16. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -470,6 +490,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Migrate to vault (exception): [list with destination, or "none"]
    - Delete: [list with reason, or "none"]
    - Migrated this sweep: [list of entry → vault path, or "none"]
+
+   ## Config Tripwire (supply-chain)
+   - SessionStart / install hooks found: [list files, or "none"]
+   - Suspicious `.pth` or hooks flagged: [list with reason, or "clean"]
 
    ## Claude Internal Files
    - Plans: N stale deleted, M remaining
@@ -538,7 +562,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Routed to Tickler: N
    ```
 
-16. **Route unresolved findings**
+17. **Route unresolved findings**
 
     For each finding not resolved during the sweep:
 
@@ -548,7 +572,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers — in WIP via the step 1 pruning sweep; in the other routing destinations (Tasks.md, Working Memory, scratchpads) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
-17. **Display confirmation:**
+18. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
