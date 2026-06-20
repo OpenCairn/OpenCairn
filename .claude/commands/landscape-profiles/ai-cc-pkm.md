@@ -7,7 +7,7 @@ The default profile. Tool-adoption lens on the AI / Claude Code / Obsidian-PKM l
 ## File naming
 
 - Filename suffix: **none** (display form `YYYY-Www.md`, e.g. `2026-W16.md`).
-- Prior-scan glob (executable): **`20[0-9][0-9]-W[0-9][0-9].md`** — anchored so the `.md` follows the week number directly, which excludes topic-suffixed files like `2026-W16-cybersec.md`. Sort by mtime (`ls -t`) rather than filename — legacy `YYYY-MM.md` files (if any) sort lexicographically before the week-form files and give a stale "most recent."
+- Prior-scan glob (executable): **`20[0-9][0-9]-W[0-9][0-9].md`** — anchored so the `.md` follows the week number directly, which excludes both topic-suffixed files like `2026-W16-cybersec.md` and any legacy `YYYY-MM.md` files (neither matches the pattern). Pick the most recent match by parsed week label, or `ls -t` mtime as a cheap proxy.
 
 ## Contextualising reads
 
@@ -90,7 +90,7 @@ Two passes per finding. Run both, report both, never collapse to one verdict.
 
 ## Obsolescence check
 
-**Runs for this profile.** *Distinct from the capability pass.* The capability pass asks "what does this finding unlock for the user?" — this asks "does this finding obsolete one of our existing skills?" Two different questions.
+**Value: runs.** *Distinct from the capability pass.* The capability pass asks "what does this finding unlock for the user?" — this asks "does this finding obsolete one of our existing skills?" Two different questions.
 
 Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit. The engine's Step 8 read-the-source gate governs every comparative claim that names a local skill.
 
@@ -128,7 +128,7 @@ For each:
 
 ## Skill-obsolescence check
 - [Skill domain] — [external tool/pattern, how it compares, classify: adopt/adapt/note/inferior]
-  - *Source read:* [`~/.claude/commands/<name>.md` read this run + one-line source-based basis | `no file — claim dropped` | `n/a — names no local skill`]
+  - *Source read:* [`$COMMANDS_DIR/<name>.md` read this run + one-line source-based basis | `no file — claim dropped` | `n/a — names no local skill`]
 - (or: "No new skill-obsoleting findings this week")
 ```
 
