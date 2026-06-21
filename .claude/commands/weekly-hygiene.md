@@ -411,11 +411,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 15. **Supply-chain config tripwire** (AI-assistant hook integrity)
 
-   A 2026 class of npm/PyPI worm (Shai-Hulud / "Miasma" / "Hades" family) persists by writing `SessionStart` hooks into AI-assistant config files (`.claude/`, `.cursor/`, `.gemini/`) so the payload re-executes on every project open — uninstalling the offending package does **not** remove it. This weekly tripwire surfaces such hooks for a human eyeball; it does not auto-judge.
+   A 2026 class of npm/PyPI worm (Shai-Hulud / "Miasma" / "Hades" family) persists by writing `SessionStart` hooks into AI-assistant config files (`.claude/`, `.cursor/`, `.gemini/`, `.gemini/antigravity-cli/`) so the payload re-executes on every project open — uninstalling the offending package does **not** remove it. This weekly tripwire surfaces such hooks for a human eyeball; it does not auto-judge.
 
    ```bash
    # User-level AI-assistant configs (fixed paths — no recursive vault walk)
-   for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.cursor/*.json ~/.gemini/settings.json; do
+   for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.cursor/*.json ~/.gemini/settings.json ~/.gemini/antigravity-cli/settings.json; do
      [ -e "$f" ] && grep -lEi 'SessionStart|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
    done
    # Vault-local Claude config, if present (single file, not a tree walk)
