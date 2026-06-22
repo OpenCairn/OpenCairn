@@ -87,9 +87,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Gather:**
    - Read `{VAULT}/01 Now/Tickler.md` (if it exists)
    - Flag items with dates that have passed (past-due and unactioned)
+   - Flag completed (`- [x]`) or struck-through (`~~…~~`) items in **any** section — including non-dated, trigger-contingent holding-pen sections (e.g. a "## When I'm back" / "## On return" list). The past-due-date scan above only covers dated sections, so done items parked in an undated section accumulate invisibly.
 
    **Resolve in-session:**
    - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
+   - For each completed/struck item: confirm it's genuinely done, then remove it during the sweep (per the Tickler "delete if done" convention). When removing a mid-list item, match its **trailing** newline (not a leading one) so its neighbours don't join onto one line; re-grep for a join defect after.
    - **If user disengages:** route unresolved past-due items to Tasks.md with a hygiene report back-reference.
 
 5. **Working Memory Sweep**
@@ -124,12 +126,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
    - Read CRM index to get list of known names
-   - Extract names from recent session files:
+   - Extract names from recent session files. Drop heading lines and the standard session-log/planning **section names** before counting — otherwise structural headings (`### Files Updated`, `## This Week`, …) dominate the frequency list and bury real people:
      ```bash
-     find "{VAULT}/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec \
-       grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' {} + | sort | uniq -c | sort -rn | head -20
+     find "{VAULT}/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec cat {} + \
+       | grep -vE '^[[:space:]]*#' \
+       | grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' \
+       | grep -vxE 'This Week|Pickup Context|Open Loops|Key Insights|Next Steps|Files Updated|Files Created|Files Deleted|Session History|Resumption Brief|Session Logs|Daily Reports|Working Memory' \
+       | sort | uniq -c | sort -rn | head -20
      ```
-   - Flag names that appear 2+ times but aren't in CRM
+   - Flag names that appear 2+ times but aren't in CRM. A two-word capitalised bigram is a weak name signal — discard obvious non-people that slip the denylist (topic phrases, place names, product names) before presenting candidates.
 
    **Resolve in-session:**
    - Present candidates to user. For confirmed names, create CRM entries in the appropriate range file (A-F, G-L, M-R, S-Z) during the sweep.
