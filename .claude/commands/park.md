@@ -346,6 +346,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **(a) Enumerate identifiers (MAIN SESSION, required checkpoint).** A "status change" includes: tasks completed, bookings made/cancelled, decisions finalised, items purchased, accounts set up, **WIP tier demotions/promotions** (Active↔Backlog↔Cold — these must propagate to the project hub's own `**Status:**` field, not just the WIP entry), **and any cross-referenced value that changed** (counts, dates, amounts, names, event lists, and factual claims the session reversed or refined — a property/characteristic/spec, not just status or dates). List every identifier value that changed during the session as `old → new` pairs. This enumeration must appear in your response *before* the sub-agent despatch.
 
+   **Enumerate what the session *did*, not only what park *edited*.** World-state consequences of the session's actions are status changes even when no token visibly changed in the files you touched. If the session sent a message, completed a task, or made/cancelled a booking, the *entities that action acted on* changed state — a task to "decline the quotes" completing means the **providers** went pending → declined, and a hub may still frame the action as upcoming. Enumerate the subject entity's state change (`provider: live quote → declined`), not merely the task checkbox (often contained to one planning file, which makes "no values changed" tempting and wrong). This is the Layer-3 world-state frame Step 14's audit brief already applies; running it here lets this cheap pass catch what otherwise only the expensive audit does. The Step 5 Project-link hub is a guaranteed grep target for such changes.
+
    **The nil case is not a free pass.** "No identifier values changed" is a positive claim requiring the explicit checklist. Format the nil case as an enumerated checklist, not a bare assertion:
 
    ```
@@ -359,6 +361,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Factual/claim corrections (a property/characteristic the session reversed or refined): none
    - Naming changes: none
    - Status flips: none
+   - World-state changes from session actions (a task completed / message sent / booking made → the affected entity's state, often still framed as "upcoming" or "pending" in a hub): none
    - Section relocations between files: none
    - New option/alternative added to a pre-existing decision/record (propagate via its anchor, not the new value): none
    → No identifier values changed.
