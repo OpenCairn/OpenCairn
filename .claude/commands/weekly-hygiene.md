@@ -312,7 +312,24 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      bash ~/repos/scripts/obsidian-ghost-check.sh --since "8 days ago" "{VAULT}"
    fi
    ```
-   If ghosts or conflict files are found, report them. In delete mode (`-d`), duplicates and conflict files are auto-removed; orphans are listed for user review. This catches files silently re-uploaded by a reconnecting phone via Obsidian Sync (known bug — Sync doesn't propagate deletions to offline devices). Skip silently if the script isn't installed.
+   Report any ghosts found. **Conflict files are owned by the built-in check below, not this script** — so don't run the script in `-d` mode against conflict files (that auto-removal bypasses the per-file confirmation the built-in enforces, and `rm`'ing an Obsidian Sync copy can resurrect it). Use the script for the ghost/duplicate/orphan detection the built-in doesn't do: in `-d`, duplicates are auto-removed and orphans listed for review. This catches files silently re-uploaded by a reconnecting phone via Obsidian Sync (known bug — Sync doesn't propagate deletions to offline devices). Skip silently if the script isn't installed.
+
+   **Sync conflict files** (built-in — always runs, and owns conflict-file handling regardless of the optional ghost-check above). When two devices edit the same note while offline, both Syncthing and Obsidian Sync write a conflict file beside the original rather than overwriting. These hold divergent content and are silent data-divergence — they accumulate unnoticed until someone goes looking. Treat them as **tier-2 findings**: present and resolve in-session if the user engages, else route per the disengage rule below.
+   ```bash
+   # define `filter` in this same Bash call first, per the excludes block above
+   find "{VAULT}" \( -name '*.sync-conflict-*' -o -iname '*conflicted copy*' \) \
+     -not -path '*/.stversions/*' -type f 2>/dev/null | filter
+   ```
+   `*.sync-conflict-*` is Syncthing's pattern; a filename containing `conflicted copy` is Obsidian Sync's. (`06 Archive/` is deliberately **not** excluded — a conflict file beside an archived note is still live data-divergence.) For each hit, derive the base note and `diff` against it — the two schemes derive differently:
+   - Syncthing `notes.sync-conflict-<date>-<time>-<id>.md` → remove the `.sync-conflict-<date>-<time>-<id>` infix, **keeping the real extension** → `notes.md`. The extension stays at the end and the infix sits before it (`document.txt` → `document.sync-conflict-20210507-080621-CEIVOCO.txt`), so do *not* strip to end-of-string — that drops the `.md`.
+   - Obsidian `notes (Conflicted copy <device> <ts>).md` → strip the ` (Conflicted copy …)` segment, keep the extension → `notes.md`.
+   - **Base note missing** (renamed or deleted since the conflict was written): treat as an orphaned conflict file — present it, don't assume a base, route to Tasks.md if unresolved.
+
+   The diff decides the resolution — two real shapes:
+   - **Strict subset / redundant** (the conflict copy adds nothing the base lacks) → delete the copy, base unchanged.
+   - **Divergent fork** (each side carries unique content — e.g. two devices appended different work offline): do *not* "keep newer" — a parallel fork looks like a stale pair but newest-wins silently drops the other side's real work. A union-merge that preserves *all* unique content (and repoints inbound wikilinks if it renumbers/moves headings) is reflective work beyond this mechanical sweep — **route it to the user / Tasks.md as a manual merge**; never summarise, rewrite, or choose between the two sides autonomously.
+   **Confirm per file — never auto-delete.** Deletion mechanism by source: a Syncthing `*.sync-conflict-*` file is safe to `rm` once its content is confirmed merged or redundant; an Obsidian Sync "conflicted copy" must be deleted *inside Obsidian* (via the app or the Obsidian delete tool, never `rm` — delete-on-disk can resurrect it via Sync).
+   **If user disengages:** route to Tasks.md with a hygiene report back-reference — don't let it go undetected until next week.
 
    **Terminology consistency** (if `_terminology-checks.md` exists in the commands directory):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
@@ -520,12 +537,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Terminology flags: [list or "none"] (if _terminology-checks.md exists)
    - Shared-patterns pointers: [stale list or "all resolve"] (if _shared-patterns.md exists)
    - List-item joins fixed: N [file + line per fix, or "none"]
+   - Sync conflict files: N [list paths, or "none"] (Syncthing `*.sync-conflict-*` + Obsidian "conflicted copy")
 
    ## Obsidian Sync Ghost Check
    *(omit this section if the ghost-check script is not installed)*
    - Ghosts found: N (N duplicates, N orphans)
-   - Conflict files: N
-   - Auto-deleted: N
+   - Conflict files: counted under *Sync conflict files* (Vault Consistency) — handled by the built-in check, not double-counted here
+   - Auto-deleted: N (duplicates only)
    - Orphans for review: [list or "none"]
 
    ## Vault Structural Metrics (CLI)
