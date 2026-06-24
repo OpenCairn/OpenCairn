@@ -181,6 +181,10 @@ Processes today's flag files:
 6. Append all entries to `07 System/AI Provenance Log.md` (via `locked-edit.sh --append`, per Step 5)
 7. Delete the flag file **only after verifying every listed item has a log row** — a partially processed flag (missing rows) stays in `pending/` for `/weekly-hygiene`'s straggler pass
 
+### `/morning` (catch-up — step 2a.h)
+
+If `/goodnight` was missed, `/morning`'s missed-goodnight catch-up processes the caught-up day's pending flag(s) the next morning — before `/weekly-hygiene` would. It exports that day's transcript, hashes work products + transcript + session log, OTS-stamps, appends rows, and deletes each flag only after every required target has a log row (else leaves it in `pending/` for `/weekly-hygiene`). See `/morning` step 2a.h for the ordering and existence-guard specifics.
+
 ### `/weekly-hygiene` (provenance section)
 
 Catches stragglers and verifies:
@@ -202,7 +206,7 @@ Catches stragglers and verifies:
 ## Integration
 
 - **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs and `.snapshot.md` preimages in `07 System/Provenance/`
-- **Processed by:** `/goodnight` (step 17), `/weekly-hygiene` (provenance section)
+- **Processed by:** `/goodnight` (step 17), `/morning` (catch-up step 2a.h, when goodnight was missed), `/weekly-hygiene` (provenance section)
 - **Verified by:** `/weekly-hygiene` (provenance verification section)
 
 ## Example AI Disclosure (journal submission)
