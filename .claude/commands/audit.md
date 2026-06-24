@@ -20,7 +20,7 @@ You are auditing an implementation. This applies to anything with logic and stru
 **Default (no flag): panel.** Run all available reviewers — a fresh Claude agent + Gemini + Codex — each performing Phase 2 independently from source, then synthesise per Phase 3. Graceful degradation is the rule: probe availability first and run with whoever's present.
 
 **Flags** (parse from `$ARGUMENTS`):
-- *(no model flag)* → panel of all available models. Panel stays the default — but if the trigger test (Guidelines) clearly fails (small surface, easily reversed, ships nowhere), you have licence to downgrade: announce `"Low-stakes target — running single-Claude; say 'panel' to override"` and run the single inline pass. Announce, don't silently downgrade.
+- *(no model flag)* → panel of all available models, always. The panel is the unconditional default — no auto-downgrade on low-stakes, small-surface, or easily-reversed targets. The only route to a single reviewer is an explicit flag (`--claude` / `--gemini` / `--codex`).
 - `--claude` → single Claude reviewer only.
 - `--gemini` → single Gemini reviewer only.
 - `--codex` → single Codex reviewer only.
@@ -135,7 +135,7 @@ Theory vs. reality. Can you verify it runs?
 
 ## Guidelines
 
-- **Panel by default, single model by choice.** The panel is the default because uncorrelated reviewers catch what one misses. For a quick, low-stakes, or small-surface audit, `--claude` (single inline pass) is faster and proportionate — don't spin up three reviewers to check a typo fix. **Trigger test:** panel when the target is hard to reverse or ships somewhere you can't easily recall it (a public repo, a sent message, a production config); `--claude` otherwise.
+- **Panel by default, single model only by explicit flag.** The panel is the unconditional default because uncorrelated reviewers catch what one misses — never auto-downgrade based on stakes or surface size. If the user wants a quicker single-reviewer pass, they say `--claude` (single inline pass); absent that flag, run the full panel even for a small target.
 - **Graceful degradation, loudly.** Always announce the resolved panel and never silently drop a reviewer. A one-reviewer run is a single opinion, not a panel, and the synthesis must say so.
 - **Identical brief payload across the panel.** Any framing asymmetry between reviewers defeats the cross-model signal. Write the Phase 2 brief once and send the same payload to each — the transport wrappers differ (Agent prompt vs CLI `-p` string), so aim for semantic equivalence, not byte equality.
 - **Cross-model, not cross-instance.** One Claude + one Gemini + one Codex. Two Claudes correlate; non-correlated error modes are the whole point.
