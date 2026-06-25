@@ -314,7 +314,7 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; tail -n 80 /workspace/transc
 
 Classify each poll into a terminal state — **do not proceed to Phase 6 until you reach Success:**
 - **Success** — the log's final line is `Done.` → continue to Phase 6.
-- **Failure** — the log contains `Traceback`, `Error`, or `Killed` → stop; diagnose from the log, do not retrieve. On diarisation runs, a `None` / `401` / `403` / gated-model / HF-auth mention is the missing-token failure — re-do Phase 3 steps 2 & 4 (the same failure the Phase 3 note warns is easy to miss under `nohup`).
+- **Failure** — the log contains `Traceback (most recent call last)` (any unhandled crash) or a standalone `Killed` (OOM) → stop; diagnose from the log, do not retrieve. Match these specific markers, **not** a bare `Error` / `None` substring — benign library output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs the crash is an `AssertionError`; if its traceback mentions a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the same failure the Phase 3 note warns is easy to miss under `nohup`).
 - **Still running** — neither marker present → keep polling. Give up after `max(30 min, ~2× the Phase 1 runtime estimate)`; past that, pull the whole log (`tail -n 200`) and diagnose rather than waiting indefinitely.
 
 The script itself:
