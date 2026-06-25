@@ -295,10 +295,32 @@ Report count to user. If any files failed, list which ones and ask whether to pr
 
 ### Phase 5: Batch transcribe
 
-Write and execute this Python script on the pod:
+Write this Python script to a file on the pod (e.g. `/workspace/transcribe.py` via `scp` or a heredoc), then **run it detached and poll a log file** — do **not** run it as a blocking foreground SSH command. Two reasons: (1) the first run downloads the `large-v3` weights (~3 GB), which routinely exceeds a 2-minute tool timeout before any transcription starts; (2) a foreground SSH run dies to `SIGHUP` if the connection drops, killing the whole batch. Detaching survives both.
+
+```bash
+# Launch detached on the pod. nohup ignores SIGHUP; </dev/null + redirected stdout/stderr
+# stop SSH from staying tied to the channel, so this call returns in <1s:
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
+  'cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 &'
+# Proxy SSH: identical remote command, wrapped in the Phase 2 step 5 PTY form —
+#   script -qec 'ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 SSH_TARGET "cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 & exit"' /dev/null
+```
+
+**Poll protocol.** The launch returns immediately — the batch is still running. Re-run the poll below every ~60–90s; the `sleep` runs *inside* the SSH call, so the Bash tool blocks for the interval (this is the wait mechanism — do not busy-loop back-to-back):
+
+```bash
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; tail -n 80 /workspace/transcribe.log'
+```
+
+Classify each poll into a terminal state — **do not proceed to Phase 6 until you reach Success:**
+- **Success** — the log's final line is `Done.` → continue to Phase 6.
+- **Failure** — the log contains `Traceback`, `Error`, or `Killed` → stop; diagnose from the log, do not retrieve. On diarisation runs, a `None` / `401` / `403` / gated-model / HF-auth mention is the missing-token failure — re-do Phase 3 steps 2 & 4 (the same failure the Phase 3 note warns is easy to miss under `nohup`).
+- **Still running** — neither marker present → keep polling. Give up after `max(30 min, ~2× the Phase 1 runtime estimate)`; past that, pull the whole log (`tail -n 200`) and diagnose rather than waiting indefinitely.
+
+The script itself:
 
 ```python
-import os, json, glob, time, subprocess, tempfile
+import os, json, time, subprocess, tempfile
 os.environ["TQDM_DISABLE"] = "1"
 
 # Load HF token from pod cache (Phase 3 step 2 copies it here from local ~/.cache/huggingface/token).
@@ -368,14 +390,15 @@ def _ensure_wav(audio_file):
     )
     return tmp.name, True
 
+_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus")  # case-insensitive match below
 files = sorted(
-    glob.glob(os.path.join(audio_dir, "*.mp3"))
-    + glob.glob(os.path.join(audio_dir, "*.m4a"))
-    + glob.glob(os.path.join(audio_dir, "*.wav"))
-    + glob.glob(os.path.join(audio_dir, "*.flac"))
-    + glob.glob(os.path.join(audio_dir, "*.ogg"))
+    os.path.join(audio_dir, f)
+    for f in os.listdir(audio_dir)
+    if f.lower().endswith(_AUDIO_EXTS)
 )
 print(f"Found {len(files)} files to transcribe")
+if not files:
+    raise SystemExit(f"No audio files in {audio_dir} matching {_AUDIO_EXTS} — nothing to do.")
 
 
 def longest_span_per_speaker(segments):
@@ -476,6 +499,8 @@ Replace `DIARIZE`, `NUM_SPEAKERS`, and `LANGUAGE` with actual values from argume
 
 ### Phase 6: Retrieve results
 
+**Gate:** only enter this phase once the Phase 5 poll reached the **Success** state (`Done.` is the log's final line, no traceback). Phase 5 now launches detached, so a premature tar would ship a partial or empty archive and Phase 7 would then destroy the pod mid-run. As a cross-check, confirm the JSON count matches the input count before tarring: `ls /workspace/transcripts/*.json | wc -l`.
+
 ```bash
 # On pod:
 cd /workspace && tar czf transcripts.tar.gz transcripts/
@@ -570,7 +595,16 @@ printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
 
 Diarisation labels are just `SPEAKER_00`, `SPEAKER_01`, etc. — which physical human each cluster corresponds to has to be inferred. The default pipeline uses "first appearance in time" which breaks when the user isn't the first to speak. A pre-computed voice embedding for each known recurring speaker lets the pipeline match clusters to names deterministically.
 
-**Where reference files live:** Search the vault for a `voice-references/` directory: `find "$VAULT_PATH" -type d -name voice-references 2>/dev/null`. Store `.m4a` or `.wav` files there — one per known speaker. Filename stem (e.g. `alice`) is used as the speaker name in the transcript.
+**Where reference files live:** the default location is `$VAULT_PATH/voice-references` — set the `VOICE_REF_DIR` env var to point elsewhere (e.g. a sub-area of the vault). Store `.m4a` or `.wav` files there — one per known speaker; the filename stem (e.g. `alice`) becomes the speaker name in the transcript. **Resolve the directory with this block — do not skip it, and do not improvise a full-vault `find` (slow over a large vault):**
+
+```bash
+VAULT_PATH="${VAULT_PATH:-$HOME/Files}"                                    # env var may be unset in a fresh shell
+ref_dir="${VOICE_REF_DIR:-$VAULT_PATH/voice-references}"                   # default; override VOICE_REF_DIR to relocate — no walk
+[ -d "$ref_dir" ] || ref_dir=$(find "$VAULT_PATH" -maxdepth 5 -type d -name voice-references 2>/dev/null | head -1)  # fallback if not at the default
+{ [ -n "$ref_dir" ] && [ -d "$ref_dir" ]; } && echo "voice refs: $ref_dir" || echo "no voice references found — speaker names will degrade to Speaker N"
+```
+
+Pass the resolved `$ref_dir` to Phase 8. If it comes back empty, that is the expected "no references" path — proceed with `Speaker N` labels, don't error.
 
 **Capture spec:** 20–30s of clean solo speech from each known speaker. Natural conversational register (not reading aloud — reading voice differs meaningfully). No background music, no second speaker bleed-through, no heavy compression. A phone voice-memo .m4a is fine.
 
@@ -675,8 +709,10 @@ def assign_names(cluster_embeddings, ref_embeddings, span_durations=None,
 # 1. Load transcript JSON
 # 2. embs = data.get("cluster_embeddings", {})
 # 3. durs = data.get("cluster_span_durations", {})
-# 4. ref_dir = subprocess.check_output("find '$VAULT_PATH' -type d -name voice-references", shell=True).decode().strip()
-#    refs = load_reference_embeddings(ref_dir)  # returns {} if dir not found
+# 4. vault = os.environ.get("VAULT_PATH") or os.path.expanduser("~/Files")
+#    ref_dir = os.environ.get("VOICE_REF_DIR") or os.path.join(vault, "voice-references")  # pass through from the resolver above
+#    refs = load_reference_embeddings(ref_dir) if os.path.isdir(ref_dir) else {}  # {} → degrade to Speaker N
+#    NB: do NOT shell out to `find '$VAULT_PATH' ...` — single quotes pass the var literally and the find finds nothing.
 # 5. assignments = assign_names(embs, refs, span_durations=durs)
 # 6. When rendering markdown: if assignments[raw_speaker][0] is set AND flag == "ok",
 #    use the name; otherwise fall back to Speaker N (first-appearance order) and
