@@ -25,9 +25,8 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"` (for session file naming)
-   - Get current time with seconds: `LC_TIME=C date +"%I:%M:%S%p" | tr '[:upper:]' '[:lower:]'` (for session timestamp; `LC_TIME=C` guards `%p`, which expands empty under many non-English locales)
+   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (for session timestamp; `LC_TIME=C` guards `%p`, which expands empty under many non-English locales)
    - Store these for use in metadata and file paths
-   - Note: Including seconds prevents session numbering collisions if multiple sessions park in the same minute
 
 2. **Check for merge-continuation** before creating a new session:
    - Determine from context whether this is a direct continuation of a recently parked session (same task, just finishing a loose end). Indicators: `/pickup` loaded a specific session, topic is identical, work is completing an open loop from that session. (Note: `/audit` no longer produces a separate canonical merge case — audit runs inline as Step 14 of the prior park, with any remediation merged in the same response. A *manual* `/audit` invoked after the park has fully finished can still trigger this merge path.) If the remediation is large, see the merge-size escape hatch below before treating it as canonical. Only ask the user if genuinely ambiguous.
@@ -200,7 +199,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **Appending to existing file:**
    ```bash
-   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "TOPIC" "HH:MM:SSam/pm"
+   cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "TOPIC" "HH:MMam/pm"
    ### Summary
 
    [Session body — no `## Session N` heading; the script prepends it.]
