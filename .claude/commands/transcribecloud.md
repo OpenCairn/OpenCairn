@@ -309,13 +309,14 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
 **Poll protocol.** The launch returns immediately — the batch is still running. Re-run the poll below every ~60–90s; the `sleep` runs *inside* the SSH call, so the Bash tool blocks for the interval (this is the wait mechanism — do not busy-loop back-to-back):
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; tail -n 80 /workspace/transcribe.log'
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/transcribe.log; tail -n 80 /workspace/transcribe.log'
 ```
 
-Classify each poll into a terminal state — **do not proceed to Phase 6 until you reach Success:**
+The leading `wc -l` is the line count — compare it across consecutive polls to tell a *running* log (advancing) from a *dead* one (frozen). Classify each poll — **do not proceed to Phase 6 until you reach Success:**
 - **Success** — the log's final line is `Done.` → continue to Phase 6.
-- **Failure** — the log contains `Traceback (most recent call last)` (any unhandled crash) or a standalone `Killed` (OOM) → stop; diagnose from the log, do not retrieve. Match these specific markers, **not** a bare `Error` / `None` substring — benign library output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs the crash is an `AssertionError`; if its traceback mentions a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the same failure the Phase 3 note warns is easy to miss under `nohup`).
-- **Still running** — neither marker present → keep polling. Give up after `max(30 min, ~2× the Phase 1 runtime estimate)`; past that, pull the whole log (`tail -n 200`) and diagnose rather than waiting indefinitely.
+- **Failure (crash)** — the log contains `Traceback (most recent call last)` → an unhandled exception (includes the diarisation `AssertionError`); stop, diagnose, don't retrieve. Match this specific marker, **not** a bare `Error` / `None` substring — benign output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs, if the traceback names a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the failure the Phase 3 note warns is easy to miss under `nohup`).
+- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. Treat a stalled line count as died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
+- **Still running** — line count is **still advancing**, no `Done.` → keep polling. Hard ceiling `max(30 min, ~2× the Phase 1 runtime estimate)` as a final backstop.
 
 The script itself:
 
