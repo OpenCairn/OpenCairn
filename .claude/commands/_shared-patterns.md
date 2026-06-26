@@ -29,7 +29,6 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
 - **Published-transcript-first** — prefer ready-made human-edited transcript over re-running ASR. → `transcribe` Phase 0
-- **Launch-dir cd before cwd-keyed scripts** — cd to launch dir, never `pwd`; fail closed. → `park` Step 16
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Grep with path exclusion** — exclusion via find/rg/pipe, never grep flags. → `park` Step 12(d), `weekly-hygiene` Step 12
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
@@ -40,4 +39,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
 - **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
-- **Transcript export is date-canonical → always `--all-projects`** — the `YYYY-MM-DD.md` transcript is one-per-day and overwritten wholesale; a single-project export silently drops other projects' same-day sessions (and provenance then hashes the loss). → `morning` 2a.h, `goodnight` Step 16, `park` Step 16, `weekly-hygiene` (provenance)
+- **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
