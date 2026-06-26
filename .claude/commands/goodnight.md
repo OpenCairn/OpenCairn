@@ -369,9 +369,10 @@ You cannot proceed to Step 16 without all six. If you find yourself walking the 
 Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
 
 ```bash
-cd "<session launch directory>" || exit 1   # load-bearing: script keys session discovery on cwd; persistent-shell cd drift would otherwise export the wrong project. Launch dir = the static working directory in your environment context, NOT pwd. Script now fails closed if no project matches and prints `Session directory: <path>` — confirm it names the expected project
-python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1
+python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 1 --all-projects
 ```
+
+**Use `--all-projects` (cwd-independent).** The transcript file is date-canonical (one `YYYY-MM-DD.md` per day) and the script overwrites it wholesale. A single-project export (the old `cd <launch dir>` + cwd-keyed default) regenerates that file from only the launch project's sessions, silently dropping any same-day sessions from *other* project directories — so on a multi-project day Step 17 would then hash an incomplete transcript as if it were the final daily record. `--all-projects` sweeps every project and merges the day, so it's complete and cwd-independent (no `cd` needed; do NOT use `--fallback-any-project`).
 
 **Re-export unconditionally, even if /park already exported today.** The script regenerates the whole day file in <1 second, and Step 17 hashes the transcript as *final* — a skip-if-exists here would OTS-stamp a file missing everything since the last park, unconditionally including this goodnight conversation itself.
 

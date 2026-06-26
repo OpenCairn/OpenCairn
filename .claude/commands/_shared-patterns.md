@@ -40,3 +40,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
 - **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
+- **Transcript export is date-canonical → always `--all-projects`** — the `YYYY-MM-DD.md` transcript is one-per-day and overwritten wholesale; a single-project export silently drops other projects' same-day sessions (and provenance then hashes the loss). → `morning` 2a.h, `goodnight` Step 16, `park` Step 16, `weekly-hygiene` (provenance)
