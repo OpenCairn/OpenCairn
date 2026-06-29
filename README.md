@@ -280,6 +280,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
 | `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
+| `/map-day` | Turns a day's itinerary (a This Week date, or a pasted list of places) into a phone-glanceable Organic Maps KML plus a tight markdown day-sheet. Geocodes each stop via OSM, orders them around fixed-time anchors, and emits numbered pins + a route line. Offline-first; works in or out of China. |
 
 **Audit & provenance:**
 
