@@ -240,7 +240,11 @@ This procedure keeps the rolling 7-day window current. It runs during `/morning`
 Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
 
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
-2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, delete the heading and all content until the next `## ` heading.
+2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, it becomes eligible for deletion — but **sweep before deleting**. Grep the section body for unchecked items first:
+   ```bash
+   grep -nE '^[[:space:]]*-[[:space:]]*\[ \]' <section body>
+   ```
+   Route every match forward before removing the section — into today's section (or the relevant future day / Tickler, per the caller's routing rules), preserving existing project/area links. **Only after the sweep**, delete the heading and all content until the next `## ` heading. Normally `/goodnight` has already routed undone items nightly, so eligible sections are clean and the grep returns nothing — but across a multi-day gap where `/goodnight` never ran (travel, offline), a trimmed day can still hold live `- [ ]` tasks, and deleting without the sweep silently drops them. Completed (`[x]`) items need no sweep — they're archived in the Daily Report.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 
 ### Extend the window
