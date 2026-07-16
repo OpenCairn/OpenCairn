@@ -1,6 +1,6 @@
 ---
 name: regroup
-description: Alias for /afternoon - mid-day recalibration
+description: Alias for /afternoon
 ---
 
 /afternoon
