@@ -221,8 +221,6 @@ Drop a `landscape-profiles/<topic>.md` file defining the seven profile keys (`On
 
 ## Integration with Other Commands
 
-*These are intended complements; the cross-references are not yet wired into the consumer skills.*
-
-- **/quarterly-review:** quarterly's strategic-alignment step would benefit from accumulated landscape findings.
-- **/weekly-review:** weekly is internal (vault health, progress); landscape-scan is external.
-- **The `cybersec` profile and an internal security-audit pass:** the audit is internal posture (what's misconfigured on the machine *now*); the cybersec scan is external threat intel (what got disclosed that touches the stack). Neither subsumes the other.
+- **/quarterly-review:** quarterly's strategic-alignment step would benefit from accumulated landscape findings. *(Intended complement — not yet wired into that skill.)*
+- **/weekly-review:** weekly is internal (vault health, progress); landscape-scan is external. *(Intended complement — not yet wired into that skill.)*
+- **The `cybersec` profile and an internal security-audit skill:** the audit is internal posture (what's misconfigured on the machine *now*); the cybersec scan is external threat intel (what got disclosed that touches the stack). Neither subsumes the other. The template ships no security-audit skill — if you run one, wire the pair by having both read the same stack-inventory doc (the one the cybersec profile's `Contextualising reads` names).
