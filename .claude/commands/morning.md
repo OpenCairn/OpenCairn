@@ -160,7 +160,18 @@ Read and present:
   ls -1t "{VAULT}/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | head -1
   ls -1t "{VAULT}/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | head -1
   ```
-  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md`. Don't convert filenames to dates by internal arithmetic (the date-mapping class LLMs are unreliable at) — key staleness on the newest file's mtime instead: elapsed days = (`date +%s` − `stat -c %Y <file>`) / 86400 (GNU; BSD/macOS: `stat -f %m`). Flag if weekly review is >10 days old or quarterly review is >100 days old. Show each overdue review individually — don't mention reviews that are current. If a review directory is empty or missing, skip that review type entirely (don't flag a cadence the user hasn't started).
+  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md`. **Date the review from its own header, and compute the elapsed days in bash.** Two wrong sources to avoid:
+
+  - **Not the filename**, via internal arithmetic — the date-mapping class LLMs are unreliable at.
+  - **Not the file's mtime.** Any later touch resets it — an audit remediation, a sync write, a hygiene pass, an editor opening the file — so a review edited after the fact reads as *fresher than it was run*. The error is asymmetric in the dangerous direction: it makes an overdue review look current, which is the exact failure this check exists to catch.
+
+  Instead, read the newest file's header (reviews open with their coverage range) and take the **end** of that range as the run date. Then:
+  ```bash
+  echo $(( ( $(date +%s) - $(date -d "YYYY-MM-DD" +%s) ) / 86400 ))   # substitute the header's range-end date
+  ```
+  **⛔ State the elapsed days explicitly in your response** before drawing any staleness conclusion — "last run <date>, N days ago" is the checkable output; a bare "current" / "overdue" verdict with no number on the page means the check was done from impression, not evidence. If the header carries no usable date, say so and skip the flag rather than falling back to mtime.
+
+  Flag if weekly review is >10 days old or quarterly review is >100 days old. Show each overdue review individually — don't mention reviews that are current. If a review directory is empty or missing, skip that review type entirely (don't flag a cadence the user hasn't started).
 
 Present concisely:
 ```

@@ -49,16 +49,16 @@ Zero reconstruction. Instant flow.
 
 ## Two Ways to Use This
 
-**Grab the portable skills.** `/audit`, `/second-opinion`, and `/thinking-partner` work in *any* Claude Code project — no vault, no folder structure. Install them as a plugin:
+**Grab the portable skills.** `/audit`, `/second-opinion`, `/thinking-partner`, and `/shop` work in *any* Claude Code project — no vault, no folder structure. Install them as a plugin:
 
 ```bash
 /plugin marketplace add OpenCairn/OpenCairn
 /plugin install opencairn@opencairn
 ```
 
-`/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. None of them need a vault.
+`/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. `/shop` is purchase decision support — it clarifies what you actually need and why before researching candidates. None of them need a vault.
 
-**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the three above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
+**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the four above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
 
 **Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
@@ -197,7 +197,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 /plugin install opencairn@opencairn
 ```
 
-This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, and `/thinking-partner`, plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
+This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, and `/shop`, plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
 ---
 
@@ -206,7 +206,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 
 **Daily rhythm:**
 
@@ -260,6 +260,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
 | `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. |
+| `/shop` | Purchase decision support. Clarifies what you actually need and why (open probing + a structured quiz), then researches current candidates and recommends — "don't buy" is a valid verdict. Args: optional item (e.g. `/shop standing desk`), `--quick` for low-stakes buys. |
 | `/landscape-scan` | Topic-parameterised scan + digest of curated sources (and/or a supplied URL pile). Default topic is the AI / Claude Code / PKM landscape, assessed against your current workflow; pass a topic (e.g. `cybersec`) to run a different profile. Run weekly or as needed. |
 
 **Prioritisation:**
