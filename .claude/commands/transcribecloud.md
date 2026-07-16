@@ -66,10 +66,10 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
 
 ### Phase 1.5: Published-transcript check (single-source runs only)
 
-A cloud run **costs money**, so the bar to spend pod time is *lower* than for local `/transcribe`: a free human-edited published transcript should win even more decisively here. Run this check after scoping (so single-vs-batch is known) and **before** provisioning a pod.
+A cloud run **costs money**, so the bar to spend pod time is *higher* than for local `/transcribe`: a free human-edited published transcript should win even more decisively here. Run this check after scoping (so single-vs-batch is known) and **before** provisioning a pod.
 
 **Gate — skip this phase entirely unless ALL of the following hold:**
-- The job is a **single source** — exactly one YouTube video (not a playlist) or one named podcast/talk episode. Skip for batches (5+ files), directories, playlists, or `mixed` sources — a per-file published check doesn't fit a batch and isn't worth the latency.
+- The job is a **single source** — exactly one YouTube video (not a playlist) or one named podcast/talk episode. Skip for multi-file jobs, directories, playlists, or `mixed` sources — a per-file published check doesn't fit a batch and isn't worth the latency.
 - `--no-published` was **not** passed.
 - The source has a plausible online origin (YouTube URL, or a podcast episode the user named/linked). Skip for opaque local files with no obvious published page.
 
@@ -118,7 +118,7 @@ Boot timing: pods typically ready in 1–3 min (community or secure). If SSH tim
 
 #### Diagnosing SSH failures
 
-Connection-timeout symptoms are ambiguous — the same error can mean (a) sshd hasn't bound yet (wait), (b) network routing to this datacenter is filtered from your client (switch approach), or (c) pod is genuinely stuck (delete and retry). Don't skip to (c) — today's session burned ~25 min deleting pods for what turned out to be (b).
+Connection-timeout symptoms are ambiguous — the same error can mean (a) sshd hasn't bound yet (wait), (b) network routing to this datacenter is filtered from your client (switch approach), or (c) pod is genuinely stuck (delete and retry). Don't skip to (c) — one real session burned ~25 min deleting pods for what turned out to be (b).
 
 **Decision tree when SSH to direct TCP times out:**
 
@@ -135,7 +135,7 @@ Connection-timeout symptoms are ambiguous — the same error can mean (a) sshd h
    ```bash
    ping -c 3 -W 5 <POD_IP>
    ```
-   - **Ping works but SSH port times out** → most likely sshd inside container hasn't bound yet. Wait up to **8 min** from `createdAt`. If still failing past that threshold, sshd inside the container is not binding — unverified whether this is a per-host issue (retry same config may work) or a template issue (switch templates). Today's session saw this fail 3× across US-TX/Czech/India on `runpod-torch-v240`, so if it persists across two retries, switch templates rather than continuing to burn pod time.
+   - **Ping works but SSH port times out** → most likely sshd inside container hasn't bound yet. Wait up to **8 min** from `createdAt`. If still failing past that threshold, sshd inside the container is not binding — unverified whether this is a per-host issue (retry same config may work) or a template issue (switch templates). One real session saw this fail 3× across US-TX/Czech/India on `runpod-torch-v240`, so if it persists across two retries, switch templates rather than continuing to burn pod time.
    - **Ping also fails (100% packet loss)** → datacenter IP range is filtered from your network (common on GFW-restricted networks for US/EU subnets; Asia-Pacific and India datacenters tend to be reachable). Do not delete and retry in the same region — the whole subnet is blocked. Options:
      - Delete and recreate in a different datacenter via `--data-center-ids "AP-IN-1"` (or another reachable region per `runpodctl datacenter list`).
      - Switch to proxy SSH — ask user for `PODID-HASH@ssh.runpod.io` line from web UI (proxy routes through the `ssh.runpod.io` endpoint, bypassing the per-datacenter subnet filter).
@@ -182,7 +182,7 @@ pip install -q 'ctranslate2>=4.5.0'
 
    **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) but not on disk: `ssh ... 'mkdir -p /root/.cache/huggingface && echo -n "$HF_TOKEN" > /root/.cache/huggingface/token'` — but ensure the env var is exported on the local side, not just on the pod.
 
-   **One-time per HF account:** also visit https://hf.co/pyannote/speaker-diarization-3.1 once and click "Accept" on the user-conditions page. The token grants auth; the click grants the gating agreement. Without the click, the same token returns 403 and the pipeline silently becomes `None`.
+   **One-time per HF account:** also visit https://hf.co/pyannote/speaker-diarization-3.1 (and its gated dependency https://hf.co/pyannote/segmentation-3.0 — see `/transcribe`'s prerequisites) once and click "Accept" on each user-conditions page. The token grants auth; the click grants the gating agreement. Without the click, the same token returns 403 and the pipeline silently becomes `None`.
 
 3. **Set runtime environment:**
 ```bash
@@ -528,7 +528,7 @@ For each JSON transcript file:
 
 1. **Parse segments.**
 
-2. **Format transcript text:**
+2. **Format transcript text** (deliberately duplicated from `/transcribe` Phase 3 step 2, plus cloud-only additions — update both together if the rules change):
 
    **Without diarisation:** Insert paragraph break wherever gap between segments exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp (`[MM:SS]` for <1hr, `[H:MM:SS]` for ≥1hr) derived from the first segment's `start`.
 
@@ -764,7 +764,7 @@ First real-use of the untested pieces will likely surface minor issues — trust
 - **`runpodctl pod create` flag syntax:** deprecated `--gpuType`/`--gpuCount`/`--imageName`/`--containerDiskSize`/`--volumeSize`/`--startSSH`/`--communityCloud`/`--cost` have been replaced by `--gpu-id`/`--gpu-count`/`--image`/`--container-disk-in-gb`/`--volume-in-gb`/`--ssh`/`--cloud-type COMMUNITY|SECURE`. Old syntax will error with "unknown flag". `--cost` has no new-syntax equivalent.
 - **yt-dlp `-x` is not format-selection:** `-x --audio-format mp3` extracts audio but does not constrain the download — yt-dlp will often pick the best video stream (1+ GB) and strip audio from it. Always pair with `-f "bestaudio[ext=m4a]/bestaudio"` to download audio-only.
 - **YouTube anti-bot on batches:** >5 sequential URLs from one IP will trigger "Sign in to confirm you're not a bot." Use `--cookies-from-browser <browser>` and `--sleep-interval N` to mitigate. Match the proxy the cookies were issued through if the browser is behind one.
-- **GPU stock is volatile:** A4000 is often out of stock despite being the skill's historical default. Always `runpodctl gpu list` first and pick from the priority tier (A4000 → RTX 3090 → RTX 4090 → A5000 → L40S). Unreachable datacenter IPs (common from GFW-restricted networks) are a separate failure mode — check `ssh.runpod.io` reachability as a fallback signal.
+- **GPU stock is volatile:** A4000 is often out of stock despite being the skill's historical default. Always `runpodctl gpu list` first and pick from the priority tier (A4000 → RTX 3090 → A5000 → RTX 4090 → L40S; Phase 1 step 5 is canonical). Unreachable datacenter IPs (common from GFW-restricted networks) are a separate failure mode — check `ssh.runpod.io` reachability as a fallback signal.
 - **Community-cloud allocation can stall:** if `uptimeSeconds` stays 0 for >5 min with `desiredStatus: RUNNING`, the pod is stuck in an allocation queue. Delete and retry on secure cloud (more expensive but provisions immediately). Don't burn >10 min on a stuck pod.
 - **WhisperX install order is critical:** `--no-deps` prevents torch breakage. The torch reinstall after pyannote-audio is mandatory — pyannote-audio pulls a newer torch that breaks CUDA on the cu124-based pod image, so the final `pip install torch==2.4.1 --force-reinstall` restores the matching build.
 - **yt-dlp on pod vs local:** For YouTube URLs, always download directly on the pod — datacenter bandwidth is faster and eliminates the transfer step. Only use local download + `runpodctl send` for files that are already on disk.

@@ -48,7 +48,7 @@ A human-edited published transcript (podcast show site, Substack, official trans
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity, human-edited; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler.
    2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — it is already human-edited). Write **only the metadata header** with the editor (Phase 3 step 7's header block), then **append the body straight from the file** — `printf '\n' >> "<note>.md" && cat "<BODY_FILE>" >> "<note>.md"` (`_shared-rules.md` §14). Do **not** use step 7's `{formatted transcript text}` staging block — that is for the in-context WhisperX output; here the body is a file and must never enter context. Don't `Edit` the note afterward; spot-check `head`/`tail` to confirm boundaries. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — it is already human-edited). **First confirm where to save** — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then write **only the metadata header** with the editor (Phase 3 step 7's header block), then **append the body straight from the file** — `printf '\n' >> "<note>.md" && cat "<BODY_FILE>" >> "<note>.md"` (`_shared-rules.md` §14). Do **not** use step 7's `{formatted transcript text}` staging block — that is for the in-context WhisperX output; here the body is a file and must never enter context. Don't `Edit` the note afterward; spot-check `head`/`tail` to confirm boundaries. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
    - **Model:** `published transcript (human-edited)`
    - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
@@ -255,7 +255,7 @@ Replace the placeholder variables with actual values.
 - GPU (CUDA) is used automatically if available; falls back to CPU with int8 quantisation.
 - Models are cached after first download (~1.5GB for distil-large-v3, ~2-4GB for pyannote diarisation models).
 - On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.
-- On GPU: transcription is near-instant; diarisation adds ~20-30 min per hour of audio.
+- On GPU: transcription is near-instant; diarisation is also fast — an earlier ~20–30 min/hr claim was empirically disproven (a 46-min recording diarised in ~20s on a cloud RTX 4090; see `/transcribecloud` Notes).
 - Diarisation accuracy is best with 2-3 speakers in clear audio. Specify `--speakers N` when you know the count.
 
 ## Skill Monitor
