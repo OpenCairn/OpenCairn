@@ -11,6 +11,7 @@
 <p align="center"><em>Park. Pickup. Flow.</em></p>
 
 <p align="center">
+  <a href="https://github.com/OpenCairn/OpenCairn/releases/latest"><img src="https://img.shields.io/github/v/release/OpenCairn/OpenCairn?style=for-the-badge" alt="Latest release"></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
   <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
@@ -187,6 +188,8 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 **Staying current:** Run `/update` periodically to pull the latest skills and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
 
+**Signed releases:** Release tags from `v0.7.13` onward are SSH-signed annotated tags. If you pin to a release rather than tracking `main`, you can verify a tag's signature with `git verify-tag <tag>` after adding the maintainer's signing key to your `gpg.ssh.allowedSignersFile`. Earlier tags (`v0.7.12` and before) are lightweight and won't verify.
+
 **Install just the skills (optional):** OpenCairn is also a Claude Code plugin marketplace, so you can pull the skills into any project without cloning the vault:
 
 ```bash
@@ -203,7 +206,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, plus the media utilities `/ocr`, `/transcribe`, `/podcast-digest`. Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 
 **Daily rhythm:**
 
