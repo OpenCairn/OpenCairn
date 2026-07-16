@@ -40,6 +40,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Collision filenames take letter suffixes** — letters sort after bare name; `-N` sorts before. → `weekly-review` Step 5, `quarterly-review` Step 10
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `park` Step 8a
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
+- **Weekday via `date -d`, never internal mapping** — verify weekday+date pairs before writing. → `park` Step 11, `guillotines` Step 3
 - **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
