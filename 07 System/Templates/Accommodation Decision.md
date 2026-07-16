@@ -62,7 +62,7 @@
 
 - **Location:** [Specific address details, transit/walking distances, neighbourhood vibe]
 - **Rating:** [Review stars + review count]
-- **Price:** [Live-verified rate + channel + cancellation policy + breakfast inclusion]
+- **Price:** [User-verified live rate + channel + cancellation policy + breakfast inclusion]
 - **Room:** [Category, sqm, bed type, view]
 - **Distinctive features:** [Recent renovation, build quality, brand standard, recent review excerpt]
 - **Pros:** [Bullet]
