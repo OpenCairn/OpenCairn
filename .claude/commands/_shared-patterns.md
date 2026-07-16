@@ -44,3 +44,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
+- **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `weekly-hygiene` Steps 2-3, `morning` Step 3
