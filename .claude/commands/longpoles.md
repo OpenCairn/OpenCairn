@@ -9,6 +9,14 @@ You are scanning the vault for items tagged with `[LP]` — longpole items that 
 
 ## Instructions
 
+### 0. Resolve the Vault Path
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+```
+
+If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path.
+
 ### 1. Scan the Vault
 
 Use the Grep tool to find all `[LP]` references across `{VAULT}`:
@@ -16,7 +24,7 @@ Use the Grep tool to find all `[LP]` references across `{VAULT}`:
 - Search pattern: `\[LP\]`
 - Search path: `{VAULT}`
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
-- Exclude `06 Archive/` — archived items aren't actionable
+- Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 
 ### 2. Group by File
 
@@ -26,6 +34,8 @@ Use the Grep tool to find all `[LP]` references across `{VAULT}`:
    - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status
 
 ### 3. Present Summary
+
+Run `date +%Y-%m-%d` for the Scanned date — never infer it.
 
 ```markdown
 ## Longpoles

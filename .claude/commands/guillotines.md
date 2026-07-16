@@ -9,6 +9,14 @@ You are scanning the vault for items tagged `[GT]` — *guillotine* items: tasks
 
 ## Instructions
 
+### 0. Resolve the Vault Path
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+```
+
+If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path.
+
 ### 1. Establish "today"
 
 Run `date +%Y-%m-%d` first so you can compute days-remaining accurately. Never infer today's date.
@@ -20,14 +28,14 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 - Search pattern: `\[GT\]`
 - Search path: `{VAULT}`
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
-- Exclude `06 Archive/` — archived items aren't actionable
+- Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 
 ### 3. Extract the Deadline for Each Item
 
 For every `[GT]` hit, pull the hard date from the item text (e.g. "expires 30 Sep 2026", "by 1 Jul", "due 2026-09-30"):
 
 - If a date is present, compute days remaining from today. Verify any ambiguous or weekday-bearing date with `date -d "<date>"` rather than trusting internal computation.
-- **Bare dates with no year** (e.g. "by 1 Jul") resolve to the *next* occurrence: if that date in the current year is already past, assume next year. Echo the resolved absolute date in the output so a mis-parse is visible.
+- **Bare dates with no year** (e.g. "by 1 Jul") resolve to the *next* occurrence: if that date in the current year is already past, assume next year. Exception: if the current-year date passed *recently* (within ~90 days), the item may be overdue rather than 9+ months out — flag it as ambiguous instead of silently assuming next year. Echo the resolved absolute date in the output so a mis-parse is visible.
 - If **no** date is present, the item is mis-tagged — a guillotine without a deadline is just a task. Surface it separately under "Undated" for correction.
 
 ### 4. Sort and Flag

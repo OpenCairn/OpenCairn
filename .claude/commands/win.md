@@ -44,7 +44,7 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
 ### Phase 3: Write to Wins Log
 
 5. **Resolve paths and date:**
-   - VAULT_PATH is available from environment
+   - Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` — if it errors, abort (no vault accessible; don't fall back to a guessed path). Substitute the resolved path wherever `{VAULT}` appears below
    - Wins log: `{VAULT}/07 System/Claude Wins Log.md`
    - Get date: `date +"%Y-%m-%d"`
 
