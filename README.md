@@ -49,16 +49,16 @@ Zero reconstruction. Instant flow.
 
 ## Two Ways to Use This
 
-**Grab the portable skills.** `/audit`, `/second-opinion`, `/thinking-partner`, and `/shop` work in *any* Claude Code project — no vault, no folder structure. Install them as a plugin:
+**Grab the portable skills.** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` work in *any* Claude Code project — no vault, no folder structure (`/shop` and `/book-stay` each keep a couple of vault-only extras — a tickler backstop, the post-booking fan-out — that switch off gracefully without one). Install them as a plugin:
 
 ```bash
 /plugin marketplace add OpenCairn/OpenCairn
 /plugin install opencairn@opencairn
 ```
 
-`/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. `/shop` is purchase decision support — it clarifies what you actually need and why before researching candidates. None of them need a vault.
+`/audit` runs a rigorous five-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex), so you catch what a single model rationalises away. `/second-opinion` brings those same three models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. `/shop` is purchase decision support — it clarifies what you actually need and why before researching candidates. `/book-stay` is its hotel-booking sibling — preference quiz, region-aware research, user-verified shortlist, booking handoff. None of them need a vault.
 
-**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the four above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
+**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the five above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
 
 **Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
@@ -197,7 +197,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 /plugin install opencairn@opencairn
 ```
 
-This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, and `/shop`, plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
+This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
 ---
 
@@ -206,7 +206,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 
 **Daily rhythm:**
 
