@@ -152,7 +152,7 @@ Read and present:
 - **Time-sensitive items:** Scan WIP and recent sessions for deadlines, urgencies
 - **Working Memory status:** Check `{VAULT}/01 Now/Working memory.md` (skip if file doesn't exist). Count unchecked items (`- [ ]`) and total lines. If unchecked count > 30 or total lines > 300, flag in landscape output:
   ```
-  **⚠️ Working Memory overflow** — [N] unchecked items, [L] lines. Consider `/inbox-processor` or manual triage.
+  **⚠️ Working Memory overflow** — [N] unchecked items, [L] lines. Consider a triage pass (a Working-Memory processing skill if you have one; `/inbox-processor` only covers `02 Inbox/`, not this file).
   ```
   Also check for a "Completed" or "Likely Stale" section — if it has unchecked items, note the count: `[N] items flagged for deletion — confirm during this session?`
 - **Review staleness:** Check when the last weekly review and quarterly review were run:

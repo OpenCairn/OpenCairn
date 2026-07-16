@@ -5,7 +5,7 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
-You are helping the user process his inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
+You are helping the user process their inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
 
@@ -41,8 +41,8 @@ For each item, determine the appropriate home using NIPARAS logic:
 
 **Additional routing rules:**
 - Session notes → `06 Archive/Claude/Session Logs/`
-- Daily reflections → `06 Archive/Daily Reviews/`
-- Blog drafts → `03 Projects/Blog-Sites/blog/content/posts/`
+- Daily reflections (user-authored) → `06 Archive/Daily Reviews/` (create if missing; deliberately distinct from `06 Archive/Claude/Daily Reports/`, which is /goodnight's machine-generated day index — never file user prose there)
+- Blog drafts → the blog's own project or area folder (its drafts/content directory if it's a static site)
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project
 - Article clippings → `05 Resources/[Topic]/` or relevant project
@@ -56,6 +56,7 @@ Show the user the proposed categorisation:
 
 1. **[filename]**
    → `[destination path]`
+   Rename: [proposed new filename, only if renaming — renames happen only when shown here and approved]
    Reason: [Why this destination is appropriate]
 
 ...
@@ -64,12 +65,15 @@ Proceed with this plan? (yes/no/modify)
 ```
 
 4. **Execute moves** (after confirmation):
-   - Move files to their new locations
+   - Move files to their new locations. For markdown notes that may have inbound links, use a link-healing move (Obsidian's move) rather than raw `mv` — raw `mv` leaves inbound links dangling. Fresh captures usually have none; raw `mv` is fine for files verified link-free.
    - Create necessary folders if they don't exist
-   - Update any relevant index files (project pages, hub files, etc.)
-   - Rename files for clarity if needed (add dates, context)
+   - Update any relevant index files (project pages, hub files, etc.) — hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool
+   - Apply only the renames approved in the Step 3 plan
+   - When adding an item to `01 Now/Working memory.md`, respect the file's existing structure — if it has a fresh-capture zone at the top, append there, not at EOF (items appended below a backlog section are invisible to downstream Working Memory processing)
 
 5. **Verify and confirm:**
+
+Re-list `{VAULT}/02 Inbox/` before reporting — only claim "Inbox is now empty" if the listing confirms it; otherwise report the count of items deliberately left (deferred/uncertain).
 
 ```
 ✓ Processed 7 items from inbox
