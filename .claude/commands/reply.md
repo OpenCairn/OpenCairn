@@ -72,7 +72,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    - Opinions or preferences the user explicitly stated in their drafting instructions
    - Future intentions ("I'll look into it") — these are commitments, not claims about the past
 
-   **Batch mode:** If the user pastes 3 or more messages to reply to, run the factual claims inventory before drafting any (per voice profile "3+ emails" rule): present what's known to be true, what was researched, and ask the user to confirm which researched facts can be attributed to them. One round-trip, then draft cleanly.
+   **Batch mode:** If the user pastes 3 or more messages to reply to, run the factual claims inventory before drafting any (mirroring the voice profile's batch-drafting rule, if one is defined): present what's known to be true, what was researched, and ask the user to confirm which researched facts can be attributed to them. One round-trip, then draft cleanly.
 
 4. **Voice check (via `/de-ai-ify`)**
 
@@ -86,7 +86,8 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
    **Always write to scratchpad:**
    - Append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium] — [topic]):**`, where `[topic]` is a short discriminator (e.g. "cancel room", "executor ask"). Follow the draft with a `> Context:` (or `> Note:`) blockquote capturing the thread, any CRM wikilinks, and any send caveat.
-   - If re-drafting the same reply (same sender + medium + topic), replace that previous draft section rather than appending a duplicate. A reply to the same person on the same medium about a *different* topic is a separate section — don't overwrite it.
+   - Write via `locked-edit.sh` (`--append` for a new section), not the Edit tool — Scratchpad is a shared surface mutated by multiple skills (`_shared-rules.md` §11 locking applies to all Scratchpad mutations, this write included).
+   - If re-drafting the same reply (same sender + medium + topic), replace that previous draft section (`locked-edit.sh --replace`) rather than appending a duplicate. A reply to the same person on the same medium about a *different* topic is a separate section — don't overwrite it.
 
    **User override:**
    - "Just inline" → don't write to scratchpad
