@@ -9,6 +9,14 @@ Cornerstones are high-value foundational tasks that aren't urgent but compound o
 
 ## Instructions
 
+### 0. Resolve the Vault Path
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+```
+
+If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path.
+
 ### 1. Scan the Vault
 
 Use the Grep tool to find all `[CS]` references across `{VAULT}`:
@@ -16,7 +24,7 @@ Use the Grep tool to find all `[CS]` references across `{VAULT}`:
 - Search pattern: `\[CS\]`
 - Search path: `{VAULT}`
 - Use `output_mode: "content"` with `-C 2` (2 lines of context) so the user can see what surrounds each tag
-- Exclude `06 Archive/` — archived items aren't actionable
+- Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 
 ### 2. Group by File
 
@@ -30,7 +38,7 @@ Organise the results by source file. For each file:
 For each cornerstone, note whether it appears to be:
 - **Open** — no completion marker (`- [ ]` or just a bullet)
 - **Done** — has a completion marker (`- [x]`)
-- **Stalled** — context suggests no recent progress (e.g., same text for weeks, noted as blocked)
+- **Stalled** — context suggests no progress (e.g., explicitly noted as blocked or waiting)
 
 If you can't determine status from the grep context alone, say so — don't guess.
 
@@ -59,7 +67,7 @@ If no `[CS]` tags are found, say so clearly — the user may not have adopted th
 
 - **Speed over completeness:** This is a quick scan, not a deep audit. Present what grep finds.
 - **Don't modify anything.** This is read-only reconnaissance.
-- **Cornerstones vs long poles:** Cornerstones (`[CS]`) are foundational tasks that compound — infrastructure, systems, habits. They differ from long poles (critical-path blockers with deadlines). A task can be both, but the tags serve different purposes.
+- **Cornerstones vs long poles vs guillotines:** Cornerstones (`[CS]`) are foundational tasks that compound — infrastructure, systems, habits. Long poles (`[LP]`, `/longpoles`) are critical-path items that block other work; guillotines (`[GT]`, `/guillotines`) are hard-deadline items. A task can carry more than one tag — they serve different purposes.
 
 ## Skill Monitor
 
