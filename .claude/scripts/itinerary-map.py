@@ -395,7 +395,10 @@ def main():
     for s in spec["stops"]:
         lat, lon, src = resolve_coords(s, region, cache, not args.no_network, bbox)
         if lat is None:
-            unresolved.append(s["name"])
+            # Annotate the cause so the day-sheet's warning gives the right advice
+            # per stop (re-run vs fix query vs geocode on-device), not one blanket line.
+            unresolved.append(s["name"] + (" (network — re-run)" if src == "NETERR"
+                                           else ""))
             hint = ("NETWORK (transient — re-run)" if src == "NETERR"
                     else "UNRESOLVED — supply lat/lon manually")
             sys.stderr.write(f"  ! {hint}: {s['name']}\n")
@@ -418,7 +421,7 @@ def main():
             for s in stops:
                 d = haversine_km(med, (s["lat"], s["lon"]))
                 if s["_src"] != "manual" and d > args.max_spread_km:
-                    unresolved.append(s["name"])
+                    unresolved.append(s["name"] + " (wrong-city outlier — fix query)")
                     sys.stderr.write(
                         f"  ! OUTLIER ({d:.0f} km from the day's median): {s['name']} — "
                         f"likely a same-named place elsewhere; fix the query or supply "

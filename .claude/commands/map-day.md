@@ -88,7 +88,10 @@ Write a JSON file (to scratch) in this shape:
   (`name`/`name:en`/`alt_name`/`official_name`) inside the region's bounding box —
   the venue itself, or an honest zero (`UNRESOLVED`), never a substitute. The match
   is case-sensitive and whole-name: give the name with OSM's capitalisation (for
-  Chinese venues, the native-script name usually matches best).
+  Chinese venues, the native-script name usually matches best). **On a `poi` stop,
+  `query` (if present) is used as that exact whole name** — so omit `query`, or make
+  it the bare venue name with NO district/city suffix (a suffixed query guarantees a
+  false zero). The "as specific as possible" rule above applies to address stops only.
 - `fixed` (HH:MM, zero-padded) only on genuine time-window stops — these keep their
   time order; everything else is slotted by shortest added walking distance. Ordering
   is **distance-only**: it keeps anchors in time order but does *not* verify travel time
