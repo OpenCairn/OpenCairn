@@ -75,11 +75,20 @@ Write a JSON file (to scratch) in this shape:
   "stops": [
     {"name": "Place", "query": "<address or POI>, <district>, <city>",
      "time": "11:00", "fixed": "11:00", "notes": "<one line>"},
+    {"name": "Named Venue", "poi": true, "notes": "no street address known"},
     {"name": "Sparse POI", "lat": 31.24, "lon": 121.49, "notes": "manual coords"}
   ]
 }
 ```
 - `query` should be as specific as the vault allows (street number + district + city).
+- **`"poi": true`** for a stop that is a venue *name* rather than a street address.
+  Nominatim fuzzy-ranks and will confidently substitute a similarly-named place
+  (same-named POI in another city, a different museum in the right city — both
+  observed in the field); `poi` escalates to an Overpass **exact** name-tag match
+  (`name`/`name:en`/`alt_name`/`official_name`) inside the region's bounding box —
+  the venue itself, or an honest zero (`UNRESOLVED`), never a substitute. The match
+  is case-sensitive and whole-name: give the name with OSM's capitalisation (for
+  Chinese venues, the native-script name usually matches best).
 - `fixed` (HH:MM, zero-padded) only on genuine time-window stops — these keep their
   time order; everything else is slotted by shortest added walking distance. Ordering
   is **distance-only**: it keeps anchors in time order but does *not* verify travel time
@@ -87,20 +96,43 @@ Write a JSON file (to scratch) in this shape:
   last-entry; omit it for soft opening-hours where arriving any time later is fine.
 - For a POI you already know OSM lacks (or that geocodes wrong on a dry run), supply
   `lat`/`lon` directly and omit `query` to skip geocoding.
+- **Dry-run probe** (optional, to sanity-check a doubtful query before the full run) —
+  use `--data-urlencode` so spaces, quotes, `&` and CJK in the place name are encoded
+  correctly (hand-building the URL is exactly how the query silently truncates):
+  ```
+  curl -sG "https://nominatim.openstreetmap.org/search" \
+      --data-urlencode "q=<place>, <city>" \
+      --data-urlencode "format=json" --data-urlencode "limit=3" \
+      -A "OpenCairn-itinerary-map/1.0 (+https://github.com/OpenCairn/OpenCairn)" \
+    | python3 -m json.tool
+  ```
+  Read the `display_name` of each hit — is it the right place in the right city?
 
 ### Phase 3: Run the script
 ```
 python3 "$VAULT_PATH/.claude/scripts/itinerary-map.py" <input.json> \
     --outdir "<trip folder>/Maps"
 ```
+- Optional flags: `--keep-order` emits stops in input order (skips the
+  cheapest-insertion route optimisation — use when the user has already fixed the
+  order); `--max-spread-km <km>` tunes the wrong-city guard (default 50; `0` disables
+  it, e.g. for a genuine multi-city day).
 - Output folder: a `Maps/` subfolder of the relevant trip, so artefacts live with the
   trip and sync with the vault. Create it if absent. If the day has no obvious trip folder
   (a pasted list, a home-city day), **ask the user where to save** rather than guessing.
 - **Check the run output:** `UNRESOLVED` = a genuine OSM miss → fix the `query` and
-  re-run, or supply manual `lat`/`lon`; `NETWORK` = a transient failure → just re-run.
+  re-run, or supply manual `lat`/`lon`; `NETWORK` = a transient failure → just re-run;
+  `OUTLIER` = the stop geocoded far from the day's median position (a same-named place
+  in another city resolves cleanly and would otherwise be a silently-wrong pin) — it is
+  dropped from the map, so fix the `query`, mark it `"poi": true`, or supply `lat`/`lon`.
   You can't inspect the phone app yourself, so when a manual coord is needed, take it
   from a web source or **ask the user** to look the place up in Organic Maps' on-device
   search (pair the name with its romanised form).
+- **Not-in-OSM fallback** (Overpass honest zero, no usable address): either pin the
+  *street or block* instead — geocode the street and append **` (APPROX)`** to the
+  stop's `name` so the pin itself says it's approximate — or drop the stop to
+  day-sheet prose. **Never invent coordinates**, and never present a street-level
+  pin as the venue.
 - Sanity-check the printed order and the day-sheet leg distances: do the coordinates
   sit in the right city? Does a leg crossing a river/harbour look implausibly short?
   (Distances are crow-flies — the day-sheet says so.)
