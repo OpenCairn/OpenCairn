@@ -99,6 +99,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      - **Concatenated list items:** after a session that removed list lines, run `grep -nE '[^[:space:]]- \[[ x]\]' <file>` on edited list-bearing docs — any non-space immediately before a `- [ ]`/`- [x]` is a join defect (a leading-`\n` removal ate the separator newline). Flag for review.
      - **Blank-line residue:** after a session that deleted a section, day, or block, run `awk 'NF{n=0;next}{n++}n==3{print FILENAME":"FNR": 3+ blank lines"}' <file>` on edited docs — a run of 3+ consecutive blank lines is deletion residue (the match removed the block but left its surrounding blanks). Collapse to the file's modal gap (1–2). Sibling defect to concatenated-list-items: same root cause (a block-boundary match that mis-handles separator newlines), opposite symptom (too many blanks vs too few).
    - Broken Obsidian wikilinks
+   - **Terminal status vs draft-era filename:** if the session set a document's status field (a `Status:` line, frontmatter status, or equivalent body marker) to a terminal value (sent, done, booked, cancelled, shipped), check the filename for draft-era prefixes (Draft, WIP, TODO or local equivalents) and flag the mismatch — rename via the vault's link-healing move mechanism, not raw `mv`. The reference graph (Step 12) propagates changed *values*, not artefact *names*, so nothing else catches a filename asserting a state the body has outgrown.
 
    **REFACTOR** — Content quality:
    - Consolidate redundant content (did I repeat myself across files?)
