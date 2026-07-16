@@ -145,8 +145,8 @@ def _overpass_query_once(name, bbox, allow_network):
     req = urllib.request.Request(OVERPASS,
                                  data=urllib.parse.urlencode({"data": query}).encode(),
                                  headers={"User-Agent": UA})
-    # The public Overpass instance 504s in bursts under load; one retry with a
-    # short backoff clears most of them (verified in the field).
+    # The public Overpass instance 504s in bursts under load (observed twice in
+    # live testing); retry once with a short backoff before giving up.
     data = None
     for attempt in (1, 2):
         time.sleep(1.1)  # polite throttle, mirrors the Nominatim one
