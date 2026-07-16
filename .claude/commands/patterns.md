@@ -7,10 +7,16 @@ Find patterns, themes, and connections across files related to a topic.
 
 ## Instructions
 
+0. **Resolve the vault path**:
+   ```bash
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   ```
+   If it errors, abort — no vault accessible. Run all searches against the resolved path, not the cwd.
+
 1. **Search broadly** - Use the Grep tool to find files matching the topic across the vault:
    - Search with multiple keyword variations (synonyms, related terms)
    - Check `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/` for relevant content
-   - If Obsidian MCP tools are available (`obsidian_simple_search`), use those for richer results
+   - If an Obsidian MCP search tool is available, use it for richer results (tool names vary by server — check what's registered)
 
 2. **Read matches** - For each matching file, read and extract:
    - Key claims or ideas
