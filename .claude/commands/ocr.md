@@ -20,7 +20,7 @@ The skill also has a **live-capture mode** (`--capture=adb`) for when the user w
 ## Prerequisites
 
 - `magick` (ImageMagick) — required for preprocessing. Install with `sudo apt install imagemagick` or equivalent.
-- `easyocr` CLI — required for the default engine. Install with `pip install --user easyocr` (or pipx). Verify with `command -v easyocr`. First run downloads model weights (~100 MB per language); subsequent runs are offline. CPU-only is fine but slow on large batches; if `python3 -c "import torch; print(torch.cuda.is_available())"` reports `True`, pass `--gpu True` automatically.
+- `easyocr` CLI — required for the default engine. Install with `pip install --user easyocr` (or pipx). Verify it actually *runs* with `easyocr -h` — a bare `command -v easyocr` is not enough, because a stale `~/.local/bin` shim from a since-upgraded Python prints `ModuleNotFoundError` despite being on PATH; reinstall under the current interpreter if so. First run downloads model weights (~100 MB per language); subsequent runs are offline. CPU-only is fine but slow on large batches. GPU is easyocr's default and it falls back to CPU automatically when CUDA is absent; note the CLI's `--gpu False` is a no-op (argparse `type=bool` quirk — any non-empty string parses True), so to force CPU use the Python wrapper (`gpu=False`) instead.
 - `Pillow` (PIL) — required when `--bubble-colors` is in play (chat-engine sender attribution by bubble background colour). `pip install --user Pillow` if missing. Verify with `python3 -c "from PIL import Image"`. If absent and `--bubble-colors` is requested, fall back to bbox attribution with a one-line warning.
 - A multimodal Claude model (only required when `--engine=vision` is selected or `--type=moments` falls through to Vision for image descriptions).
 
@@ -50,7 +50,7 @@ Flags (parsed from arguments):
 - `--quality=N` — JPEG quality for preprocessing. Default `85`.
 - `--out=PATH` — output file path. If omitted, ask at save time.
 - `--no-preprocess` — skip the resize step. Valid when every source file is already under the Read-hook threshold (Vision path) or when easyocr can read the originals directly (easyocr is largely indifferent to file size; preprocessing mostly helps it run faster).
-- `--preprocess-only` — stop after Phase 2. Emit the resized-dir path and exit; skip Phases 3–5 entirely. Intended for use by other skills that delegate preprocessing to `/ocr` but handle extraction themselves (e.g. `/tinder`). Not interactive in this mode.
+- `--preprocess-only` — stop after Phase 2. Emit the resized-dir path and exit; skip Phases 3–5 entirely. Intended for use by other skills that delegate preprocessing to `/ocr` but handle extraction themselves. Not interactive in this mode.
 - `--no-translate` — skip translation for non-English text. By default the easyocr → Claude post-pass adds translations for chat; Vision adds them inline per its existing rules.
 - `--raw` — valid only with `--type=generic`. Dump visible text verbatim with no translation and no layout structuring. Under easyocr this is the natural `--detail 0 --paragraph True` output; under Vision this disables the interpretation layer. If passed with chat/moments, warn and ignore.
 
@@ -215,7 +215,7 @@ Skip this phase entirely if `--no-preprocess` was passed and every source file i
    ```
 4. Verify every file in `$DST` is under the Read-hook threshold (`stat -c%s`). For any that remain over, re-run `magick` on that single file with progressively smaller widths: 720 → 640 → 512 → 448. Stop when it fits.
 5. Report briefly: `"N files, source avg X MB → resized avg Y KB, width Wpx, quality Q."`
-6. **If `--preprocess-only`, stop here.** Emit one final line — `"Preprocessed → <absolute DST path>"` — and end the skill. No Vision read, no transcript, no interactive prompt. Callers (e.g. `/tinder`) consume the DST path and handle extraction themselves.
+6. **If `--preprocess-only`, stop here.** Emit one final line — `"Preprocessed → <absolute DST path>"` — and end the skill. No Vision read, no transcript, no interactive prompt. Delegating callers consume the DST path and handle extraction themselves.
 
 ### Phase 3: Extract
 
@@ -226,13 +226,14 @@ Resolve the engine per the Prerequisites table. The branches:
 For each preprocessed image, run easyocr and persist a sidecar JSON next to the image:
 
 ```bash
-easyocr -l <lang-csv> -f "$img" --detail 1 --paragraph False \
-        --gpu "$GPU" > "${img%.*}.ocr.json"
+easyocr -l <lang codes, space-separated> -f "$img" --detail 1 --paragraph False \
+        > "${img%.*}.ocr.json"
 ```
 
+- `-l` takes **space-separated** codes (`-l ch_sim en`), not a CSV — the skill's `--lang` flag is CSV for parsing convenience; split it before invoking.
 - `--detail 1` returns per-line `[bbox, text, confidence]`. We need bboxes for chat sender-side heuristics.
 - `--paragraph False` keeps lines discrete so the post-pass can group on its own terms.
-- `$GPU` is `True` if CUDA was detected at startup, else `False`.
+- GPU: don't pass `--gpu` — the default is True with automatic CPU fallback, and `--gpu False` is a no-op (see Prerequisites). Force CPU via the Python wrapper if needed.
 
 **Re-use existing helpers first.** Before writing fresh scripts for batch OCR + chat assembly, check whether the user has ready-to-run implementations on hand. Common locations to probe: `command -v chat-ocr-batch.py` (and `chat-ocr-attribute.py`, `chat-ocr-stitch.py`); a personal scripts directory referenced in the user's CLAUDE.md; `~/.claude/commands/`-adjacent helpers; `~/bin/`. If they exist, prefer running them over re-deriving — they will already be tuned for the messenger / theme combination they were first written against, and re-running is cheaper than re-writing. If they don't exist, write fresh per the sketches below; consider naming them with the same conventions so they're discoverable next time.
 
