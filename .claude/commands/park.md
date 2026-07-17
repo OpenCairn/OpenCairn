@@ -576,6 +576,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Session number N** (from Step 8's `--auto-number` output — `Session number assigned: N`)
    - **File list** — every file the session+park touched. Pull verbatim from the session log's `### Files Created` and `### Files Updated` sections (now backfilled at Step 13a). Embed the list inline as newline-separated paths in the prompt; do NOT tell the sub-agent to "look in the session log" — embed the actual values.
    - **One-paragraph session summary** — pull verbatim from the session log's `### Summary` section. This is critical for Layer 3's "what world-state changes happened" question; without it the sub-agent only knows what /park edited, not what the session caused.
+   - **⛔ Out-of-band evidence** — every external source the session's work product rests on (web fetches, emails, API results, tool output, pasted text) that the sub-agent cannot reach from the vault, embedded verbatim under an `## Out-of-band evidence (treat as given — do NOT flag as fabricated)` heading. Derive the count from the work product's citation section **plus** a sweep of this session's fetch/read tool calls — never from recollection of what you drew on. Full rule, including how to derive N, the size cap, and the unrecoverable-source fallback: **`_shared-rules.md` §16** (already in context — Step 0 reads it in full).
 
    **(b) Spawn the sub-agent** with the Agent tool, `subagent_type: "general-purpose"`. Foreground (not background) — Steps 15-17 need its result.
 
@@ -602,11 +603,12 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step c) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-park state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03:** an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line in the session log as a fabrication; the false correction would have shipped under a literal reading of step (c).
 
    **⛔ CHECKPOINT — required outputs:**
+   - `Out-of-band evidence: sources drawn on N → excerpts embedded N` (per `_shared-rules.md` §16), displayed **before** the despatch — or `Out-of-band evidence: none (work product rests on no material outside the vault)`. Derive N per §16 from the work product's citation section plus a sweep of this session's fetch/read tool calls; counting from recollection is the failure §16 exists to catch, so a bare `N → N` with no visible derivation is not the check.
    - Agent tool invocation with subagent_type=general-purpose targeting the audit task
    - Display of sub-agent's report in your response (including bytes-read coverage if multiple hubs)
    - One of: `✓ Audit: clean pass` OR `🔧 Audit: N findings fixed and re-audited clean — see [paths]`
 
-   You cannot proceed to Step 15 without all three. If you find yourself walking the audit layers yourself in /park's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
+   You cannot proceed to Step 15 without all four. If you find yourself walking the audit layers yourself in /park's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
    **Why a sub-agent:** Inline Step 14 empirically rubber-stamps findings due to cognitive load at step 14 of 17, recency bias on just-edited files, and enumeration scoping limited to /park's direct edits (missing world-state consequences). A fresh sub-agent has none of these gradients — same model, same protocol, the difference is context not capability.
 

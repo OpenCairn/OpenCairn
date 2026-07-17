@@ -45,6 +45,7 @@ Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip 
 - **Comparative verdicts need fresh research.** Search the current market — models refresh, prices move, last year's "best X" is stale. Never recommend from memory alone.
 - Check availability and pricing in the user's region (locale from CLAUDE.md or ask).
 - **Verify decision-bearing claims against primary sources** — manufacturer spec sheets and measured/tested reviews, not aggregator listicles or marketing copy. Note where a load-bearing claim is marketing-only.
+- **Check whether a hard requirement is a platform behaviour, not a product differentiator.** Some stated requirements are governed by the user's phone/OS/ecosystem rather than the product itself. Verify the mechanism before filtering candidates on it — if it's platform-level, say so and stop using it as a filter.
 - Generate 5-8 candidates → filter to 2-3 finalists against the ranked hard requirements, checking recent-review red flags.
 - **High-stakes escalation:** for expensive or hard-to-reverse purchases, offer to run the research through a deep-research harness (multi-source fan-out with adversarial verification — e.g. a `deep-research` skill) instead of inline searching. Check such a skill is actually available in this install *before* offering it; if none is, offer a deeper inline pass instead (more sources, cross-checked claims). The user accepts or declines; don't escalate silently.
 

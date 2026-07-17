@@ -24,6 +24,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
 - **Parallel cross-model trio despatch** — Claude + Gemini + Codex, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
 - **Reviewer read-attestation** — brief demands files-read list; missing list discredits review. → `audit`
+- **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
@@ -46,3 +47,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
 - **Preference quiz with ranked hard requirements** — AskUserQuestion; skip context-answered; rank firmest→negotiable. → `shop` Phase 2, `book-stay` Step 2
 - **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `weekly-hygiene` Steps 2-3, `morning` Step 3
+- **Auto-save git is not pre-state** — arbitrary commit boundaries mis-attribute user edits; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g

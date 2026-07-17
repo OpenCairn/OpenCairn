@@ -448,3 +448,40 @@ grep -E '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 ```
 
 **Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`/transcribe` locally, `/transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
+
+---
+
+## 16. Out-of-Band Evidence in Reviewer Briefs
+
+Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, `/security-audit`'s optional panel. Those skills point here and carry no copy to drift.
+
+**The rule.** Where the work product's claims rest on material the reviewer cannot reach from the artefact itself — web fetches, emails, API results, tool output, the user's pasted text — embed that material in the brief, verbatim, under a heading that marks it established: `## Out-of-band evidence (treat as given — do NOT flag as fabricated)`.
+
+**Why.** A reviewer confined to the artefact cannot distinguish *"sourced from evidence you withheld"* from *"invented"*, so it reports the first as fabrication. Each false positive costs a round-trip to adjudicate and discredits the true findings beside it. In a panel it is worse: one omitted source produces a false positive *per seat*, and the synthesis then reads convergent fabrication findings as corroboration when they are one shared artefact of your own brief.
+
+**Embedding most of the sources is the trap.** Partial evidence yields *confident, specific* false positives exactly on the claims whose source you omitted — and the omitted one skews toward the **originating** source (the report or message that began the work), because by brief-writing time your attention has moved to whatever you fetched later while correcting it.
+
+### Deriving N — never from recollection
+
+The count is the mechanism, and it only works if it is anchored **outside the attention that failed**. An agent that dropped a source while writing will drop it again while counting, then emit a self-consistent `3 → 3` and pass while short. So do not count "what I drew on". Derive N from two artefacts:
+
+1. **The work product's own citation/source section** — every distinct external item it names. A secondary report is a **distinct source** from the primary it reports on.
+2. **A sweep of this session's fetch/read tool calls** — every URL fetched, file read, email opened, paste received that fed a claim. This is the half that catches what a note *never cites*: pasted text, tool output, emails.
+
+N is the union. Display before despatch:
+
+```
+Out-of-band evidence: sources drawn on N → excerpts embedded N
+```
+
+A short count means the brief is incomplete, not the work wrong.
+
+### Scope, size, and the seats
+
+- **"Relevant text" means the passages the claims rest on** — not whole documents. Quote the load-bearing passage; cap each source at roughly 500 words.
+- **Mind the transport.** `/audit` and `/second-opinion` pipe the brief into CLI seats with differing context windows, under a requirement that the payload be identical across seats. An uncapped dump can silently truncate in one seat — reproducing the partial-evidence false positives this rule exists to prevent, now invisibly. If the evidence exceeds the budget, attach it as a file path all seats can read (§10's `--include-directories` / `-C`) rather than inlining it.
+- **Conflicting sources:** where two disagree and the work picked one, say which won and why — otherwise the reviewer re-litigates a settled question.
+
+### When a source is unrecoverable
+
+If a source's text has left context (a long session, a `/compact` — and the first thing lost is the earliest fetch, which this rule identifies as disproportionately the originating source), **re-fetch it**. If it cannot be recovered, say so in the brief under the same heading — `<source> — text unavailable; do NOT flag claims traced to it as fabricated` — and **still count it in N**. Never paraphrase it from memory (that manufactures the fabricated-quote failure), and never drop it silently (that is the original failure, reproduced).
