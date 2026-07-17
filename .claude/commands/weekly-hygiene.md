@@ -294,12 +294,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    obsidian deadends 2>/dev/null | filter | wc -l          # filtered dead-end count
    ```
 
-   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test.
+   **⛔ Empty-output guard (`orphans` / `deadends` / `tags`):** on some setups these subcommands return zero rows even when the vault plainly has matches, and their `total` forms can return an implausible number or an empty string. An empty result piped through `wc -l` prints `0` — an absence of evidence the report would then record as evidence of absence. Before writing a 0 for any of these metrics, cross-check the row form against the `total` form (`obsidian orphans total`, `obsidian deadends total`; for tags, non-empty `obsidian tags` output). Record 0 only when both forms agree. If rows are empty but the total is non-zero, empty, or implausible (a sanity ceiling: it can't exceed the vault's file count), the CLI is unreliable for that metric on this setup → record it as **"unavailable (CLI returned no rows)"**, never 0. This applies equally to the orphan/dead-end listing checks above.
+
+   **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test. The extraction anchors on the **final** `→` on each line (`.*→ \K[^→]*$`) — entry titles may themselves contain arrows, and capturing from the first `→` misreads those titles as stale pointers.
    ```bash
    CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
    PF="$CMDS/_shared-patterns.md"
    if [ -f "$PF" ]; then
-     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '→ \K.*' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
+     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '.*→ \K[^→]*$' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
        [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
      done
    fi
@@ -532,8 +534,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Vault Consistency
    - Unresolved (broken) links: N total — [list top 10 or "none"]
-   - Orphaned files (03 Projects/ & 04 Areas/): [list or "none"]
-   - Dead-end files (03 Projects/ & 04 Areas/): [list top 10 or "none"]
+   - Orphaned files (03 Projects/ & 04 Areas/): [list, "none", or "unavailable (CLI returned no rows)" per the empty-output guard]
+   - Dead-end files (03 Projects/ & 04 Areas/): [list top 10, "none", or "unavailable" per the empty-output guard]
    - Terminology flags: [list or "none"] (if _terminology-checks.md exists)
    - Shared-patterns pointers: [stale list or "all resolve"] (if _shared-patterns.md exists)
    - List-item joins fixed: N [file + line per fix, or "none"]
@@ -548,10 +550,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Vault Structural Metrics (CLI)
    - Open tasks: N
-   - Orphan count: N [filtered / unfiltered]
+   - Orphan count: N [filtered / unfiltered] or "unavailable" (empty-output guard)
    - Unresolved link count: N [filtered / unfiltered]
-   - Dead-end count: N [filtered / unfiltered]
-   - Top tags: [top 5 with counts]
+   - Dead-end count: N [filtered / unfiltered] or "unavailable" (empty-output guard)
+   - Top tags: [top 5 with counts, or "unavailable" (empty-output guard)]
    - Excludes active: [yes — N patterns from hygiene-excludes / no excludes file]
 
    ## Provenance
