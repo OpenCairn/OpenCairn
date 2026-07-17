@@ -421,15 +421,30 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
 
+   **Git-history fallback for MISMATCH** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. Walk the file's history for a blob whose hash matches the logged one:
+   ```bash
+   cd "{VAULT}"
+   # REL = vault-relative path, LOGGED = logged 16-hex short hash
+   while read -r C; do
+     B=$(git rev-parse -q --verify "$C:$REL") || continue
+     H=$(git cat-file blob "$B" | sha256sum | cut -c1-16)
+     [ "$H" = "$LOGGED" ] && { echo "VERIFIED via git history: ${C:0:7} ($(git show -s --format=%ci "$C"))"; break; }
+   done < <(git log --format=%H -- "$REL")
+   ```
+   A hit upgrades the row from MISMATCH to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering. No hit leaves it a MISMATCH, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later) or that predates git tracking of that path — assess those against mtime and known tooling behaviour, and say which case applies.
+
    **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/Provenance/`) can still be verified against each other.
 
-   **OTS availability guard:** if `ots` is not on PATH (`command -v ots`), skip the two OTS sub-steps below and record OTS status for affected entries as "skipped — ots CLI unavailable". Hash verification above still runs.
+   **OTS availability guard:** `command -v ots` is necessary but not sufficient — stamping and upgrading only need the Python `ots` client (calendar servers), but *verifying* needs an attestation source, and the Python client supports only a local Bitcoin node (no explorer fallback). Pick the verify path in order:
+   1. **Local node present** (`~/.bitcoin/.cookie` exists, or `bitcoin-cli getblockcount` succeeds) → Python `ots verify`.
+   2. **No node** → the JS OpenTimestamps client (`ots-cli.js`, npm package `opentimestamps`; install with `npm install -g opentimestamps`), whose verify does lite-client verification against public block headers via explorers — no node needed. Trust model: public explorers instead of a local node; fine for personal provenance.
+   3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
    **Upgrade OTS proofs:**
-   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/`. If upgrade succeeds, update the provenance log entry to "confirmed".
+   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/` (calendar servers — works without a node). If upgrade succeeds, update the provenance log entry to "confirmed".
 
    **Verify OTS proofs:**
-   For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"`. The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, `ots verify` looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. Record as CONFIRMED, PENDING, FAILED, or MISSING.
+   For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
 
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
@@ -560,7 +575,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Stale flags processed: N [OR "none"]
    - Entries verified: N
    - Hash matches: N
-   - Hash mismatches: N (files edited after logging)
+   - Verified via git history: N (mismatch cleared by a historical blob matching the logged hash)
+   - Hash mismatches: N (files edited after logging; git fallback found no matching blob)
    - Missing files: N
    - OTS confirmed: N
    - OTS pending: N
