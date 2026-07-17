@@ -381,7 +381,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
    **A `NEW:` entry that is an option/alternative added to a *pre-existing* decision/record (one the session did not create from scratch this session) is never nil — enumerate it with the decision's *anchor* (route/decision/record key, e.g. `<ORIGIN>→<DEST>`), not just the new value.** Sibling docs that still lack the new option contain the anchor but not the new value, so the anchor — not the option text — is the propagation join key.
 
-   **A `NEW:` member added to a documented set anchors on the *container*, not the member or its topic** — per `_shared-rules.md` §12's grep-target selection rule (read it there; it is the SSOT and `/audit` + `/complete-project` share it). **Checkable at this step:** for every `NEW:` member added to a set, the enumeration carries the container's name as an anchor.
+   **A `NEW:` member added to a documented set anchors on the *container*, not the member or its topic** — per `_shared-rules.md` §12's grep-target selection rule (read it there; it is the SSOT and `/audit` + `/complete-project` share it). **Checkable at this step:** for every member added to a set — including one *relocated into* it from elsewhere — the enumeration carries the container's name as an anchor.
 
    **For file moves specifically, add plain-text path strings to the enumeration, not just filenames.** Companion docs (transcripts, notes, metadata sidecars) often embed full `**Source:** /path/to/file.ext` references that won't match a filename-only grep or wikilink-shaped queries. When a file moves, both the filename and the full old path go in the enumeration as separate identifiers.
 
