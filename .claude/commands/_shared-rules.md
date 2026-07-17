@@ -275,24 +275,42 @@ If the title and the first/last day sections disagree, the window edit is incomp
 
 ---
 
-## 10. Invoking Gemini & Codex (CLI sandbox, vision, panel despatch)
+## 10. Invoking Gemini/Antigravity & Codex (CLI sandbox, vision, panel despatch)
 
-Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonical read-only despatch block — the **single source of truth** for these commands; `/audit` and `/second-opinion` point here rather than carrying their own copies.
+Gotchas that bite any skill calling the Google review CLI (`gemini`, or its successor `agy`) or `codex`, plus the canonical read-only despatch block — the **single source of truth** for these commands; `/audit` and `/second-opinion` point here rather than carrying their own copies.
 
 - **Gemini file reads are sandboxed to the workspace = the cwd it was launched from** (plus its project temp dir `~/.gemini/tmp/<hash>`) — NOT the home directory. Verified 2026-06-11 on gemini 0.40.1: launched from `~`, a read of `/tmp/<file>` fails "Path not in workspace"; launched from `/tmp`, a read under `~` fails the same way. Three remedies: launch from the target's root; pass `--include-directories <root>` (verified to extend the workspace); or **pipe text via stdin** — `cat <file> | gemini -p "..."` — so the sandbox never applies to the brief itself. Headless gemini also **hard-refuses to start in an untrusted directory** ("not running in a trusted directory") — when despatching from outside your trusted set, set `GEMINI_CLI_TRUST_WORKSPACE=true` or pass `--skip-trust`.
 - **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install.
 - **Keep Gemini read-only with a `--policy` file, not `--approval-mode plan`** — `plan` blocks `run_shell_command` but still exposes the `replace`/`write_file` edit tools, so a skill that briefs Gemini to propose changes can have them written straight into the target. Verified on gemini 0.40.x: a deny-rule policy strips the named tools from the model entirely (it reports them "not found") while reads stay intact — a hard guarantee. The policy file needs **no `.toml` extension** (verified 0.40.1), so create it with portable `mktemp` — GNU-only `--suffix` breaks BSD/macOS. **Don't** put the file in `~/.gemini/policies/` (auto-loaded for *every* invocation → would make all gemini sessions read-only); use an explicit temp path. After a panel run, check whether the reviewer **attempted** an edit: if it did, it must have reported the tool "not found"/unavailable — an edit that *succeeded* means the policy didn't load; treat the run as contaminated. A clean review with no edit attempt produces no such report (the tools are only reported missing when called) — for that case, and on the no-`--policy` fallback, the `git status`/snapshot backstop is the verification.
+- **Antigravity (`agy`) — a second Google-seat CLI.** Google retired the `gemini` CLI free and AI Pro/Ultra subscription tiers on **2026-06-18** in favour of Antigravity (`agy`); the panel supports either, probing `agy --version` first, else `gemini --version`. `agy` runs on a Google **account/subscription** (AI Pro/Ultra, Code Assist, or Google One via `useG1Credits`) — **no API-key path**; the `gemini` CLI, by contrast, can run pay-as-you-go on an **AI Studio API key** (`selectedType: "gemini-api-key"` in `~/.gemini/settings.json` + `GEMINI_API_KEY`, plus `GEMINI_CLI_TRUST_WORKSPACE=true` for untrusted dirs). Run `agy` **unsandboxed** — it binds a localhost port.
+- **`agy` has no read-only flag — isolate it in a throwaway git worktree.** Unlike gemini's `--policy`, `agy`'s `-p` mode **auto-edits** and `--sandbox` doesn't stop it. So the despatch runs `agy` with cwd = a detached worktree at a live-tree snapshot (`git stash create` + untracked files), never `--add-dir` the real root, then `git worktree remove --force`s it — writes die with the worktree. **Never redirect agy stdout to a file** (`agy -p … > file` hangs); a stale/hung agy holds its port and the Bash `timeout` can't kill its detached server, so the block bounds it with a **~270s watchdog** (kept under the 300s cap). Non-git target → `cp -R` to a temp dir.
+- **`agy` fails SILENTLY — guard empty output.** On quota-429 / auth failure `agy -p` exits 0 with **empty stdout** (the error only lands in `~/.gemini/antigravity-cli/log/`). Treat empty/whitespace as a **failed seat** → degrade, never "no findings".
+- **`agy` resume (Mode B):** no `--list-sessions`; the conversation UUID is in `~/.gemini/antigravity-cli/cache/last_conversations.json` (cwd → uuid). Resume works same-cwd only, and the block tears the worktree down, so the agy seat **always uses fresh-with-replay** (see `second-opinion.md` Phase 2B).
 - **Canonical read-only panel despatch block.** The Claude seat is the Agent tool with the brief contents verbatim as its prompt; the CLI seats run via Bash with `timeout: 300000` passed as the **Bash-tool argument** on each call (it is not a shell flag — the default 120s kills reviewers mid-review):
 
   ```bash
-  RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
-  printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
-  # Each CLI call below: pass timeout 300000 as the Bash TOOL argument (not a shell flag)
-  cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
+  # Google seat: prefer agy (Antigravity, worktree-isolated), else gemini (--policy). Run UNSANDBOXED;
+  # pass timeout 300000 as the Bash TOOL argument (not a shell flag). <root> = target root, <brief> = brief PATH.
+  if agy --version >/dev/null 2>&1; then
+    WT=$(mktemp -d)/tree
+    SNAP=$(git -C <root> stash create 2>/dev/null); SNAP=${SNAP:-HEAD}      # snapshot the LIVE tree (uncommitted too)
+    git -C <root> worktree add -q --detach "$WT" "$SNAP"
+    ( cd <root> && git ls-files -o --exclude-standard -z | tar --null -T - -cf - 2>/dev/null ) | tar -C "$WT" -xf - 2>/dev/null || true  # + untracked
+    trap 'git -C <root> worktree remove --force "$WT" 2>/dev/null; rmdir "$(dirname "$WT")" 2>/dev/null' EXIT INT TERM HUP
+    cp "<brief>" "$WT/.review-brief.md"                                     # brief BY PATH (never redirect agy stdout to a file — it hangs)
+    AGY_OUT=$( ( cd "$WT" && exec agy -p "Read .review-brief.md and follow it exactly. Output only your review." ) & \
+               AGY=$!; ( sleep 270; kill -9 "$AGY" 2>/dev/null ) & WD=$!; wait "$AGY"; kill "$WD" 2>/dev/null )  # ~270s watchdog, kills only this run
+    CID=$(CACHE="$HOME/.gemini/antigravity-cli/cache/last_conversations.json" WT="$WT" python3 -c 'import json,os;c=json.load(open(os.environ["CACHE"])) if os.path.exists(os.environ["CACHE"]) else {};print(next((v for k,v in c.items() if os.path.realpath(k)==os.path.realpath(os.environ["WT"])),""))' 2>/dev/null)
+    printf '%s\nANTIGRAVITY_CONVERSATION=%s\n' "$AGY_OUT" "$CID"            # EMPTY review body = failed seat (quota/auth) -> degrade
+  else
+    RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
+    printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
+    cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
+  fi
   cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -C <root> -
   ```
 
-  `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
+  `--include-directories <root>` / `-C <root>` point the gemini/codex seats at the target's root; drop them when the target sits under the despatch cwd (the `agy` seat reads from its worktree cwd, so it needs neither). Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
 
 ---
 
