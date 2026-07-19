@@ -19,7 +19,7 @@ You are the user's research assistant. Your job is to search the vault comprehen
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; `/setup` documents how to set it per-OS). Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`; if both exist, prefer the copy in the same directory as this command file) and apply its rules throughout this skill. All paths below use `{VAULT}` as a placeholder — substitute the resolved vault path and search against it, not the cwd.
 
 1. **Understand the research question:**
    - What is the user trying to learn or understand?
@@ -31,22 +31,26 @@ You are the user's research assistant. Your job is to search the vault comprehen
 Use this search strategy:
 
 **a) Check obvious locations first:**
-- Relevant hub files in `07 System/Context - [Domain].md`
-- Related project files in `03 Projects/`
-- Domain resources in `05 Resources/`
+- Relevant hub files in `{VAULT}/07 System/Context - [Domain].md`
+- Active working state in `{VAULT}/01 Now/` (WIP, current plans — the most recent thinking)
+- Related project files in `{VAULT}/03 Projects/`
+- Area-owned domain material in `{VAULT}/04 Areas/` — in NIPARAS, reference material lives *inside* the Area it belongs to, so this is the main home of curated domain knowledge
+- Generic/staging resources in `{VAULT}/05 Resources/`
+- Unprocessed captures in `{VAULT}/02 Inbox/` (recent but unorganised — lower confidence until filed)
 
 **b) Grep for keywords:**
 - Use Grep tool to search across all markdown files
 - Try multiple search terms (synonyms, related concepts)
 - Search for both technical terms and natural language
 
-**c) Check session summaries:**
-- `06 Archive/Claude/Session Logs/` - Have we discussed this before?
-- `06 Archive/Claude/Daily Reports/` - Any relevant daily insights?
+**c) Check session summaries and reflections:**
+- `{VAULT}/06 Archive/Claude/Session Logs/` - Have we discussed this before?
+- `{VAULT}/06 Archive/Daily Reviews/` - User-authored daily reflections (if present)
+- `{VAULT}/06 Archive/Claude/Daily Reports/` - Machine-generated day indexes; useful as pointers to sessions, not as user insight
 
 **d) Explore connected notes:**
 - Follow links from relevant notes
-- Check backlinks (files that link TO the current note)
+- Check backlinks (files that link TO the current note). Route by what's available: an Obsidian MCP search tool if registered; else the Obsidian CLI if present and running (`obsidian version 2>/dev/null` returns output → `obsidian backlinks file="Note Name"`); else Grep `{VAULT}` for the note's name in wikilink form (`[[Note Name`)
 
 3. **Synthesize what's found:**
 
@@ -62,8 +66,8 @@ Organize findings into:
 [Connected information that provides useful background]
 
 ### Sources in Vault
-- [[File 1]] - [What it contains]
-- [[File 2]] - [What it contains]
+- [[File 1#Section]] - [What it contains, and which claim it supports]
+- [[File 2#Section]] - [What it contains, and which claim it supports]
 
 ## What We Don't Know
 
@@ -96,9 +100,8 @@ After external research (if needed):
 - Search for people names, project names, specific frameworks
 
 **File type targeting:**
-- `.md` files for notes and summaries
-- Check for PDFs in relevant resource folders
-- Look for images/screenshots that might contain info
+- `.md` files for notes and summaries — Grep searches text formats only
+- PDFs and images/screenshots in relevant Area/resource folders: locate them by filename (`ls`/Glob — Grep can't see their contents), then open promising ones with the Read tool; if a format can't be read, list the candidates for the user instead of guessing at contents
 
 **Time-based search:**
 - Recent first (check last month's sessions/reviews)
@@ -116,5 +119,3 @@ After external research (if needed):
 - **Gap identification:** Be explicit about what's NOT known - that's valuable too
 - **Avoid redundant capture:** If info already exists in vault, link to it rather than duplicating
 - **Update suggestions:** If research reveals gaps, suggest where new info should go
-
-
