@@ -331,9 +331,11 @@ def _main(argv: list[str]) -> int:
         # Prereq-verification pattern (per _shared-patterns.md → transcribe): a failed probe
         # emits the specific remediation, not just the diagnosis.
         print("grok seat: unavailable (XAI_API_KEY unset)\n"
-              "  setup: create a key at console.x.ai (load credits; no free tier), turn the\n"
-              "         data-sharing toggle OFF, then export XAI_API_KEY where a NON-INTERACTIVE\n"
-              "         shell sees it — ~/.bashrc commonly exits early for those and won't work.")
+              "  setup: create a key at console.x.ai and load credits (no free tier), then export\n"
+              "         XAI_API_KEY where a NON-INTERACTIVE shell sees it — ~/.bashrc commonly\n"
+              "         exits early for those and won't work.\n"
+              "  note:  xAI does not train on API data without explicit opt-in; requests are kept\n"
+              "         30 days for abuse auditing. No console toggle to change.")
         return 1
 
     dry_run = "--dry-run" in argv
