@@ -49,6 +49,7 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
    - Get date: `date +"%Y-%m-%d"`
 
 6. **Append to the wins log** using the Edit tool:
+   - **First run:** if `{VAULT}/07 System/Claude Wins Log.md` doesn't exist, create it from the template in **Setup** below, then continue
    - Read the current end of `{VAULT}/07 System/Claude Wins Log.md`
    - Use Edit tool to append the new entry after the last line
    - Entry format (substitute actual values):
@@ -105,12 +106,12 @@ The wins log entry follows this exact structure:
 
 ## Setup
 
-This command requires a wins log file. Create it if it doesn't exist:
+This command requires a wins log file. Phase 3 step 6 creates it on first run from this template:
 
 ```markdown
 # Claude Wins Log
 
-When something works well, say "win" or "nice one, log that." Periodically review and promote recurring patterns to context files or CLAUDE.md.
+When something works well, say "win" or "nice, log that." Periodically review and promote recurring patterns to context files or CLAUDE.md.
 
 ---
 
