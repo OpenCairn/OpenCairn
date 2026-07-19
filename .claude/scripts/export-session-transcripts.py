@@ -14,6 +14,7 @@ Options:
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -187,6 +188,48 @@ def format_session(messages, slug, session_start):
     return "\n".join(lines)
 
 
+SESSION_HDR = re.compile(r'^### (\S+) \((\d{2}:\d{2}|unknown)\)\s*\n')
+SEPARATOR = "\n---\n\n"
+
+
+def parse_exported(md_path):
+    """Split an already-exported transcript file into {(slug, start): body}.
+
+    Inverse of format_session() + the day-file writer. Returns {} if the file is
+    missing or unreadable — an unreadable file must not block a fresh write.
+
+    Anchored on the `\\n---\\n\\n` separator the writer emits between sessions,
+    NOT on header lines alone. Transcript bodies routinely quote header-shaped
+    text (a session that ran `head` on a transcript embeds `### <slug> (HH:MM)`
+    at column 0), and matching those splits one real session into two, inventing
+    a phantom that is then carried forward forever. A chunk that does not open
+    with a header is continuation text and is reattached to the session before
+    it, so a body containing its own `---` survives the round trip intact.
+
+    Keyed on (slug, start) rather than slug alone. Claude Code reuses a slug
+    across a parent/child session split, so two genuinely distinct sessions can
+    share one — keying on slug silently collapses them and drops a session.
+    """
+    try:
+        text = md_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return {}
+    out = {}
+    last = None
+    for chunk in text.split(SEPARATOR):
+        m = SESSION_HDR.match(chunk)
+        if m:
+            key = (m.group(1), m.group(2))
+            body = chunk[m.end():].rstrip()
+            if key not in out or len(body) > len(out[key]):
+                out[key] = body
+                last = key
+        elif last is not None:
+            # Continuation: the body itself contained a separator.
+            out[last] = f"{out[last]}{SEPARATOR}{chunk.rstrip()}"
+    return out
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: export-session-transcripts.py <vault_path> [--days N] [--all-projects] [--fallback-any-project]", file=sys.stderr)
@@ -221,7 +264,9 @@ def main():
     # Dot-prefixed so Obsidian's metadata indexer ignores this tree: verbatim
     # transcripts are the bulk of vault markdown and a full-vault cold index of
     # them overflows Electron/V8's ~4GB heap cap (renderer OOM crash-loop). They
-    # stay on disk (still synced, git-backed, provenance-hashable), just unindexed.
+    # stay on disk (still synced, provenance-hashable), just unindexed. Whether
+    # they are also version-controlled is a per-vault .gitignore decision — do not
+    # assume git is available as a recovery path; the merge below is the guarantee.
     output_dir = vault_path / "06 Archive" / "Claude" / ".Session Transcripts"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -262,21 +307,44 @@ def main():
 
         formatted = format_session(messages, slug, start_time)
         if formatted:
-            sessions_by_date[date_str].append((start_time, formatted))
+            # Body only — the header is re-emitted by the writer, so that merging
+            # with an existing file compares like with like.
+            body = formatted.split("\n", 1)[1] if "\n" in formatted else ""
+            sessions_by_date[date_str].append((start_time, slug, body))
             exported += 1
 
-    # Write one file per date
+    # Write one file per date — MERGE, never replace.
+    #
+    # The JSONL source is auto-deleted after 30 days, so a day file is often the
+    # only surviving copy of a session. A wholesale rewrite therefore destroys
+    # data whenever this run sees fewer sessions than a previous run did — which
+    # happens for any number of upstream reasons (a session's mtime drifting to a
+    # later date, the --days window sliding past it, a partial project scan).
+    # Rather than diagnose every such cause, the writer is append-only: sessions
+    # already on disk are carried forward, and an incoming copy replaces one on
+    # disk only when it is longer (a session that grew since the last export).
     files_written = 0
+    carried_total = 0
     for date_str, sessions in sorted(sessions_by_date.items()):
         output_file = output_dir / f"{date_str}.md"
 
-        # Sort sessions by start time
-        sessions.sort(key=lambda x: x[0])
+        merged = parse_exported(output_file)
+        on_disk_keys = set(merged)
+
+        incoming_keys = set()
+        for start_time, slug, body in sessions:
+            key = (slug, start_time)
+            incoming_keys.add(key)
+            if key not in merged or len(body) > len(merged[key]):
+                merged[key] = body
+
+        # Sessions this run could not see, preserved only because we merged.
+        carried_total += len(on_disk_keys - incoming_keys)
 
         content = f"# Session Transcripts — {date_str}\n\n"
         content += f"Auto-exported from `~/.claude/projects/` JSONL files.\n\n---\n\n"
-        for _, formatted in sessions:
-            content += formatted + "\n---\n\n"
+        for (slug, start_time), body in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+            content += f"### {slug} ({start_time})\n{body}\n---\n\n"
 
         output_file.write_text(content)
         files_written += 1
@@ -285,6 +353,8 @@ def main():
     print(f"Sessions exported: {exported}")
     print(f"Sessions skipped (empty): {skipped}")
     print(f"Transcript files written: {files_written}")
+    if carried_total:
+        print(f"Sessions carried forward from existing files: {carried_total}")
     for date_str in sorted(sessions_by_date.keys()):
         count = len(sessions_by_date[date_str])
         print(f"  {date_str}: {count} sessions")
