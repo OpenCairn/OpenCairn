@@ -50,17 +50,21 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
    - `youtube` — URLs only, will download directly on pod (faster, no local transfer needed)
    - `local` — local files, will need transfer to pod (scp over exposed TCP, else `runpodctl send/receive` — Phase 4)
    - `mixed` — both; download URLs on pod, transfer local files separately
-5. **Check GPU availability and pick one** — the skill used to hardcode A4000 but A4000 is often out of stock. Run:
+5. **Check GPU availability and pick one** — don't hardcode a card; query and select. Run:
    ```bash
    runpodctl gpu list
    ```
-   Pick the cheapest available GPU with `stockStatus: High` (or `Medium`) from this priority list (all have sufficient VRAM for `large-v3`, ~3 GB):
-   - RTX A4000 (~$0.17/hr community) — cheapest when available
-   - RTX 3090 (~$0.22/hr community) — reliable fallback
-   - A5000 (~$0.35/hr community) — next tier up
-   - RTX 4090 (~$0.40/hr community, ~$0.69/hr secure) — fastest mid-range, often High stock
-   - L40S (~$0.80–1.00/hr) — expensive, only if nothing cheaper available
-   Secure-cloud variants cost ~2× community but provision faster and more reliably. For jobs under ~1 hour of audio, the hourly difference is negligible at job total cost.
+   **Select on the `available` field, not `stockStatus`.** `stockStatus: Low` does **not** mean unavailable — it is a depth hint. On a typical day most of the fleet reads `Low` while every entry still carries `available: true` and deploys fine. Treat stock as a tiebreaker only, and escalate a tier solely on an actual capacity error at create time ("This machine does not have the resources to deploy your pod"). Filtering the list down to `High`/`Medium` can exclude the entire cheap tier and push you into a needlessly expensive card.
+
+   Pick the cheapest GPU with `available: true` from this priority list (all have sufficient VRAM for `large-v3`, ~3 GB):
+   - RTX A4000 (~USD 0.17/hr community) — cheapest
+   - RTX 3090 (~USD 0.22/hr community) — reliable fallback
+   - A5000 (~USD 0.35/hr community) — next tier up
+   - RTX 4090 (~USD 0.40/hr community, ~USD 0.69/hr secure) — fastest mid-range
+   - A40 (~USD 0.44/hr, **secure only**) — 48 GB, frequently High stock when the tier above is thin. Note `communityCloud: false`: a `--cloud-type COMMUNITY` create against it will fail, so pair it with `--cloud-type SECURE`.
+   - L40S (~USD 0.80–1.00/hr) — expensive, only if nothing cheaper available
+
+   Secure-cloud variants cost ~2× community but provision faster and more reliably. For jobs under ~1 hour of audio, the hourly difference is negligible at job total cost. Some GPUs are secure-only (`communityCloud: false`) — check that field before choosing a cloud tier.
 6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~1 min setup + ~1 min per hour of audio on mid-tier GPU), estimated cost.
 7. **Confirm output location** with user if not specified via `--output`.
 
@@ -783,15 +787,15 @@ First real-use of the untested pieces will likely surface minor issues — trust
 
 ## Notes
 
-- **Validated end-to-end (2026-04-22):** full pipeline including voice-reference matching validated on RTX 4090 SECURE against a 2-file 46-min recording set. First run of the voice-ref code path — the 2026-04-21 "validation" only covered transcribe+diarise; the embedding code was shipped same-day but never executed, so three bugs escaped until today (fixed in Phase 5 / Phase 8 code above). Also validated **that pinning is mandatory**: fresh unpinned installs today pulled whisperx 3.8.5 + pyannote-audio 4.0.4 which are mutually incompatible and break at `whisperx.load_model()`. Installation dep-conflict warnings for torch/torchvision are expected with `--no-deps` whisperx — ignore them if the Phase 3 SETUP_OK check (VAD + embed Model load) passes. Total pod time today ~26 min (including dep triage), cost ~$0.30. With the pinned install line the normal pod run should be back to ~12 min / ~$0.14.
+- **Validated end-to-end (2026-04-22):** full pipeline including voice-reference matching validated on RTX 4090 SECURE against a 2-file 46-min recording set. First run of the voice-ref code path — the 2026-04-21 "validation" only covered transcribe+diarise; the embedding code was shipped same-day but never executed, so three bugs escaped until today (fixed in Phase 5 / Phase 8 code above). Also validated **that pinning is mandatory**: fresh unpinned installs today pulled whisperx 3.8.5 + pyannote-audio 4.0.4 which are mutually incompatible and break at `whisperx.load_model()`. Installation dep-conflict warnings for torch/torchvision are expected with `--no-deps` whisperx — ignore them if the Phase 3 SETUP_OK check (VAD + embed Model load) passes. Total pod time today ~26 min (including dep triage), cost ~USD 0.30. With the pinned install line the normal pod run should be back to ~12 min / ~USD 0.14.
 - **Pin stability warning:** the pin set in Phase 3 is load-bearing. whisperx/pyannote-audio had simultaneous breaking releases 2026-04-22 (whisperx 3.8.x expects torch 2.8 and pyannote 4.x; pyannote 4.0.x changes the Inference API). numpy 2.0 removes `np.NaN` which pyannote 3.3.2 uses. huggingface_hub 0.25+ removes the `use_auth_token` decorator that pyannote 3.3.2 relies on. Transformers 4.46+ imports `is_offline_mode` from hub top-level which isn't exported. All of these are independent versioning decisions upstream — bumping any one usually cascades. Re-validate end-to-end when bumping. Pins are also tied to the **pod base image** (`runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`) — the Phase 2 command pins that exact image tag, so drift only enters if you change the tag or fall back to the `runpod-torch-v240` template (whose backing image RunPod can update); either way the pin set may not co-install and the full dep-triage could recur.
 - **Performance (GPU-dependent, `large-v3`):** ~15–30× realtime on RTX 3090 / 4090. 5 hours of audio transcribes in ~10–20 min on mid-tier cards. `distil-large-v3` was ~3–4× faster but less accurate — cloud now defaults to `large-v3` because the time/cost delta is noise at batch sizes under a few hours. Diarisation adds a few seconds per file on GPU at this scale (not ~20–30 min as an earlier draft claimed — today's 46-min batch diarised in ~20s on RTX 4090).
-- **Cost:** ~$0.17–0.69/hr depending on GPU + cloud tier. Typical batch job under 3 hours of audio: $0.05–0.25 total.
+- **Cost:** ~USD 0.17–0.69/hr depending on GPU + cloud tier. Typical batch job under 3 hours of audio: USD 0.05–0.25 total.
 - **SSH info retrieval:** `runpodctl pod get <id>` returns IP, port, and full `ssh_command` directly — no manual web UI step needed for exposed-TCP SSH. The old skill claim that "PODID-HASH is web-UI-only" applies only to the **proxy-SSH** path (`PODID-HASH@ssh.runpod.io`), which is still not in the API.
 - **`runpodctl pod create` flag syntax:** deprecated `--gpuType`/`--gpuCount`/`--imageName`/`--containerDiskSize`/`--volumeSize`/`--startSSH`/`--communityCloud`/`--cost` have been replaced by `--gpu-id`/`--gpu-count`/`--image`/`--container-disk-in-gb`/`--volume-in-gb`/`--ssh`/`--cloud-type COMMUNITY|SECURE`. Old syntax will error with "unknown flag". `--cost` has no new-syntax equivalent.
 - **yt-dlp `-x` is not format-selection:** `-x --audio-format mp3` extracts audio but does not constrain the download — yt-dlp will often pick the best video stream (1+ GB) and strip audio from it. Always pair with `-f "bestaudio[ext=m4a]/bestaudio"` to download audio-only.
 - **YouTube anti-bot on batches:** >5 sequential URLs from one IP will trigger "Sign in to confirm you're not a bot." Use `--cookies-from-browser <browser>` and `--sleep-interval N` to mitigate. Match the proxy the cookies were issued through if the browser is behind one.
-- **GPU stock is volatile:** A4000 is often out of stock despite being the skill's historical default. Always `runpodctl gpu list` first and pick from the priority tier (A4000 → RTX 3090 → A5000 → RTX 4090 → L40S; Phase 1 step 5 is canonical). Unreachable datacenter IPs (common from GFW-restricted networks) are a separate failure mode — check `ssh.runpod.io` reachability as a fallback signal.
+- **`stockStatus` is not availability:** most of the fleet commonly reads `Low` while still carrying `available: true` and deploying without issue. Select on `available`; use stock as a tiebreaker and escalate only on a real capacity error at create time. Always `runpodctl gpu list` first and pick from the priority tier (A4000 → RTX 3090 → A5000 → RTX 4090 → A40 secure-only → L40S; Phase 1 step 5 is canonical). Unreachable datacenter IPs (common from GFW-restricted networks) are a separate failure mode — check `ssh.runpod.io` reachability as a fallback signal.
 - **Community-cloud allocation can stall:** if `uptimeSeconds` stays 0 for >5 min with `desiredStatus: RUNNING`, the pod is stuck in an allocation queue. Delete and retry on secure cloud (more expensive but provisions immediately). Don't burn >10 min on a stuck pod.
 - **WhisperX install order is critical:** `--no-deps` prevents torch breakage. The torch reinstall after pyannote-audio is mandatory — pyannote-audio pulls a newer torch that breaks CUDA on the cu124-based pod image, so the final `pip install torch==2.4.1 --force-reinstall` restores the matching build.
 - **yt-dlp on pod vs local:** For YouTube URLs, always download directly on the pod — datacenter bandwidth is faster and eliminates the transfer step. Only use local download + `runpodctl send` for files that are already on disk.
