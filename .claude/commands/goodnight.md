@@ -333,6 +333,7 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 - **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. The session log doesn't yet contain all of these (Step 14 wrote the goodnight session entry but Steps 11-14a edits happen elsewhere); enumerate them from memory of the goodnight flow.
 - **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, WIP propagation done)
 - **Enumerated identifiers** verbatim from (a)
+- **⛔ Session-boundary attribution** — embed **`_shared-rules.md` §20** in the brief (already in context — Step 0 reads it in full). The file list above is the attribution boundary; the vault's auto-save commit window is not. Without it a sub-agent reads a concurrent session's file out of a shared commit and writes a self-consistent record of work this run never did.
 - **Script paths** the sub-agent will need (substitute resolved vault):
   - `<vault>/.claude/scripts/update-session-section.sh` — for session-log section edits (preserves flock concurrency safety)
   - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section. **Caveat:** the script dedups by normalised path and *silently discards* the new text for a file already listed — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh … "Files Updated" --replace` instead
