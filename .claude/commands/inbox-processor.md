@@ -24,15 +24,16 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
    If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Scan the inbox:**
-   - Read all files in `{VAULT}/02 Inbox/`
-   - List items with brief description (filename, size, date)
+   - List every entry in `{VAULT}/02 Inbox/` — files **and** subdirectories — with filename, size, date, and type
+   - Read markdown/text notes in full. For binaries (PDFs, images, audio, installers, archives), classify from filename + metadata; extract content only where cheap tooling exists (e.g. `pdftotext`). **Never execute a binary.**
+   - Treat a subdirectory as a single bundle: list its top level, don't deep-recurse; it moves (or defers) as one unit
 
 2. **Categorise each item:**
 
 For each item, determine the appropriate home using NIPARAS logic:
 
 **Ask these questions:**
-- **Is this actionable now?** → `01 Now/Working memory.md` or a specific project
+- **Is this actionable now?** → extract the action into `01 Now/Working memory.md` or a specific project (a non-text item still gets a file home below — the action and the artefact route separately)
 - **Is this a project?** (Has a specific end goal) → `03 Projects/[Project Name]/`
 - **Is this an ongoing area of responsibility?** → `04 Areas/[Area]/`
 - **Is this reference material?** → `05 Resources/[Topic]/`
@@ -45,7 +46,8 @@ For each item, determine the appropriate home using NIPARAS logic:
 - Blog drafts → the blog's own project or area folder (its drafts/content directory if it's a static site)
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project
-- Article clippings → `05 Resources/[Topic]/` or relevant project
+- Article clippings → active project if project-specific; the owning Area's nested reference material if domain-owned; `05 Resources/[Topic]/` only when generic with no Area home
+- Not every item must move: **leave deferred**, **delete** (junk/duplicates), or **ask the user** are valid plan outcomes — propose them explicitly in Step 3
 
 3. **Present categorisation plan:**
 
@@ -65,11 +67,11 @@ Proceed with this plan? (yes/no/modify)
 ```
 
 4. **Execute moves** (after confirmation):
-   - Move files to their new locations. For markdown notes that may have inbound links, use a link-healing move (Obsidian's move) rather than raw `mv` — raw `mv` leaves inbound links dangling. Fresh captures usually have none; raw `mv` is fine for files verified link-free.
+   - Move items to their new locations. For any item that may have inbound links or embeds (notes *and* attachments — `![[file.pdf]]` embeds break too), use a link-healing move (Obsidian's move) rather than raw `mv`. Verify "link-free" before a raw `mv`: a backlink/structural query, or grep the vault for the filename. Fresh captures usually have none. If link-healing moves may be needed, probe the Obsidian CLI first (`obsidian help`); if it's unavailable, raw-`mv` only verified link-free items and defer the rest.
    - Create necessary folders if they don't exist
-   - Update any relevant index files (project pages, hub files, etc.) — hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool
+   - Update relevant index files (project pages, hub files) for durable notes that need discoverability — not for raw attachments/receipts. Hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool
    - Apply only the renames approved in the Step 3 plan
-   - When adding an item to `01 Now/Working memory.md`, respect the file's existing structure — if it has a fresh-capture zone at the top, append there, not at EOF (items appended below a backlog section are invisible to downstream Working Memory processing)
+   - When adding an item to `01 Now/Working memory.md`, respect the file's existing structure — if it has a fresh-capture zone at the top, insert directly below that zone's heading, not at EOF (items appended below a backlog section are invisible to downstream Working Memory processing)
 
 5. **Verify and confirm:**
 
@@ -108,18 +110,22 @@ Item → Is it REFERENCE for future use?
 
 Item → Is it COMPLETED/INACTIVE?
        ├─ Yes → 06 Archive/
-       └─ No → Uncertain, ask the user
+       └─ No → Continue...
+
+Item → Is it SYSTEM documentation (how the vault/Claude works)?
+       ├─ Yes → 07 System/
+       └─ No → Uncertain, ask the user (or leave deferred)
 ```
 
 ## Guidelines
 
 - **Never separate by filetype:** Images, PDFs, markdown files on same topic stay together
 - **Create folders as needed:** If a new topic emerges, create appropriate structure
-- **Rename for clarity:** Add dates, context, or more descriptive names when moving
+- **Rename for clarity:** Add dates, context, or more descriptive names when moving — always proposed in the Step 3 plan, never ad hoc
 - **Link, don't duplicate:** If item relates to multiple places, keep in one location and link from others
 - **Ask when uncertain:** If categorisation isn't obvious, present options and ask the user
 - **Batch similar items:** If multiple items go to same destination, move them together
-- **Update indexes:** If adding to a project or area, update the relevant hub file
+- **Update indexes:** If adding a durable note to a project or area, update the relevant hub file (skip for raw attachments/receipts — see Step 4)
 
 ## Special Cases
 
@@ -129,7 +135,7 @@ Item → Is it COMPLETED/INACTIVE?
 - If neither: Archive to `06 Archive/Quick Thoughts/`
 
 **Article clippings:**
-- Always to `05 Resources/[Topic]/`
+- Route per the Step 2 rule: project → Area's nested reference → `05 Resources/[Topic]/` as the generic fallback
 - Consider: Does this relate to an active project? If yes, also link from project page
 
 **Meeting notes:**
