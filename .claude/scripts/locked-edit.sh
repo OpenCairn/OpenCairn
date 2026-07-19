@@ -48,7 +48,14 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
-STDIN_CONTENT="$(cat)"
+# Payload goes through a temp FILE, not "$(cat)": command substitution strips ALL
+# trailing newlines, so a replacement block that legitimately ends on a blank line
+# (e.g. a day section followed by a blank line before the next "## " heading) could
+# never survive. A file read preserves the payload byte-for-byte; the single
+# heredoc-added newline is then trimmed explicitly below, where it can be reasoned about.
+STDIN_FILE="$(mktemp "${TMPDIR:-/tmp}/locked-edit-stdin.XXXXXX")"
+trap 'rm -f "$STDIN_FILE"' EXIT
+cat > "$STDIN_FILE"
 
 LOCK_FILE="$(_lock_path_for "$TARGET")"
 mkdir -p "$(dirname "$TARGET")"
@@ -61,7 +68,7 @@ _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock for $TARGET" >&2; exit 1
 export _LE_TARGET="$TARGET"
 export _LE_MODE="$MODE"
 export _LE_SEP="$SEP"
-export _LE_STDIN="$STDIN_CONTENT"
+export _LE_STDIN_FILE="$STDIN_FILE"
 
 set +e
 python3 - <<'PY'
@@ -70,7 +77,8 @@ import os, sys, tempfile
 target = os.environ["_LE_TARGET"]
 mode   = os.environ["_LE_MODE"]
 sep    = os.environ["_LE_SEP"]
-stdin  = os.environ["_LE_STDIN"]
+with open(os.environ["_LE_STDIN_FILE"]) as _f:
+    stdin = _f.read()
 
 def atomic_write(path, data):
     d = os.path.dirname(path) or "."
@@ -99,9 +107,10 @@ if mode == "--append":
     # Append verbatim; ensure exactly one newline boundary before the new block.
     if existing and not existing.endswith("\n"):
         existing += "\n"
-    # Terminate the appended block with a newline too: $(cat) strips stdin's
-    # trailing newline, so without this the file ends unterminated and a later
-    # foreign appender (Edit tool) concatenates onto the last line.
+    # Terminate the appended block with a newline: a payload piped without a
+    # trailing newline (printf '%s', echo -n) would otherwise leave the file
+    # unterminated, and a later foreign appender (Edit tool) would concatenate
+    # onto the last line.
     if stdin and not stdin.endswith("\n"):
         stdin += "\n"
     atomic_write(target, existing + stdin)
@@ -147,7 +156,7 @@ RC=$?
 set -e
 
 _unlock
-unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN
+unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE
 
 if [ "$RC" -eq 0 ]; then
     echo "Locked edit applied: $TARGET"
