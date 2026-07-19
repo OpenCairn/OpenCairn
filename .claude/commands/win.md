@@ -25,6 +25,8 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
    - Good decisions validated by outcomes
    - Efficient workflows or shortcuts discovered
 
+   **If several wins surfaced, write one entry per *mechanism*, not per symptom.** Wins sharing a cause — one good decision paying off in several visible ways — belong in a single entry, because the reusable pattern is one pattern and splitting it produces two half-patterns that each look incidental. Wins with independent causes need separate entries, because a merged pattern generalises to neither. **Test:** did one choice produce both? Same entry. Otherwise, separate. Run this test explicitly when a session produced more than one win; the default of logging whatever was most recently discussed silently drops the rest.
+
 2. **If unclear, ask concisely:**
    - "What was the win?" (if not obvious from context)
    - "What made this work?" (if the mechanism isn't clear)

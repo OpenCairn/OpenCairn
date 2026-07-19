@@ -23,6 +23,8 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Wasted effort or context
    - Assumptions that proved incorrect
 
+   **If several mistakes surfaced, write one entry per *failure mode*, not per symptom.** Errors sharing a root cause — the same bad assumption expressed twice, or one mistake cascading into another — belong in a single entry, because the lesson is one lesson and splitting it produces two half-lessons that each look minor. Errors with independent causes need separate entries, because a merged lesson generalises to neither. **Test:** would one fix have prevented both? Same entry. Otherwise, separate. Run this test explicitly when a session produced more than one correction; the default of logging whatever was most recently discussed silently drops the rest.
+
 2. **If unclear, ask concisely:**
    - "What was the mistake?" (if not obvious from context)
    - "What should have happened instead?" (if correction unclear)
