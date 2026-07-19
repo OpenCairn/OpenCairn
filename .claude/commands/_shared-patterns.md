@@ -22,7 +22,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Manifest + resumability** — JSONL per-item status; resume from first incomplete. → `transcribecloud`
 - **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
-- **Parallel cross-model trio despatch** — Claude + Gemini + Codex, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
+- **Parallel cross-model panel despatch** — one seat per model family, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
 - **Reviewer read-attestation** — brief demands files-read list; missing list discredits review. → `audit`
 - **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
