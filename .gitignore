@@ -24,6 +24,11 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Python bytecode (importing a script for testing writes these next to it,
+# and a bulk `git add .claude/scripts/` would otherwise stage them)
+__pycache__/
+*.pyc
+
 # Personal commands (not for public template)
 .claude/commands/sync-template.md
 .claude/commands/ralph.md
