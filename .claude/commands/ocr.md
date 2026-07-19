@@ -15,7 +15,7 @@ When the user wants structured text extracted from screenshots. Typical triggers
 - **moments** — social-feed posts with caption + images per post
 - **generic** — anything else (documents, receipts, UI screenshots, signage)
 
-The skill also has a **live-capture mode** (`--capture=adb`) for when the user wants a long chat scraped directly off an Android phone over USB instead of supplying pre-existing screenshots. Triggers: "OCR the conversation with X on my phone", "scrape this thread", "scroll through and capture the whole chat". See Phase 0 for the capture workflow. Live capture requires the phone to be connected, authorised for ADB, and already on the target screen — the skill doesn't navigate the app for you.
+The skill also has a **live-capture mode** (`--capture=adb`) for when the user wants a long chat scraped directly off an Android phone over USB instead of supplying pre-existing screenshots. Triggers: "OCR the conversation with X on my phone", "scrape this thread", "scroll through and capture the whole chat". See Phase 0 for the capture workflow. Live capture requires the phone to be connected, authorised for ADB, and already on the target screen — the skill doesn't navigate the app for you. **Capture proceeds from the current scroll position forward (downward)** — to capture a whole thread the user must first scroll to the oldest message they want; confirm this before starting, or a run from the latest messages produces a near-empty transcript that looks successful.
 
 ## Prerequisites
 
@@ -58,7 +58,7 @@ Flags (parsed from arguments):
 
 - `--capture=adb` — drive an attached Android device to capture screenshots from its foreground app before running the OCR pipeline. The first positional argument is treated as the OUTPUT directory for captures (created if missing) rather than an input path. Prefer a path outside any synced vault/repo (e.g. `~/tmp/<name>/`) — raw screencaps are ~2 MB each on modern phones and accumulate fast.
 - `--device=ID` — ADB device serial. If omitted and exactly one authorised device is connected, pick it; if multiple, stop and require explicit selection.
-- `--swipe-delta=N` — vertical scroll per gesture in native pixels (default ≈ 50% of detected screen height). Values that would push the swipe end-point above the top crop boundary (~12% of screen height) are clamped silently; if your delta needs to exceed `y_high − 12% of height`, raise `y_high` instead. The capture loop emits a one-line stderr warning the first time the clamp fires.
+- `--swipe-delta=N` — vertical scroll per gesture in native pixels (default ≈ 50% of detected screen height). Values that would push the swipe end-point above the top crop boundary (~12% of screen height) are clamped to it; if your delta needs to exceed `y_high − 12% of height`, raise `y_high` instead. The capture loop emits a one-line stderr warning the first time the clamp fires.
 - `--swipe-duration=MS` — gesture duration in milliseconds (default 700). Slower = less kinetic carry; fast flicks below ~400 ms overshoot and skip content even at the same delta.
 - `--swipe-sleep=S` — settle delay after each swipe in seconds (default 1.8). Allows momentum to dissipate AND gives the app time to lazy-load newly visible content.
 - `--max-frames=N` — hard cap on capture iterations (default 80). Long chats may need 200+; raise as needed.
@@ -88,12 +88,12 @@ Drive an attached Android device to produce screenshots from its foreground app,
 
 #### 0b. Smoke test (3 captures, then **STOP and ask the user**)
 
-Run the loop in 0d for exactly 3 iterations with no termination check. **This phase is not self-verifying — present the measurements below to the user and wait for their decision before proceeding to the full sweep.** Do not advance autonomously even if the numbers look fine to you; today's calibration loops in real sessions have routinely needed 2–3 user-driven tuning rounds.
+Run the loop in 0d with `max_frames=3` (the duplicate-hash termination check is harmless at this scale — mid-thread frames never collide). **This phase is not self-verifying — present the measurements below to the user and wait for their decision before proceeding to the full sweep.** Do not advance autonomously even if the numbers look fine to you; today's calibration loops in real sessions have routinely needed 2–3 user-driven tuning rounds.
 
 1. **Frame 001 spot check:** is the app on the expected screen? Scrolled where the user said it was?
 2. **Swipe advance measurement.** Concrete recipe:
    - Run Phase 2 preprocessing (`magick mogrify -resize 900x -quality 85 -format jpg`) on just frames 001–003 into a temp dir.
-   - Read each resized jpg via Claude Vision (the resized files are typically ~100–200 KB and clear the Read hook).
+   - Read each resized jpg via Claude Vision (the resized files are typically ~100–200 KB and clear the Read hook). This is the one Vision touchpoint on an otherwise-local easyocr run — three calibration frames only; tell the user if that matters to them.
    - Pick a visual landmark visible in both frame 001 and frame 002 — a date divider, a distinctive bubble, an image preview. Note the y-pixel position of the landmark in each (the displayed image dimensions are reported by the Read tool).
    - Compute displayed-delta = y(frame 001) − y(frame 002). Scale to native: `native_advance = displayed_delta × native_height / resized_height` (e.g. for a 900×2008 resize of a 1080×2410 source: multiply by 2410/2008 ≈ 1.20).
    - Aim for **40–60% of usable screen height** (screen height minus status bar minus app header minus compose bar — roughly `height × 0.71` on a typical Android phone). Below ~30% wastes captures and operator time; above ~70% risks skipping content.
@@ -102,6 +102,8 @@ Run the loop in 0d for exactly 3 iterations with no termination check. **This ph
 5. **Present and wait.** Report the measured advance (as native px and as % of usable height), the sampled palette and detected theme, and whether the preview OCR (if run) looks sane. Ask the user: continue with current params, or tune `--swipe-delta` / `--swipe-duration` / `--swipe-sleep` and re-run the smoke test? Do not interpret silence as approval.
 
 If anything is off, tune and re-run the smoke test. Cheaper to iterate at 3 frames than 30.
+
+**Transition to the full sweep.** The smoke test has already scrolled the phone 3 frames past the start. On approval with unchanged swipe params, **resume — don't restart**: keep frames 001–003, continue the 0d loop from `n=4` with `prev_hash` loaded from frame 003's cropped-pnm hash (the 0e resume mechanics). If the user tunes swipe params, the smoke frames no longer match the full-run geometry: delete them and ask the user to re-position the chat at the starting point before the fresh run.
 
 #### 0c. Swipe geometry
 
@@ -172,6 +174,8 @@ done
 
 Use `exec-out screencap -p` (not `shell screencap`) to avoid CRLF mangling of the PNG byte stream.
 
+**MAX_ITER exit is not end-of-thread.** If the loop exits with `n == MAX_ITER` and no duplicate hash was seen, the capture is truncated, not complete — say so explicitly and ask the user whether to resume (raise `--max-frames`, continue per 0e) before OCRing what looks like, but is not, the full thread.
+
 #### 0e. Resumability and theme drift
 
 - **Resuming after partial failure:** if the loop exits early (USB disconnect, MAX_ITER hit, user interrupt), the next invocation can resume from the current phone position. Load `prev_hash` from the last existing frame's cropped pnm hash and continue numbering from `n+1`. Pre-flight (0a) must still pass before resumption.
@@ -187,15 +191,15 @@ After Phase 0 completes, proceed to Phase 1 with the capture directory as the in
 
 1. Resolve `$ARGUMENTS` to a sorted list of image files matching extensions `.png .jpg .jpeg .webp .heic .heif` (case-insensitive). Sort by filename — phone screenshots are typically timestamp-encoded (e.g. `Screenshot_20260417-153045.png`). Fall back to mtime if filenames don't sort meaningfully.
 2. If zero images match, stop and tell the user.
-3. If `--type=chat` and `--contact` is absent, ask the user for the contact name now (before preprocessing).
-4. If more than ~25 images, warn the user that a single-turn batch read may exceed the context budget. Suggest splitting into chunks of ≤25.
-5. Check the Read-hook threshold. Read `~/.claude/hooks/check-file-size.sh` (or the project-local equivalent) to determine the current byte limit; if the hook is absent, assume 200 KB. Check each source file's size. If any exceed the threshold, preprocessing is required — unless `--no-preprocess` is passed, in which case stop with a message naming the offender.
+3. If `--type=chat` and `--contact` is absent, ask the user for the contact name now (before preprocessing). **Skip this prompt when `--preprocess-only` is set** — that mode is non-interactive and never reaches sender attribution.
+4. **Vision path only:** if more than ~25 images, warn the user that a single-turn batch read may exceed the context budget and suggest splitting into chunks of ≤25. Skip this warning when the resolved engine is easyocr — no images enter context on that path.
+5. Check the Read-hook threshold. Read `~/.claude/hooks/check-file-size.sh` (or the project-local equivalent) to determine the current byte limit; if the hook is absent, assume 200 KB. Check each source file's size. **The threshold gates Claude's Read tool, not easyocr** — enforce it only where images will be Read (the Vision path, and the Phase 0b smoke-test frames). If any file exceeds it on a path that Reads images, preprocessing is required — unless `--no-preprocess` is passed, in which case stop with a message naming the offender. On an easyocr-only run, oversized originals with `--no-preprocess` are acceptable (slower, but valid).
 
 ### Phase 2: Preprocess
 
-Skip this phase entirely if `--no-preprocess` was passed and every source file is already under the threshold.
+Skip this phase entirely if `--no-preprocess` was passed and the Phase 1 size check allowed it. When skipped, every later reference to "preprocessed images" means the source originals.
 
-1. Compute `DST="<source>/_ocr_resized"` (underscore prefix avoids collision with any user-created `resized/`). `mkdir -p "$DST"`.
+1. Compute `DST="<source>/_ocr_resized"` (underscore prefix avoids collision with any user-created `resized/`). **If the input is a single file rather than a directory, use its parent: `SRC=$(dirname "$file")`, and process just that file** — never append `_ocr_resized` to a filename. `mkdir -p "$DST"`.
 2. Resolve `WIDTH` from `--max-width` or the type-based default. Resolve `Q` from `--quality` (default 85).
 3. Run mogrify per extension (to avoid brace-expansion and nullglob pitfalls). The skill emits something like:
    ```bash
@@ -226,16 +230,17 @@ Resolve the engine per the Prerequisites table. The branches:
 For each preprocessed image, run easyocr and persist a sidecar JSON next to the image:
 
 ```bash
-easyocr -l <lang codes, space-separated> -f "$img" --detail 1 --paragraph False \
-        > "${img%.*}.ocr.json"
+easyocr -l <lang codes, space-separated> -f "$img" --detail 1 --output_format json \
+        > "${img%.*}.ocr.jsonl"
 ```
 
 - `-l` takes **space-separated** codes (`-l ch_sim en`), not a CSV — the skill's `--lang` flag is CSV for parsing convenience; split it before invoking.
 - `--detail 1` returns per-line `[bbox, text, confidence]`. We need bboxes for chat sender-side heuristics.
-- `--paragraph False` keeps lines discrete so the post-pass can group on its own terms.
+- **Do NOT pass `--paragraph False`** — the flag is the same argparse `type=bool` trap as `--gpu`: any non-empty string (including `False`) parses True, which merges lines into paragraphs and destroys the discrete bboxes the chat heuristics need. The default is already `False`; omit the flag. (Passing `--paragraph True` for `--raw` output works, since `True` also parses True.)
+- **`--output_format json` is required for machine-readable sidecars** — the default output prints Python-repr tuples (single quotes), which is not valid JSON. Even with the flag, output is one JSON object per line (JSONL), hence the `.ocr.jsonl` extension. The Python wrapper below writes proper JSON and is preferred for anything a script will parse.
 - GPU: don't pass `--gpu` — the default is True with automatic CPU fallback, and `--gpu False` is a no-op (see Prerequisites). Force CPU via the Python wrapper if needed.
 
-**Re-use existing helpers first.** Before writing fresh scripts for batch OCR + chat assembly, check whether the user has ready-to-run implementations on hand. Common locations to probe: `command -v chat-ocr-batch.py` (and `chat-ocr-attribute.py`, `chat-ocr-stitch.py`); a personal scripts directory referenced in the user's CLAUDE.md; `~/.claude/commands/`-adjacent helpers; `~/bin/`. If they exist, prefer running them over re-deriving — they will already be tuned for the messenger / theme combination they were first written against, and re-running is cheaper than re-writing. If they don't exist, write fresh per the sketches below; consider naming them with the same conventions so they're discoverable next time.
+**Re-use existing helpers first.** Before writing fresh scripts for batch OCR + chat assembly, check whether the user has ready-to-run implementations on hand. Common locations to probe: `command -v chat-ocr-batch.py` (and `chat-ocr-attribute.py`, `chat-ocr-stitch.py`); a personal scripts directory referenced in the user's CLAUDE.md; `~/.claude/commands/`-adjacent helpers; `~/bin/`. If they exist, prefer running them over re-deriving — they will already be tuned for the messenger / theme combination they were first written against, and re-running is cheaper than re-writing. **Inspect each helper's interface before invoking** — run `--help` or read its header/argparse block — rather than guessing flag names from this skill's conventions. If they don't exist, write fresh per the sketches below; consider naming them with the same conventions so they're discoverable next time.
 
 **Throughput note:** the easyocr CLI loads the model fresh on every invocation (~5–10 s on CPU). For batches ≳ 30 frames, the model-load overhead dominates wall time. Drop to a Python wrapper that imports `easyocr.Reader` once and loops over frames in-process — typically 5–10× faster end-to-end. Sketch:
 
@@ -251,7 +256,7 @@ for img in sorted(Path(sys.argv[1]).glob('*.jpg')):
 
 Build the assembled text:
 
-- **generic** — concatenate lines top-to-bottom by bbox y-centre. If `--raw`, emit verbatim with no further processing. Otherwise the optional Claude post-pass (text-only, no images in context) adds inline translation in parentheses unless `--no-translate`.
+- **generic** — concatenate lines top-to-bottom by bbox y-centre. If `--raw`, invoke with `--detail 0 --paragraph True` instead (no bboxes needed) and emit the output verbatim with no further processing. Otherwise the optional Claude post-pass (text-only, no images in context) adds inline translation in parentheses unless `--no-translate`.
 - **chat** — group lines into messages using one of two sender-attribution heuristics:
   - **bubble-colour (preferred when `--bubble-colors=` is passed)**: for each OCR text bbox, sample pixels inside the bbox using Pillow. **The filter direction depends on theme** — text and background have inverted luminance between light and dark modes:
     - **Light theme** (app uses light backgrounds with dark text): filter OUT pixels where all channels < 130 (those are dark text); the remaining pixels are the bubble background.
@@ -326,7 +331,7 @@ Post boundaries are detected from visible feed-UI separators (horizontal rules, 
 
 2. Display the transcript to the user.
 3. Ask what they want to do next:
-   1. **Save** — ask where (propose a default based on type + source location) and the filename.
+   1. **Save** — if `--out` was passed, save to that path without asking; otherwise ask where (propose a default based on type + source location) and the filename.
    2. **Discuss** — summarise, extract action items, answer questions, pull quotes.
    3. **Both** — save first, then discuss.
 
