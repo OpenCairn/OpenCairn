@@ -137,7 +137,7 @@ if diarize:
     diarize_model = DiarizationPipeline(
         model_name="pyannote/speaker-diarization-3.1",
         device=device,
-        use_auth_token=os.environ.get("HF_TOKEN"),  # None → falls back to the cached huggingface-cli login
+        token=os.environ.get("HF_TOKEN"),  # whisperx 3.8.x param is `token` (NOT use_auth_token, which is the older pod-pinned API in /transcribecloud); None → falls back to the cached huggingface-cli login
     )
     assert diarize_model.model is not None, (
         "DiarizationPipeline.model is None — token rejected or licence gates not accepted "
