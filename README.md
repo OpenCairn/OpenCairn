@@ -221,7 +221,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | Skill | What it does |
 |---------|-------------|
 | `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Loads project hub and last session context on selection. |
-| `/park` | Session capture ("shutdown complete"). Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
+| `/park` | Session capture and open-loop closure. Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
 
 **Extended breaks:**
 
