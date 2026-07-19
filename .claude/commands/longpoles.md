@@ -25,11 +25,13 @@ Use the Grep tool to find all `[LP]` references across `{VAULT}`:
 - Search path: `{VAULT}`
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
+- Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/Provenance/`). A checkbox copied into a frozen snapshot is not a live task
 
 ### 2. Group by File
 
 **Group results by file.** For each file containing longpole items:
    - Show the file path (relative to vault root for readability)
+   - Derive the group heading from the file's name or its parent project/area folder — whichever reads as the natural short label; don't open files just to name the heading
    - Show each `[LP]` item with its surrounding context
    - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status
 
@@ -54,7 +56,7 @@ Run `date +%Y-%m-%d` for the Scanned date — never infer it.
 ### Summary
 - **Open:** X items still blocking
 - **Done:** Y items completed (can be cleaned up)
-- **Hottest file:** [file with most open longpoles]
+- **Hottest file:** [file with most open longpoles, or "none" if no items are open]
 ```
 
 If no `[LP]` items found, report that clearly:
