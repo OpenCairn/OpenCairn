@@ -122,7 +122,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice (if the vault has a voice/style context file — see the user's CLAUDE.md routing — load it when voice questions arise; skip if none exists)
 
-   **SOURCE** — Unsourced specific values. Run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file enumerated in (a). Its required output line is part of this gate's checkpoint.
+   **SOURCE** — Unsourced specific values, **and asserted preconditions**. Run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file enumerated in (a). Its required output line is part of this gate's checkpoint. §19's precondition clause is the half that bites here: a blocker this session wrote into a forward-looking doc ("needs a restart first", "blocked until X is installed") is an unsourced claim gating future work, and it reaches the next session as fact unless it is tested or cut now.
 
    **Fix any issues found automatically.** For fixes to shared planning files (WIP, This Week, Tickler, Tasks), use `locked-edit.sh` per `_shared-rules.md` §5.
 
