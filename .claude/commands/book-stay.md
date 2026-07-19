@@ -7,7 +7,7 @@ description: Choose and book a hotel (or stay) — quiz preferences, generate sh
 
 Pipeline for choosing and booking a hotel for a trip leg. **One pipeline run and one accommodation doc per leg** — for a multi-city trip, split into legs first and run Steps 1-11 per leg (record the split rationale in the doc template's Multi-leg section), updating the trip hub once at the end.
 
-**Prerequisites:** web search (candidate research + live FX rates) and the AskUserQuestion quiz tool. The vault doc template lives at `{VAULT}/07 System/Templates/Accommodation Decision.md`. **No vault?** Skip Step 1's context-load and Step 11 entirely — the quiz → research → verify → handoff core works anywhere.
+**Prerequisites:** web search (candidate research + live FX rates) and the AskUserQuestion quiz tool. The vault doc template lives at `{VAULT}/07 System/Templates/Accommodation Decision.md`. **No vault?** Skip Step 1's context-load and Step 11 entirely (Step 1's lead-time check and currency step still run) — the quiz → research → verify → handoff core works anywhere.
 
 **Scope:** hotels and short stays. Restaurants and other venue bookings are out of scope.
 
@@ -17,7 +17,7 @@ Pipeline for choosing and booking a hotel for a trip leg. **One pipeline run and
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `_shared-rules.md` from this skill's own commands directory and apply its rules throughout — §5 (locked edits) governs every shared-planning-file write below. All paths use `{VAULT}` as a placeholder — substitute the resolved vault path.
+If error on a vault install, abort (no silent fallback — `_shared-rules.md` §1). If the error is just that no vault is configured (`VAULT_PATH` unset on a vault-less install), don't abort — run in no-vault mode per the Prerequisites note. Read `_shared-rules.md` from this skill's own commands directory and apply its rules throughout — §5 (locked edits) governs every shared-planning-file write below. All paths use `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ## Inputs
 
@@ -31,8 +31,8 @@ If error, abort. Read `_shared-rules.md` from this skill's own commands director
 - Read `01 Now/Works in Progress.md`, the travel project hub if one exists, and any existing accommodation doc for the city. On a fresh vault with none of these, note it and continue — don't invent structure.
 - **Don't re-research what's already in the vault — refine instead.**
 - **Stale check:** if the existing doc has a SUPERSEDED banner or is >1 month old, treat it as historical context only. If the user has flagged a context shift since the doc was written (e.g. "we used to be planning A but now it's B"), explicitly re-open rather than refining.
-- **Compute booking lead time** (`check-in date − today`). Warn the user if it's <7 days: most chain-hotel package discounts require 7-21 days advance booking, so the realistic discount ceiling at short lead time is ~5-10% via a loyalty member rate, not the 18-25% a package can reach. **But distinguish chain-loyalty packages (lead-time-gated) from OTA promo discounts (not).** OTA promotions ("intro offer", "mobile exclusive") and individual property opening-discounts often apply at any lead time — don't tell the user to expect zero discounts last-minute. Set expectations on chain packages specifically.
-- **Establish the user's home currency** (locale in CLAUDE.md, or ask once in the frame call) — all totals present in it.
+- **Compute booking lead time** (`check-in date − today`; run `date` for today — never assume it). Warn the user if it's <7 days: most chain-hotel package discounts require 7-21 days advance booking, so the realistic discount ceiling at short lead time is ~5-10% via a loyalty member rate, not the 18-25% a package can reach. **But distinguish chain-loyalty packages (lead-time-gated) from OTA promo discounts (not).** OTA promotions ("intro offer", "mobile exclusive") and individual property opening-discounts often apply at any lead time — don't tell the user to expect zero discounts last-minute. Set expectations on chain packages specifically.
+- **Establish the user's home currency** (locale in CLAUDE.md, or ask once in plain conversation before the quiz — the frame call is already at the 4-question cap) — all totals present in it.
 - **Surface prior decisions** from the loaded context. For each upcoming quiz question, check the existing accommodation doc for an answer. If found, state it as the working assumption ("the prior doc recommended X — do you want to change this?") rather than re-asking from scratch.
 
 ### 2. Quiz via AskUserQuestion (2 calls if needed; ≤4 questions per call)
@@ -75,11 +75,12 @@ For each finalist, establish: room type, sqm, current rate, breakfast inclusion,
 - Claude generates the qualitative shortlist with reasoning + estimated price ranges + property reputation
 - **User pulls live prices on their phone app** (OTA apps / hotel direct) — 5 min, much more reliable than the agent fighting bot-resistant, JS-heavy travel SPAs
 - User pastes back screenshots or numbers
+- **For chain finalists, bundle the Step 6 direct-channel check into the same phone round-trip** — final re-ranking waits until both OTA and direct prices are in, so the user isn't asked to redo the comparison
 - Claude converts using a *live* FX rate (never a remembered conversion heuristic) and re-ranks against the live data
 
 **OTA listing-quality varies — treat single-OTA amenity gaps as listing-gap, not ground truth.** The same property's listing across OTAs can disagree on languages spoken, breakfast inclusion, room amenities, etc. Before flagging a missing amenity as a con of a candidate, cross-check at least one other OTA or recent reviews. Don't downgrade a candidate based on a single listing's silence.
 
-### 6. Direct-channel check (for chain finalists, BEFORE comparing prices)
+### 6. Direct-channel check (for chain finalists — run within Step 5's round-trip, before final re-ranking)
 
 For chain hotels with loyalty programs, **always have the user check the property's official site direct** before comparing OTA prices:
 - Loyalty member rates often beat OTA prices
@@ -102,6 +103,8 @@ Present the gap (which constraint failed: tier? hard requirement? neighbourhood?
 - **Verify, don't infer.** If a feature is load-bearing for the decision (e.g. "private meeting room with door"), actually verify it before claiming it. Marketing copy / testimonials are *suggestive*, not *verified*.
 
 ### 9. Loyalty-program advice (if user has status / points)
+
+These are heuristics, not rules — program terms differ and change, so verify the current program-specific rule (web search) before applying any of them to a specific chain.
 
 - Distinguish **status points** (tier qualification) from **award points** (redemption currency). Don't conflate the balances.
 - For status-progression-conscious users: **earned points on cash stays beat redeemed points on award stays**. Award stays don't earn status credit at most loyalty programs, so redeeming points stalls tier qualification. Pay cash, earn the points.
@@ -132,20 +135,20 @@ User pastes confirmation # back; agent captures it.
 
 **Update what exists; the only file to create is the accommodation doc itself.** Don't invent hubs, planning files, or reference files on a fresh vault.
 
-- The accommodation doc for this trip leg (mark booked, confirmation #, booking URL, free-cancel deadline). If creating from scratch, copy `{VAULT}/07 System/Templates/Accommodation Decision.md` to the trip's project folder as `<City> Accommodation — <date range>.md`.
+- The accommodation doc for this trip leg (mark booked, confirmation #, booking URL, free-cancel deadline). If creating from scratch, copy `{VAULT}/07 System/Templates/Accommodation Decision.md` to the trip's project folder as `<City> Accommodation - <date range>.md` (hyphen, not em dash — em dashes in filenames are shell-hostile), and populate it from Steps 2-8's research per the template's own instructions (replace placeholders, delete inapplicable sections). If no trip project folder exists, ask the user where to put it — don't invent structure.
 - The trip's timeline / overview docs, if the trip has them.
 - `01 Now/Works in Progress.md` (relevant project entries — usually 2: the travel project + the project that drove the trip). When updating a WIP `Last:` field, replace the prior value outright — do not chain "Earlier [date]..." blocks (per `/park`'s Last-field cap rule: prior Last content is preserved in the session-log archive; chaining it inline is the accretion anti-pattern).
 - `01 Now/This Week.md`, if it exists (mark task done, update the Status banner if the booking changes it)
 - Any project-specific doc that referenced "where am I sleeping" (e.g. event prep, retreat hub)
 - **Booking References file** for the trip, if the trip keeps one. If it doesn't and the user wants one, the minimal structure is one section per booking: confirmation #, channel + URL, total paid, cancellation deadline, property contact.
 - **The trip's project hub file** (`03 Projects/<Trip Name>.md`), if one exists — update whatever status/summary/pending-decision sections it has.
-- **Bidirectional verification grep** — run AFTER the standard checklist completes, not before. Two greps to confirm fan-out closure:
+- **Bidirectional verification grep** — run AFTER all the fan-out updates above are complete, not before. Verification greps to confirm fan-out closure (triage every hit per `_shared-rules.md` §12 — stale cross-reference / live locator / historical record / different context — don't blind-edit):
   1. **Forward (new identifier):** grep the booked hotel name across the trip's folder and `01 Now/` — confirms every living doc that should reference the new state actually does.
-  2. **Reverse (old/superseded identifier):** grep the *prior* state phrases (e.g. "still need to book", the previous hotel name if pivoting) across the same scope — confirms nothing got missed. **Variant coverage:** placeholder terms travel in pairs/sets — grep `TBC` AND `TBD` (interchangeable), plus `pending`, `tentative`, `?`, `[ ]`. Single-variant grep silently misses the others.
+  2. **Reverse (old/superseded identifier):** grep the *prior* state phrases (e.g. "still need to book", the previous hotel name if pivoting) across the same scope — confirms nothing got missed. **Variant coverage:** placeholder terms travel in pairs/sets — grep `TBC` AND `TBD` (interchangeable), plus `pending`, `tentative`, `?`, `[ ]` — use fixed-string mode (`grep -F` / `rg -F`) for the literal tokens; as regex, `?` and `[ ]` match wrongly and flood the hit-set. Single-variant grep silently misses the others.
   3. **Relocated-anchor coverage:** if this booking moved a section/doc (e.g. consolidated a sub-trip's notes into a new file), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction — a narrow pattern drops semantic-variant pointers like "the trip doc".
 - Superseded shortlists: add this banner at the top of the old doc/section rather than deleting — `> ⚠️ SUPERSEDED — active doc: [[<new doc>]]` — and keep the research below it.
 
-**Edit safety:** Shared planning files in the fan-out (`Works in Progress.md`, `This Week.md`, project hubs) go through `locked-edit.sh`, not the Edit tool — see `_shared-rules.md` §5. For all edits (either mechanism): PostToolUse formatters may modify files between Read and Edit. Use *minimal-context* `old_string`s (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-Read and retry with shorter strings if a match fails.
+**Edit safety:** Shared planning files in the fan-out (`Works in Progress.md`, `This Week.md`, project hubs) go through `locked-edit.sh`, not the Edit tool — see `_shared-rules.md` §5. For all edits (either mechanism): PostToolUse formatters may modify files between Read and Edit. Use *minimal-context* `old_string`s (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-Read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
 
 ## Heuristics summary (the load-bearing ones)
 
