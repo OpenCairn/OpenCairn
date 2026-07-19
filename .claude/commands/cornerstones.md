@@ -23,6 +23,7 @@ Use the Grep tool to find all `[CS]` references across `{VAULT}`:
 
 - Search pattern: `\[CS\]`
 - Search path: `{VAULT}`
+- Restrict to Markdown with `glob: "*.md"` — notes are Markdown; without the filter the scan can hit scripts, JSON, or binary sidecars on vaults whose ignore rules don't already limit matches
 - Use `output_mode: "content"` with `-C 2` (2 lines of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 
@@ -30,13 +31,13 @@ Use the Grep tool to find all `[CS]` references across `{VAULT}`:
 
 Organise the results by source file. For each file:
 - Show the file path (relative to vault root)
-- Show each `[CS]` hit with its surrounding context
+- Show each `[CS]` hit with its surrounding context (carry context into the Step 4 summary only where it clarifies the task or its status)
 - If a file has multiple hits, list them all under that file's heading
 
 ### 3. Assess Status
 
 For each cornerstone, note whether it appears to be:
-- **Open** — no completion marker (`- [ ]` or just a bullet)
+- **Open** — an unchecked checkbox (`- [ ]`) or a plain bullet with no completion marker
 - **Done** — has a completion marker (`- [x]`)
 - **Stalled** — context suggests no progress (e.g., explicitly noted as blocked or waiting)
 
@@ -58,7 +59,7 @@ Output format:
 
 ---
 
-**Total:** X cornerstones (Y open, Z done)
+**Total:** X cornerstones (Y open, Z done, W stalled)
 ```
 
 If no `[CS]` tags are found, say so clearly — the user may not have adopted the tag yet.
