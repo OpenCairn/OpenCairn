@@ -29,6 +29,8 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
 - **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
+- **Gated-model silent-None assert** — assert `diarize_model.model` after `DiarizationPipeline`. → `transcribecloud`, `transcribe`
+- **Tag-scan hygiene** — md-glob filter; exclude archive + frozen artefacts. → `longpoles`, `guillotines`, `cornerstones`
 - **Published-transcript-first** — prefer ready-made human-edited transcript over re-running ASR. → `transcribe` Phase 0
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Surface, don't act, on what you can't attribute or verify** — report as finding; never delete or rewrite. → `audit` (deletion discipline), `park` Step 11
