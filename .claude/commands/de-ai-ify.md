@@ -21,7 +21,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; `/setup` documents how to set it per-OS). Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`; if both exist, prefer the copy in the same directory as this command file) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Analyse the text:**
    - Identify AI patterns (see checklist below)
@@ -30,11 +30,11 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 
 2. **Load voice profile:**
 
-Check for voice training data:
-- `{VAULT}/07 System/Context - Voice & Writing Style.md` - concrete before/after examples (read this first)
-- Secondary sources, if present in the vault: archived AI-chat exports (the user's own prompts, not AI responses), published writing (blog posts, essays), and the user's Obsidian notes (especially in `07 System/` and `03 Projects/`)
+Read `{VAULT}/07 System/Context - Voice & Writing Style.md` — concrete before/after examples, and the source of truth for voice patterns (sentence structure, vocabulary, tone, hedging style, examples, structure).
 
-Extract patterns from the voice profile (sentence structure, vocabulary, tone, hedging style, examples, structure). The voice context file is the source of truth for these.
+- **If it exists and is populated:** use it alone. Do NOT trawl secondary sources on a routine run — the profile already distils them.
+- **If it's missing or thin:** say so, offer the first-run profile build (see Voice Training Sources below), and rewrite using this file's defaults — or user-supplied samples — in the meantime.
+- **Secondary sources are for profile building/refinement only**, not per-run reads: archived AI-chat exports (the user's own prompts, not AI responses), published writing (blog posts, essays), and the user's Obsidian notes (especially in `07 System/` and `03 Projects/`).
 
 3. **Apply transformations:**
 
@@ -62,7 +62,7 @@ Extract patterns from the voice profile (sentence structure, vocabulary, tone, h
 
 Present two versions:
 
-**Original (AI-generated):**
+**Original:**
 ```
 [Original text]
 ```
@@ -108,7 +108,9 @@ Present two versions:
 - [ ] Repetitive transitions ("Moreover,", "Furthermore,", "Additionally,")
 - [ ] Conclusion that restates introduction
 - [ ] Every paragraph starts with topic sentence
-- [ ] Subject-drop (omitting subject pronouns, e.g. "Looked into that" instead of "I looked into that"). Keep all subject pronouns — English is not a pro-drop language and the user doesn't write in telegraphic style
+- [ ] Subject-drop (omitting subject pronouns, e.g. "Looked into that" instead of "I looked into that"). Default: keep subject pronouns — English is not a pro-drop language. But this is register-sensitive: where the voice profile or the register in force says otherwise (casual IM, where "Sounds good" is native), don't "correct" it
+- [ ] Em-dash overuse (multiple per paragraph, used as an all-purpose connector)
+- [ ] "not X, but Y" contrast framing; rule-of-three triads ("fast, simple, and reliable")
 
 **Tone indicators:**
 - [ ] Excessive hedging ("somewhat", "relatively", "arguably")
@@ -162,6 +164,6 @@ Use de-AI-ify:
 - **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
 - **Before blog publishing:** Final voice check on posts
 - **With /thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
-- **With /reply:** `/reply` invokes `/de-ai-ify` via the Skill tool after drafting, with two invocation constraints: preserve any `**[true?]**` factual-claim flags verbatim, and defer step 6 (voice refinement) — `/reply` runs it later, against the message the user actually sent. The full before/after presentation still applies. `/de-ai-ify` can also be used standalone on any text outside of `/reply`.
+- **With /reply:** `/reply` invokes `/de-ai-ify` via the Skill tool after drafting, with invocation constraints defined in `reply.md` step 4 — that file owns the contract (marker preservation, register handling, step 5/6 deferral); follow the constraints as passed at invocation rather than this summary. The before/after presentation still applies. `/de-ai-ify` can also be used standalone on any text outside of `/reply`.
 
 This ensures **the user's authentic voice in all published work**.
