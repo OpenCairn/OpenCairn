@@ -134,7 +134,15 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device)
 # 3. Diarize (optional)
 if diarize:
     from whisperx.diarize import DiarizationPipeline
-    diarize_model = DiarizationPipeline(model_name="pyannote/speaker-diarization-3.1", device=device)
+    diarize_model = DiarizationPipeline(
+        model_name="pyannote/speaker-diarization-3.1",
+        device=device,
+        use_auth_token=os.environ.get("HF_TOKEN"),  # None → falls back to the cached huggingface-cli login
+    )
+    assert diarize_model.model is not None, (
+        "DiarizationPipeline.model is None — token rejected or licence gates not accepted "
+        "(see Prerequisites; Pipeline.from_pretrained fails silently on auth errors)"
+    )
     diarize_segments = diarize_model(
         audio,
         num_speakers=num_speakers,
