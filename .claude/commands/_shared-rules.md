@@ -549,3 +549,25 @@ Canonical rule for every skill with a pre-audit quality gate over files it just 
 - **Required output:** `Value check: N values traced, M unsourced (fixed); P preconditions asserted, Q verified` — or `Value check: no specific values written this session` (append `; no preconditions asserted` when that half is also nil).
 
 Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *supplying* sources to a reviewer; this one governs whether a value written into a file had a source at all.
+
+---
+
+## 20. Session-Boundary Attribution (the file list is the boundary, not the commit window)
+
+Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 14(b), `/goodnight` Step 15(b). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
+
+**The rule.** The vault's `.git` is an **auto-save** repo: commits are time-window snapshots, not session boundaries, and concurrent sessions write to the same vault. A file appearing in the same commit as a session's bookkeeping is therefore **not** evidence that session produced it.
+
+Attribute work **only** from the file list embedded in the brief. A changed file that is not on that list belongs to a concurrent session: surface it as an observation, and never
+
+- add it to `Files Created` / `Files Updated`,
+- open a `Next Steps` loop or `Pickup Context` thread for it, or
+- write a Session History row for it in another project's hub.
+
+**Partial application is the failure mode.** Applying the test to some files in a commit and not others produces a confident, internally consistent record of work the session did not do — which is harder to detect than an obvious error, because every individual claim reads as plausible and the record is self-consistent. When unsure whether a file is in scope, say so in the report rather than deciding.
+
+**Checkable:** every file the auditor writes into a session record appears in the brief's embedded file list. One that doesn't is misattribution, whatever the commit history shows.
+
+Caught 2026-07-19: an audit sub-agent correctly excluded two files from a commit window as concurrent work, then attributed a 194-line project file from the *same* window to the session, and wrote four separate false records off the back of it — a Files Created entry, an open loop, a Pickup Context thread, and a Session History row in an unrelated project hub.
+
+The read-side sibling is `_shared-patterns.md`'s *Auto-save git is not pre-state*: that one governs using auto-save history to reconstruct what a file looked like before; this one governs using it to decide who did what.
