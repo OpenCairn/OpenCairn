@@ -290,9 +290,17 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   # Each CLI call below: pass timeout 300000 as the Bash TOOL argument (not a shell flag)
   cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
   cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -C <root> -
+  ~/.claude/scripts/xai_client.py --panel-review <brief> --source <target> [--source <target> ...]
   ```
 
   `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
+
+- **The Grok seat is an API seat, not a CLI seat — it reads nothing.** `xai_client.py` posts to xAI's Responses API over stdlib `urllib`; it has no filesystem access, so the target must be passed with `--source` and is inlined into the prompt as a delimited appendix. Three consequences that the other two seats don't have:
+  - **Manifest in place of a read-list.** The wrapper appends each source as `path | bytes | sha256` and instructs the seat to reproduce that manifest verbatim and quote what it relied on. That manifest is the Grok seat's evidence standard — the read-list rule (`audit.md`, `second-opinion.md`) is satisfied by the manifest, not waived. A Grok review with neither manifest nor quotes is brief-echo and is discarded exactly like a CLI review with no read-list.
+  - **Size cap, fail-closed.** `MAX_INLINE_BYTES` (400 KB, ~100k tokens — kept under xAI's >200k-token tier where the per-token rate doubles). Over the cap the wrapper raises and the seat is **dropped with the reduced panel announced**; it never silently truncates, because a truncated appendix produces confident findings about text the seat never saw.
+  - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when `XAI_API_KEY` is set, 1 otherwise. Probe *before* despatch — an unset key must degrade to a three-seat panel up front, not fail mid-run. Note the key must be in the environment the Bash tool actually runs in; a key exported only in `~/.bashrc` will not reach a non-interactive shell (same trap as `second-opinion.md` Phase 2A step 5).
+
+  The wrapper sets `store: false` (xAI otherwise retains responses server-side for 30 days) and never enables live search on a review call. `store: false` forecloses `previous_response_id` threading, which is why the Grok seat has no true resume — round 2 replays prior context. Turn the console's data-sharing/"improve the models" toggle **off**; with it on, everything sent is trainable.
 
 ---
 
