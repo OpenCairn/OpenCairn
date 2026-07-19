@@ -53,3 +53,5 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `park` Step 4(d), `goodnight` Step 14b
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `park` Step 13, `goodnight` Step 9
 - **One log entry per root cause** — fold same-cause items; split independent ones. → `oops` Phase 1, `win` Phase 1
+- **Verbatim text vs in-place formatting hook** — hook rewrites whole file; append via shell, never re-Edit. → `_shared-rules.md §14`, `archive-transcript`, `park` Step 4(d)
+- **Push-side hub record** — pushed commit's canonical row lives in a hub no grep reaches. → `park` Step 12(a), `goodnight` Step 15(a)
