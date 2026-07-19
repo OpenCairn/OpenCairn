@@ -381,7 +381,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    → No identifier values changed.
    ```
 
-   **Commits pushed this session are their own identifier class.** For every commit hash the session recorded, grep the vault for that repository's hub and confirm three things: a `## Session History` row exists for this session, the hub's own `**Last update:**` stamp is current, and the WIP entry's `**Last:**` field reflects the push. A pushed commit is a world-state change whose canonical record lives in a hub the session may never have opened — so no content grep reaches it, and the per-identifier pass returns clean while the project's own commit-level record silently misses an entry. The hub is the target even when the session edited nothing inside it. **Checkable:** for each hash in the session log, one grep must return the repo's hub, and that hub must carry a row citing this session. (Mirror of `/goodnight` Step 15(a) — keep the two in sync.)
+   **Commits pushed this session are their own identifier class** — enumerate each hash and check the repository's hub per **`_shared-rules.md` §17** (already in context — Step 0 reads it in full). A pushed commit has no textual footprint in the vault, so no content grep reaches the hub that is supposed to record it.
 
    **A `NEW:` entry that is an option/alternative added to a *pre-existing* decision/record (one the session did not create from scratch this session) is never nil — enumerate it with the decision's *anchor* (route/decision/record key, e.g. `<ORIGIN>→<DEST>`), not just the new value.** Sibling docs that still lack the new option contain the anchor but not the new value, so the anchor — not the option text — is the propagation join key.
 
