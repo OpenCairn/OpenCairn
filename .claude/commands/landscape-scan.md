@@ -31,9 +31,9 @@ The engine never collapses a profile's passes into a single verdict, and never s
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Set **`COMMANDS_DIR`** = the directory holding this command's sibling files (`_shared-rules.md`, the profiles). Claude Code does not expose a slash-command's own source path, so resolve it deterministically: prefer `~/.claude/commands/` if it exists, else `{VAULT}/.claude/commands/`; if both exist, use `~/.claude/commands/` and note in the report that resolution used the fallback — the two copies should match after a `/sync-template`, so a divergence is itself worth surfacing. (If a future Claude Code build *does* expose the source path, prefer whichever directory this file actually loaded from, since the two copies can diverge between syncs.) Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and commands directory; they are not pre-set shell variables.
+If error, abort. Set **`COMMANDS_DIR`** = the directory holding this command's sibling files (`_shared-rules.md`, the profiles). Claude Code does not expose a slash-command's own source path, so resolve it deterministically: prefer `~/.claude/commands/` if it exists, else `{VAULT}/.claude/commands/`; if both exist, use `~/.claude/commands/` and note in the report that both copies exist and resolution was heuristic — the two copies should match after a `/sync-template`, so a divergence between them is itself worth surfacing. (If a future Claude Code build *does* expose the source path, prefer whichever directory this file actually loaded from, since the two copies can diverge between syncs.) Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and commands directory; they are not pre-set shell variables.
 
-**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`) and the Firecrawl MCP for fetch-fallback. These are not portability-guarded — on a non-GNU shell or an install without Firecrawl the affected call fails loudly (a visible error, not a silent wrong answer), at which point the executor substitutes the platform equivalent (e.g. BSD `date -j`, the OS's own package query) or falls back to WebFetch-only. Documented as assumed rather than branched.
+**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`), the WebSearch tool (the cybersec profile's vendor-advisory discovery), and the Firecrawl MCP for fetch-fallback. These are not portability-guarded — on a non-GNU shell or an install without Firecrawl the affected call fails loudly (a visible error, not a silent wrong answer), at which point the executor substitutes the platform equivalent (e.g. BSD `date -j`, the OS's own package query) or falls back to WebFetch-only. Documented as assumed rather than branched.
 
 ### 1. Resolve topic and load the profile
 
@@ -80,7 +80,7 @@ Relevance judgement requires knowing what the user is *already doing* (and, for 
 
 **Load the profile's `Contextualising reads` list**, proportionate to the scope of the run. Also:
 
-- **Prior scan** (if one exists from the last week or two) for *this topic*, from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`), sort by mtime (`ls -t`), don't re-report things already classified unless their status changed. If the glob returns nothing, that's a genuine cold start — say so; don't silently treat a mis-written pattern as "no prior scans."
+- **Prior scan** — the most recent one for *this topic* regardless of age (it stays the delta anchor after a multi-week gap; note in the report if it's older than ~2 weeks), from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`), sort by mtime (`ls -t`). Quote the directory but never the glob — `ls -t "{VAULT}/06 Archive/Landscape Scans/"<glob>` — a fully-quoted path makes the brackets literal and false-reports a cold start; an unquoted path breaks on the directory's spaces. Don't re-report things already classified unless their status changed. If the glob returns nothing, list the directory before concluding: no landscape files at all → genuine cold start, say so; files from other topics present but none matching this profile's pattern → report "no prior scans matched glob `<glob>`" so a mis-written pattern surfaces instead of silently reading as a cold start.
 - **Just-in-time routing-table context** — if a specific finding later touches a CLAUDE.md routing-table topic, load that context before assessing that finding.
 
 Keep this light — the goal is *calibration*, not total recall.
@@ -130,7 +130,7 @@ If the vault contains a capability audit project doc, update the relevant domain
 
 ### 9. Classify findings
 
-Classification labels come from the profile's `Report sections`. For each finding state what it does, what problem it solves (handled or not today), and place it in the right section.
+Classification labels come from the profile's `Report sections`. For each finding, state what it is and its significance in the active profile's terms — tool-adoption profiles: what problem it solves (handled or not today); threat profiles: what it reaches and the action trigger — and place it in the right section.
 
 **For any finding whose action is "install / adopt a package" (either profile — a Claude Code tool, or a security tool), compute supply-chain cooldown explicitly.** Days since latest release (npm/PyPI/Docker) or last commit (source installs). Compare against a ≥3–7 day cooldown window — don't install a package the day it publishes; let downstream users surface supply-chain compromises (malicious publishes, typosquats, compromised maintainer accounts) first. State the recommendation — **install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD** — don't leave arithmetic to the user. **Exception:** an exposed, exploited-in-the-wild or critical-reachable security patch overrides the cooldown — when the profile's action pass says *patch now*, apply it immediately and state why (active exploitation outweighs the fresh-publish risk); the cooldown still governs optional tool/source adoption. (This discipline is doubly load-bearing for the `cybersec` profile, whose own beat is supply-chain attacks — the override resolves the irony that a rushed patch can itself be poisoned, but an exploited critical can't wait.)
 
@@ -140,7 +140,7 @@ Classification labels come from the profile's `Report sections`. For each findin
 mkdir -p "{VAULT}/06 Archive/Landscape Scans"
 ```
 
-Create `{VAULT}/06 Archive/Landscape Scans/YYYY-Www<suffix>.md`. The engine supplies the common wrapper; the profile supplies the middle finding-sections:
+Create `{VAULT}/06 Archive/Landscape Scans/YYYY-Www<suffix>.md`. If that file already exists (a second run this week — e.g. an ad-hoc digest after the weekly scan), **append a dated addendum section to it rather than overwriting**, and never invent a suffixed filename (`…b.md`) — the profiles' prior-scan globs won't match it. The engine supplies the common wrapper; the profile supplies the middle finding-sections:
 
 ```markdown
 # Landscape Scan (<topic>) — YYYY-Www
