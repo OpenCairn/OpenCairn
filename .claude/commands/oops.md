@@ -29,7 +29,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
 ### Phase 2: Check for Rule Collision
 
-3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md and any loaded context files for rules that cover this situation.
+3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md, auto-memory files (`MEMORY.md` and its topic files, if present), and any loaded context files for rules that cover this situation.
 
    **If a matching rule exists**, the lesson isn't "follow the rule" — the rule already failed to fire. Diagnose why:
    - **Was the rule in context?** (Was CLAUDE.md or the relevant context file loaded when the mistake happened?)
@@ -42,11 +42,13 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - **Add a new rule** that covers the gap the existing rule missed
    - **Note that the rule was absent from context** (if that's the diagnosis — the fix is ensuring it loads, not writing a duplicate rule)
 
+   These are **proposals** — do not edit CLAUDE.md or context files without the user's explicit approval. The log entry records what was proposed (or, if approved this session, what was changed).
+
    Display:
    ```
    ⚠ Rule collision: [existing rule summary]
    Diagnosis: [why it didn't fire]
-   Fix: [refine trigger / add new rule / ensure context loading]
+   Proposed fix: [refine trigger / add new rule / ensure context loading]
    ```
 
    **If no matching rule exists**, proceed normally — this is a genuinely new lesson.
@@ -71,6 +73,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Get date: `date +"%Y-%m-%d"`
 
 7. **Append to the corrections log** using the Edit tool:
+   - **First run:** if `{VAULT}/07 System/Claude Corrections Log.md` doesn't exist, create it from the template in **Setup** below, then continue
    - Read the current end of `{VAULT}/07 System/Claude Corrections Log.md`
    - Use Edit tool to append the new entry after the last line
    - Entry format (substitute actual values):
@@ -80,7 +83,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    ### YYYY-MM-DD - Short Title Here
    **Mistake:** Actual description of what went wrong.
    **Correction:** What the right approach was.
-   **Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, what was changed.
+   **Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, the proposed fix (or the change made, if the user approved one).
    **Lesson:** Transferable principle for the future.
    ```
 
@@ -90,7 +93,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Search for key nouns from the mistake (e.g., tool names, error types, assumption categories)
    - Search the corrections log file
 
-9. **If pattern detected** (2+ similar mistakes), suggest promotion. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.
+9. **If pattern detected** (2+ similar mistakes — count distinct `### ` entry headings whose entries match, not raw grep hits: the just-added entry plus at least one distinct prior entry), suggest promotion. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.
    - **Default target: `07 System/` context files** — specific operational rules belong near the system they govern (e.g., NAS path rules → `Context - Technical Infrastructure.md`)
    - **CLAUDE.md only for truly cross-cutting patterns** — habits-of-mind that apply regardless of which system you're working with
    ```
@@ -114,7 +117,7 @@ The corrections log entry follows this exact structure:
 ### YYYY-MM-DD - Short Descriptive Title
 **Mistake:** Specific description of what went wrong. No hedging or softening.
 **Correction:** What the right approach was. What actually fixed it.
-**Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, and what was changed (trigger refined / new rule added / context loading fixed).
+**Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, and the proposed fix (trigger refinement / new rule / context loading) — or the change made, if the user approved one.
 **Lesson:** Transferable principle that applies beyond this specific instance.
 ```
 
@@ -128,7 +131,7 @@ The corrections log entry follows this exact structure:
 
 ## Setup
 
-This command requires a corrections log file. Create it if it doesn't exist:
+This command requires a corrections log file. Phase 4 step 7 creates it on first run from this template:
 
 ```markdown
 # Claude Corrections Log
