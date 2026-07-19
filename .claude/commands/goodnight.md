@@ -186,7 +186,7 @@ Before collapsing, scan today's section — and any earlier days that are still 
 - **Low priority / no deadline?** → Move to Tasks.md (`{VAULT}/01 Now/Tasks.md`).
 - **Already appears in a future day?** → Delete the duplicate from today, don't move.
 
-**Deadline tokens force a dated surface.** If an item's text contains a deadline, cut-off, expiry, renewal, or window-close token, the route MUST terminate in a dated surface — a specific day section if the date falls inside This Week's window, else the Tickler via `write-tickler.sh`. Never Tasks.md: it records *what* to do, never *when it stops being possible*. The "no deadline" branch is for items with genuinely no date; a deadline token means the item has one even when it isn't written as a calendar date — derive it (`date -d`), don't route past it. **Checkable:** any routed item whose text carries a deadline token must land under a dated heading — `→ Tasks.md` is the failure. (Mirror of `/park` Step 13's deadline-token rule — keep the two in sync.)
+**Deadline tokens force a dated surface** — per **`_shared-rules.md` §18** (already in context — Step 0 reads it in full). This skill's undated sink is the "low priority / no deadline" branch above: `→ Tasks.md` is the failure for a deadline-bearing item, which must land in a day section or the Tickler (via `write-tickler.sh`) instead.
 
 **Critical: carry items forward intact.** Move the full item text, sub-items, checklists, and surrounding context exactly as they appear. A multi-line checklist (e.g. a sprint with Tier 1/Tier 2 items) is an active working artefact — move the entire block, not a summary. Never summarise, condense, or strip items during routing — including `[x]` items. Completed items within a block are progress context.
 
@@ -275,14 +275,7 @@ If any project status changed significantly today, update `{VAULT}/01 Now/Works 
 
 ### 14b. Value check (SOURCE)
 
-Before delegating the audit, run the SOURCE check over every file this goodnight wrote (Daily Report, This Week.md, Tickler, Tasks.md, project files, session entry, WIP):
-
-- Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
-- Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
-- **Derived values inherit the check.** A total computed from components, or two items presented as equivalent/substitutable, are unsourced unless the inputs *and the equivalence* were themselves checked. Plausible arithmetic over unverified inputs is the same defect as an invented figure.
-- Required output: `Value check: N values traced, M unsourced (fixed)` — or `Value check: no specific values written this session`.
-
-(Mirror of `/park` Step 4(d)'s SOURCE category — keep the two in sync.)
+Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, Tasks.md, project files, session entry, WIP. That section carries the enumeration, the three acceptable provenances, the derived-values clause, and the required output line.
 
 ### 15. Delegate /audit to a fresh sub-agent
 
