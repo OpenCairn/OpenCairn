@@ -27,6 +27,7 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 
 - Search pattern: `\[GT\]`
 - Search path: `{VAULT}`
+- Restrict to Markdown with `glob: "*.md"` — notes are Markdown; without the filter the scan can hit scripts, JSON, or binary sidecars on vaults whose ignore rules don't already limit matches
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 - Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/Provenance/`). A `[GT]` copied into a frozen snapshot is not a live deadline

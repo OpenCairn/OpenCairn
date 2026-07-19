@@ -555,7 +555,7 @@ For each JSON transcript file:
 
    **Without diarisation:** Insert paragraph break wherever gap between segments exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp (`[MM:SS]` for <1hr, `[H:MM:SS]` for ≥1hr) derived from the first segment's `start`.
 
-   **Monologue fallback.** For recordings longer than 5 minutes, after the initial split, check: is the paragraph count at least `duration_seconds / 120` (roughly one per two minutes)? If not, recompute — sort segment-to-segment gaps descending, let `N = min(floor(duration_seconds / 90), len(gaps))`, use `gaps_desc[N-1]` as the new threshold, re-split. State the threshold used in your user-facing response.
+   **Monologue fallback.** For recordings longer than 5 minutes, after the initial split, check: is the paragraph count at least `duration_seconds / 120` (roughly one per two minutes)? If not, recompute — sort segment-to-segment gaps descending, let `N = min(floor(duration_seconds / 90), len(gaps))`, use `gaps_desc[N-1]` as the new threshold, re-split; if there are no gaps at all (`len(gaps) == 0`, e.g. a single segment), skip the fallback and keep the initial split. State the threshold used in your user-facing response.
 
    **With diarisation:** Iterate over the **words** array (not segments) — a single segment often contains multiple speakers. Before grouping, **forward/back-fill any words with `speaker: None`** from their nearest non-None neighbour (pyannote occasionally leaves words unassigned; treating `None` as a new speaker produces a spurious "Speaker 4+"). Then group consecutive words by speaker. Start a new paragraph on speaker change OR >1.5s gap. Prefix each paragraph with timestamp + speaker label in bold:
    ```
