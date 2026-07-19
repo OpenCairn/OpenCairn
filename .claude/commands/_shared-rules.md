@@ -493,3 +493,21 @@ A short count means the brief is incomplete, not the work wrong.
 ### When a source is unrecoverable
 
 If a source's text has left context (a long session, a `/compact` — and the first thing lost is the earliest fetch, which this rule identifies as disproportionately the originating source), **re-fetch it**. If it cannot be recovered, say so in the brief under the same heading — `<source> — text unavailable; do NOT flag claims traced to it as fabricated` — and **still count it in N**. Never paraphrase it from memory (that manufactures the fabricated-quote failure), and never drop it silently (that is the original failure, reproduced).
+
+---
+
+## 17. Push-Side Hub Record (commits are their own identifier class)
+
+Canonical rule for every skill that runs a reference-graph / propagation pass after a session that pushed code — `/park` Step 12(a), `/goodnight` Step 15(a). Those skills point here and carry no copy to drift.
+
+**The rule.** Every commit hash a session records is its own identifier. For each one, grep the vault for that repository's hub and confirm three things:
+
+1. A `## Session History` row exists for the session that pushed it.
+2. The hub's own `**Last update:**` / `Last updated:` stamp is current.
+3. The WIP entry's `**Last:**` field reflects the push.
+
+**Why the ordinary per-identifier pass misses it.** A pushed commit is a world-state change with no textual footprint in the vault. Nothing in the session's file edits contains the hash, so no content grep reaches the hub — and the hub is frequently a file the session never opened. The propagation pass therefore returns a clean, *fully earned* hit-list while the project's own commit-level record silently misses an entry. This is the inverse of the usual failure: not a stale value left behind, but a **new** record never written, in a document whose stated job is to hold it.
+
+**Scope.** Applies to any repository with a hub in the vault, whether or not the session edited vault files for it. It applies equally when the commit was pushed by a skill's own bookkeeping (a skill-file fix committed during `/park` is still a push, and its hub row is still owed) — the rule is about the push, not about who initiated it.
+
+**Checkable:** for each hash, one grep must return the repo's hub, and that hub must carry a row citing the pushing session. A propagation report that enumerates no commits on a session that pushed one has not run this check.

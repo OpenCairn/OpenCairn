@@ -316,7 +316,7 @@ Identifiers in scope:
 → All Layer 3 substrate enumerated; propagation check follows in sub-agent.
 ```
 
-**Commits pushed are their own identifier class.** For every commit hash the day's sessions recorded, grep the vault for that repository's hub and confirm a `## Session History` row exists for the session that pushed it, that the hub's `**Last update:**` stamp is current, and that the WIP entry's `**Last:**` reflects the push. A pushed commit is a world-state change whose canonical record lives in a hub the session may never have opened — no content grep reaches it, so the per-identifier pass returns clean while the project's commit-level record silently misses an entry. **Checkable:** for each hash, one grep must return the repo's hub, and that hub must carry a row citing the pushing session. (Mirror of `/park` Step 12(a) — keep the two in sync.)
+**Commits pushed are their own identifier class** — enumerate each hash from the day's sessions and check the repository's hub per **`_shared-rules.md` §17** (already in context — Step 0 reads it in full). A pushed commit has no textual footprint in the vault, so no content grep reaches the hub that is supposed to record it.
 
 **The nil case is not a free pass.** "Nothing changed" is a positive claim requiring the explicit checklist. **New state introduced is the most-missed category** — every /goodnight introduces at minimum a daily report file and a goodnight session entry, so a "nothing introduced" claim is always wrong by construction.
 
