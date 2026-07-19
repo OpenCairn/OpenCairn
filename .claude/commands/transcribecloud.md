@@ -48,7 +48,7 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
 3. **For local files:** Count files and get total duration via `ffprobe`.
 4. **Determine source type:**
    - `youtube` — URLs only, will download directly on pod (faster, no local transfer needed)
-   - `local` — local files, will need `runpodctl send/receive` transfer to pod
+   - `local` — local files, will need transfer to pod (scp over exposed TCP, else `runpodctl send/receive` — Phase 4)
    - `mixed` — both; download URLs on pod, transfer local files separately
 5. **Check GPU availability and pick one** — the skill used to hardcode A4000 but A4000 is often out of stock. Run:
    ```bash
@@ -85,13 +85,12 @@ runpodctl pod create \
   --name "whisperx-batch" \
   --gpu-id "NVIDIA GeForce RTX 3090" \
   --gpu-count 1 \
-  --template-id "runpod-torch-v240" \
   --image "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
   --container-disk-in-gb 30 \
   --ports "22/tcp,8888/http" \
   --cloud-type COMMUNITY
 ```
-Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. Use `--cloud-type SECURE` if community cloud has no capacity (error: "This machine does not have the resources to deploy your pod"). The `--ports "22/tcp"` is required — without it, SSH isn't bridged.
+Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. `--image` and `--template-id` are **either/or** per `runpodctl pod create --help` ("create a pod either from a template or by specifying an image directly") — this skill pins the image directly because the Phase 3 dep pins are tied to it; do not also pass `--template-id` (the template `runpod-torch-v240` resolves to this same image and is only the fallback if image-only creation ever fails). Use `--cloud-type SECURE` if community cloud has no capacity (error: "This machine does not have the resources to deploy your pod"). The `--ports "22/tcp"` is required — without it, SSH isn't bridged.
 
 2. **Extract pod ID** from the response JSON.
 
@@ -180,24 +179,29 @@ pip install -q 'ctranslate2>=4.5.0'
        root@IP:/root/.cache/huggingface/token
    ```
 
-   **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) but not on disk: `ssh ... 'mkdir -p /root/.cache/huggingface && echo -n "$HF_TOKEN" > /root/.cache/huggingface/token'` — but ensure the env var is exported on the local side, not just on the pod.
+   **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) locally but not on disk: `printf %s "$HF_TOKEN" | ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /root/.cache/huggingface && cat > /root/.cache/huggingface/token'` — the pipe expands the variable **locally**; a single-quoted remote `echo "$HF_TOKEN"` would expand on the *pod* (where it's unset) and silently write an empty file.
+
+   **Over proxy SSH (no SCP — Phase 2 step 4):** transfer the token file with `runpodctl send ~/.cache/huggingface/token` locally, then on the pod `mkdir -p /root/.cache/huggingface && cd /root/.cache/huggingface && runpodctl receive <code>` — using the detached-send pairing-code pattern from Phase 6.
 
    **One-time per HF account:** also visit https://hf.co/pyannote/speaker-diarization-3.1 (and its gated dependency https://hf.co/pyannote/segmentation-3.0 — see `/transcribe`'s prerequisites) once and click "Accept" on each user-conditions page. The token grants auth; the click grants the gating agreement. Without the click, the same token returns 403 and the pipeline silently becomes `None`.
 
-3. **Set runtime environment:**
+3. **Runtime environment — cudnn library path.** Every whisperx invocation on the pod needs:
 ```bash
 export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
 ```
+   **Each SSH command is a fresh shell — a bare `export` in one call does NOT persist to later calls** (and the pod's `.bashrc` interactive guard means appending it there doesn't reach non-interactive SSH shells either). The step 4 verify commands and the Phase 5 launch command below carry this export inline; if you compose any other whisperx-running command, prefix it yourself.
 
 4. **Verify CUDA + WhisperX + pyannote glue (don't skip):**
 
 If diarisation is *not* requested, the short form (no token, no gated pipeline):
 ```bash
+export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
 python3 -c "import torch; assert torch.cuda.is_available(); import whisperx; from pyannote.audio import Model; from whisperx.vads import Pyannote; Pyannote(torch.device('cuda'), token=None, vad_onset=0.500, vad_offset=0.363); Model.from_pretrained('pyannote/wespeaker-voxceleb-resnet34-LM'); print('SETUP_OK')"
 ```
 
 If diarisation **is** requested, also exercise the gated pipeline so a missing token / unaccepted agreement fails here, not 90s into the transcription run:
 ```bash
+export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
 python3 << 'PYEOF'
 import os
 tk_path = os.path.expanduser("~/.cache/huggingface/token")
@@ -230,7 +234,7 @@ The VAD load exercises the whisperx×pyannote×huggingface_hub glue that bare `i
 
 ### Phase 4: Get audio onto pod
 
-**For YouTube URLs (source type `youtube` or `mixed`):**
+**For YouTube URLs (source type `youtube` or `mixed`):** run these **on the pod** via SSH (same transport as Phase 3) — not locally; downloading on the pod is the whole point (datacenter bandwidth, no transfer step):
 ```bash
 mkdir -p /workspace/audio
 yt-dlp -f "bestaudio[ext=m4a]/bestaudio" -x --audio-format mp3 --audio-quality 5 \
@@ -238,7 +242,7 @@ yt-dlp -f "bestaudio[ext=m4a]/bestaudio" -x --audio-format mp3 --audio-quality 5
 ```
 **Critical:** the `-f "bestaudio[ext=m4a]/bestaudio"` flag is mandatory — without it, yt-dlp selects the best *video* stream and extracts audio afterwards, downloading e.g. 1.2 GB of video just to produce a 50 MB MP3. The `-x --audio-format mp3` alone does NOT constrain the download format.
 
-**Filename convention:** use `%(id)s.%(ext)s` (video ID), not `%(title)s.%(ext)s`. Titles often contain characters that break shell globs or are clickbait — the video ID is a stable identifier that makes post-processing easier. Preserve the original title in the output markdown metadata instead.
+**Filename convention:** use `%(id)s.%(ext)s` (video ID), not `%(title)s.%(ext)s`. Titles often contain characters that break shell globs or are clickbait — the video ID is a stable identifier that makes post-processing easier. Preserve the original title in the output markdown metadata instead — and **persist the `id → title → URL → duration` mapping from Phase 1's inventory to a local file now** (e.g. `/tmp/yt-sources.json`): Phase 8's headers need the titles, and conversation context may not reliably carry them that far.
 
 **Anti-bot mitigation for batches >5 URLs:** YouTube's anti-bot ("Sign in to confirm you're not a bot") kicks in partway through large bursts from a single IP. Two ways to mitigate — both run **locally first**, because the pod has no browser and no live YouTube session. Pick one:
 
@@ -258,7 +262,7 @@ yt-dlp --cookies /workspace/yt-cookies.txt --sleep-interval 3 --max-sleep-interv
 ```
 This keeps the "download on pod" architecture (fast datacenter bandwidth) while authenticating the requests.
 
-**Privacy caveat:** the exported cookies file contains **all** browser cookies in Netscape format, not just YouTube's. Uploading it to a cloud pod means session tokens for every site you've logged into are on that pod until destruction. Mitigations: (a) filter the file to YouTube-only entries before upload (`grep -E '^(# |\.youtube\.com|\.google\.com)' /tmp/yt-cookies.txt > /tmp/yt-only-cookies.txt`), or (b) use Option 2 if privacy concerns outweigh the speed win.
+**Privacy caveat:** the exported cookies file contains **all** browser cookies in Netscape format, not just YouTube's. Uploading it to a cloud pod means session tokens for every site you've logged into are on that pod until destruction. Mitigations: (a) filter the file to YouTube-only entries before upload — `grep -E '^(# |(#HttpOnly_)?([a-z0-9.-]*\.)?(youtube|google)\.com[[:space:]])' /tmp/yt-cookies.txt > /tmp/yt-only-cookies.txt` — note the `#HttpOnly_` alternate: Netscape-format exports prefix HttpOnly cookie *lines* with `#HttpOnly_`, and YouTube's key auth cookies (e.g. `LOGIN_INFO`, `SSID`) are HttpOnly, so a filter matching only `^# |^\.youtube` silently strips the very cookies that authenticate; or (b) use Option 2 if privacy concerns outweigh the speed win.
 
 **Option 2 (fallback): download locally with browser cookies, then transfer the MP3s to the pod.**
 Run locally:
@@ -273,18 +277,20 @@ Slower (local bandwidth bound) but doesn't require pushing a cookies file into t
 
 **For local files (source type `local` or `mixed`):**
 
-If pod has exposed TCP SSH, use SCP (simpler, one-shot):
+If pod has exposed TCP SSH, use SCP (simpler, one-shot; the glob matches every extension the Phase 5 script accepts, and `/workspace/audio` must be created first — the YouTube branch's `mkdir` didn't run on a local-only job):
 ```bash
-scp -i ~/.ssh/id_ed25519 -P PORT /path/to/audio/*.{mp3,m4a,wav} root@IP:/workspace/audio/
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /workspace/audio'
+scp -i ~/.ssh/id_ed25519 -P PORT /path/to/audio/*.{mp3,m4a,wav,flac,ogg,opus} root@IP:/workspace/audio/
 ```
 
-Otherwise use `runpodctl send/receive` (works over proxy SSH too):
+Otherwise use `runpodctl send/receive` (works over proxy SSH too). `send` prints a one-time pairing code and **blocks until the receiver connects** — so run it detached, capture the code, then run `receive <code>` on the other side (don't try to hold two blocking foreground commands at once):
 ```bash
-# On pod (in one SSH session):
-cd /workspace && runpodctl receive
+# Locally — detached send; returns immediately:
+nohup runpodctl send /path/to/audio/directory > /tmp/rp-send.log 2>&1 &
+sleep 2 && grep -o 'runpodctl receive [a-z0-9-]*' /tmp/rp-send.log   # capture the code
 
-# Locally (simultaneously, in a separate terminal):
-runpodctl send /path/to/audio/directory
+# On pod (one SSH session), using the captured code:
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /workspace/audio && cd /workspace/audio && runpodctl receive <code>'
 ```
 
 **Verify downloads:**
@@ -301,9 +307,10 @@ Write this Python script to a file on the pod (e.g. `/workspace/transcribe.py` v
 # Launch detached on the pod. nohup ignores SIGHUP; </dev/null + redirected stdout/stderr
 # stop SSH from staying tied to the channel, so this call returns in <1s:
 ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
-  'cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 &'
+  'export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH; cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 &'
+# The inline export is mandatory — this is a fresh SSH shell; Phase 3 step 3's export did not persist.
 # Proxy SSH: identical remote command, wrapped in the Phase 2 step 5 PTY form —
-#   script -qec 'ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 SSH_TARGET "cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 & exit"' /dev/null
+#   script -qec 'ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 SSH_TARGET "export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:\$LD_LIBRARY_PATH; cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 & exit"' /dev/null
 ```
 
 **Poll protocol.** The launch returns immediately — the batch is still running. Re-run the poll below every ~60–90s; the `sleep` runs *inside* the SSH call, so the Bash tool blocks for the interval (this is the wait mechanism — do not busy-loop back-to-back):
@@ -315,7 +322,7 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/transcrib
 The leading `wc -l` is the line count — compare it across consecutive polls to tell a *running* log (advancing) from a *dead* one (frozen). Classify each poll — **do not proceed to Phase 6 until you reach Success:**
 - **Success** — the log's final line is `Done.` → continue to Phase 6.
 - **Failure (crash)** — the log contains `Traceback (most recent call last)` → an unhandled exception (includes the diarisation `AssertionError`); stop, diagnose, don't retrieve. Match this specific marker, **not** a bare `Error` / `None` substring — benign output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs, if the traceback names a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the failure the Phase 3 note warns is easy to miss under `nohup`).
-- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. Treat a stalled line count as died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
+- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. **Before declaring death, check the process is actually gone:** `pgrep -af 'python3 transcribe.py'` in the same SSH call — the first-run `large-v3` weight download (~3 GB, tqdm disabled) is legitimately quiet for minutes after the `Loading ASR model` line, and a live process + frozen log during that window is *still running*, not dead. Process gone + stalled count = died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
 - **Still running** — line count is **still advancing**, no `Done.` → keep polling. Hard ceiling `max(30 min, ~2× the Phase 1 runtime estimate)` as a final backstop.
 
 The script itself:
@@ -347,9 +354,21 @@ audio_dir = "/workspace/audio"
 output_dir = "/workspace/transcripts"
 os.makedirs(output_dir, exist_ok=True)
 
+# Enumerate inputs FIRST — cheap, and puts lines in the log before the quiet model download
+_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus")  # case-insensitive match below
+files = sorted(
+    os.path.join(audio_dir, f)
+    for f in os.listdir(audio_dir)
+    if f.lower().endswith(_AUDIO_EXTS)
+)
+print(f"Found {len(files)} files to transcribe", flush=True)
+if not files:
+    raise SystemExit(f"No audio files in {audio_dir} matching {_AUDIO_EXTS} — nothing to do.")
+
 # Load ASR model ONCE
+print("Loading ASR model (first run downloads ~3 GB — log may be quiet for a few minutes)...", flush=True)
 model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # cloud = accuracy; keep distil-large-v3 for local CPU only
-align_model, align_metadata = None, None
+align_models = {}  # per-language cache — a --language auto batch can mix languages
 
 if diarize:
     assert HF_TOKEN, (
@@ -391,17 +410,6 @@ def _ensure_wav(audio_file):
     )
     return tmp.name, True
 
-_AUDIO_EXTS = (".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus")  # case-insensitive match below
-files = sorted(
-    os.path.join(audio_dir, f)
-    for f in os.listdir(audio_dir)
-    if f.lower().endswith(_AUDIO_EXTS)
-)
-print(f"Found {len(files)} files to transcribe")
-if not files:
-    raise SystemExit(f"No audio files in {audio_dir} matching {_AUDIO_EXTS} — nothing to do.")
-
-
 def longest_span_per_speaker(segments):
     """From word-level diarised segments, return {speaker: (start, end)} for the
     longest contiguous single-speaker span. Used to seed a clean voice print.
@@ -430,6 +438,10 @@ def longest_span_per_speaker(segments):
 
 for i, audio_file in enumerate(files, 1):
     basename = os.path.splitext(os.path.basename(audio_file))[0]
+    out_path = os.path.join(output_dir, f"{basename}.json")
+    if os.path.exists(out_path):  # resume: a rerun after a crash skips completed files
+        print(f"[{i}/{len(files)}] {basename}... skip (already transcribed)", flush=True)
+        continue
     print(f"[{i}/{len(files)}] {basename}...", end=" ", flush=True)
     t0 = time.time()
 
@@ -441,11 +453,12 @@ for i, audio_file in enumerate(files, 1):
         result = model.transcribe(audio, batch_size=batch_size)
         detected_language = result["language"]
 
-    # Load alignment model once (after first transcription determines language)
-    if align_model is None:
-        align_model, align_metadata = whisperx.load_align_model(
+    # Load alignment model per language (cached) — with --language auto, files in one batch can differ
+    if detected_language not in align_models:
+        align_models[detected_language] = whisperx.load_align_model(
             language_code=detected_language, device=device
         )
+    align_model, align_metadata = align_models[detected_language]
 
     result = whisperx.align(
         result["segments"], align_model, align_metadata, audio, device
@@ -486,11 +499,13 @@ for i, audio_file in enumerate(files, 1):
                 try: os.unlink(wav_for_embed)
                 except Exception: pass
 
-    out_path = os.path.join(output_dir, f"{basename}.json")
     with open(out_path, "w") as f:
         json.dump(output_obj, f)
 
     elapsed = time.time() - t0
+    # Per-file status manifest (.jsonl so Phase 6's *.json count ignores it)
+    with open(os.path.join(output_dir, "manifest.jsonl"), "a") as mf:
+        mf.write(json.dumps({"file": basename, "status": "ok", "elapsed_s": round(elapsed, 1)}) + "\n")
     print(f"{elapsed:.1f}s")
 
 print("Done.")
@@ -502,13 +517,21 @@ Replace `DIARIZE`, `NUM_SPEAKERS`, and `LANGUAGE` with actual values from argume
 
 **Gate:** only enter this phase once the Phase 5 poll reached the **Success** state (`Done.` is the log's final line, no traceback). Phase 5 now launches detached, so a premature tar would ship a partial or empty archive and Phase 7 would then destroy the pod mid-run. As a cross-check, confirm the JSON count matches the input count before tarring: `ls /workspace/transcripts/*.json | wc -l`.
 
+If the pod has exposed TCP SSH, prefer plain SCP (one-shot, no pairing dance — mirrors Phase 4's transfer preference):
 ```bash
-# On pod:
-cd /workspace && tar czf transcripts.tar.gz transcripts/
-runpodctl send transcripts.tar.gz
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'cd /workspace && tar czf transcripts.tar.gz transcripts/'
+scp -i ~/.ssh/id_ed25519 -P PORT root@IP:/workspace/transcripts.tar.gz /tmp/
+cd /tmp && tar xzf transcripts.tar.gz
+```
 
-# Locally (simultaneously):
-cd /tmp && runpodctl receive
+Over proxy SSH, use `runpodctl send/receive` with the detached-send pattern (see Phase 4 — `send` blocks and prints a one-time pairing code; here the *pod* sends, so launch it detached on the pod, grep the code from its log, then receive locally):
+```bash
+# On pod (one SSH call): tar, then detached send
+ssh ... 'cd /workspace && tar czf transcripts.tar.gz transcripts/ && nohup runpodctl send transcripts.tar.gz > /workspace/rp-send.log 2>&1 &'
+ssh ... 'sleep 2; grep -o "runpodctl receive [a-z0-9-]*" /workspace/rp-send.log'   # capture the code
+
+# Locally, with the captured code:
+cd /tmp && runpodctl receive <code>
 tar xzf transcripts.tar.gz
 ```
 
@@ -528,7 +551,7 @@ For each JSON transcript file:
 
 1. **Parse segments.**
 
-2. **Format transcript text** (deliberately duplicated from `/transcribe` Phase 3 step 2, plus cloud-only additions — update both together if the rules change):
+2. **Format transcript text.** The gap-threshold (1.5s), timestamp-format, and monologue-fallback rules are deliberately duplicated from `/transcribe` Phase 3 step 2 — **those clauses must stay in sync; update both files together if they change**. The `speaker: None` fill and voice-reference name mapping below are cloud-only additions (no sync obligation):
 
    **Without diarisation:** Insert paragraph break wherever gap between segments exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp (`[MM:SS]` for <1hr, `[H:MM:SS]` for ≥1hr) derived from the first segment's `start`.
 
@@ -599,7 +622,7 @@ Diarisation labels are just `SPEAKER_00`, `SPEAKER_01`, etc. — which physical 
 **Where reference files live:** the default location is `$VAULT_PATH/voice-references` — set the `VOICE_REF_DIR` env var to point elsewhere (e.g. a sub-area of the vault). Store `.m4a` or `.wav` files there — one per known speaker; the filename stem (e.g. `alice`) becomes the speaker name in the transcript. **Resolve the directory with this block — do not skip it, and do not improvise a full-vault `find` (slow over a large vault):**
 
 ```bash
-VAULT_PATH="${VAULT_PATH:-$HOME/Files}"                                    # env var may be unset in a fresh shell
+VAULT_PATH="${VAULT_PATH:-$HOME/Files}"                                    # env var may be unset in a fresh shell; if your setup has a vault resolver (`_shared-rules.md` §1), prefer its resolved path — the fallback here is acceptable only because this is a read-only lookup that degrades to Speaker N
 ref_dir="${VOICE_REF_DIR:-$VAULT_PATH/voice-references}"                   # default; override VOICE_REF_DIR to relocate — no walk
 [ -d "$ref_dir" ] || ref_dir=$(find "$VAULT_PATH" -maxdepth 5 -type d -name voice-references 2>/dev/null | head -1)  # fallback if not at the default
 { [ -n "$ref_dir" ] && [ -d "$ref_dir" ]; } && echo "voice refs: $ref_dir" || echo "no voice references found — speaker names will degrade to Speaker N"
@@ -615,14 +638,17 @@ Pass the resolved `$ref_dir` to Phase 8. If it comes back empty, that is the exp
 
 **Where Phase 8 runs (choose one):**
 
-- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. Run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
+- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. **First transfer the voice-reference files to the pod** — they live in the local vault and are not on the pod otherwise (`scp -i ~/.ssh/id_ed25519 -P PORT "$ref_dir"/*.{m4a,wav} root@IP:/workspace/voice-refs/` after a `mkdir -p`, or `runpodctl send` over proxy) — and point the script's `ref_dir` at that pod path, else it finds 0 references and silently degrades every cluster to `Speaker N`. Then run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
 - **Locally in a pinned venv (for repeat runs on old JSONs without a pod).** The laptop's system Python has numpy 2.x and no pyannote, which will fail on the np.NaN path. Create a dedicated venv once:
   ```bash
   python3 -m venv ~/.venvs/whisperx-phase8
   source ~/.venvs/whisperx-phase8/bin/activate
   pip install 'numpy<2.0' 'pyannote-audio==3.3.2' 'huggingface_hub==0.24.7' matplotlib scipy torch torchaudio
   ```
-  Activate before running Phase 8. CPU-only is fine (one embedding per ref + per cluster is cheap).
+  Activate before running Phase 8. CPU-only is fine (one embedding per ref + per cluster is cheap). **If a venv already exists at that path, verify the pins before trusting it** — it may have been created or upgraded outside this recipe, and a drifted numpy 2.x / pyannote 4.x fails exactly like the system Python:
+  ```bash
+  ~/.venvs/whisperx-phase8/bin/python -c "import numpy, pyannote.audio; assert numpy.__version__.startswith('1.'), f'numpy {numpy.__version__} — recreate the venv with the pins above'; print('pins ok')"
+  ```
 
 **Phase 8 matching code:**
 
@@ -743,6 +769,7 @@ Empirically validated 2026-04-22 against a 46-min 2-speaker recording:
 - Core embedding + cosine math — Speaker A cluster 0.9273, Speaker B 0.1349, mis-clustered 0.6718, noise 0.2924
 
 Logic-checked only, NOT executed end-to-end in the validation run:
+- Skip-existing resume + `manifest.jsonl` per-file status in the Phase 5 script, the input-enumeration-before-model-load reorder, the per-language alignment-model cache, and the inline `LD_LIBRARY_PATH` launch prefix (all added in the 2026-07-19 audit)
 - `cluster_span_durations` save + the "save before wav conversion" ordering (added post-validation)
 - Phase 8 `assign_names` quality-flag system (suspect/low-confidence/ok) — the 50× ratio heuristic was logic-traced against today's data points but the function itself wasn't run
 - Phase 3 verify one-liner in its exact concatenated form (pieces tested individually, not as one command)
@@ -757,7 +784,7 @@ First real-use of the untested pieces will likely surface minor issues — trust
 ## Notes
 
 - **Validated end-to-end (2026-04-22):** full pipeline including voice-reference matching validated on RTX 4090 SECURE against a 2-file 46-min recording set. First run of the voice-ref code path — the 2026-04-21 "validation" only covered transcribe+diarise; the embedding code was shipped same-day but never executed, so three bugs escaped until today (fixed in Phase 5 / Phase 8 code above). Also validated **that pinning is mandatory**: fresh unpinned installs today pulled whisperx 3.8.5 + pyannote-audio 4.0.4 which are mutually incompatible and break at `whisperx.load_model()`. Installation dep-conflict warnings for torch/torchvision are expected with `--no-deps` whisperx — ignore them if the Phase 3 SETUP_OK check (VAD + embed Model load) passes. Total pod time today ~26 min (including dep triage), cost ~$0.30. With the pinned install line the normal pod run should be back to ~12 min / ~$0.14.
-- **Pin stability warning:** the pin set in Phase 3 is load-bearing. whisperx/pyannote-audio had simultaneous breaking releases 2026-04-22 (whisperx 3.8.x expects torch 2.8 and pyannote 4.x; pyannote 4.0.x changes the Inference API). numpy 2.0 removes `np.NaN` which pyannote 3.3.2 uses. huggingface_hub 0.25+ removes the `use_auth_token` decorator that pyannote 3.3.2 relies on. Transformers 4.46+ imports `is_offline_mode` from hub top-level which isn't exported. All of these are independent versioning decisions upstream — bumping any one usually cascades. Re-validate end-to-end when bumping. Pins are also tied to the **pod base image** (`runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`): if RunPod updates the `runpod-torch-v240` template to a newer Python or CUDA version, the pin set may not co-install and the full dep-triage could recur.
+- **Pin stability warning:** the pin set in Phase 3 is load-bearing. whisperx/pyannote-audio had simultaneous breaking releases 2026-04-22 (whisperx 3.8.x expects torch 2.8 and pyannote 4.x; pyannote 4.0.x changes the Inference API). numpy 2.0 removes `np.NaN` which pyannote 3.3.2 uses. huggingface_hub 0.25+ removes the `use_auth_token` decorator that pyannote 3.3.2 relies on. Transformers 4.46+ imports `is_offline_mode` from hub top-level which isn't exported. All of these are independent versioning decisions upstream — bumping any one usually cascades. Re-validate end-to-end when bumping. Pins are also tied to the **pod base image** (`runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`) — the Phase 2 command pins that exact image tag, so drift only enters if you change the tag or fall back to the `runpod-torch-v240` template (whose backing image RunPod can update); either way the pin set may not co-install and the full dep-triage could recur.
 - **Performance (GPU-dependent, `large-v3`):** ~15–30× realtime on RTX 3090 / 4090. 5 hours of audio transcribes in ~10–20 min on mid-tier cards. `distil-large-v3` was ~3–4× faster but less accurate — cloud now defaults to `large-v3` because the time/cost delta is noise at batch sizes under a few hours. Diarisation adds a few seconds per file on GPU at this scale (not ~20–30 min as an earlier draft claimed — today's 46-min batch diarised in ~20s on RTX 4090).
 - **Cost:** ~$0.17–0.69/hr depending on GPU + cloud tier. Typical batch job under 3 hours of audio: $0.05–0.25 total.
 - **SSH info retrieval:** `runpodctl pod get <id>` returns IP, port, and full `ssh_command` directly — no manual web UI step needed for exposed-TCP SSH. The old skill claim that "PODID-HASH is web-UI-only" applies only to the **proxy-SSH** path (`PODID-HASH@ssh.runpod.io`), which is still not in the API.
@@ -768,7 +795,7 @@ First real-use of the untested pieces will likely surface minor issues — trust
 - **Community-cloud allocation can stall:** if `uptimeSeconds` stays 0 for >5 min with `desiredStatus: RUNNING`, the pod is stuck in an allocation queue. Delete and retry on secure cloud (more expensive but provisions immediately). Don't burn >10 min on a stuck pod.
 - **WhisperX install order is critical:** `--no-deps` prevents torch breakage. The torch reinstall after pyannote-audio is mandatory — pyannote-audio pulls a newer torch that breaks CUDA on the cu124-based pod image, so the final `pip install torch==2.4.1 --force-reinstall` restores the matching build.
 - **yt-dlp on pod vs local:** For YouTube URLs, always download directly on the pod — datacenter bandwidth is faster and eliminates the transfer step. Only use local download + `runpodctl send` for files that are already on disk.
-- **`runpodctl send/receive`:** P2P transfer. Must run `send` and `receive` simultaneously from both sides. Works for both files and directories.
+- **`runpodctl send/receive`:** P2P transfer. Both sides must be running at once — `send` blocks and prints a one-time pairing code; use the detached-send pattern (Phase 4 / Phase 6) rather than trying to hold two blocking foreground commands. Works for both files and directories.
 - **Pod lifecycle:** Always destroy the pod when done. `runpodctl pod delete <POD_ID>`. Stopped pods still incur disk charges.
 
 ## Skill Monitor
