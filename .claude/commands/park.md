@@ -122,13 +122,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Typos, grammar, unclear phrasing
    - Tone consistency with the user's voice (if the vault has a voice/style context file — see the user's CLAUDE.md routing — load it when voice questions arise; skip if none exists)
 
-   **SOURCE** — Unsourced specific values:
-   - Enumerate every specific value the session wrote into a file: number, date, quantity, duration, price, rate, capacity, identifier.
-   - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
-   - **Derived values inherit the check.** A total computed from components, or two items presented as equivalent/substitutable, are unsourced unless the inputs *and the equivalence* were themselves checked. Plausible arithmetic over unverified inputs is the same defect as an invented figure.
-   - Required output: `Value check: N values traced, M unsourced (fixed)` — or `Value check: no specific values written this session`.
-
-   (Mirror of `/goodnight` Step 14b — keep the two in sync.)
+   **SOURCE** — Unsourced specific values. Run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file enumerated in (a). Its required output line is part of this gate's checkpoint.
 
    **Fix any issues found automatically.** For fixes to shared planning files (WIP, This Week, Tickler, Tasks), use `locked-edit.sh` per `_shared-rules.md` §5.
 
@@ -530,8 +524,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
       **Exception — trigger-contingent loops fall through to rule 4.** If the loop fires on a downstream trigger event rather than calendar time (e.g. "next time X runs, verify Y" or "test Z when next encountering W"), skip rule 3 and fall through to rule 4 (project file). Rule 3 assumes loops are actionable on a specific day; trigger-contingent loops aren't, and surfacing them on tomorrow's plan creates false urgency for work that shouldn't be date-bound at all. If the session has no Project link either, route directly to the Tickler with the date `today + 10 days` (computed via `date -d '+10 days' +"%Y-%m-%d"` — GNU date; on BSD/macOS use `date -v+10d +"%Y-%m-%d"`) via write-tickler.sh — not rule 5, because rule 5's condition requires This Week.md to be stale, which isn't the trigger case here.
 
-   **Deadline tokens force a dated surface.** If a loop's text contains a deadline, cut-off, expiry, renewal, or window-close token, the route MUST terminate in a dated surface — This Week's day section if the date falls inside the window, else the Tickler. A project/SSOT link alone does NOT discharge such a loop: the doc records *what* to do, never *when it stops being possible*. Rule 4 exists for loops with genuinely no date; a deadline token means the loop has one even when it isn't written as a calendar date — derive it (`date -d`), don't route past it.
-   **Checkable:** for any loop whose text carries a deadline token, the routing summary must name a dated target. `→ Project: [Name]` alone is the failure. (Mirror of `/goodnight` Step 9's deadline-token rule — keep the two in sync.)
+   **Deadline tokens force a dated surface** — per **`_shared-rules.md` §18** (already in context — Step 0 reads it in full). This skill's undated sink is rule 4: `→ Project: [Name]` alone is the failure for a deadline-bearing loop, which must land in This Week's day section or the Tickler instead.
 
    4. **If no date + session has a Project link** → update that project file's next-action section. Deterministic target: prefer an existing `## Next Actions`, then `## Open Loops`; if neither exists, create `## Next Actions` above `## Session History` (or at EOF). Don't improvise other section names — consistency across hubs is what makes the queue greppable.
 

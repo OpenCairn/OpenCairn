@@ -517,3 +517,30 @@ Canonical rule for every skill that runs a reference-graph / propagation pass af
 **Scope.** Applies to any repository with a hub in the vault, whether or not the session edited vault files for it. It applies equally when the commit was pushed by a skill's own bookkeeping (a skill-file fix committed during `/park` is still a push, and its hub row is still owed) — the rule is about the push, not about who initiated it.
 
 **Checkable:** for each hash, one grep must return the repo's hub, and that hub must carry a row citing the pushing session. A propagation report that enumerates no commits on a session that pushed one has not run this check.
+
+---
+
+## 18. Deadline Tokens Force a Dated Surface
+
+Canonical rule for every skill that routes open items to a destination — `/park` Step 13, `/goodnight` Step 9. Those skills point here and carry no copy to drift.
+
+**The rule.** If an item's text contains a deadline, cut-off, expiry, renewal, or window-close token, its route MUST terminate in a **dated surface**: a specific day section when the date falls inside the rolling window, otherwise the Tickler (via `write-tickler.sh`).
+
+**An undated destination does not discharge such an item**, however canonical that destination is. A project doc, an area hub, a Tasks list — each records *what* to do and never *when it stops being possible*. The undated branch of a routing table exists for items with genuinely no date; a deadline token means the item has one **even when it isn't written as a calendar date**. Derive it (`date -d`), don't route past it.
+
+**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `/park` Step 13 the failure is `→ Project: [Name]`; for `/goodnight` Step 9 it is `→ Tasks.md`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
+
+**Checkable:** any routed item whose text carries a deadline token must land under a dated heading, and the routing summary must name that dated target.
+
+---
+
+## 19. Value Provenance Check (SOURCE)
+
+Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `/park` Step 4(d) (as the SOURCE category of its five-check gate), `/goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
+
+- Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
+- Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
+- **Derived values inherit the check.** A total computed from components, or two items presented as equivalent/substitutable, are unsourced unless the inputs *and the equivalence* were themselves checked. Plausible arithmetic over unverified inputs is the same defect as an invented figure.
+- **Required output:** `Value check: N values traced, M unsourced (fixed)` — or `Value check: no specific values written this session`.
+
+Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *supplying* sources to a reviewer; this one governs whether a value written into a file had a source at all.
