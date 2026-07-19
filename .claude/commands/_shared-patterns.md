@@ -52,3 +52,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Auto-save git is not pre-state** — arbitrary commit boundaries mis-attribute user edits; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `park` Step 4(d), `goodnight` Step 14b
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `park` Step 13, `goodnight` Step 9
+- **One log entry per root cause** — fold same-cause items; split independent ones. → `oops` Phase 1, `win` Phase 1
