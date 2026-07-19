@@ -14,11 +14,11 @@ When the user wants to transcribe an audio recording (voice memo, meeting, inter
 ## Prerequisites
 
 - Python venv with `whisperx` installed at `~/venvs/whisperx/`
-- `ffmpeg` installed (for audio decoding)
+- `ffmpeg` installed (for audio decoding; `ffprobe`, bundled with it, is used for duration probing)
 - For YouTube URLs: `yt-dlp` installed
-- For diarisation: HuggingFace token (via `HF_TOKEN` env var or `huggingface-cli login`). The user must have accepted the pyannote model licences at huggingface.co/pyannote/speaker-diarization-3.1, huggingface.co/pyannote/speaker-diarization-community-1, and huggingface.co/pyannote/segmentation-3.0.
+- For diarisation: HuggingFace token (via `HF_TOKEN` env var or `huggingface-cli login`). The user must have accepted the pyannote model licences at huggingface.co/pyannote/speaker-diarization-3.1, huggingface.co/pyannote/speaker-diarization-community-1, and huggingface.co/pyannote/segmentation-3.0. (The Phase 2 script pins `speaker-diarization-3.1`, which pulls `segmentation-3.0`; `community-1` is WhisperX ≥3.8's default and covers the fallback if the pin is ever removed.)
 
-If any prerequisite is missing, tell the user what to install and stop.
+If any prerequisite is missing, tell the user what to install and stop. **Exception — venv exists but the import fails:** check for Python-version drift before concluding whisperx is missing. Compare `grep version ~/venvs/whisperx/pyvenv.cfg` against `~/venvs/whisperx/bin/python3 --version`: a mismatch means an OS Python upgrade broke the venv (packages sit stranded under the old `lib/pythonX.Y/site-packages`) — the fix is to recreate the venv and reinstall whisperx (compiled wheels are Python-version-specific), not to install anything new.
 
 ## Arguments
 
@@ -36,7 +36,7 @@ Flags (parsed from arguments):
 
 ### Phase 0: Check for a published transcript
 
-A human-edited published transcript (podcast show site, Substack, official transcript page) is higher text-fidelity than any machine transcription. Check for one *before* committing to a download + WhisperX run. Skip this phase entirely if `--no-published` was passed, or if the source is a local audio file with no obvious online origin, or if the user explicitly said to transcribe the audio.
+A human-edited published transcript (podcast show site, Substack, official transcript page) is higher text-fidelity than any machine transcription. Check for one *before* committing to a download + WhisperX run. Skip this phase entirely if `--no-published` was passed, or if the source is a local audio file with no obvious online origin, or if the user explicitly said to transcribe the audio, or if diarisation was requested via flags (a published transcript cannot satisfy a diarisation request — a user-supplied transcript URL still wins per step 1).
 
 1. **User-supplied transcript wins.** If the user provided a transcript URL or pointed at one ("the transcript is at X"), use it directly — go to step 4.
 2. **Discover a candidate** (best-effort, for YouTube / named-podcast sources only):
@@ -72,7 +72,7 @@ A human-edited published transcript (podcast show site, Substack, official trans
       ```bash
       yt-dlp --write-auto-sub --sub-lang en --sub-format srt --skip-download -o "/tmp/yt_subs_%(id)s" "URL"
       ```
-      If no English auto-captions are available (e.g. non-English video), retry with `--sub-lang` matching the video's language if known, or omit `--sub-lang` to get whatever is available. If still nothing, proceed without — this is a best-effort enhancement.
+      The file lands at `/tmp/yt_subs_<id>.<lang>.srt` — glob `/tmp/yt_subs_<id>*` to locate the exact name for the Phase 3 cross-reference. If no English auto-captions are available (e.g. non-English video), retry with `--sub-lang` matching the video's language if known, or omit `--sub-lang` to get whatever is available. If still nothing, proceed without — this is a best-effort enhancement.
    d. Set `INPUT_FILE_PATH` to the downloaded WAV path.
    e. Store the YouTube URL and video title for use in the output metadata.
 5. Get the audio duration:
@@ -88,7 +88,7 @@ A human-edited published transcript (podcast show site, Substack, official trans
    ```bash
    ~/venvs/whisperx/bin/python3 -c "from huggingface_hub import HfApi; HfApi().whoami()" 2>/dev/null && echo "ok" || echo "no_token"
    ```
-   If no token, tell the user to run `huggingface-cli login` or set `HF_TOKEN` and stop.
+   If no token, tell the user to run `huggingface-cli login` or set `HF_TOKEN` and stop. Note `whoami()` only proves the token is valid — it does not prove the pyannote licence gates were accepted; a 403 later, inside diarisation, means a licence page from the Prerequisites list still needs accepting.
 9. **Background decision:** If no GPU and (duration > 120s OR diarisation is enabled), tell the user the estimated wait and run as a **background task**. Diarisation on CPU is slow (~2-3x audio length on top of transcription time).
    - **Cloud escape hatch:** when there's no GPU and the job is heavy — audio > ~30 min, or a batch of files — surface `/transcribecloud` (RunPod GPU; same WhisperX) as a faster **paid** alternative *before* committing to a long local grind, and let the user choose. It costs money and needs `runpodctl` + credits, so don't auto-switch: if those are absent, say so and fall back to the local background task. (This is the reciprocal of `/transcribecloud`'s own "use instead of `/transcribe` when no local GPU and audio > 30 min" trigger.)
 
@@ -143,7 +143,10 @@ if diarize:
     )
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
-print(json.dumps({"segments": result["segments"], "language": language}))
+out_path = "/tmp/transcribe_segments_" + os.path.splitext(os.path.basename(audio_file))[0] + ".json"
+with open(out_path, "w") as f:
+    json.dump({"segments": result["segments"], "language": language}, f)
+print(out_path)
 PYEOF
 EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then cat "$STDERR_TMP"; fi
@@ -155,7 +158,7 @@ Replace the placeholder variables with actual values.
 
 ### Phase 3: Post-process and output
 
-1. **Parse the segments JSON.**
+1. **Parse the segments JSON** from the file whose path Phase 2 printed (word-level JSON for a long recording is far too large for tool stdout — read it from the file, in chunks if needed).
 
 2. **Format the transcript:**
 
@@ -167,7 +170,7 @@ Replace the placeholder variables with actual values.
 
    1. Sort all segment-to-segment gaps in descending order.
    2. Let `N = min(floor(duration_seconds / 90), len(gaps_desc))` — target paragraph-break count (one break per ~90s), clamped to the number of available gaps.
-   3. Use `gaps_desc[N-1]` as the new threshold and re-split.
+   3. Use `gaps_desc[N-1]` as the new threshold and re-split. If there are no gaps at all (`len(gaps_desc) == 0`, e.g. a single segment), skip the fallback and keep the initial split.
 
    In your user-facing response, state the threshold actually used — either `(1.5s default)` or `(0.Xs — monologue fallback)` — so the choice is observable.
 
@@ -178,7 +181,7 @@ Replace the placeholder variables with actual values.
    [01:23] Next paragraph after a gap.
    ```
 
-   **With diarisation:** Iterate over the **words** array (not segments), since a single segment often contains multiple speakers. Group consecutive words by speaker. Start a new paragraph when the speaker label changes OR when the gap between consecutive words exceeds 1.5 seconds. Prefix each paragraph with a timestamp and speaker label in bold:
+   **With diarisation:** Iterate over the **words** array (not segments), since a single segment often contains multiple speakers. Before grouping, forward/back-fill any words with a missing or `None` speaker from their nearest non-None neighbour (pyannote occasionally leaves words unassigned; treating `None` as its own speaker produces a spurious extra speaker). Then group consecutive words by speaker. Start a new paragraph when the speaker label changes OR when the gap between consecutive words exceeds 1.5 seconds. Prefix each paragraph with a timestamp and speaker label in bold:
    ```
    [00:00] **Speaker 1:** First speaker's text here spanning one or more words.
 
@@ -241,11 +244,13 @@ Replace the placeholder variables with actual values.
    **Then append the body via the shell** so the hook never touches it (the formatted text is in your context after the cleanup pass — stage it to a temp file, then append):
 
    ```bash
-   cat > /tmp/transcript-body.md <<'BODY'
+   cat > /tmp/transcript-body.md <<'TRANSCRIPT_BODY_EOF'
    {formatted transcript text}
-   BODY
+   TRANSCRIPT_BODY_EOF
    printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
    ```
+
+   (Keep an improbable heredoc delimiter — a line consisting of exactly the delimiter inside the transcript would terminate the heredoc early. Don't stage the body with the editor tool: that fires the same formatting hook the split-write exists to dodge.)
 
 8. **If the user chose to discuss**, proceed with whatever they asked for (summary, Q&A, extraction, etc.).
 
