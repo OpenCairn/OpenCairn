@@ -1,3 +1,8 @@
+---
+name: patterns
+description: Find patterns, themes, and connections across files related to a topic
+---
+
 # Cross-File Patterns
 
 Find patterns, themes, and connections across files related to a topic.
@@ -11,14 +16,17 @@ Find patterns, themes, and connections across files related to a topic.
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
-   If it errors, abort — no vault accessible. Run all searches against the resolved path, not the cwd.
+   If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path in every search (not the cwd, and not a shell variable, which won't persist across tool calls).
 
-1. **Search broadly** - Use the Grep tool to find files matching the topic across the vault:
+   If no search term or topic was supplied, ask the user for one — don't guess.
+
+1. **Search broadly** - Use the Grep tool to find files matching the topic across `{VAULT}`:
    - Search with multiple keyword variations (synonyms, related terms)
-   - Check `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/` for relevant content
+   - Check `01 Now/`, `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/` for relevant content, plus `07 System/` hub files and `06 Archive/Claude/Session Logs/` — the archive is where evolution-over-time evidence lives. Skip any of these folders that don't exist in this vault and note the skipped locations
    - If an Obsidian MCP search tool is available, use it for richer results (tool names vary by server — check what's registered)
+   - **Zero hits after keyword variations:** stop and say so — report the terms and locations searched, suggest broader terms or `/research-assistant` for a deeper dig. Don't force the output template onto an empty result
 
-2. **Read matches** - For each matching file, read and extract:
+2. **Read matches** - Prioritise by relevance (title/heading matches, match density) and recency; read the top ~10-15 files first and expand only if the patterns are still thin. For each file read, extract:
    - Key claims or ideas
    - Sources cited
    - Dates (for recency)
