@@ -19,15 +19,15 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`; if both exist, prefer the copy in the same directory as this command file) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Parse the inbound**
 
    From the user's prompt, extract:
-   - **Message text:** The inbound message to reply to. If multiple messages are pasted, the last message not from the user is the one to reply to; everything else is thread context.
+   - **Message text:** The inbound message to reply to. If multiple messages from the *same thread* are pasted, the last message not from the user is the one to reply to; everything else is thread context. Messages from distinct senders/threads are separate replies — see Batch mode (step 3).
    - **Sender:** Name of the person who sent the message. From prompt text, message content, or prior conversation context. If truly unidentifiable, ask once.
    - **Medium/platform:** WhatsApp, iMessage, email, dating app, LinkedIn, SMS, etc. Detect from context clues (quoted formatting, email headers, the user saying "WhatsApp message from..."). If ambiguous, ask once.
-   - **Register:** Map medium + relationship to the appropriate voice section. IM = casual IM voice. Email = email voice. Dating app = dating app voice. Friend Update = longer IM (WhatsApp/iMessage) to a close friend with substantive content (3+ sentences, life updates, plans) — uses Friend Update voice, not IM voice. If the user's voice profile defines register-specific rules, apply them.
+   - **Register:** Map medium + relationship to the appropriate voice section. IM = casual IM voice. Email = email voice. Dating app = dating app voice. If the user's voice profile defines further register-specific rules (e.g. a "Friend Update" register for longer substantive IMs to close friends — 3+ sentences, life updates, plans), those profile-defined registers override the base mapping.
    - **Drafting instructions:** Anything the user says beyond the inbound message itself — tone guidance, points to include, things to avoid, factual claims to make.
 
    If medium or register is genuinely ambiguous after checking context, ask once before drafting. Don't guess.
@@ -39,11 +39,11 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 
    **CRM lookup** (always attempt):
    - Search `{VAULT}/07 System/CRM/_index.md` for the sender's name
-   - If found: read the relevant range file section (A-F, G-L, M-R, S-Z) and Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
+   - If found: read the relevant range file section (`A-F.md`, `G-L.md`, `M-R.md`, `S-Z.md`) and Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
    - If not found: note "Not in CRM" and proceed. This is fine — not every reply is to someone in the vault.
 
    **Topic-relevant context** (as needed):
-   - Follow the CLAUDE.md context routing table based on message content. If they're asking about travel, load travel files. If discussing a project, load the project file.
+   - Follow the CLAUDE.md context routing table based on message content, if one is defined; otherwise use the context files CLAUDE.md names. If they're asking about travel, load travel files. If discussing a project, load the project file.
 
    **Research** (if drafting instructions require it):
    - Quick lookups (vault grep, one web search) — do them now within `/reply`.
@@ -72,31 +72,33 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    - Opinions or preferences the user explicitly stated in their drafting instructions
    - Future intentions ("I'll look into it") — these are commitments, not claims about the past
 
-   **Batch mode:** If the user pastes 3 or more messages to reply to, run the factual claims inventory before drafting any (mirroring the voice profile's batch-drafting rule, if one is defined): present what's known to be true, what was researched, and ask the user to confirm which researched facts can be attributed to them. One round-trip, then draft cleanly.
+   **Batch mode:** If the user requests 3 or more separate drafts (distinct senders/threads — not 3+ messages within one thread), run the factual claims inventory before drafting any (mirroring the voice profile's batch-drafting rule, if one is defined): present what's known to be true, what was researched, and ask the user to confirm which researched facts can be attributed to them. One round-trip, then draft cleanly.
 
 4. **Voice check (via `/de-ai-ify`)**
 
    After drafting, invoke `/de-ai-ify` via the Skill tool on the draft text. This is a real skill invocation, not an inline approximation. `/de-ai-ify` will present the before/after comparison and apply its full checklist. Do not duplicate `/de-ai-ify`'s logic here.
 
-   Two constraints on this invocation:
-   - **Preserve the `[true?]` markers verbatim.** Instruct `/de-ai-ify` not to strip or reword around the factual-claims flags inserted in step 3 — they must survive into the de-ai-ified draft so the user still sees them at review. After the de-ai-ify pass, confirm the flags are still present; if any were lost, re-apply them before writing to scratchpad.
+   Four constraints on this invocation:
+   - **Preserve the `**[true?]**` markers verbatim.** Instruct `/de-ai-ify` not to strip or reword around the factual-claims flags inserted in step 3 — they must survive into the de-ai-ified draft so the user still sees them at review. After the de-ai-ify pass, confirm the exact string `**[true?]**` is still present wherever a flag was inserted; if any were lost, re-apply them before writing to scratchpad.
+   - **Pass the detected register.** The register's voice rules outrank `/de-ai-ify`'s default voice profile where they differ, and checklist items that presuppose document-length text (intros, structure, conclusions) don't apply to a short IM — instruct it to skip those.
+   - **Subsume `/de-ai-ify` step 5 (iterate if needed) into this skill's own feedback wait.** Present the before/after, then proceed straight to this skill's step 5 scratchpad write — don't block the write on a "voice feels right" confirmation. Subsequent voice tweaks from the user are re-drafts (this skill's step 5 replace path).
    - **Defer `/de-ai-ify` step 6 (voice refinement).** Do NOT run its voice-refinement prompt now — nothing has been sent yet, so there is no "final version actually used" to diff against. Step 6 runs later, in this skill's step 5 "After output" block, against the message the user actually sends.
 
 5. **Output**
 
-   **Always write to scratchpad:**
-   - Append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium] — [topic]):**`, where `[topic]` is a short discriminator (e.g. "cancel room", "executor ask"). Follow the draft with a `> Context:` (or `> Note:`) blockquote capturing the thread, any CRM wikilinks, and any send caveat.
+   **Default: write to scratchpad** (unless the user overrides — below):
+   - Before any write, read `Scratchpad.md`. If a `**Reply to [Name] ([medium] — …):**` section for this sender + medium already exists and concerns the *same reply*, this is a re-draft: reuse that section's exact heading verbatim (don't mint a new topic string), extract the exact existing section per `_shared-rules.md` §11 boundary rules, and replace it (`locked-edit.sh --replace`) rather than appending a duplicate. A reply to the same person on the same medium about a *different* topic is a separate section — don't overwrite it.
+   - Otherwise append the de-ai-ified version (from step 4, not the original draft) to `{VAULT}/01 Now/Scratchpad.md` under heading `**Reply to [Name] ([medium] — [topic]):**`, where `[topic]` is a short discriminator (e.g. "cancel room", "executor ask"). Follow the draft with a `> Context:` (or `> Note:`) blockquote — every line of it prefixed `>`, blank line after — capturing the thread, any CRM wikilinks, and any send caveat.
    - Write via `locked-edit.sh` (`--append` for a new section), not the Edit tool — Scratchpad is a shared surface mutated by multiple skills (`_shared-rules.md` §11 locking applies to all Scratchpad mutations, this write included).
-   - If re-drafting the same reply (same sender + medium + topic), replace that previous draft section (`locked-edit.sh --replace`) rather than appending a duplicate. A reply to the same person on the same medium about a *different* topic is a separate section — don't overwrite it.
 
    **User override:**
-   - "Just inline" → don't write to scratchpad
+   - "Just inline" → don't write to scratchpad. For a trivial one-liner reply, offer this proactively.
 
    **After output:**
    - Wait for user feedback: edits, "sent", etc.
-   - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. This is the point of the whole loop: the draft→sent delta is where the voice profile learns.
-   - If the user just says "sent" without pasting text, ask once whether they changed anything before sending. If they didn't, there's no delta to diff — skip the refinement.
-   - **Scratchpad cleanup (after voice refinement is resolved).** Remove the draft section from `Scratchpad.md` — the draft served its purpose. Read Scratchpad, extract the exact section content per `_shared-rules.md` §11 boundary rules, then remove via `locked-edit.sh --replace` with empty `new_string`. Acknowledge briefly (one line) after removal.
+   - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. Before diffing, strip the `**[true?]**` markers from the draft — the user's manual removal of them is mechanical, not a voice signal. This is the point of the whole loop: the draft→sent delta is where the voice profile learns.
+   - If the user just says "sent" without pasting text, ask once: "Did you send it unchanged? If you changed it, paste the final text you sent." If unchanged, there's no delta to diff — the refinement is skipped (and counts as resolved).
+   - **Scratchpad cleanup (on "sent", once refinement has run or been determined skipped).** Don't gate cleanup on the user accepting any voice-doc edits refinement proposes. Remove the draft section from `Scratchpad.md` — the draft served its purpose. Read Scratchpad, extract the exact section content per `_shared-rules.md` §11 boundary rules, then remove via `locked-edit.sh --replace` with empty `new_string`. Acknowledge briefly (one line) after removal.
    - If the user said "just inline" in step 5 (no scratchpad write), skip the cleanup.
 
 ## Conversation Continuity
@@ -108,7 +110,7 @@ Within a session, `/reply` carries forward context from previous drafts and the 
 - **Freeform, not templated.** Never impose greeting/body/sign-off structure on IMs.
 - **No over-polishing.** Slight roughness signals authenticity. Deliberate imperfection is a feature.
 - **Reference class calibration.** If prior sent messages exist in the thread, calibrate from those.
-- **Long threads.** Last message not from the user is the one to reply to; everything else is context.
+- **Long threads.** Within a single thread, the last message not from the user is the one to reply to; everything else is context.
 - **CRM miss is fine.** Not every reply is to someone in the vault. Note it and proceed.
-- **Batch mode.** 3+ messages to reply to → run claims inventory before drafting any.
+- **Batch mode.** 3+ separate requested drafts (distinct senders/threads) → run claims inventory before drafting any.
 - **Research proportionality.** Quick lookups within `/reply` are fine. Substantial research → suggest `/research-assistant` first.
