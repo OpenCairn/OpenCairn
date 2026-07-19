@@ -172,9 +172,10 @@ def respond(prompt: str, *, model: str = DEEP, effort: str | None = None,
             return_meta: bool = False, **unknown):
     """Call Grok once. Returns answer text, or (text, meta) if return_meta.
 
-    store defaults FALSE — xAI otherwise retains the response server-side for 30 days.
-    Consequence: previous_response_id threading is unavailable, so multi-round review
-    must replay prior context rather than resume. Privacy over convenience, deliberately.
+    store defaults FALSE — it controls whether the response object is persisted for
+    previous_response_id threading. Consequence: threading is unavailable, so multi-round
+    review replays prior context rather than resuming. It does NOT affect the separate
+    30-day abuse-audit retention, which applies to all API traffic regardless.
     """
     if unknown:
         raise TypeError(
