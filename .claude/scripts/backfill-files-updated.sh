@@ -84,20 +84,65 @@ fi
 # Check if the section contains "None" (with possible surrounding text)
 SECTION_CONTENT=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE")
 
-# Dedup: remove lines from FILE_LIST whose file path already appears in the section
-# Extract just the path portion (everything between "- " and " - ") from existing entries
+# --- Path extraction ---------------------------------------------------------
+# Extract the path from a "- path - description" line.
+#
+# Anchor on a file extension. Neither naive alternative is correct:
+#   - matching the LAST " - " (a greedy ".*") breaks when the DESCRIPTION
+#     contains " - ", which is common in model-written prose;
+#   - matching the FIRST " - " breaks when the FILENAME contains " - ", which
+#     is a real vault convention (e.g. "07 System/Context - Direction.md").
+# Extension-anchoring is correct for both. Extensionless paths (scripts,
+# wrappers) have no anchor and fall back to the first separator, which is safe
+# because such paths rarely contain " - ".
+_extract_path() {
+    local line="$1" p
+    p=$(printf '%s\n' "$line" | sed -n 's/^- \(.*\.[A-Za-z0-9]\{1,8\}\) - .*/\1/p')
+    if [ -z "$p" ]; then
+        p=$(printf '%s\n' "$line" | sed -n 's/^- //; s/ - .*//p')
+    fi
+    printf '%s' "$p"
+}
+
+# Normalise for comparison: reduce an absolute or ~-relative vault path to its
+# vault-relative form, so the same file written two ways compares equal.
+# Prefers $VAULT_PATH when the caller exported it; otherwise derives the vault
+# directory name from it and strips any absolute prefix up to that name.
+# Platform-agnostic by construction — Linux (/home/<user>/), macOS
+# (/Users/<user>/) and Git Bash (/c/Users/<user>/) differ only in that prefix.
+_norm_path() {
+    local p="$1" root="${VAULT_PATH:-}" vdir
+    if [ -n "$root" ]; then
+        root="${root%/}"
+        p="${p#"$root"/}"
+    fi
+    vdir=$(basename "${root:-Files}")
+    printf '%s' "$p" | sed "s|^~/$vdir/||; s|^.*/$vdir/||"
+}
+
+# Dedup: skip incoming lines whose path is already present.
+# Seed the seen-set from entries already in the section, then add each accepted
+# incoming path — so duplicates WITHIN a single batch are caught too, not just
+# collisions against what was already written.
+SEEN_PATHS=""
+while IFS= read -r existing; do
+    EXISTING_PATH=$(_extract_path "$existing")
+    if [ -n "$EXISTING_PATH" ]; then
+        SEEN_PATHS="${SEEN_PATHS}$(_norm_path "$EXISTING_PATH")
+"
+    fi
+done <<< "$SECTION_CONTENT"
+
 DEDUPED_LIST=""
 while IFS= read -r line; do
-    # Extract the file path from "- path/to/file - description"
-    FILE_PATH=$(echo "$line" | sed -n 's/^- \(.*\) - .*/\1/p')
+    FILE_PATH=$(_extract_path "$line")
     if [ -n "$FILE_PATH" ]; then
-        # Normalise: strip common prefixes for comparison (~/Files/, full absolute paths)
-        NORM_PATH=$(echo "$FILE_PATH" | sed 's|^~/Files/||; s|^/home/[^/]*/Files/||')
-        # Check if this normalised path already appears in existing section content
-        # Extract just file paths from existing entries (everything between "- " and " - ")
-        if echo "$SECTION_CONTENT" | sed -n 's|^- \(.*\) - .*|\1|p' | sed 's|^~/Files/||; s|^/home/[^/]*/Files/||' | grep -qxF "$NORM_PATH"; then
-            continue  # skip duplicate
+        NORM_PATH=$(_norm_path "$FILE_PATH")
+        if printf '%s' "$SEEN_PATHS" | grep -qxF "$NORM_PATH"; then
+            continue  # already listed (or already accepted earlier in this batch)
         fi
+        SEEN_PATHS="${SEEN_PATHS}${NORM_PATH}
+"
     fi
     DEDUPED_LIST="${DEDUPED_LIST:+$DEDUPED_LIST
 }$line"
