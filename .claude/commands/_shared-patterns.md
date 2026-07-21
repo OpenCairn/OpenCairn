@@ -52,7 +52,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g
 - **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 14(b), `goodnight` Step 15(b)
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 4(d), `goodnight` Step 14b, `_shared-rules.md §16` (brief evidence: primary/secondary/unverified)
-- **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 13, `goodnight` Step 9
+- **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 13, `goodnight` Step 9, `weekly-review` Step 5a
 - **One log entry per root cause** — fold same-cause items; split independent ones. → `oops` Phase 1, `win` Phase 1
 - **Verbatim text vs in-place formatting hook** — hook rewrites whole file; append via shell, never re-Edit. → `_shared-rules.md §14`, `archive-transcript`, `park` Step 4(d)
 - **Push-side hub record** — pushed commit's canonical row lives in a hub no grep reaches. → `_shared-rules.md §17`, `park` Step 12(a), `goodnight` Step 15(a)
