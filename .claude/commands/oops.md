@@ -36,6 +36,8 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
    Without this, the skill can log a defensible-looking set of entries while quietly dropping the corrections that didn't make the cut — which is the exact failure the paragraph above warns about, arriving through the skill rather than around it. The count `N` is the observable: it must come from a scan of the session, not from the entries you have already decided to write.
 
+   **⛔ You cannot proceed to Phase 2 until this block appears in your response.** If you find yourself drafting entry text without having displayed it, stop and return to this step.
+
 2. **If unclear, ask concisely:**
    - "What was the mistake?" (if not obvious from context)
    - "What should have happened instead?" (if correction unclear)
