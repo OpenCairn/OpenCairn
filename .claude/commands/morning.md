@@ -51,7 +51,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 5. If sessions exist but no daily report → **/goodnight was missed.** Run a lightweight catch-up:
 
    a. Read the day's session log and its day section in This Week.md.
-   b. **Generate the daily report** at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8: convert the day section into `## Today's Plan` with `[x]`→`✓` and `[ ]`→plain bullets; list sessions; list blockers. Include the catch-up close-out itself as the last numbered Sessions entry (`N. **Goodnight catch-up via /morning** — [one-line outcome]`), mirroring /goodnight Step 8's include-the-close-out rule — plan the line here to match the session entry 2a.e writes. **Omit the `## Outside-Claude` section** — no debrief prompt fires during 2a (the user is async — the caught-up day is done, not memory-fresh). If the user surfaces off-Claude activity from any caught-up day during Steps 4–5, the Capture Gate will back-fill the section into that day's daily report at that point (see Step 5).
+   b. **Generate the daily report** at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8: convert the day section into `## Today's Plan` with `[x]`→`✓` and `[ ]`→plain bullets; list sessions; list blockers. Include the catch-up close-out itself as the last numbered Sessions entry (`N. **Goodnight catch-up via /morning** — [one-line outcome]`), mirroring /goodnight Step 8's include-the-close-out rule — plan the line here to match the session entry 2a.e writes. **Omit the `## Outside-Claude` section** — no debrief prompt fires during 2a itself (the user is async — the caught-up day is done, not memory-fresh). Step 4 (Open Space) runs the deferred off-Claude debrief for each caught-up day; any activity it surfaces is back-filled into that day's daily report via the Step 5 Capture Gate (see Step 5).
    c. **Route undone items** from the day section in This Week.md — same logic as /goodnight Step 9 (natural future day → move there; priority → today's section; low priority/no deadline → Tasks.md; already in future day → delete duplicate). Carry items forward intact including sub-items and checklists, applying /goodnight Step 9's block-boundary rule. **Date shift:** during catch-up, "tomorrow" (where /goodnight would route priority items) means **today**, not the day after today.
    d. **Collapse the day section** to a one-liner + daily report link (same format as /goodnight Step 10). Also collapse any earlier verbose day sections within the file.
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel /park or /goodnight invocations):
@@ -208,6 +208,11 @@ Here's your landscape:
 If a section is empty, skip it. Keep it scannable.
 
 ### 4. Open Space
+
+**If a catch-up fired in Step 2a this morning,** first run the off-Claude debrief that catch-up deferred. For each caught-up day, ask:
+> "Before we move on — did you do anything off-Claude on [Day DD]? (exercise, errands, social, admin) It won't have been captured at close-out."
+
+Route any answer through the Step 5 Capture Gate's off-Claude category — it back-fills the `## Outside-Claude` section into that day's daily report. Then ask the normal open-space question below.
 
 Ask:
 > "Anything you'd like to add this morning?"
