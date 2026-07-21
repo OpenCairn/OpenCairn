@@ -254,42 +254,47 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 - etc.
 ```
 
-5a. **⛔ Route deadline-bearing course corrections and big rocks to a dated surface.**
+5a. **⛔ Backstop the review's deadline-bearing items with one dated reminder.**
 
-   The review file is a reflective record, not a task surface. A course correction that names a deadline dies there unless it is pushed onto a dated surface — and because it *reads* as resolved once written down, the next review re-derives the same correction and the item silently carries. This step is the writer that closes that loop.
+   The review file is a reflective record, not a task surface — nobody re-reads it, so a course correction naming a deadline dies there, and because writing it down *reads* as acting on it, the next review re-derives the same correction and the item carries indefinitely.
 
-   **Write mechanism:** This Week.md and Tickler.md are shared planning files — use `locked-edit.sh --replace` for This Week day-section insertions and `write-tickler.sh` for dated Tickler items (see `_shared-rules.md` §5). Never the Edit tool.
+   This step deliberately does **not** route each item to its own dated surface. Doing so needs per-item date resolution, dedup across several files, and conditional writes — more moving parts than a prose step executes reliably, and every part that misfires does so silently. Instead it writes **one** Tickler line pointing back at the review. When that surfaces, `/morning` puts it in front of the user and the existing routers (`/park` Step 13, the day plan) place the individual items with full context. One indirection, one write, almost nothing to get wrong.
 
-   **(a) Enumerate.** List every item in the review's **Course Corrections Needed** and **What's Next → Big Rocks** sections. Display the list — the enumeration is what makes the scan observable.
+   **(a) Scan and list.** Read the review's **Course Corrections Needed** and **What's Next → Big Rocks** sections for items whose text carries a deadline, cut-off, expiry, renewal, or `by` / `before` / `closes <date>` clause. Display them with the date each names. **Trigger-contingent items are not deadline-bearing** — "before the next X runs" has no date to derive; leave them out. If nothing qualifies, emit the nil checkpoint and go to step 6.
 
-   **(b) Classify each by deadline token.** An item carries a deadline token if its text contains a date, a window, an expiry, a cut-off, a "before X" / "by X" / "closes X" clause, or names an event with a known date. Per `_shared-rules.md` §18, **a deadline token forces a dated surface** — and note §18's caveat that an item can have a real date even when none is written as a calendar date (derive it with `date -d`, don't route past it).
+   **(b) Pick the reminder date.** Take the **earliest** date found and subtract 3 days of lead time; if that lands today or earlier, use tomorrow. Resolve relative expressions with `date -d` and verify any weekday you write (§7).
 
-   Resolve relative date expressions using the same parse table as `/park` Step 13 rule 1 ("week of X" → that Monday, "next week" → next Monday, "next month" → the 1st, and so on) rather than restating it here — one table, one place to fix.
+   **An item whose deadline you cannot resolve still counts.** If it names an event with no date in its own text ("before the conference"), do **not** go hunting for one and do **not** invent one — leave it out of the earliest-date arithmetic but keep it in the list and in `N`. The pointer model makes this cheap: the reminder's job is to put the user back in front of the review, and an item with a fuzzy deadline needs that more than one with a crisp date, not less.
 
-   - **Deadline token + date falls inside the This Week rolling window** → insert as `- [ ] ` under that day's section, with a project/area link per §3. Verify the weekday with `date -d '<date>' +%A` before writing it.
-   - **Deadline token + date outside the window** → `write-tickler.sh` at the derived date.
-   - **Trigger-contingent, not calendar-contingent** → leave it in the review. A correction that fires on a downstream event ("before the next review runs", "when X is next invoked") reads as deadline-bearing but has no date to derive; putting it on a day manufactures false urgency, exactly as `/park` Step 13's rule-3 exception describes.
-   - **No deadline token** → leave it in the review. Undated strategic corrections (a ratio to shift, a habit to change) are genuinely reflective, and routing them turns the plan into a dumping ground. This is the majority case — do not route everything.
+   **(c) Dedup, then write one line** (§5 — `write-tickler.sh`, never the Edit tool). A review re-run in the same ISO week would otherwise add a second line:
 
-   **This step's undated sink is the review file itself** (per §18's requirement that a caller name its own disallowed destination): leaving a *deadline-bearing* correction in "Course Corrections Needed" and nowhere else is the failure this step exists to prevent. Leaving an undated or trigger-contingent one there is correct.
+   ```bash
+   # 0 → write. Non-zero → a reminder for this review already exists (a same-week re-run);
+   # skip the write and report it. Absent Tickler is fine: grep says 0, write-tickler.sh creates it.
+   grep -c "Weekly Reviews/YYYY-Wnn" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
 
-   **(c) Dedup before writing.** Grep This Week.md, Tickler.md and Tasks.md for a distinctive substring of each item (case-insensitively — see `_shared-rules.md` §12 on `-i`). If already present, skip. Reviews restate the same correction across periods, so an un-deduped route produces one duplicate per review.
+   "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" \
+     "- [ ] Weekly review YYYY-Wnn flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]]"
+   ```
+
+   **This step's disallowed sink is the review file itself** (§18 requires each caller to name its own): a deadline-bearing correction left only in "Course Corrections Needed" or "Big Rocks" is the failure this exists to prevent. One dated pointer discharges the whole set.
 
    **⛔ CHECKPOINT — display one of:**
 
    ```
-   ✓ Course corrections routed: N of M
-   - "[item]" → This Week ([Day DD Mon])
-   - "[item]" → Tickler (YYYY-MM-DD)
-   - "[item]" → left in review (no deadline token)
-   - "[item]" → skipped (already in [file])
+   ✓ Deadline backstop: N items flagged, reminder set YYYY-MM-DD
+   - "[item]" — [date it names, or "no date in item — listed only"]
    ```
 
    ```
-   ✓ Course corrections: M enumerated, none carry a deadline token — all left in review
+   ✓ Deadline backstop: no course correction or big rock carries a deadline
    ```
 
-   You cannot proceed to step 6 without one of these lines. **Why this exists:** `_shared-rules.md` §18 already mandates a dated surface for deadline-bearing items, but binds the *session*-loop router (`/park` Step 13). A review-generated course correction is not a session loop, so nothing fired for it. The resulting failure is self-concealing: writing a correction into the review reads as having acted on it, so the next review re-derives the same correction from the same unchanged evidence and the item carries indefinitely — the review keeps naming its own highest-priority item without ever scheduling it. A correction repeated across consecutive reviews is the diagnostic.
+   ```
+   ✓ Deadline backstop: N items flagged, reminder already set YYYY-MM-DD (same-week re-run)
+   ```
+
+   You cannot proceed to step 6 without one of these lines. The item list is the observable — a bare count is reasoning-from-memory.
 
 6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
@@ -417,7 +422,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 ```
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
-✓ Course corrections routed: N of M to a dated surface (This Week: X, Tickler: Y; Z left as undated/strategic)
+✓ Deadline backstop: N items flagged, Tickler reminder set YYYY-MM-DD [OR "no resolvable deadlines"]
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
 ✓ Claude Web context drafted: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md
   - Banned-vocab scrub: [N hits / clean; if hits, list location and whether quoted-citation acceptable]
