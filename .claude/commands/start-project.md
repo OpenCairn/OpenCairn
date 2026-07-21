@@ -114,7 +114,7 @@ Project initialised.
 <!-- /park appends session links here -->
 ```
 
-Leave Session History empty apart from the comment — `/park` is the writer (it appends `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N]] (gloss)` when it runs). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
+Leave Session History empty apart from the comment — `/park` is the writer (it appends `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N — gloss)` when it runs). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
 
 ### 5. Update Works in Progress
 
