@@ -603,4 +603,6 @@ Canonical rule for every skill that commits to a git repository, and for ad-hoc 
 
 **If a file seems to have vanished from git**, look for a concurrent commit that removed it — `git log --all --diff-filter=D -- <path>`, then recover from the commit before it — rather than assuming data loss.
 
-**Checkable:** every commit a skill makes names its paths explicitly, and no `git add` in a skill carries `-A`, `-u`, or a bare directory.
+**Scope: commits the skill itself makes.** A command a skill *prints for the user to run in their own terminal* is not one — repo-initialisation instructions (`git init … && git add -A && git commit -m "Baseline"`) are outside this rule. There, `-A` is correct: the intent is "snapshot everything as it stands", and a repo with no commits has no concurrent in-flight work to collect. Stated because the checkable below otherwise flags those lines, and "fixing" them breaks initialisation.
+
+**Checkable:** every commit a skill executes names its paths explicitly, and no `git add` a skill executes carries `-A`, `-u`, or a bare directory. Instructions handed to the user to run themselves are exempt and need no annotation.

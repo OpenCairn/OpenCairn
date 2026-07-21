@@ -322,10 +322,18 @@ git checkout $REF -- <new-file>
 ```bash
 # Ensure scripts are executable and stage the permission change
 chmod +x .claude/scripts/*.sh 2>/dev/null
-git add .claude/commands/ .claude/scripts/
 
-# Commit with template version hash for traceability
-git commit -m "Update OpenCairn commands from template ($(git rev-parse --short $REF))"
+# Commit with template version hash for traceability.
+# --only commits precisely these paths regardless of what else sits in the index —
+# a directory-wide `git add` plus a bare `git commit` would collect a concurrent
+# session's staged work and carry it under this message. See `_shared-rules.md` §21.
+git commit --only -m "Update OpenCairn commands from template ($(git rev-parse --short $REF))" \
+  -- .claude/commands/ .claude/scripts/
+```
+
+**Assert only your own paths left the index** — not that the tree is globally clean. Under concurrent sessions other files being dirty is expected and is not your business:
+```bash
+git status --short -- .claude/commands/ .claude/scripts/   # expect empty
 ```
 
 If nothing was accepted (user skipped everything), don't commit. Display:
