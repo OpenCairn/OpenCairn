@@ -25,6 +25,17 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
    **If several mistakes surfaced, write one entry per *failure mode*, not per symptom.** Errors sharing a root cause — the same bad assumption expressed twice, or one mistake cascading into another — belong in a single entry, because the lesson is one lesson and splitting it produces two half-lessons that each look minor. Errors with independent causes need separate entries, because a merged lesson generalises to neither. **Test:** would one fix have prevented both? Same entry. Otherwise, separate. Run this test explicitly when a session produced more than one correction; the default of logging whatever was most recently discussed silently drops the rest.
 
+   **⛔ Display the test's result before writing any entry** — one line per merge, per split, and per correction you decided not to log at all:
+
+   ```
+   Failure-mode test: N corrections surfaced → M entries
+   - "[correction A]" + "[correction B]" → merged: [shared root cause]
+   - "[correction C]" → separate: [independent cause]
+   - "[correction D]" → not logged: [why]
+   ```
+
+   Without this, the skill can log a defensible-looking set of entries while quietly dropping the corrections that didn't make the cut — which is the exact failure the paragraph above warns about, arriving through the skill rather than around it. The count `N` is the observable: it must come from a scan of the session, not from the entries you have already decided to write.
+
 2. **If unclear, ask concisely:**
    - "What was the mistake?" (if not obvious from context)
    - "What should have happened instead?" (if correction unclear)
