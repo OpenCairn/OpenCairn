@@ -254,6 +254,38 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 - etc.
 ```
 
+5a. **⛔ Route deadline-bearing course corrections and big rocks to a dated surface.**
+
+   The review file is a reflective record, not a task surface. A course correction that names a deadline dies there unless it is pushed onto a dated surface — and because it *reads* as resolved once written down, the next review re-derives the same correction and the item silently carries. This step is the writer that closes that loop.
+
+   **Write mechanism:** This Week.md and Tickler.md are shared planning files — use `locked-edit.sh --replace` for This Week day-section insertions and `write-tickler.sh` for dated Tickler items (see `_shared-rules.md` §5). Never the Edit tool.
+
+   **(a) Enumerate.** List every item in the review's **Course Corrections Needed** and **What's Next → Big Rocks** sections. Display the list — the enumeration is what makes the scan observable.
+
+   **(b) Classify each by deadline token.** An item carries a deadline token if its text contains a date, a window, an expiry, a cut-off, a "before X" / "by X" / "closes X" clause, or names an event with a known date. Per `_shared-rules.md` §18, **a deadline token forces a dated surface** — and note §18's caveat that an item can have a real date even when none is written as a calendar date (derive it with `date -d`, don't route past it).
+
+   - **Deadline token + date falls inside the This Week rolling window** → insert as `- [ ] ` under that day's section, with a project/area link per §3. Verify the weekday with `date -d '<date>' +%A` before writing it.
+   - **Deadline token + date outside the window** → `write-tickler.sh` at the derived date.
+   - **No deadline token** → leave it in the review. Undated strategic corrections ("invert the tooling/practice ratio") are genuinely reflective and routing them manufactures false urgency. This is the majority case — do not route everything.
+
+   **(c) Dedup before writing.** Grep This Week.md, Tickler.md and Tasks.md for a distinctive substring of each item (case-insensitively — see `_shared-rules.md` §12 on `-i`). If already present, skip. Reviews restate the same correction across periods, so an un-deduped route produces one duplicate per review.
+
+   **⛔ CHECKPOINT — display one of:**
+
+   ```
+   ✓ Course corrections routed: N of M
+   - "[item]" → This Week ([Day DD Mon])
+   - "[item]" → Tickler (YYYY-MM-DD)
+   - "[item]" → left in review (no deadline token)
+   - "[item]" → skipped (already in [file])
+   ```
+
+   ```
+   ✓ Course corrections: M enumerated, none carry a deadline token — all left in review
+   ```
+
+   You cannot proceed to step 6 without one of these lines. **Why this exists:** caught 2026-07-21 by the post-review `/park` audit — the W30 review's own #1 course correction (a provider-number lodgement whose window closed two days later) had been named as the tightest long pole in three consecutive reviews and had never once reached a dated surface. `_shared-rules.md` §18 already mandated the behaviour but bound only `/park` Step 13, which handles *session* loops; a review-generated correction is not a session loop, so nothing fired.
+
 6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
 7. **Update Works in Progress** (if needed):
@@ -380,6 +412,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 ```
 ✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
+✓ Course corrections routed: N of M to a dated surface (This Week: X, Tickler: Y; Z left as undated/strategic)
 ✓ Hygiene report: [Incorporated / Not found — run /weekly-hygiene]
 ✓ Claude Web context drafted: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md
   - Banned-vocab scrub: [N hits / clean; if hits, list location and whether quoted-citation acceptable]
