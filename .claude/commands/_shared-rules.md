@@ -586,3 +586,21 @@ Attribute work **only** from the file list embedded in the brief. A changed file
 Caught 2026-07-19: an audit sub-agent correctly excluded two files from a commit window as concurrent work, then attributed a 194-line project file from the *same* window to the session, and wrote four separate false records off the back of it — a Files Created entry, an open loop, a Pickup Context thread, and a Session History row in an unrelated project hub.
 
 The read-side sibling is `_shared-patterns.md`'s *Auto-save git is not pre-state*: that one governs using auto-save history to reconstruct what a file looked like before; this one governs using it to decide who did what.
+
+---
+
+## 21. Concurrent-Safe Git Staging (never stage broadly)
+
+Canonical rule for every skill that commits to a git repository, and for ad-hoc commits made during a session. Applies wherever more than one Claude session may touch the same working tree.
+
+**The rule.** Stage by explicit path. Never `git add -A`, `git add -u`, or a directory-wide `git add <dir>/`. Commit with `git commit --only -- <paths>`, which commits precisely the named paths regardless of what else sits in the index.
+
+**Why.** Multiple sessions run against the same repo. A blanket stage collects another session's in-flight edits, and the commit then carries their work under a message describing only yours. The damage is not the mixed diff, it is that the change becomes untraceable: nobody looking at that commit message would think to find a deleted script or a foreign refactor inside it. The other session may also `git checkout` a file mid-flight, so what you staged and what gets committed can differ.
+
+**A clean `git status` is a snapshot, not a guarantee.** HEAD can move between two of your own commands. Re-check state before concluding anything about the repo, and never assert "the tree is clean" from a check made earlier in the task.
+
+**Do not assert a globally clean tree after committing.** Under concurrency, other files being dirty is expected. Assert only that the paths *you* enumerated no longer appear in `git status --short`.
+
+**If a file seems to have vanished from git**, look for a concurrent commit that removed it — `git log --all --diff-filter=D -- <path>`, then recover from the commit before it — rather than assuming data loss.
+
+**Checkable:** every commit a skill makes names its paths explicitly, and no `git add` in a skill carries `-A`, `-u`, or a bare directory.
