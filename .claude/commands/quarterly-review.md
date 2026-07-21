@@ -155,7 +155,7 @@ Projects to explicitly abandon rather than let linger:
 When listing weekly reviews, preserve each file's exact name including any collision suffix (`YYYY-Wnnb` etc. — weekly-review writes suffixed files when two reviews land in one ISO week); a bare `YYYY-Wnn` link to a suffixed review is broken.
 
 12. **Skill self-review (explicit instantiation of `_shared-rules.md` §8 / `_skill-monitor.md`).**
-    This command runs ~4×/year, so the implicit skill-monitor watch is easy to skip. Before the final display, run the §8 / `_skill-monitor.md` review against this run end-to-end — did any step misfire, produce noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, propose specific edits to this skill file (display for user approval — never auto-apply; edit the template copy if template-synced). If clean, state `✓ Skill self-review: no gaps this run`.
+    This command runs ~4×/year, so the implicit skill-monitor watch is easy to skip. Before the final display, run the §8 / `_skill-monitor.md` review against this run end-to-end — did any step misfire, produce noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.
 
 13. **Display confirmation:**
 
@@ -163,7 +163,7 @@ When listing weekly reviews, preserve each file's exact name including any colli
 ✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
 ✓ Quarterly-hygiene report: [folded in / folded in (stale — YYYY-QN) / not found — run /quarterly-hygiene]
 ✓ Direction.md: [N sections updated / no changes]
-✓ Skill self-review: [no gaps / N edits proposed]
+✓ Skill self-review: [no gaps / N observations logged]
 
 Quarterly review complete.
 ```

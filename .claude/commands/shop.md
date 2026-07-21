@@ -67,4 +67,4 @@ Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip 
 
 ## Skill Monitor
 
-As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and log observations at the end per that file.

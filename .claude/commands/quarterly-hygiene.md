@@ -134,7 +134,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ```
 
 9. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
-   The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, propose specific edits to this skill file (display for user approval — never auto-apply; edit the template copy if template-synced). If clean, state `✓ Skill self-review: no gaps this run`.
+   The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.
 
 10. **Display confirmation:**
    ```
@@ -145,7 +145,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ Corrections-log index: [refreshed (N entries re-bucketed) / no curated index present]
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out")
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
-   ✓ Skill self-review: [no gaps / N edits proposed]
+   ✓ Skill self-review: [no gaps / N observations logged]
 
    Quarterly hygiene complete. Run /quarterly-review to fold these findings into the strategic review.
    ```

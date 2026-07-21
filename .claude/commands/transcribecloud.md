@@ -804,4 +804,4 @@ First real-use of the untested pieces will likely surface minor issues — trust
 
 ## Skill Monitor
 
-As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and log observations at the end per that file.
