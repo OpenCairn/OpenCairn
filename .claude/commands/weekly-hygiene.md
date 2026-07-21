@@ -109,7 +109,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Gather:**
    - Find all Scratchpad.md files: `find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
-   - For each non-empty scratchpad, note line count and days since last modified
+   - For each non-empty scratchpad, note line count, and read any existing `⚠ Hygiene` marker for its **first-flagged week**. Note mtime only as a rough signal for files with no marker yet — once a marker exists, mtime reflects this check's own writes, not the user's (see the mtime warning below).
 
    **At-risk work-product detection (before triage).** Grep each non-empty scratchpad for `/reply` draft headings (`**Reply to `). For each match:
    - Flag as "unsent `/reply` draft — at-risk work product"
@@ -121,7 +121,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session (non-draft content):**
    - After draft sections are resolved above, present remaining non-empty scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
-   - **If user declines:** add `⚠ Hygiene Wnn: NL, Nd since last edit — triage needed` at the top of each non-empty scratchpad file.
+   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed` at the top of each non-empty scratchpad file.
+
+   **⛔ Never derive the staleness figure from mtime.** Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
+
+   Carry the **first-flagged week** instead — it is monotonic and self-evidencing:
+   - No existing marker → this is the first flag. Write `first flagged W<current>`.
+   - Existing marker → **preserve its original week verbatim** when refreshing; update only the line count and the current-week prefix. Never recompute the first-flagged value.
+
+   A marker reading `⚠ Hygiene W30: 195L, first flagged W18` says the file has gone untouched across twelve sweeps — the fact worth acting on, and one no mtime-derived figure can express once the marker itself has been written. (Applies to any recurring marker that reports elapsed time on a file the marker is written into: same defect, same fix.)
 
 7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
