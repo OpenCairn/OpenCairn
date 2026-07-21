@@ -92,15 +92,22 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    **⛔ Derive the non-vault half mechanically — recall is not sufficient.** The vault half of this list comes from work you did minutes ago and is easy to recall. The non-vault half is not: config and skill edits happen early, tooling writes files as a side effect, and hooks write files you never touched. This clause has existed for a long time and has still been observed to miss four files in one session — so it needs a trigger, not more emphasis. Run both checks and reconcile their output against what you were about to list:
 
    ```bash
+   CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"   # never hardcode ~/.claude — the config dir is relocatable
+   CUTOFF=$(date -u -d '4 hours ago' +%FT%TZ)         # BSD/macOS: date -u -v-4H +%FT%TZ
+
    # 1. Receipts from tooling that records its own writes (e.g. /sync-template).
-   #    Filter to this session: -newermt with the session's start time, or tail if unsure.
-   [ -f ~/.claude/.sync-receipt ] && tail -20 ~/.claude/.sync-receipt
+   #    Lines are TAB-separated <UTC-ISO-8601>\t<path>\t<description>, so select by
+   #    timestamp — never `tail -N`, which silently truncates a busy session and
+   #    silently re-reads a quiet one.
+   [ -f "$CONFIG_DIR/.sync-receipt" ] && awk -F'\t' -v c="$CUTOFF" '$1 >= c' "$CONFIG_DIR/.sync-receipt"
 
    # 2. mtime sweep of the config tree — catches hook-written and side-effect files
-   #    that no receipt knows about (survey logs, caches). -mmin matches Step 10's window.
-   find ~/.claude/commands ~/.claude/scripts -maxdepth 1 -type f -mmin -240 2>/dev/null
-   find ~/.claude -maxdepth 1 -name '*.log' -type f -mmin -240 2>/dev/null
+   #    that no receipt knows about (survey logs, caches). Window matches Step 10's.
+   find "$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" -maxdepth 1 -type f -mmin -240 2>/dev/null
+   find "$CONFIG_DIR" -maxdepth 1 -name '*.log' -type f -mmin -240 2>/dev/null
    ```
+
+   The two checks are deliberately redundant: the receipt carries *descriptions* and reaches outside the config dir (the template repo, a `{VAULT}` script copy), while the sweep needs no cooperation from the writing tool and so catches hook-written files no receipt can know about. Neither alone is sufficient.
 
    Anything either check returns that is missing from your list is a file you were about to under-report — add it. Anything they return that another session wrote is **not** yours: exclude it per `_shared-rules.md` §20 (the file list is the attribution boundary, not the mtime window) and say so rather than silently absorbing it. A git repo edited this session (`~/repos/…`) is covered by its own `git status --short`, not by these sweeps.
 
