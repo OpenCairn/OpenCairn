@@ -348,6 +348,21 @@ Line numbers rot the instant the file is edited — and several skills mutate a 
 
 Ephemeral, in-conversation references during a single turn (e.g. a grep result you act on immediately) are exempt — this rule governs what gets **persisted**.
 
+### Session-log links are file-level, never heading anchors
+
+The rule above says cite by heading rather than line number. **Session logs are the exception**, because their headings are not stable identifiers: `write-session.sh` appends a `(hh:mmam/pm)` suffix that the linking side does not hold, so a `[[…/YYYY-MM-DD#Session N - Topic]]` anchor silently resolves to nothing. This defect was patched on individual artefacts twice before the convention was changed.
+
+Link the **file** and name the session in plain text after it:
+
+```
+[[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N)
+```
+
+Applies to every session-log reference a skill writes — continuation links, WIP session links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `/pickup` reads.
+
+Heading anchors remain correct for **stable** docs (project hubs, guides, reference notes) where the heading is hand-written and durable.
+
+
 ---
 
 ## 14. Verbatim External Text vs In-Place Formatting Hooks

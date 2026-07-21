@@ -288,7 +288,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - Do NOT add chronological "Next session:" links — sessions are already in order in the file. Only topical continuation links carry information.
    - Add "Continued in:" link to the original session being continued:
      - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N - Topic)` — the link points at the day's log **file**, naming the session in plain text after it.
-     - **Never use a `#Session N - …` heading anchor here.** The written heading carries a `(hh:mmam/pm)` suffix appended by the session writer, which the caller does not hold, so an anchored link silently resolves to nothing. A file-level link cannot break, and the plain-text session number is what a later reader (or `/pickup`) needs anyway.
+     - **Never use a `#Session N - …` heading anchor here** — session-log links are file-level per `_shared-rules.md` §13 (already in context; Step 0 reads it in full).
      - Use the forward-link script with `--continued-in`:
        ```bash
        # Same-day:
