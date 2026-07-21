@@ -163,8 +163,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Count total entries/lines across all memory files
 
    **Index health (mechanical — check every week):**
-   - `wc -lc` the `MEMORY.md` index. The hard cap is **200 lines OR 25 KB, whichever first** — entries past it are *silently dropped* from the system prompt with no warning. (Undocumented internals, observed as of 2026-06 — treat the numbers as approximate and re-verify if memory behaviour seems off after a Claude Code update.) Flag for action at **≥150 lines or ≥22 KB** (proactive, before the cap trips).
-   - Flag any index **hook** (the text after ` — `) longer than ~160 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.)
+   - `wc -lc` the `MEMORY.md` index. Two independent limits apply, and **the harness limit binds first — size the sweep to it, not to the line cap:**
+     - **A harness-enforced size budget.** Claude Code emits a `PostToolUse` warning on any edit to `MEMORY.md` once the index approaches its read limit, and names an explicit compaction target in the warning text. Observed 2026-07: warned at 19.6 KB, read limit quoted as 24.4 KB, compaction target quoted as **under 17.1 KB**. **Treat the target quoted in the live warning as authoritative** — it is the harness's own number and supersedes anything written here.
+     - **A line cap of ~200 lines**, past which entries are silently dropped from the system prompt with no warning.
+   - Flag for action at **≥150 lines or ≥17 KB**. Do not use a KB threshold looser than the harness's compaction target: a 22 KB flag passes an index the harness is already warning about, which is exactly how a bloated index survives a sweep that reports it healthy. (Undocumented internals — re-verify after a Claude Code update, and prefer an observed warning over these figures.)
+   - **When the index is over budget, compaction is a whole-file rewrite, not a few edits.** Shedding several KB across 100+ entries means every over-long hook, not the worst three. Rewrite the index in one pass, then verify: entry count unchanged, and every `](file.md)` link still resolves.
+   - Flag any index **hook** (the text after ` — `) longer than ~120 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.) Don't set this threshold so high that the flagged set can't close the gap to the size budget: an index needing several KB shed has dozens of over-long hooks, not three.
+   - **Orphan check — topic files missing from the index.** Every `.md` in the memory directory except `MEMORY.md` must have an index line; a topic file with none is invisible to relevance matching and can never fire, however good the rule is. Nothing warns about this, and it survives every sweep that only reads the index.
+     ```bash
+     M=~/.claude/projects/<encoded-cwd>/memory
+     for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; grep -q "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
+     grep -oP '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
+     ```
+     An `ORPHAN` is triaged like any entry — index it if the fact is still live, delete the file if it isn't. A `DANGLING` index line points at a file that no longer exists: drop the line. Run both directions after any index rewrite.
 
    **For each memory entry, classify (migration is the exception, not the default):**
    - **Trim (the usual index fix):** the index hook has bloated into a duplicate of its topic-file body. Compress the hook back to a one-line pointer and keep the entry — the detail stays in the topic file. This is the first remedy whenever the index is over (or near) cap; see *Index health* above.
@@ -174,6 +185,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      - *A rule that genuinely fires in almost every session* → `CLAUDE.md`'s "Working With Me" section (accept the per-session token cost).
      - Before moving any rule to a routing-matched context file, confirm `CLAUDE.md`'s routing table actually loads that file for the rule's trigger — otherwise the rule goes dark. If it won't reliably load there, keep it in memory.
    - **Delete:** Stale (completed project, resolved decision), duplicated in vault/CLAUDE.md, vague/unactionable, or contradicts current vault content.
+     - **Retire at promotion.** When a lesson has been promoted into a `CLAUDE.md` rule *or written into this skill's own steps*, delete the originating memory in the same pass. Unretired promotions sit redundant for weeks and, worse, drift — the memory keeps asserting the old numbers after the skill has been corrected.
+     - **A memory that only restates a harness behaviour the harness itself announces at the time is not worth keeping.** If a hook, warning, or error message states the fact when it matters, the memory adds nothing and can only go stale relative to it.
 
    **Resolve in-session:**
    - Present each entry with its classification and recommended action
@@ -295,6 +308,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
 
    **⛔ Empty-output guard (`orphans` / `deadends` / `tags`):** on some setups these subcommands return zero rows even when the vault plainly has matches, and their `total` forms can return an implausible number or an empty string. An empty result piped through `wc -l` prints `0` — an absence of evidence the report would then record as evidence of absence. Before writing a 0 for any of these metrics, cross-check the row form against the `total` form (`obsidian orphans total`, `obsidian deadends total`; for tags, non-empty `obsidian tags` output). Record 0 only when both forms agree. If rows are empty but the total is non-zero, empty, or implausible (a sanity ceiling: it can't exceed the vault's file count), the CLI is unreliable for that metric on this setup → record it as **"unavailable (CLI returned no rows)"**, never 0. This applies equally to the orphan/dead-end listing checks above.
+
+   **⛔ Distinguish a crash from an empty result — then stop calling it.** The guard above prevents a bad *number*; it does not ask *why* the command produced nothing, so a subcommand that **crashes** looks identical to one that quietly returns nothing, and the skill cheerfully re-invokes it every week. That is not free: where the CLI is a thin wrapper around a running desktop application, a crashing subcommand kills a child of the user's live editor on every call, and a diagnostic loop multiplies the damage. Before re-running a subcommand that returned nothing, check the platform's crash log:
+   ```bash
+   coredumpctl list --since "10 min ago" 2>/dev/null | tail -5              # Linux (systemd)
+   ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | head -5             # macOS
+   # Windows: Event Viewer → Windows Logs → Application, or `Get-EventLog -LogName Application -Newest 5`
+   ```
+   A coredump naming the editor or its helper means **crash, not emptiness** → record the metric as *"unavailable (subcommand crashes — do not re-invoke)"*, note the signal and the coredump path in the report, and **do not run it again this sweep**, including for diagnosis. One confirming run is evidence; a determinism loop is repeated harm to a live process.
+
+   **Record *which* subcommands are broken in the tool-routing doc, not here.** Per-subcommand reliability is environment-specific and changes when the tool is updated — a volatile fact, so it gets one home and pointers from everywhere else. Its home is the vault's tool-routing doc (the one this skill's own guidance on search-tool selection points at); this skill carries only the durable mechanism above. A skill file that names which subcommand is currently broken will still be asserting it a year after the fix.
 
    **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test. The extraction anchors on the **final** `→` on each line (`.*→ \K[^→]*$`) — entry titles may themselves contain arrows, and capturing from the first `→` misreads those titles as stale pointers.
    ```bash
@@ -523,8 +546,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Claude Memory
    - Total entries/lines: N across M files
-   - Index health: `MEMORY.md` at N lines / N KB (cap 200 lines / 25 KB; flag ≥150 lines or ≥22 KB)
+   - Index health: `MEMORY.md` at N lines / N KB (flag ≥150 lines or ≥17 KB; harness compaction target ~17.1 KB, line cap ~200)
    - Trimmed this sweep: [list of hooks compressed in place, or "none"]
+   - Orphaned topic files (no index line): [list with disposition, or "none"]
+   - Dangling index lines (file missing): [list, or "none"]
    - Keep in memory: [list with reason, or "none"]
    - Migrate to vault (exception): [list with destination, or "none"]
    - Delete: [list with reason, or "none"]
