@@ -284,7 +284,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    ✓ Course corrections: M enumerated, none carry a deadline token — all left in review
    ```
 
-   You cannot proceed to step 6 without one of these lines. **Why this exists:** caught 2026-07-21 by the post-review `/park` audit — the W30 review's own #1 course correction (a provider-number lodgement whose window closed two days later) had been named as the tightest long pole in three consecutive reviews and had never once reached a dated surface. `_shared-rules.md` §18 already mandated the behaviour but bound only `/park` Step 13, which handles *session* loops; a review-generated correction is not a session loop, so nothing fired.
+   You cannot proceed to step 6 without one of these lines. **Why this exists:** `_shared-rules.md` §18 already mandates a dated surface for deadline-bearing items, but binds the *session*-loop router (`/park` Step 13). A review-generated course correction is not a session loop, so nothing fired for it. The resulting failure is self-concealing: writing a correction into the review reads as having acted on it, so the next review re-derives the same correction from the same unchanged evidence and the item carries indefinitely — the review keeps naming its own highest-priority item without ever scheduling it. A correction repeated across consecutive reviews is the diagnostic.
 
 6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
