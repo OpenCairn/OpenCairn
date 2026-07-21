@@ -5,7 +5,7 @@ description: Capture session with full bookkeeping — quality gate, WIP update,
 
 # Park - Session Capture
 
-You are capturing a work session. Full bookkeeping: quality gate, WIP update, continuation links, reference graph tracing, conversation draft check, tickler.
+You are capturing a work session. Full bookkeeping: quality gate, WIP update, reference graph tracing, conversation draft check, tickler.
 
 **Concurrent parks are safe.** All shared-file writes (session log, WIP, This Week, Tickler, Tasks, project hubs) go through locking infrastructure (`write-session.sh`, `locked-edit.sh`, `write-tickler.sh` — see `_shared-rules.md` §5). Concurrent edits to the same file either both land (disjoint regions) or fail loudly (exit 2/3 — re-read and recompute). **Stale-read caveat:** concurrent parks may redundantly route the same open loop or flip the same checkbox; this is harmless — the dedup check (Step 13) catches most cases, and the next `/weekly-hygiene` trims any residual duplicates. **Goodnight note:** `/goodnight` runs its own close-out using the same locked-write machinery (it does not invoke /park); running goodnight while other parks are in flight is safe with locking, but parking first keeps the day's state most coherent for goodnight's daily report.
 
@@ -31,7 +31,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 2. **Check for merge-continuation** before creating a new session:
    - Determine from context whether this is a direct continuation of a recently parked session (same task, just finishing a loose end). Indicators: `/pickup` loaded a specific session, topic is identical, work is completing an open loop from that session. (Note: `/audit` no longer produces a separate canonical merge case — audit runs inline as Step 14 of the prior park, with any remediation merged in the same response. A *manual* `/audit` invoked after the park has fully finished can still trigger this merge path.) If the remediation is large, see the merge-size escape hatch below before treating it as canonical. Only ask the user if genuinely ambiguous.
    - **Merge-size escape hatch — don't merge when remediation dwarfs the target.** The canonical merge case assumes small follow-on work (a loose end, a small correction). Evaluate against the target session's *current* state (including any prior merge addendums, not the pre-first-merge original). If the `/audit` remediation would add a summary addendum >2× the target's current summary length, or touches >3 files unrelated to the target's stated topic, start a new session instead — fall through to Step 3 as if this were not a continuation. The merge rule exists to keep small fixes with the work they complete, not to absorb unrelated discoveries under a poorly-matching title. Topic-searches find sessions by their headline; a session titled "X closed" that actually contains hours of work on unrelated topic Y becomes invisible to future-pickup searches for Y.
-   - **Script lock timeout — diagnose, don't work around:** If `update-session-section.sh`, `backfill-files-updated.sh`, `write-session.sh`, or `add-forward-link.sh` fails with "Lock timeout after 10s / Failed to acquire lock," the most likely cause is a hung prior invocation of the same script holding the flock. This happens when the Bash tool backgrounded an earlier heredoc-fed invocation (`cat <<EOF | script.sh ... EOF`) and the script got stuck in `anon_pipe_read` waiting for stdin that never closed. **Diagnose first, then kill the hung process** — don't immediately jump to a Python workaround. Full diagnosis and remediation (fuser, ps, kill, wchan inspection) is in `_shared-rules.md` §5 Failure mode B. Python+flock is a *secondary* fallback only — it bypasses the hung script by locking a different file, which does not coordinate with the script's `.lock` and is unsafe against a genuine concurrent writer. Kill the zombies first, then re-run the dedicated script.
+   - **Script lock timeout — diagnose, don't work around:** If `update-session-section.sh`, `backfill-files-updated.sh`, or `write-session.sh` fails with "Lock timeout after 10s / Failed to acquire lock," the most likely cause is a hung prior invocation of the same script holding the flock. This happens when the Bash tool backgrounded an earlier heredoc-fed invocation (`cat <<EOF | script.sh ... EOF`) and the script got stuck in `anon_pipe_read` waiting for stdin that never closed. **Diagnose first, then kill the hung process** — don't immediately jump to a Python workaround. Full diagnosis and remediation (fuser, ps, kill, wchan inspection) is in `_shared-rules.md` §5 Failure mode B. Python+flock is a *secondary* fallback only — it bypasses the hung script by locking a different file, which does not coordinate with the script's `.lock` and is unsafe against a genuine concurrent writer. Kill the zombies first, then re-run the dedicated script.
    - If yes: **don't create a new session entry.** Instead, update the existing session using the update-session-section script (not the Edit tool — race condition risk with parallel parks):
      ```bash
      # Append to Summary (leading blank line creates paragraph break)
@@ -64,7 +64,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      **Project:** ...
      EOF
      ```
-   - **After merging, run Steps 4, 8a, 8b, 10, 11, 12, 13, 13a, 13b, 14, 15, 16, 17** (quality gate, Pickup Context + Project verification, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, timestamp bump, audit, skill monitor, transcript export, completion — all using the merged session's number). Steps 8a/8b matter here because the merge path is the one path that *rewrites* Pickup Context — scope them to the merged session's N and compare the Project line against the merged session's original link. Skip Step 3 (the conversation content is already in context) and Steps 5-9 *except 8a/8b* (no new session entry is needed, but the rewritten Pickup Context still gets verified). Because Step 5 is skipped, emit the observable project source downstream steps need, immediately after the merge edits: `Merged session: [existing topic] | Project: [Project line from the merged session]`.
+   - **After merging, run Steps 4, 8a, 8b, 10, 11, 12, 13, 13a, 13b, 14, 15, 16, 17** (quality gate, Pickup Context + Project verification, conversation draft persistence, WIP update, reference graph, open loop routing, backfill, timestamp bump, audit, skill monitor, transcript export, completion — all using the merged session's number). Steps 8a/8b matter here because the merge path is the one path that *rewrites* Pickup Context — scope them to the merged session's N and compare the Project line against the merged session's original link. Skip Step 3 (the conversation content is already in context) and Steps 5-8 *except 8a/8b* (no new session entry is needed, but the rewritten Pickup Context still gets verified). Because Step 5 is skipped, emit the observable project source downstream steps need, immediately after the merge edits: `Merged session: [existing topic] | Project: [Project line from the merged session]`.
    - **Steps 10, 12, 13, 15 typically produce their clean-pass checkpoint output in a merge** — `✓ No at-risk work product to persist`, `✓ Reference graph: No identifier values changed`, `✓ No open loops to route`, `✓ Skill monitor: No gaps detected` — because the remediation already did the routing/graphing inline as it ran. Run the mechanical checks anyway (Scratchpad `find`, enumerate-before-grepping, loop scan) — the checkpoint emission is mandatory either way — but don't fabricate findings to fill the slots if the checks come up clean. Steps 4, 8a, 8b, 11, 13a, 13b, 14, 16, 17 typically still have at least a small amount of real work (quality gate on the remediation edits, backfill, WIP timestamp bump, audit re-execution against the merged state, transcript re-export, completion reporting), but may also come up clean — in which case their normal success outputs apply.
    - This applies even if the session to merge into isn't the most recent — with parallel sessions, the relevant session may be the penultimate or earlier entry.
    - Completion message: `✓ Merged into Session N — [what was added]`
@@ -88,6 +88,21 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    - path/to/file2.py
    - …
    ```
+
+   **⛔ Derive the non-vault half mechanically — recall is not sufficient.** The vault half of this list comes from work you did minutes ago and is easy to recall. The non-vault half is not: config and skill edits happen early, tooling writes files as a side effect, and hooks write files you never touched. This clause has existed for a long time and has still been observed to miss four files in one session — so it needs a trigger, not more emphasis. Run both checks and reconcile their output against what you were about to list:
+
+   ```bash
+   # 1. Receipts from tooling that records its own writes (e.g. /sync-template).
+   #    Filter to this session: -newermt with the session's start time, or tail if unsure.
+   [ -f ~/.claude/.sync-receipt ] && tail -20 ~/.claude/.sync-receipt
+
+   # 2. mtime sweep of the config tree — catches hook-written and side-effect files
+   #    that no receipt knows about (survey logs, caches). -mmin matches Step 10's window.
+   find ~/.claude/commands ~/.claude/scripts -maxdepth 1 -type f -mmin -240 2>/dev/null
+   find ~/.claude -maxdepth 1 -name '*.log' -type f -mmin -240 2>/dev/null
+   ```
+
+   Anything either check returns that is missing from your list is a file you were about to under-report — add it. Anything they return that another session wrote is **not** yours: exclude it per `_shared-rules.md` §20 (the file list is the attribution boundary, not the mtime window) and say so rather than silently absorbing it. A git repo edited this session (`~/repos/…`) is covered by its own `git status --short`, not by these sweeps.
 
    **(b) Hot-capture habit nudge.** If substantive insights surfaced during the session but weren't routed in the moment via a "save that to [file]" interjection, name the habit gap in one line — metacognitive only. Do NOT cold-read the transcript to enumerate/classify/route — that re-introduces the failure mode hot-capture interjection is designed to avoid. If no habit gap, omit silently.
 
@@ -157,11 +172,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
      Session: [Topic] | Project: [[03 Projects/Name]] (or "None")
      ```
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 6 until the `Session: [Topic] | Project: [[...]]` line appears in your response. Step 8b's Project check compares against this output — if Step 5 never emitted it, Step 8b is auditing internal memory rather than observable state. Small deviations here cascade. If you find yourself writing session content without having displayed this line, STOP and return to this step.
-
-6. **Check for continuation:**
-   - Check if this session is continuing a previous one (from `/pickup` context)
-   - If continuing: Store continuation link for inclusion in summary (the `**Continues:**` line in Pickup Context)
+   **⛔ CHECKPOINT:** You cannot proceed to Step 7 until the `Session: [Topic] | Project: [[...]]` line appears in your response. Step 8b's Project check compares against this output — if Step 5 never emitted it, Step 8b is auditing internal memory rather than observable state. Small deviations here cascade. If you find yourself writing session content without having displayed this line, STOP and return to this step.
 
 7. **Generate session summary** using the format below.
 
@@ -191,7 +202,6 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 
 ### Pickup Context
 **For next session:** [One clear sentence about where to pick up - the very next action to take]
-**Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session X - Topic]] (if this session continues previous work)
 **Project:** [use exact link from Step 5 — do not rewrite]
 ```
 
@@ -259,22 +269,7 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
    Compare against Step 5 output. If they differ, fix the session log before proceeding.
    Display: `Project check: [link] ✓` or, if fixed: `Project check: fixed [old] → [new]`
 
-   **⛔ CHECKPOINT:** You cannot proceed to Step 9 until `Project check:` output appears in your response. If you find yourself writing continuation links without having displayed a project check result, STOP and return to this step.
-
-9. **Add continuation link** (only if continuing previous work):
-   - **Only fires if this session continues a specific previous session** (from `/pickup` context). If not a continuation, skip this step entirely.
-   - Do NOT add chronological "Next session:" links — sessions are already in order in the file. Only topical continuation links carry information.
-   - Add "Continued in:" link to the original session being continued:
-     - Format: `**Continued in:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD#Session N - Topic]]` (exactly what the script writes — no date suffix)
-     - Use the forward-link script with `--continued-in`:
-       ```bash
-       # Same-day:
-       "{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>"
-       # Cross-day:
-       "{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<session-file>" <orig-num> <new-num> "<new-topic>" "<target-date>.md"
-       ```
-   - **`<new-topic>` must be byte-identical to the topic string passed to `write-session.sh` at Step 8** — the script builds the `#Session N - <topic>` anchor from it, so any divergence (shortening, re-punctuating) produces a dangling wikilink in the `Continued in:` reference.
-   - **Error handling:** If script fails (file missing, lock timeout, session not found), log warning but don't fail the park.
+   **⛔ CHECKPOINT:** You cannot proceed to Step 10 until `Project check:` output appears in your response. If you find yourself writing session content without having displayed a project check result, STOP and return to this step.
 
 10. **Check for at-risk work product.** Two failure modes to check.
 
@@ -649,7 +644,6 @@ Every session captures the full bookkeeping pass. Sessions where there's nothing
 ✓ Session summary saved to: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
 ✓ At-risk work product: No at-risk work product to persist [OR "Persisted N item(s): [paths]"]
 ✓ Open loops documented: N items
-✓ Continuation link added: [Original Session] (only if this session continues previous work)
 ✓ Project updated: [Project Name] (if applicable)
 ✓ Reference graph: N files updated for [identifier] (if any status changes traced)
   [OR "✓ Reference graph: No identifier values changed" if none — Step 12(b)'s exact string; don't paraphrase]
@@ -670,7 +664,6 @@ To pickup later: `claude` then `/pickup`
 
 - **Merge continuations, don't fork sessions:** Step 2 handles this procedurally. Use `update-session-section.sh` for all section edits (never ad-hoc sed).
 - **Capture ALL sessions:** Full bookkeeping pass runs unconditionally — no opt-out fast-path.
-- **Continuation linking only:** No chronological "Next/Previous session:" links (redundant — sessions are ordered in the file). Only topical `**Continues:**` / `**Continued in:**` links, triggered by `/pickup`.
 - **File locking:** Per `_shared-rules.md` §5. Use scripts, not Edit tool.
 - **Narrative tone:** Write summaries in the user's voice — direct, technical, outcome-focused.
 - **Open loops:** Each must be specific enough to resume without re-reading the conversation. Route to SSOT (This Week, Tickler, project files) — session docs are plain-text records, never task trackers. Use plain bullets (`- `), never checkboxes (`- [ ]`) in session logs.
