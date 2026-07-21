@@ -264,9 +264,14 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    **(b) Classify each by deadline token.** An item carries a deadline token if its text contains a date, a window, an expiry, a cut-off, a "before X" / "by X" / "closes X" clause, or names an event with a known date. Per `_shared-rules.md` §18, **a deadline token forces a dated surface** — and note §18's caveat that an item can have a real date even when none is written as a calendar date (derive it with `date -d`, don't route past it).
 
+   Resolve relative date expressions using the same parse table as `/park` Step 13 rule 1 ("week of X" → that Monday, "next week" → next Monday, "next month" → the 1st, and so on) rather than restating it here — one table, one place to fix.
+
    - **Deadline token + date falls inside the This Week rolling window** → insert as `- [ ] ` under that day's section, with a project/area link per §3. Verify the weekday with `date -d '<date>' +%A` before writing it.
    - **Deadline token + date outside the window** → `write-tickler.sh` at the derived date.
-   - **No deadline token** → leave it in the review. Undated strategic corrections ("invert the tooling/practice ratio") are genuinely reflective and routing them manufactures false urgency. This is the majority case — do not route everything.
+   - **Trigger-contingent, not calendar-contingent** → leave it in the review. A correction that fires on a downstream event ("before the next review runs", "when X is next invoked") reads as deadline-bearing but has no date to derive; putting it on a day manufactures false urgency, exactly as `/park` Step 13's rule-3 exception describes.
+   - **No deadline token** → leave it in the review. Undated strategic corrections (a ratio to shift, a habit to change) are genuinely reflective, and routing them turns the plan into a dumping ground. This is the majority case — do not route everything.
+
+   **This step's undated sink is the review file itself** (per §18's requirement that a caller name its own disallowed destination): leaving a *deadline-bearing* correction in "Course Corrections Needed" and nowhere else is the failure this step exists to prevent. Leaving an undated or trigger-contingent one there is correct.
 
    **(c) Dedup before writing.** Grep This Week.md, Tickler.md and Tasks.md for a distinctive substring of each item (case-insensitively — see `_shared-rules.md` §12 on `-i`). If already present, skip. Reviews restate the same correction across periods, so an un-deduped route produces one duplicate per review.
 
