@@ -225,7 +225,7 @@ Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
 
 ## 8. Skill Monitor
 
-When executing any slash command, also follow the instructions in `_skill-monitor.md` (same commands directory as this file). Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and propose edits at the end.
+When executing any slash command, also follow the instructions in `_skill-monitor.md` (same commands directory as this file). Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and log it per `_skill-monitor.md` at the end. Do not propose edits in-session; the log is processed weekly by `/weekly-hygiene`.
 
 ---
 

@@ -355,4 +355,4 @@ Whatever the user asked for in Phase 4 — summary, action items, Q&A, pattern s
 
 ## Skill Monitor
 
-As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end.
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and log observations at the end per that file.

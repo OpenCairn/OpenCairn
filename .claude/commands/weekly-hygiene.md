@@ -9,7 +9,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week purges, hub `**Status:**` propagation) go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
+**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week purges, hub `**Status:**` propagation, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
 
 0. **Resolve Vault Path**
 
@@ -499,7 +499,18 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Unexplained hit you can't classify** → surface it to the user *in this session, now* — don't bury it in the report or defer it.
    - **Hit matching the malicious signature** → treat as an **active compromise, not a hygiene item.** Do NOT route it to Tasks.md as a backlog line — that is the wrong severity channel. Halt: stop opening projects in the affected directory, tell the user immediately and in plain language, and run incident response — assume everything reachable during the exposure window was already exfiltrated (1Password items unlocked in that window, SSH keys, API tokens, `.claude`/`.cursor`/`.gemini` configs), so rotate/revoke those, remove the hook from the config file, and trace which package introduced it. The weekly cadence is the *detection* budget; the *response* to a true positive is immediate, not weekly.
 
-16. **Write Hygiene Report**
+16. **Skill-Monitor Log Processing**
+
+   Skills log self-improvement observations to `{VAULT}/06 Archive/Claude/Skill Monitor Log.md` per `_skill-monitor.md` instead of proposing edits in-session. This step is the weekly processing point.
+
+   - Log missing or empty → record "skill-monitor log: empty" and move on (the report section is still emitted, with zeros — omission reads as "forgot to run").
+   - Read the log. Group observations by the file the suggested edit targets — a bullet naming another file (e.g. a `_shared-rules.md` section) routes to that file, with the logging skill kept as evidence; only default to the skill's own file when no other target is named. The same gap observed across sessions is one finding with a recurrence count (recurrence = priority signal), listing the dates it covers.
+   - Present grouped findings with a recommended disposition each: **apply** (show the specific edit for approval), **reject**, or **defer**. Never auto-apply.
+   - Approved edits go to the canonical copy: if the skill exists in a template repo (e.g. `~/repos/OpenCairn/.claude/commands/<skill>.md`), edit the template copy **and copy it over the personal `~/.claude/commands/` copy in the same pass** (a template-only edit leaves the live copy stale and next week re-logs the same gap as unresolved), then `diff` the pair; otherwise edit the personal copy only. No git commit unless asked.
+   - After processing: remove the blocks belonging to applied and rejected findings; blocks for deferred findings stay. Disposition is per observation, not per block — when one block's bullets got different dispositions, rewrite the block keeping only the deferred bullets. The removal is a read-modify-write racing possible concurrent appends — rewrite via `locked-edit.sh --replace` per block, never the Edit tool. Match each block including its trailing blank line (mid-file removals otherwise join adjacent entries); on exit 2 (no match) re-read the log and retry; on exit 3 (identical duplicate blocks — same skill, same day, same bullet) use `--replace-all`. After removals, re-read the log and check for joined headings.
+   - **If user disengages:** leave the log untouched; entries persist to next week.
+
+17. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
@@ -566,6 +577,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ## Config Tripwire (supply-chain)
    - SessionStart / install hooks found: [list files, or "none"]
    - Suspicious `.pth` or hooks flagged: [list with reason, or "clean"]
+
+   ## Skill Monitor
+   - Log entries processed: N across M skills
+   - Applied: [skill: edit summary, or "none"]
+   - Rejected: N / Deferred (left in log): N
 
    ## Claude Internal Files
    - Plans: N stale deleted, M remaining
@@ -636,7 +652,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Routed to Tickler: N
    ```
 
-17. **Route unresolved findings**
+18. **Route unresolved findings**
 
     For each finding not resolved during the sweep:
 
@@ -646,7 +662,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers — in WIP via the step 1 pruning sweep; in the other routing destinations (Tasks.md, Working Memory, scratchpads) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
-18. **Display confirmation:**
+19. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md

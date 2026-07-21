@@ -62,4 +62,4 @@ You are the user's thinking partner. Your role is to explore ideas, surface assu
 
 ## Skill Monitor
 
-As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and propose specific edits to this skill at the end. "The end" here means the Step 5 transition out of thinking mode (or the session closing); if no gaps surfaced, propose nothing — don't let meta-maintenance intrude on the conversation.
+As you execute this skill, follow `_skill-monitor.md` (same commands directory as this file): watch for gaps, and log observations at the end per that file. "The end" here means the Step 5 transition out of thinking mode (or the session closing); if no gaps surfaced, log nothing — don't let meta-maintenance intrude on the conversation.
