@@ -58,3 +58,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Push-side hub record** — pushed commit's canonical row lives in a hub no grep reaches. → `_shared-rules.md §17`, `park` Step 12(a), `goodnight` Step 15(a)
 - **Empty CLI output is not zero** — cross-check rows vs total; crash ≠ empty; stop re-invoking. → `weekly-hygiene` Step 12, `quarterly-hygiene` Step 6
 - **Portability note on GNU-only snippets** — name the BSD/Windows equivalent beside it. → `_shared-rules.md §5`, `weekly-hygiene` Guidelines, `quarterly-hygiene` Step 6
+- **Deferred cross-skill handoff via a drop-box** — writer drops a dated artefact; later skill consumes it. → `provenance` (flags, deleted on processing), `park` Step 4(a) (receipt, time-filtered)
