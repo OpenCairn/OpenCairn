@@ -11,7 +11,7 @@ A **pointer index** of reusable infrastructure patterns that recur across comman
 
 This is an *index*, not a library. Drift is avoided by keeping entries trivially thin:
 
-- **Each entry = pattern name + a ≤8-word shape + `→ reference`. No code, ever.** Code blocks rot; pointers don't. A reference is a skill name, or `_shared-rules.md §N` when the canonical implementation lives in a shared-rules section.
+- **Each entry = pattern name + a ≤8-word shape + `→ reference`. No code, ever.** Code blocks rot; pointers don't. A reference is a skill name, optionally with a step/phase anchor (`park` Step 13b), or `_shared-rules.md §N` when the canonical implementation lives in a shared-rules section. **`/weekly-hygiene` verifies the file half of a pointer, never the anchor** — a step number that drifts is not caught by any check.
 - **The reference is the single source of truth.** Always read it before using the pattern — never trust this file's one-liner as the spec.
 - **Proven-twice gate — a pattern earns an entry only after it's been reused in ≥2 skills.** First sighting is not indexable; a one-off lives in its own skill. Add the pointer here the moment you port a non-obvious mechanism into a *second* skill — that's the proof it's transferable. (Borrowed from Voyager's verify-before-adding-to-the-library: the admission bar is what keeps the index high-signal.)
 - **Adding a pattern:** add one line pointing at the reference implementation. If you can't say the shape in ≤8 words, it's too specific for the index — leave it in its skill.
@@ -39,7 +39,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Step-0 vault resolution** — `resolve-vault.sh`; abort on error, never guess; substitute `{VAULT}`. → `_shared-rules.md §1`, `park` Step 0
 - **Sync marker on deliberate duplication** — comment names the twin; update both together. → `podcast-digest`, `transcribecloud` Phase 8
 - **Substitute-me placeholder for cross-call values** — literal placeholder, never shell var; substitute before running. → `_shared-rules.md §1`, `park` Step 8a
-- **Deterministic temp path for cross-call files** — when work spans tool calls (so a self-contained block can't hold it), derive the path from a stable input (URL/ID slug + hash), never a random `mktemp` name; a later call reconstructs it with nothing carried. → `_shared-rules.md §15`, `podcast-digest` Phase 0
+- **Deterministic temp path for cross-call files** — derive from a stable input, never `mktemp`. → `_shared-rules.md §15`, `podcast-digest` Phase 0
 - **Collision filenames take letter suffixes** — letters sort after bare name; `-N` sorts before. → `weekly-review` Step 5, `quarterly-review` Step 10
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `park` Step 8a
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
@@ -52,7 +52,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `_shared-rules.md §22`, `morning` Step 3, `weekly-hygiene` Steps 2-3 + Step 7
 - **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 7
 - **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g
-- **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 14(b), `goodnight` Step 15(b)
+- **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 14(b), `goodnight` Step 15(c)
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 4(d), `goodnight` Step 14b, `_shared-rules.md §16` (brief evidence: primary/secondary/unverified)
 - **Clock value read before written** — `date` result in a *prior* call; same-call is an estimate. → `_shared-rules.md §19`, `park` Step 13b, `morning` Step 3
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 13, `goodnight` Step 9, `weekly-review` Step 5a
@@ -63,4 +63,3 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Empty CLI output is not zero** — cross-check rows vs total; crash ≠ empty; stop re-invoking. → `weekly-hygiene` Step 12, `quarterly-hygiene` Step 6
 - **Portability note on GNU-only snippets** — name the BSD/Windows equivalent beside it. → `_shared-rules.md §5`, `weekly-hygiene` Guidelines, `quarterly-hygiene` Step 6
 - **Deferred cross-skill handoff via a drop-box** — writer drops a dated artefact; later skill consumes it. → `provenance` (flags, deleted on processing), `park` Step 4(a) (receipt, time-filtered)
-- **Name what was checked and found clean** — silence ≠ endorsement; unswept and swept-clear are different claims. → `security-audit` (Already solid), `landscape-profiles/cybersec` (Stack swept)
