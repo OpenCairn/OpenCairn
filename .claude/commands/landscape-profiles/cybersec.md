@@ -91,11 +91,14 @@ For each:
 ## Not exposed (logged so it isn't re-surfaced)
 - **[id] — [product]** — [on stack but version/path doesn't reach; or adjacent-not-on-stack]
 
+## Stack swept, nothing found (named, so silence ≠ endorsement)
+- [List the inventory components this run actually checked advisories against and found clean — OS/kernel, NAS apps, router, browsers, phones, security-critical packages. A component absent from this list was *not swept*, which is a different claim from *swept and clear*; say which it was.]
+
 ## Meta / landscape (no action — situational awareness)
 - [Trends worth knowing that aren't stack-specific — e.g. AI agents finding 0-days at scale, a class of attack rising. Keep brief; this is the bucket for the interesting-but-not-actionable.]
 ```
 
-Section counts for the Step 12 confirmation line: `N patch-now, N routine, N cooldown, N monitor, N not-exposed, N meta`.
+Section counts for the Step 12 confirmation line: `N patch-now, N routine, N cooldown, N monitor, N not-exposed, N swept-clean, N meta`.
 
 ## Notes for maintainers
 
