@@ -24,7 +24,7 @@ When a session or task links to a project context:
 - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
 - **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a new project file, and do not create a WIP entry.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and creating a project file (or WIP entry) retroactively is noise. Example: a published post on your blog links to `[[04 Areas/Blog/Blog]]`, not a newly-created post-specific project file.
 - **Operational/meta work with no natural project or area home** (e.g. /morning, /goodnight, general sysadmin, security hygiene, vault maintenance) → `Project: None (operational <scope>)` — e.g. `None (operational /morning)`, `None (operational tech-infra)`. Don't reach for a loosely-related project to fill the slot; `None` is the correct answer.
-- **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, Archive, or 07 System files (these are references and meta, not project/area homes)
+- **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, Archive, or 07 System files (these are references and meta, not project/area homes). This governs *outbound* links from an item to its home — it is not in tension with §3, where a WIP entry's own `**Next:**` slot links *out to* the project file. Item → WIP is banned; WIP → project is the required direction.
 - **No canonical home and work is still in flight?** Create a project or area file rather than linking to WIP
 - **Working in Resources?** That's a signal it should graduate to an Area
 - **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
@@ -74,8 +74,11 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/01 Now/Works in
 **Last:** 2026-06-02 — new state
 EOF
 # Other modes: --replace-all (every occurrence), --append (stdin appended at EOF).
-# Exit codes: 0 ok · 2 no match · 3 ambiguous (>1 match under --replace) — treat 2/3 as a
-# real conflict (a parallel writer changed the region), re-Read the file and recompute, don't loop-retry.
+# Exit codes: 0 ok · 1 usage/lock error · 2 no match · 3 ambiguous (>1 match under --replace).
+# Treat 2/3 as a real conflict (a parallel writer changed the region): re-Read the file and
+# recompute, don't loop-retry. Exit 1 with a lock message means another writer holds the lock
+# past the timeout — that is Failure mode B, not a content conflict: report it and stop rather
+# than retrying or falling back to the Edit tool, which is what the lock exists to prevent.
 ```
 
 **⛔ After each `locked-edit.sh` call, grep the target for `OPENCAIRN-LOCKED-EDIT-SEP`.** A hit means a malformed heredoc left the separator line in the file — remove it under the same lock before continuing. Exit 0 does not rule this out: the script separates on the first occurrence, so a payload with a stray or mis-indented separator can write cleanly and still land the token in the file. The defect is silent and survives into whatever reads the file next.
@@ -213,7 +216,17 @@ Session history lives in the archive and project hub pages; WIP links are conven
 # Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
 awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
 ```
-Display: `FIFO check: N/3 session links`. If more than 3, fix before proceeding.
+**Assert the heading matched before believing the count.** The awk emits nothing when the heading
+doesn't match — a renamed, retyped or emoji'd heading yields `0`, which the gate reads as clean
+forever. Run the slice on its own first; if it is empty, the heading is the fault, not the links:
+
+```bash
+awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | head -1
+```
+
+Display one of: `FIFO check: N/3 session links` · `FIFO check: HEADING NOT FOUND — "<heading>" does not
+match any ### entry (count unusable)`. If more than 3, fix before proceeding; if the heading didn't
+match, fix the heading before trusting any count from it.
 
 ---
 
@@ -244,7 +257,9 @@ Delete any day sections whose date is more than 3 calendar days before today. Pa
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
 2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, it becomes eligible for deletion — but **sweep before deleting**. Grep the section body for unchecked items first:
    ```bash
-   grep -nE '^[[:space:]]*-[[:space:]]*\[ \]' <section body>
+   # Materialise the section body first — from the day heading to the next '## ' (exclusive)
+   BODY=$(awk -v z=0 'f && /^## /{exit} index($z, "## HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/This Week.md")
+   printf '%s\n' "$BODY" | grep -nE '^[[:space:]]*-[[:space:]]*\[ \]'
    ```
    Route every match forward before removing the section — into today's section (or the relevant future day / Tickler, per the caller's routing rules), preserving existing project/area links. **Only after the sweep**, delete the heading and all content until the next `## ` heading. Normally `/goodnight` has already routed undone items nightly, so eligible sections are clean and the grep returns nothing — but across a multi-day gap where `/goodnight` never ran (travel, offline), a trimmed day can still hold live `- [ ]` tasks, and deleting without the sweep silently drops them. Completed (`[x]`) items need no sweep — they're archived in the Daily Report.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
@@ -478,7 +493,7 @@ grep -E '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 
 ## 16. Out-of-Band Evidence in Reviewer Briefs
 
-Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, `/security-audit`'s optional panel. Those skills point here and carry no copy to drift.
+Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, and any non-template skill that despatches a brief (e.g. a personal `/security-audit`). Those skills point here and carry no copy to drift.
 
 **The rule.** Where the work product's claims rest on material the reviewer cannot reach from the artefact itself — web fetches, emails, API results, tool output, the user's pasted text — embed that material in the brief, verbatim, under a heading that marks it established: `## Out-of-band evidence (treat as given — do NOT flag as fabricated)`.
 
@@ -573,7 +588,7 @@ Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *sup
 
 ## 20. Session-Boundary Attribution (the file list is the boundary, not the commit window)
 
-Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 14(b), `/goodnight` Step 15(b). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
+Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 14(b), `/goodnight` Step 15(c). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
 
 **The rule.** The vault's `.git` is an **auto-save** repo: commits are time-window snapshots, not session boundaries, and concurrent sessions write to the same vault. A file appearing in the same commit as a session's bookkeeping is therefore **not** evidence that session produced it.
 
