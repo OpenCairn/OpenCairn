@@ -78,6 +78,8 @@ EOF
 # real conflict (a parallel writer changed the region), re-Read the file and recompute, don't loop-retry.
 ```
 
+**⛔ After each `locked-edit.sh` call, grep the target for `OPENCAIRN-LOCKED-EDIT-SEP`.** A hit means a malformed heredoc left the separator line in the file — remove it under the same lock before continuing. Exit 0 does not rule this out: the script separates on the first occurrence, so a payload with a stray or mis-indented separator can write cleanly and still land the token in the file. The defect is silent and survives into whatever reads the file next.
+
 `Tickler.md` has a structured inserter (`write-tickler.sh`) for adding dated items — keep using it; both it and `locked-edit.sh` lock the same canonical path, so they're mutually exclusive. Use `locked-edit.sh` for free-form Tickler edits (editing/removing an existing item). **Session logs are NOT planning files** — they keep their dedicated scripts (`write-session.sh` et al.), which lock the Session Logs directory, not the per-file path.
 
 **Lock files:**
@@ -556,6 +558,8 @@ Canonical rule for every skill with a pre-audit quality gate over files it just 
 - Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
 - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
 - **Derived values inherit the check.** A total computed from components, or two items presented as equivalent/substitutable, are unsourced unless the inputs *and the equivalence* were themselves checked. Plausible arithmetic over unverified inputs is the same defect as an invented figure.
+  - **Unit conversions are derivations.** When a written value is a unit conversion of a tool-result number, recompute the conversion at the gate and match the divisor family to the unit label written — `GB`/`TB` are decimal (10⁹, 10¹²), `GiB`/`TiB` are binary (2³⁰, 2⁴⁰). A GiB value carrying a `GB` label passes the trace check (the byte count is real) while stating a wrong number.
+- **Clock values must be read before they are written — two calls, ordered.** A timestamp, date, or "as of" stamp written into a file must come from a `date` result that appears in a **prior** tool result. Issuing `date` in the *same* tool call as the write does not satisfy this: by then the value is already composed, so what ships is an estimate and the `date` output merely documents how far off it was. This is the one value class that escapes the trace check above — the written stamp *does* correspond to a real tool call, so it reads as sourced while still being fabricated. Tell: a write whose stamp was chosen before its `date` output was visible. Applies to file-header stamps, `Last updated:` lines, banner refresh stamps, and provenance rows alike.
 - **Asserted preconditions are values too.** A claim that *gates work* — "needs a restart first", "blocked until X is installed", "the key isn't visible yet" — is an unsourced factual claim, not a property of the task, and inherits the same trace requirement. It escapes the enumeration above because it reads as a precondition rather than a value, which is exactly why it survives: **premises are not challenged the way findings are.**
   - **Scope: preconditions naming a local machine or tooling observable** — an environment variable, a running process, a file or binary, a port, a reachable service, a credential. These are testable *by definition*, so testability is not a judgement call the asserting party gets to make.
   - **Out of scope, and not to be enumerated or tagged:** blockers resolved by a person, a third party, or an unmade decision ("waiting on the builder", "blocked on the lease call"). Tagging those is noise, and they are the overwhelming majority of blocker-shaped text in ordinary planning docs.
@@ -606,3 +610,21 @@ Canonical rule for every skill that commits to a git repository, and for ad-hoc 
 **Scope: commits the skill itself makes.** A command a skill *prints for the user to run in their own terminal* is not one — repo-initialisation instructions (`git init … && git add -A && git commit -m "Baseline"`) are outside this rule. There, `-A` is correct: the intent is "snapshot everything as it stands", and a repo with no commits has no concurrent in-flight work to collect. Stated because the checkable below otherwise flags those lines, and "fixing" them breaks initialisation.
 
 **Checkable:** every commit a skill executes names its paths explicitly, and no `git add` a skill executes carries `-A`, `-u`, or a bare directory. Instructions handed to the user to run themselves are exempt and need no annotation.
+
+---
+
+## 22. Artefact Age Comes From Content, Never From mtime
+
+Canonical rule for every skill that asks how old an artefact is, or that windows work by recency — staleness checks, "since I last looked" scans, cadence flags, first-flagged markers. Those skills point here and carry no copy to drift.
+
+**The rule.** Derive an artefact's date from its **content** — a header line it carries, its filename when that encodes the date, or a marker the check itself has previously written. Never from `stat` / `find -mtime` / `ls -t`.
+
+**Why mtime is not merely imprecise but wrong in the dangerous direction.** Any later touch resets it: an audit remediation, a sync write, a formatting hook, a bulk restore or re-export, an editor opening the file. So an artefact reads as *fresher than it is* — an overdue review looks current, and a scan captioned "the last N days" silently ingests arbitrarily old material. The error is invisible in the output, because the wrongly-included items look exactly like correctly-included ones. It also **self-inflates**: the larger the maintenance operation, the more history it drags into range.
+
+**A marker the check writes into the file is a special case of the same trap.** Once a check stamps a file, that file's mtime measures *the check's own last write*, not the user's — so an mtime-derived age resets to ~0 every run and shrinks as the artefact gets staler, inverting the metric. Carry a monotonic value in the marker instead (a first-seen date or week), and preserve it verbatim on refresh; never recompute it.
+
+**Windows: prefer "since the last run" over a fixed span.** Where a check exists to surface what is new since it last looked, derive the boundary from the previous run's own artefact (its header date), falling back to a fixed span only when no prior artefact exists. A hardcoded span is wrong in both directions — it re-covers ground when runs are close together (re-surfacing items already triaged, which reads as a fresh recurrence) and drops material when they are far apart. A derived boundary widens automatically after a long gap, which is the correct behaviour. Note the ordering dependency: read the previous artefact *before* this run writes its own, or the window collapses to nothing.
+
+**Required output — emit the derived value.** State the date and the elapsed days, or the resolved window and where it came from, before drawing any conclusion from it. `last run <date>, N days ago` and `window: <date>..today | source: <file>` are checkable; a bare "current" / "overdue" verdict, or a candidate list with no stated window, means the check was done from impression. Make the fallback branch visible rather than silent.
+
+**Checkable:** no skill computes an age or a window from `stat`, `-mtime`, or `ls -t`, and every such check prints the value it derived.

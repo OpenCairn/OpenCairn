@@ -123,7 +123,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - After draft sections are resolved above, present remaining non-empty scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
    - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed` at the top of each non-empty scratchpad file.
 
-   **⛔ Never derive the staleness figure from mtime.** Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
+   **⛔ Never derive the staleness figure from mtime** (`_shared-rules.md` §22 — this is its marker-specific case). Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
 
    Carry the **first-flagged week** instead — it is monotonic and self-evidencing:
    - No existing marker → this is the first flag. Write `first flagged W<current>`.
@@ -136,12 +136,26 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read CRM index to get list of known names
    - Extract names from recent session files. Drop heading lines and the standard session-log/planning **section names** before counting — otherwise structural headings (`### Files Updated`, `## This Week`, …) dominate the frequency list and bury real people:
      ```bash
-     find "{VAULT}/06 Archive/Claude/Session Logs/" -name "*.md" -mtime -7 -exec cat {} + \
+     # Self-contained block: shell vars don't survive between tool calls, so derive and use in one go.
+     # Window = since the LAST hygiene run, by the log's OWN date (its filename). Never -mtime. See notes below.
+     REPORTS="{VAULT}/06 Archive/Claude/Hygiene Reports"
+     LAST=$(ls -1 "$REPORTS"/*.md 2>/dev/null | sort | tail -1)     # sort by NAME (ISO week sorts correctly), not -t
+     CUTOFF=$(grep -m1 '^\*\*Generated:\*\*' "$LAST" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+     [ -z "$CUTOFF" ] && CUTOFF=$(date -d '7 days ago' +%Y-%m-%d)   # BSD/macOS: date -v-7d +%Y-%m-%d
+     echo "CRM scan window: sessions dated ${CUTOFF}..today | source: ${LAST:-none — 7-day fallback}"
+     find "{VAULT}/06 Archive/Claude/Session Logs/" -name '[0-9]*-[0-9]*-[0-9]*.md' \
+       | awk -v c="$CUTOFF" -F/ '{d=$NF; sub(/\.md$/,"",d); if (d >= c) print}' \
+       | awk -F/ '!seen[$NF]++' \
+       | tr '\n' '\0' | xargs -0 cat \
        | grep -vE '^[[:space:]]*#' \
        | grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' \
        | grep -vxE 'This Week|Pickup Context|Open Loops|Key Insights|Next Steps|Files Updated|Files Created|Files Deleted|Session History|Resumption Brief|Session Logs|Daily Reports|Working Memory' \
        | sort | uniq -c | sort -rn | head -20
      ```
+
+     **Window derivation and the mtime ban are governed by `_shared-rules.md` §22** (already in context — Step 0 reads it in full): the boundary comes from the previous report's `**Generated:**` header, the log's own filename supplies each session's date, and the resolved window is printed. Two specifics for this step: ISO dates compare correctly as plain strings, so the `awk` comparison needs no date parsing; and the newest report may be *this same week's*, written by an earlier run — that is the right boundary, not a bug.
+
+     **Dedupe by basename.** Old logs are rolled into `Session Logs/YYYY/` subfolders, so the same log can be reachable at two paths. Without the `!seen[$NF]++` pass every name in a rolled log is counted twice and the frequency ranking is skewed toward whichever period happens to be duplicated. Which copy survives does not matter for counting; the pass exists so each *session* contributes once. **Deduping the scan is not a licence to delete either copy on disk** — surface on-disk duplication as a finding and leave the files alone.
    - Flag names that appear 2+ times but aren't in CRM. A two-word capitalised bigram is a weak name signal — discard obvious non-people that slip the denylist (topic phrases, place names, product names) before presenting candidates.
 
    **Resolve in-session:**

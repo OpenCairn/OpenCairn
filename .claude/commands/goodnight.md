@@ -275,7 +275,7 @@ If any project status changed significantly today, update `{VAULT}/01 Now/Works 
 
 ### 14b. Value check (SOURCE)
 
-Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, Tasks.md, project files, session entry, WIP. That section carries the enumeration, the three acceptable provenances, the derived-values clause, the asserted-preconditions clause, and the required output line.
+Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, Tasks.md, project files, session entry, WIP. §19 is the single source of truth for what the check covers and for its required output line — read it there rather than working from any restatement, including one here.
 
 ### 15. Delegate /audit to a fresh sub-agent
 
