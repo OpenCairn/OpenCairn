@@ -24,7 +24,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
 1. **Parse the inbound**
 
    From the user's prompt, extract:
-   - **Message text:** The inbound message to reply to. If multiple messages from the *same thread* are pasted, the last message not from the user is the one to reply to; everything else is thread context. Messages from distinct senders/threads are separate replies — see Batch mode (step 3).
+   - **Message text:** The inbound message to reply to. If multiple messages from the *same thread* are pasted, the last message not from the user is the one to reply to; everything else is thread context. Messages from distinct senders/threads are separate replies — one draft section per sender; the Batch mode claims inventory (step 3) applies at 3+.
    - **Sender:** Name of the person who sent the message. From prompt text, message content, or prior conversation context. If truly unidentifiable, ask once.
    - **Medium/platform:** WhatsApp, iMessage, email, dating app, LinkedIn, SMS, etc. Detect from context clues (quoted formatting, email headers, the user saying "WhatsApp message from..."). If ambiguous, ask once.
    - **Register:** Map medium + relationship to the appropriate voice section. IM = casual IM voice. Email = email voice. Dating app = dating app voice. If the user's voice profile defines further register-specific rules (e.g. a "Friend Update" register for longer substantive IMs to close friends — 3+ sentences, life updates, plans), those profile-defined registers override the base mapping.
@@ -37,8 +37,8 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    **Voice profile** (always load):
    - `{VAULT}/07 System/Context - Voice & Writing Style.md` — source of truth for voice patterns and register-specific rules
 
-   **CRM lookup** (always attempt):
-   - Search `{VAULT}/07 System/CRM/_index.md` for the sender's name
+   **CRM lookup** (always attempt, if `{VAULT}/07 System/CRM/` exists):
+   - Search `{VAULT}/07 System/CRM/_index.md` for the sender's name. The index may be sorted surname-first, so a literal natural-order search can miss — search the surname token alone, or try both name orders, before concluding a miss.
    - If found: read the relevant range file section (`A-F.md`, `G-L.md`, `M-R.md`, `S-Z.md`) and Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
    - If not found: note "Not in CRM" and proceed. This is fine — not every reply is to someone in the vault.
 
@@ -82,7 +82,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    - **Preserve the `**[true?]**` markers verbatim.** Instruct `/de-ai-ify` not to strip or reword around the factual-claims flags inserted in step 3 — they must survive into the de-ai-ified draft so the user still sees them at review. After the de-ai-ify pass, confirm the exact string `**[true?]**` is still present wherever a flag was inserted; if any were lost, re-apply them before writing to scratchpad.
    - **Pass the detected register.** The register's voice rules outrank `/de-ai-ify`'s default voice profile where they differ, and checklist items that presuppose document-length text (intros, structure, conclusions) don't apply to a short IM — instruct it to skip those.
    - **Subsume `/de-ai-ify` step 5 (iterate if needed) into this skill's own feedback wait.** Present the before/after, then proceed straight to this skill's step 5 scratchpad write — don't block the write on a "voice feels right" confirmation. Subsequent voice tweaks from the user are re-drafts (this skill's step 5 replace path).
-   - **Defer `/de-ai-ify` step 6 (voice refinement).** Do NOT run its voice-refinement prompt now — nothing has been sent yet, so there is no "final version actually used" to diff against. Step 6 runs later, in this skill's step 5 "After output" block, against the message the user actually sends.
+   - **Defer `/de-ai-ify` step 6 (voice refinement).** Do NOT run its voice-refinement prompt now — nothing has been sent yet, so there is no "final version actually used" to diff against. `/de-ai-ify` step 6 runs later, in this skill's step 5 "After output" block, against the message the user actually sends.
 
 5. **Output**
 
@@ -99,7 +99,7 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    - On "sent" (or when the user pastes the final, edited text they used): run `/de-ai-ify` step 6 (voice refinement) now — the step deferred from step 4 — diffing the de-ai-ified draft against what the user actually sent. Before diffing, strip the `**[true?]**` markers from the draft — the user's manual removal of them is mechanical, not a voice signal. This is the point of the whole loop: the draft→sent delta is where the voice profile learns.
    - If the user just says "sent" without pasting text, ask once: "Did you send it unchanged? If you changed it, paste the final text you sent." If unchanged, there's no delta to diff — the refinement is skipped (and counts as resolved).
    - **Scratchpad cleanup (on "sent", once refinement has run or been determined skipped).** Don't gate cleanup on the user accepting any voice-doc edits refinement proposes. Remove the draft section from `Scratchpad.md` — the draft served its purpose. Read Scratchpad, extract the exact section content per `_shared-rules.md` §11 boundary rules, then remove via `locked-edit.sh --replace` with empty `new_string`. Acknowledge briefly (one line) after removal.
-   - If the user said "just inline" in step 5 (no scratchpad write), skip the cleanup.
+   - If the user said "just inline" (no scratchpad write), skip the cleanup.
 
 ## Conversation Continuity
 

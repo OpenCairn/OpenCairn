@@ -36,14 +36,14 @@ date +"%A, %d %b %Y — %H:%M %Z"  # full date, time, and timezone
 date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
-Note roughly how much working time remains today.
+Note what's left of the day. Only state a number of hours if an end time is given — by the user, or by the last scheduled item in today's day section (Step 2). Don't invent a workday end; with no end time, describe it qualitatively ("rest of the afternoon", "an evening left") or ask in one line when it changes the advice.
 
 ### 2. Quick Status Check (auto)
 
 Read:
 - **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
-- **Works in Progress:** `{VAULT}/01 Now/Works in Progress.md` - what's meant to be priority?
-- **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` - what's been done so far?
+- **Works in Progress:** `{VAULT}/01 Now/Works in Progress.md` (skip if file doesn't exist) - what's meant to be priority?
+- **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
 - **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by /morning; if the day section is empty or missing, report "None set".
 
 ### 3. Present Current State
@@ -53,7 +53,7 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 ```
 ## Regroup — [HH:MM TZ] — [Day], [DD] [Mon] [YYYY]
 
-**Time remaining:** ~[N] hours of working time
+**Time remaining:** [~N hours, if an end time is known — otherwise qualitative, per Step 1]
 
 **Morning's intention:** [Derived per Step 2, or "None set"]
 
@@ -70,7 +70,7 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 - [Project] - [current status]
 ```
 
-If no This Week.md or it's stale, skip that section and show the standard view.
+If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through Claude today"; if Works in Progress is missing, drop the **Active projects** block.
 
 ### 4. Drift Check
 

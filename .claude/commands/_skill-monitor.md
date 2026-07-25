@@ -6,16 +6,21 @@ At the end of the run, **log observations — do not propose skill edits in-sess
 
 - **Something observed:** append one block to `{VAULT}/06 Archive/Claude/Skill Monitor Log.md` via the locked append (never a bare `>>`, never the Edit tool — concurrent sessions interleave otherwise). If no vault path is resolved this session, run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` yourself first and substitute the resolved path below — this file may be loaded by skills that never read `_shared-rules.md`.
 
-  ```bash
-  { printf '## %s — /<skill>\n' "$(date +%F)"; cat <<'EOF'
-  - [gap observed]: [specific suggested edit]
-  EOF
-  } | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/06 Archive/Claude/Skill Monitor Log.md" --append
-  ```
+```bash
+{ printf '## %s — /<skill>\n' "$(date +%F)"; cat <<'EOF'
+- [gap observed]: [specific suggested edit]
+EOF
+} | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/06 Archive/Claude/Skill Monitor Log.md" --append
+```
 
-  The heredoc delimiter is quoted deliberately: observation bullets routinely contain code-spans, `$vars`, and backticks that an unquoted heredoc would expand or execute.
+The fence and the heredoc terminator sit at column 0 deliberately — an indented `EOF` is not recognised as the delimiter, so the block must be run as written rather than nested under the bullet.
 
-  The script creates the file if missing. One block per run; multiple observations are bullets under it. Keep each bullet to one or two lines — enough for the weekly pass to reconstruct the edit without this session's context — and name the target file/section when it isn't this skill's own file (e.g. a `_shared-rules.md` section). Date from `date +%F`, never internal computation. Then display `✓ Skill monitor: N observation(s) logged`.
+The heredoc delimiter is quoted deliberately: observation bullets routinely contain code-spans, `$vars`, and backticks that an unquoted heredoc would expand or execute.
+
+The script creates the file if missing. One block per run; multiple observations are bullets under it. Keep each bullet to one or two lines — enough for the weekly pass to reconstruct the edit without this session's context — and name the target file/section when it isn't this skill's own file (e.g. a `_shared-rules.md` section). Date from `date +%F`, never internal computation.
+
+Check the exit status before claiming success — a non-zero exit means the lock was never acquired and the observation was **not** written. On non-zero, retry the block once; if it fails again, display `✗ Skill monitor: log write failed — observation(s) below` and print the bullets in-session so they survive the run. Only on exit 0 display `✓ Skill monitor: N observation(s) logged`.
+
 - **Nothing observed:** display the calling skill's existing clean-case line where its checklist demands a checkpoint (e.g. `✓ Skill monitor: No gaps detected`); otherwise silence is the clean case — don't let meta-maintenance intrude.
 - **Sub-agents never write the log.** A sub-agent that spots a skill gap returns it as a finding in its report; the main session logs it.
 - **Exception — broken-now failures:** if the gap made *this run's* output wrong, say so in-session (that's error reporting, not skill improvement); still log the skill-edit suggestion rather than proposing it.

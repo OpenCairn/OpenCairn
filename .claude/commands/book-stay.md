@@ -7,17 +7,17 @@ description: Choose and book a hotel (or stay) — quiz preferences, generate sh
 
 Pipeline for choosing and booking a hotel for a trip leg. **One pipeline run and one accommodation doc per leg** — for a multi-city trip, split into legs first and run Steps 1-11 per leg (record the split rationale in the doc template's Multi-leg section), updating the trip hub once at the end.
 
-**Prerequisites:** web search (candidate research + live FX rates) and the AskUserQuestion quiz tool. The vault doc template lives at `{VAULT}/07 System/Templates/Accommodation Decision.md`. **No vault?** Skip Step 1's context-load and Step 11 entirely (Step 1's lead-time check and currency step still run) — the quiz → research → verify → handoff core works anywhere.
+**Prerequisites:** web search (candidate research + live FX rates) and the AskUserQuestion quiz tool. The vault doc template lives at `{VAULT}/07 System/Templates/Accommodation Decision.md`. **No vault?** Skip Step 1's context-load, Step 8's doc write, and Step 11 entirely (Step 1's lead-time check and currency step still run) — the quiz → research → verify → handoff core works anywhere.
 
 **Scope:** hotels and short stays. Restaurants and other venue bookings are out of scope.
 
 ### 0. Resolve Vault Path (vault installs only)
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+if [ -z "${VAULT_PATH:-}" ]; then echo NO_VAULT; else "$VAULT_PATH/.claude/scripts/resolve-vault.sh"; fi
 ```
 
-If error on a vault install, abort (no silent fallback — `_shared-rules.md` §1). If the error is just that no vault is configured (`VAULT_PATH` unset on a vault-less install), don't abort — run in no-vault mode per the Prerequisites note. Read `_shared-rules.md` from this skill's own commands directory and apply its rules throughout — §5 (locked edits) governs every shared-planning-file write below. All paths use `{VAULT}` as a placeholder — substitute the resolved vault path.
+If the output is the literal `NO_VAULT`, no vault is configured — don't abort; run in no-vault mode per the Prerequisites note. Any other error is a vault install with a broken path: abort (no silent fallback — `_shared-rules.md` §1). Read `_shared-rules.md` from this skill's own commands directory and apply its rules throughout — §5 (locked edits) governs every shared-planning-file write below. All paths use `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 ## Inputs
 
@@ -101,6 +101,7 @@ Present the gap (which constraint failed: tier? hard requirement? neighbourhood?
 - Explicit "Ruled out" lines for transparency
 - For load-bearing facts (specific discount percentages, feature claims), **include verbatim source quotes** in the response, not just parsed numbers. Verbatim quotes protect against quick-read errors.
 - **Verify, don't infer.** If a feature is load-bearing for the decision (e.g. "private meeting room with door"), actually verify it before claiming it. Marketing copy / testimonials are *suggestive*, not *verified*.
+- **Write the accommodation doc now, before any booking (vault installs only)** — the research product must survive the session whether or not the user books today. Copy `{VAULT}/07 System/Templates/Accommodation Decision.md` to the trip's project folder as `<City> Accommodation - <date range>.md` (hyphen, not em dash — em dashes in filenames are shell-hostile), and populate it from Steps 2-8 per the template's own instructions (replace placeholders, delete inapplicable sections; booking-confirmation fields stay empty until Step 11). If a doc for this leg already exists, update it in place. If no trip project folder exists, ask the user where to put it — don't invent structure.
 
 ### 9. Loyalty-program advice (if user has status / points)
 
@@ -135,9 +136,9 @@ User pastes confirmation # back; agent captures it.
 
 **Update what exists; the only file to create is the accommodation doc itself.** Don't invent hubs, planning files, or reference files on a fresh vault.
 
-- The accommodation doc for this trip leg (mark booked, confirmation #, booking URL, free-cancel deadline). If creating from scratch, copy `{VAULT}/07 System/Templates/Accommodation Decision.md` to the trip's project folder as `<City> Accommodation - <date range>.md` (hyphen, not em dash — em dashes in filenames are shell-hostile), and populate it from Steps 2-8's research per the template's own instructions (replace placeholders, delete inapplicable sections). If no trip project folder exists, ask the user where to put it — don't invent structure.
+- The accommodation doc for this trip leg, already written at Step 8 — update it: mark booked, confirmation #, booking URL, free-cancel deadline.
 - The trip's timeline / overview docs, if the trip has them.
-- `01 Now/Works in Progress.md` (relevant project entries — usually 2: the travel project + the project that drove the trip). When updating a WIP `Last:` field, replace the prior value outright — do not chain "Earlier [date]..." blocks (per `/park`'s Last-field cap rule: prior Last content is preserved in the session-log archive; chaining it inline is the accretion anti-pattern).
+- `01 Now/Works in Progress.md` (relevant project entries — usually 2: the travel project + the project that drove the trip). When updating a WIP `Last:` field, follow `/park`'s Last-field cap rule in full (including its migrate-first precondition and dropped-identifier grep) — don't work from a paraphrase of it.
 - `01 Now/This Week.md`, if it exists (mark task done, update the Status banner if the booking changes it)
 - Any project-specific doc that referenced "where am I sleeping" (e.g. event prep, retreat hub)
 - **Booking References file** for the trip, if the trip keeps one. If it doesn't and the user wants one, the minimal structure is one section per booking: confirmation #, channel + URL, total paid, cancellation deadline, property contact.

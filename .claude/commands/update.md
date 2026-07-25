@@ -14,8 +14,8 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 
 | Category | Path | Action |
 |----------|------|--------|
-| Commands | `.claude/commands/*.md` | Per-file review (accept/skip) |
-| Scripts | `.claude/scripts/*` (`.sh`, `.py`) | Per-file review (accept/skip) |
+| Commands | `.claude/commands/` (whole tree, including subdirectories) | Per-file review (accept/skip) |
+| Scripts | `.claude/scripts/` (whole tree, any extension) | Per-file review (accept/skip) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
@@ -23,6 +23,12 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 ## Git Command Constraint
 
 Do not use `git show ref:path` (colon syntax) — Windows Git Bash mangles the colon. Use `git diff` to compare and `git checkout` to restore. All commands in this skill already use cross-platform forms; this constraint prevents improvisation with colon syntax during execution.
+
+## Shell Variables Do Not Persist
+
+Each Bash call runs in a fresh shell, so a variable assigned in one fenced block is **empty** in the next. `$REMOTE`, `$BRANCH`, `$REF`, `$VERSION`, `$ASF`, `$LOCAL_FILES` and `$TEMPLATE_FILES` below are notation for values *you* resolve and then **substitute literally** into every later command — never carry them across blocks as shell state. An empty `$REF` is not a harmless no-op: `git checkout $REF -- <dirs>` with `$REF` unset silently discards the working tree against the index.
+
+Where a block assigns a variable and consumes it, keep the assignment and its consumers in that **same** block. Where a value is needed in a later step, write the resolved literal (e.g. `origin/main`, `refs/tags/v1.2.3`) into the command you run.
 
 ## Instructions
 
@@ -49,7 +55,7 @@ Then run /update again.
 ```bash
 git rev-parse --verify HEAD >/dev/null 2>&1 && echo "HEAD_OK" || echo "NO_COMMITS_YET"
 ```
-If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked — the Step 4–6 diffs show the template as wholesale deletions (hiding local customisations right before checkout clobbers them) and Error Recovery's `git checkout HEAD` fails on the unborn HEAD.
+If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked — the Step 4–6 diffs show the template as wholesale deletions (hiding local customisations right before checkout clobbers them) and Error Recovery has no pre-update HEAD to restore from.
 
 ### Step 2: Determine Template Remote
 
@@ -66,7 +72,7 @@ Determine the correct remote name:
    ```
    Then use `template`
 
-Store the remote name as `$REMOTE` for subsequent steps.
+Note the remote name — it appears below as `$REMOTE`, and you substitute the literal name into each command you run (see *Shell Variables Do Not Persist*).
 
 ### Step 3: Fetch Latest and Detect Branch
 
@@ -92,26 +98,23 @@ If neither `main` nor `master` exists, abort:
 ✗ Couldn't find main or master branch on remote. The template repo may have changed — check the template repo URL.
 ```
 
-Store as `$BRANCH`.
+Note the branch name — like `$REMOTE`, substitute it literally below.
 
 ### Step 3b: Resolve the comparison ref (`$REF`)
 
-Every diff and checkout from here on targets a single ref, `$REF`. This is the **only** thing `--tag` changes — *what* you compare against, never *how* files are applied (Step 6's per-file review is identical in both modes).
+Every diff and checkout from here on targets a single ref, written below as `$REF` and substituted literally into each command you run. This is the **only** thing `--tag` changes — *what* you compare against, never *how* files are applied (Step 6's per-file review is identical in both modes).
 
-**Default — branch-follow:**
-```bash
-REF="$REMOTE/$BRANCH"
-```
+**Default — branch-follow:** `$REF` is `<remote>/<branch>` — the two names resolved in Steps 2 and 3, e.g. `origin/main`.
 
-**If `--tag VERSION` was passed** — pin to a specific signed release instead of tracking the branch. Bind the version the user passed to a shell variable, then resolve it **against the remote**: a bare `git rev-parse --verify` only proves a *local* tag exists, so a stale or locally-created tag named like a release would pass.
+**If `--tag VERSION` was passed** — pin to a specific signed release instead of tracking the branch. Resolve the version the user passed **against the remote**: a bare `git rev-parse --verify` only proves a *local* tag exists, so a stale or locally-created tag named like a release would pass. Run the checks as one block, substituting the literal remote and version:
 ```bash
-VERSION="<the value passed to --tag, e.g. v0.7.13>"     # bind the user's argument once; use $VERSION below
+VERSION="<the value passed to --tag>"; REMOTE="<the remote resolved in Step 2>"
 git ls-remote --exit-code --tags "$REMOTE" "refs/tags/$VERSION" >/dev/null 2>&1 \
   || { echo "✗ Tag $VERSION not found on $REMOTE — check https://github.com/OpenCairn/OpenCairn/releases"; exit 1; }
 git fetch -f "$REMOTE" "refs/tags/$VERSION:refs/tags/$VERSION" 2>&1 \
   || { echo "✗ Failed to fetch refs/tags/$VERSION from $REMOTE"; exit 1; }   # -f overwrites any stale local tag
-REF="refs/tags/$VERSION"
 ```
+`$REF` is then `refs/tags/<VERSION>` — substitute that literal below.
 
 ### Step 3c: Verify `$REF` is signed
 
@@ -121,14 +124,24 @@ Verification differs by mode. **Branch-follow warns and continues** — an early
 
 Classify on **structured signals** — object type, verify exit code, config state — not on scraped stderr text (git's messages vary by version and locale, and don't reliably contain the config key name). `--force` is **not** consulted here: a requested pin that can't be verified aborts, full stop (matching `CONTRIBUTING.md`'s "unverifiable aborts"). `--force` only ever skips per-file review (Step 6).
 
+Run this as one block, with the literal ref and version substituted in:
+
 ```bash
+REF="refs/tags/<VERSION>"; VERSION="<VERSION>"; REMOTE="<the remote resolved in Step 2>"
 git verify-tag "$REF" >/dev/null 2>&1; TAG_RC=$?
 OBJTYPE=$(git cat-file -t "$REF" 2>/dev/null)
 ASF=$(git config --get gpg.ssh.allowedSignersFile)
 
 if [ "$OBJTYPE" != tag ]; then                          # lightweight tag → HARD ABORT (can't carry a signature)
   echo "✗ $VERSION is a lightweight tag (a pre-signing release), not a verifiable signed release."
-  echo "  Pin to the first release cut by the signed /release procedure or later."; exit 1
+  echo "  Tag object types are not monotonic, so pick from the tags that actually verify here:"
+  git fetch -q -f --tags "$REMOTE"
+  for T in $(git tag --sort=-v:refname | head -20); do
+    [ "$(git cat-file -t "refs/tags/$T" 2>/dev/null)" = tag ] \
+      && git verify-tag "refs/tags/$T" >/dev/null 2>&1 && echo "    $T"
+  done
+  echo "  (an empty list means signature verification isn't configured here — see CONTRIBUTING.md#commit-signing)"
+  exit 1
 elif [ "$TAG_RC" -eq 0 ]; then                          # good signature → proceed
   echo "✓ Release tag $VERSION is signed and verified"
 elif [ -z "$ASF" ] || [ ! -r "$ASF" ]; then            # verifier not configured → STOP (config gap, not tamper)
@@ -227,20 +240,19 @@ Categorise what changed by comparing the working tree against the template:
 git diff $REF --name-only -- .claude/commands/ .claude/scripts/
 ```
 
-Detect files that exist locally but NOT in the template (may be deprecated or user-created):
+Detect files that exist locally but NOT in the template (may be deprecated or user-created), and files in the template but not locally (new commands/scripts). Run this as one block — `comm` needs `LC_ALL=C sort` on both sides, or it aborts with "not in sorted order" under a UTF-8 locale, and both inventories must cover the **whole tree** (subdirectories and any extension), not a top-level glob:
 ```bash
-# Local command/script files
-LOCAL_FILES=$(ls .claude/commands/*.md .claude/scripts/*.sh .claude/scripts/*.py 2>/dev/null | sort)
+# Local command/script files: tracked + untracked-but-not-ignored, across both trees
+LOCAL_FILES=$( { git ls-files -- .claude/commands/ .claude/scripts/;
+                 git ls-files --others --exclude-standard -- .claude/commands/ .claude/scripts/; } \
+               | LC_ALL=C sort -u)
 
 # Template command/script files
-TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | sort)
+TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort)
 
 # Files in local but not in template
 REMOVED_CANDIDATES=$(comm -23 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
-```
 
-Detect files in the template but not locally (new commands/scripts):
-```bash
 # Files in template but not local
 NEW_FILES=$(comm -13 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
 ```
@@ -274,20 +286,27 @@ Dry run complete. Run /update to apply these changes.
 
 For each changed file, show a short diff and let the user decide. This prevents template updates from overwriting local improvements.
 
+**Before touching anything**, record two things you will need later:
+```bash
+git rev-parse HEAD    # pre-update HEAD — Error Recovery restores from this, not from HEAD-at-failure-time
+```
+and an **accepted-files list**: the paths you actually check out during this step (accepted files plus new files). Keep it explicitly — the commit and any rollback are scoped to those paths only, never to the directory roots.
+
 **If `--force` was specified**, skip per-file review — accept all files and apply them in bulk (use the bulk checkout approach):
 ```bash
 git checkout $REF -- .claude/commands/ .claude/scripts/
 ```
-Then skip ahead to the commit step below.
+The accepted-files list for the commit is then the template's file list (`git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/`). Then skip ahead to the commit step below.
 
 **Otherwise, iterate over each changed file:**
 
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \
-  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ | sort) \
-  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | sort)
+  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort) \
+  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort)
 ```
+(`LC_ALL=C` on both sides is required — `comm` aborts with "not in sorted order" against a UTF-8 collation.)
 
 For each file in this list:
 
@@ -324,16 +343,17 @@ git checkout $REF -- <new-file>
 chmod +x .claude/scripts/*.sh 2>/dev/null
 
 # Commit with template version hash for traceability.
-# --only commits precisely these paths regardless of what else sits in the index —
-# a directory-wide `git add` plus a bare `git commit` would collect a concurrent
-# session's staged work and carry it under this message. See `_shared-rules.md` §21.
+# Name every accepted file explicitly — NOT the directory roots. `--only` scopes
+# against the index, not against what this run touched, so a directory-root commit
+# would sweep in files the user skipped and a concurrent session's in-flight edits.
+# See `_shared-rules.md` §21.
 git commit --only -m "Update OpenCairn commands from template ($(git rev-parse --short $REF))" \
-  -- .claude/commands/ .claude/scripts/
+  -- <accepted-file-1> <accepted-file-2> ...
 ```
 
-**Assert only your own paths left the index** — not that the tree is globally clean. Under concurrent sessions other files being dirty is expected and is not your business:
+**Assert only the files you accepted left the index** — not that the tree, or even the two directories, are globally clean. Under concurrent sessions other files being dirty is expected and is not your business:
 ```bash
-git status --short -- .claude/commands/ .claude/scripts/   # expect empty
+git status --short -- <accepted-file-1> <accepted-file-2> ...   # expect empty
 ```
 
 If nothing was accepted (user skipped everything), don't commit. Display:
@@ -455,16 +475,23 @@ git rev-parse --short $REF
 
 ## Error Recovery
 
-If anything goes wrong mid-update:
+If anything goes wrong mid-update, restore **only the files this run checked out**, from the **pre-update HEAD** you recorded at the top of Step 6 — not from `HEAD`, which may already be this run's own update commit, and not from the directory roots, which would discard unrelated uncommitted work (including a concurrent session's):
 
 ```bash
-# Undo the checkout (restore previous state)
-git checkout HEAD -- .claude/commands/ .claude/scripts/
+# Undo this run's checkouts (restore previous state)
+git checkout <pre-update-HEAD> -- <accepted-file-1> <accepted-file-2> ...
 ```
 
-Display:
+If the failure landed **after** the Step 6 commit, that commit is still in history — say so rather than claiming nothing changed:
 ```
-✗ Update failed — rolled back to previous commands. Nothing changed.
+✗ Update failed after committing. Restored the affected files from <pre-update-HEAD>.
+  The update commit is still in history — `git revert` it if you want it gone.
+Error: [specific error message]
+```
+
+Otherwise:
+```
+✗ Update failed — rolled back the files this run touched. Nothing was committed.
 Error: [specific error message]
 ```
 
@@ -476,7 +503,7 @@ Error: [specific error message]
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.
 - **Scripts are cross-platform:** All template scripts use portable locking (flock on Linux, mkdir-based on macOS/Windows) and portable date handling. Updates won't break OS-specific functionality.
 - **Version-tracked:** Each update commit includes the template hash (e.g., `a3f8c2d`) for debugging and rollback.
-- **Idempotent:** Running `/update` twice in a row is safe — second run shows "Already up to date."
+- **Safe to re-run:** Running `/update` twice in a row never double-applies anything. It only shows "Already up to date" if nothing still differs — a second run re-offers any files you skipped, plus any local-only commands or scripts, because neither leaves a record that would suppress them.
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
 - **Pinned releases (`--tag VERSION`):** pin to a specific signed release instead of tracking the branch, and verify its tag signature before applying. Unlike branch-follow (which warns and continues), pinned mode **fails closed** — an unsigned, lightweight, or unverifiable tag aborts. The per-file review and apply are otherwise identical; `--tag` only changes what you diff against.

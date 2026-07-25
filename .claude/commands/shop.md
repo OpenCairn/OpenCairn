@@ -56,7 +56,13 @@ Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip 
 - Explicit "Ruled out" lines for transparency.
 - Verbatim source quotes for load-bearing facts (specs, measured results) — protects against quick-read errors.
 - **"Don't buy" is a valid verdict.** If the incumbent is fine, a model refresh is imminent, or nothing justifies the price, say so.
-- **"Buy later" needs a dated backstop.** A wait verdict (sale cycle, imminent refresh) with no trigger is a revisit that silently evaporates. On vault installs — meaning `_shared-rules.md` §1 vault resolution succeeds; if it fails or the file is absent, skip this without asking — offer to write one dated line ("revisit [item] — [trigger]") to `{VAULT}/01 Now/Tickler.md`; derive the date from the trigger event, and skip if the user declines. The Tickler is a shared planning file — write via the `_shared-rules.md` §5 locking mechanism, not the Edit tool.
+- **"Buy later" needs a dated backstop.** A wait verdict (sale cycle, imminent refresh) with no trigger is a revisit that silently evaporates. On vault installs, offer to write one dated line ("revisit [item] — [trigger]") to `{VAULT}/01 Now/Tickler.md`; derive the date from the trigger event, and skip if the user declines. To find the vault, run:
+
+  ```bash
+  "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+  ```
+
+  If it errors, or `VAULT_PATH` is unset, or `_shared-rules.md` isn't in this skill's own commands directory, skip the tickler offer silently — don't abort the run and don't ask (this overrides `_shared-rules.md` §1's abort, since the offer is optional). On success, read `_shared-rules.md` from that directory and substitute the resolved path for `{VAULT}`. The Tickler is a shared planning file — write via the `_shared-rules.md` §5 locking mechanism, not the Edit tool.
 - If no candidate clears the bar: name which constraint failed and ask which to relax — budget → nice-to-haves → hard requirements last.
 
 ## 5. Handoff

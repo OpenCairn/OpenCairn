@@ -9,7 +9,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week purges, hub `**Status:**` propagation, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
+**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, `Tasks.md`, `07 System/AI Provenance Log.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week and Tasks purges, routed-finding writes to Tasks.md, provenance log appends and path self-heals, hub `**Status:**` propagation, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool. The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
 0. **Resolve Vault Path**
 
@@ -179,10 +179,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Doctrine: memory is a legitimate thin layer, not a silo to drain.** Most behavioural corrections belong *in memory* — relevance-matching fires them whenever the situation resembles the original, including cases no routing keyword would predict. Migrating such a rule to a keyword-routed context file (or into always-loaded `CLAUDE.md`) changes *when it fires* and can silently weaken it. So the weekly job is to keep memory **lean and the index under cap** — primarily by trimming bloated index hooks in place — *not* to relocate rules by default. Migration is the **exception**, reserved for entries that are genuinely mis-homed (below).
 
    **Gather:**
-   - Locate the active memory directory: `ls ~/.claude/projects/*/memory/` — find the one matching the current working directory's path encoding
-   - Read all `.md` files in that directory
+   - Locate the active memory directory. The project directory name is the absolute cwd with every `/` **and** `.` replaced by `-` (so a dot-prefixed folder yields a doubled `-`), which resolves without guessing:
+     ```bash
+     M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory
+     [ -d "$M" ] || ls -d ~/.claude/projects/*/memory/   # fall back to listing if the derived path is absent
+     ```
+   - Read `MEMORY.md`. **Do not read the topic files wholesale** — the directory grows to hundreds of files and its full text dwarfs the index; every mechanical check below operates on the index alone. Read an individual topic file only when its index line is a Migrate or Delete candidate and the decision needs its body.
    - Read `CLAUDE.md` from the vault root (needed for duplicate detection)
-   - Count total entries/lines across all memory files
+   - Count the index's entries/lines, and the topic-file count (`ls "$M"/*.md | wc -l`) — not their combined line count
 
    **Index health (mechanical — check every week):**
    - `wc -lc` the `MEMORY.md` index. Two independent limits apply, and **the harness limit binds first — size the sweep to it, not to the line cap:**
@@ -193,7 +197,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Flag any index **hook** (the text after ` — `) longer than ~120 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.) Don't set this threshold so high that the flagged set can't close the gap to the size budget: an index needing several KB shed has dozens of over-long hooks, not three.
    - **Orphan check — topic files missing from the index.** Every `.md` in the memory directory except `MEMORY.md` must have an index line; a topic file with none is invisible to relevance matching and can never fire, however good the rule is. Nothing warns about this, and it survives every sweep that only reads the index.
      ```bash
-     M=~/.claude/projects/<encoded-cwd>/memory
+     M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory   # re-derive: shell state doesn't persist between calls
      for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; grep -q "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
      grep -oP '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
      ```
@@ -275,17 +279,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
 
-   **Excludes filter:** If `{VAULT}/.claude/hygiene-excludes` exists, pipe all CLI output through `grep -vf` to remove noise from large embedded doc sets (darktable, Hugo themes, etc.). One grep pattern per line, `#` comments. Example file:
+   **Excludes filter:** If `{VAULT}/.claude/hygiene-excludes` exists and carries at least one pattern, pipe all consistency-check output through `grep -vf` to remove noise from large embedded doc sets (darktable, Hugo themes, etc.). One grep pattern per line, `#` comments. Example file:
    ```
    # Patterns to exclude from vault consistency checks
    darktable
    hugo-theme
    ```
-   Define the filter in each Bash call that uses it (shell state doesn't persist between calls):
+   Define the filter in each Bash call that uses it (shell state doesn't persist between calls). **Gate on the surviving pattern count, not on the file existing** — `grep -vf` with an empty pattern file drops *every* line, so an excludes file that is empty or all comments would silently blank the entire consistency report:
    ```bash
    HYGIENE_EXCLUDES="{VAULT}/.claude/hygiene-excludes"
-   if [ -f "$HYGIENE_EXCLUDES" ]; then
-     filter() { grep -vf <(grep -v '^#' "$HYGIENE_EXCLUDES" | grep -v '^$') ; }
+   EXC=$(mktemp)
+   [ -f "$HYGIENE_EXCLUDES" ] && grep -v '^#' "$HYGIENE_EXCLUDES" | grep -v '^$' > "$EXC"
+   if [ -s "$EXC" ]; then
+     filter() { grep -vf "$EXC" ; }
    else
      filter() { cat ; }
    fi
@@ -296,21 +302,37 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    # CLI (preferred): queries Obsidian's index directly
    obsidian unresolved counts format=tsv 2>/dev/null | filter
    ```
-   If CLI unavailable, fall back to a find+grep pipeline (also apply `filter` here). The `find` predicates do the path exclusion — don't pass `-not -path` to grep (not a grep option), and keep the link pattern non-greedy (`[^]]*`) so multiple links on one line extract separately:
+   If CLI unavailable, fall back to a basename-index comparison (also apply `filter` here). The `find` predicates do the path exclusion — don't pass `-not -path` to grep (not a grep option), and keep the link pattern non-greedy (`[^]]*`) so multiple links on one line extract separately. Wikilink targets may be bare note names or full paths, so both sides reduce to a basename before the comparison; the note index spans the whole vault (a live link into `06 Archive/` still resolves):
    ```bash
+   # define `filter` in this same Bash call first, per the excludes block above
+   NOTES=$(mktemp); LINKS=$(mktemp)
+   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
+     | xargs -0 -n1 basename | sed 's/\.md$//' | sort -u > "$NOTES"
    find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -not -path '*/06 Archive/*' -print0 \
      | xargs -0 grep -ohE '\[\[[^]]*\]\]' 2>/dev/null \
-     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//' \
-     | sort -u | filter
+     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
+     | grep -v '^$' | sort -u > "$LINKS"
+   comm -23 "$LINKS" "$NOTES" | filter    # link targets with no matching note = unresolved
+   rm -f "$NOTES" "$LINKS"
    ```
-   For each link target, check whether a matching .md file exists in the vault.
 
    **Orphaned files** (no incoming links):
    ```bash
    # CLI (preferred)
    obsidian orphans 2>/dev/null | filter | grep -E "^(03 Projects|04 Areas)/"
    ```
-   If CLI unavailable, find files in `03 Projects/` and `04 Areas/` not linked from any other .md file (excluding Archives, .stversions, system files).
+   If CLI unavailable, fall back to the same basename index — a note whose basename appears in no wikilink anywhere in the vault is an orphan:
+   ```bash
+   # define `filter` in this same Bash call first, per the excludes block above
+   LINKED=$(mktemp)
+   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
+     | xargs -0 grep -ohE '\[\[[^]]*\]\]' 2>/dev/null \
+     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
+     | sort -u > "$LINKED"
+   find "{VAULT}/03 Projects" "{VAULT}/04 Areas" -name '*.md' -type f 2>/dev/null \
+     | while read -r f; do grep -qxF "$(basename "$f" .md)" "$LINKED" || echo "$f"; done | filter
+   rm -f "$LINKED"
+   ```
 
    **Dead-end files** (no outgoing links — CLI only, skip if unavailable):
    ```bash
@@ -580,7 +602,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Header metadata: [current / flagged]
 
    ## Claude Memory
-   - Total entries/lines: N across M files
+   - Index entries: N (topic files on disk: M)
    - Index health: `MEMORY.md` at N lines / N KB (flag ≥150 lines or ≥17 KB; harness compaction target ~17.1 KB, line cap ~200)
    - Trimmed this sweep: [list of hooks compressed in place, or "none"]
    - Orphaned topic files (no index line): [list with disposition, or "none"]
@@ -635,7 +657,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Unresolved link count: N [filtered / unfiltered]
    - Dead-end count: N [filtered / unfiltered] or "unavailable" (empty-output guard)
    - Top tags: [top 5 with counts, or "unavailable" (empty-output guard)]
-   - Excludes active: [yes — N patterns from hygiene-excludes / no excludes file]
+   - Excludes active: [yes — N patterns from hygiene-excludes / no — file absent or carries no patterns]
 
    ## Provenance
    - Stale flags processed: N [OR "none"]

@@ -25,8 +25,9 @@ This follows the GTD/PARA principle: **capture is fast and mindless, organisatio
 
 1. **Scan the inbox:**
    - List every entry in `{VAULT}/02 Inbox/` — files **and** subdirectories — with filename, size, date, and type
-   - Read markdown/text notes in full. For binaries (PDFs, images, audio, installers, archives), classify from filename + metadata; extract content only where cheap tooling exists (e.g. `pdftotext`). **Never execute a binary.**
+   - Read markdown/text notes in full. **View images directly (Read) rather than guessing from filename** — capture filenames are usually hashes or app-generated strings with zero routing signal. For other binaries (PDFs, audio, installers, archives), classify from filename + metadata; extract content only where cheap tooling exists (e.g. `pdftotext`). **Never execute a binary.**
    - Treat a subdirectory as a single bundle: list its top level, don't deep-recurse; it moves (or defers) as one unit
+   - **Bucket before reasoning per-item.** Above ~15 entries, sort the listing into classes first (media, installers/binaries, receipts/documents, notes, bundles) and carry the classes into the Step 3 plan — a class with one shared outcome is presented as one row, and only items whose routing genuinely differs get their own. Per-item NIPARAS reasoning across a large inbox produces a plan too long to approve meaningfully.
 
 2. **Categorise each item:**
 
@@ -56,18 +57,32 @@ Show the user the proposed categorisation:
 ```markdown
 ## Inbox Processing Plan
 
-1. **[filename]**
-   → `[destination path]`
+1. **[filename or class, e.g. "9 × hash-named JPEGs"]**
+   Outcome: MOVE | DEFER | ASK
+   → `[destination path, MOVE only]`
    Rename: [proposed new filename, only if renaming — renames happen only when shown here and approved]
-   Reason: [Why this destination is appropriate]
+   Reason: [Why this outcome and destination are appropriate]
 
 ...
 
 Proceed with this plan? (yes/no/modify)
 ```
 
+DELETE proposals never ride on that answer. List them separately, below the plan, with size and the reason each is junk or a duplicate, and take a second explicit confirmation:
+
+```markdown
+## Proposed Deletions (irreversible)
+
+- `[filename]` — [size] — [why: junk / duplicate of `[kept copy]`]
+
+Confirm deletion of these N items? (yes/no)
+```
+
+If the second confirmation isn't given, the items stay deferred; execute the rest of the plan regardless.
+
 4. **Execute moves** (after confirmation):
-   - Move items to their new locations. For any item that may have inbound links or embeds (notes *and* attachments — `![[file.pdf]]` embeds break too), use a link-healing move (Obsidian's move) rather than raw `mv`. Verify "link-free" before a raw `mv`: a backlink/structural query, or grep the vault for the filename. Fresh captures usually have none. If link-healing moves may be needed, probe the Obsidian CLI first (`obsidian help`); if it's unavailable, raw-`mv` only verified link-free items and defer the rest.
+   - Move items to their new locations. For any item that may have inbound links or embeds (notes *and* attachments — `![[file.pdf]]` embeds break too), use a link-healing move (Obsidian's move) rather than raw `mv`. Verify "link-free" before a raw `mv`: a backlink/structural query, or grep the vault for the filename. Fresh captures usually have none. If link-healing moves may be needed, probe first with `obsidian version 2>/dev/null` **before any writes** — it requires the Obsidian app to be running, which a PATH check alone does not establish. If it's unavailable, raw-`mv` only verified link-free items and defer the rest.
+   - **The Obsidian CLI is single-file only, never a batch.** It boots a fresh app instance per call and deadlocks on the single-instance lock after a handful of files — an inbox is the archetypal bulk case. For a batch of link-bearing items, move them by drag in the Obsidian GUI (which heals links), or split the work: raw-`mv` the items verified link-free and hand the remainder to the GUI. This overrides "Batch similar items" below wherever link healing is in play.
    - Create necessary folders if they don't exist
    - Update relevant index files (project pages, hub files) for durable notes that need discoverability — not for raw attachments/receipts. Hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool
    - Apply only the renames approved in the Step 3 plan
@@ -93,7 +108,8 @@ Recommended: Review new items in their destinations to ensure they make sense in
 
 ```
 Item → Is it actionable RIGHT NOW?
-       ├─ Yes → 01 Now/Working memory.md
+       ├─ Yes → extract the action to 01 Now/Working memory.md,
+       │        then continue for the artefact's own file home
        └─ No → Continue...
 
 Item → Does it have a specific END GOAL?
@@ -124,7 +140,7 @@ Item → Is it SYSTEM documentation (how the vault/Claude works)?
 - **Rename for clarity:** Add dates, context, or more descriptive names when moving — always proposed in the Step 3 plan, never ad hoc
 - **Link, don't duplicate:** If item relates to multiple places, keep in one location and link from others
 - **Ask when uncertain:** If categorisation isn't obvious, present options and ask the user
-- **Batch similar items:** If multiple items go to same destination, move them together
+- **Batch similar items:** If multiple items go to same destination, move them together — but not via the Obsidian CLI, which is single-file only (see Step 4)
 - **Update indexes:** If adding a durable note to a project or area, update the relevant hub file (skip for raw attachments/receipts — see Step 4)
 
 ## Special Cases

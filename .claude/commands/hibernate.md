@@ -55,6 +55,10 @@ This is the "big picture" complement to session-level parking.
 
 5. **Generate hibernate snapshot** at `{VAULT}/06 Archive/Hibernate Snapshots/YYYY-MM-DD-hibernate.md`:
 
+   ```bash
+   mkdir -p "{VAULT}/06 Archive/Hibernate Snapshots"
+   ```
+
 ```markdown
 # Hibernate Snapshot - [Date]
 
@@ -124,6 +128,8 @@ This is the "big picture" complement to session-level parking.
 
 *To restore this context: `/awaken` or `/awaken --date=YYYY-MM-DD`*
 ```
+
+   Each **Session Links** line is conditional: omit the line entirely if no such file exists. Never write a placeholder or guessed wikilink into the snapshot.
 
 6. **Update Works in Progress:** (via `locked-edit.sh`, not the Edit tool — WIP is a shared planning file, see `_shared-rules.md` §5)
    - Add "Last updated" note: "Hibernated YYYY-MM-DD - see hibernate snapshot"

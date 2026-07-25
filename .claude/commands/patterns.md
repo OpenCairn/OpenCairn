@@ -20,13 +20,16 @@ Find patterns, themes, and connections across files related to a topic.
 
    If no search term or topic was supplied, ask the user for one — don't guess.
 
-1. **Search broadly** - Use the Grep tool to find files matching the topic across `{VAULT}`:
+1. **Search broadly** - Use the Grep tool to find files matching the topic:
    - Search with multiple keyword variations (synonyms, related terms)
-   - Check `01 Now/`, `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/` for relevant content, plus `07 System/` hub files and `06 Archive/Claude/Session Logs/` — the archive is where evolution-over-time evidence lives. Skip any of these folders that don't exist in this vault and note the skipped locations
+   - a) **Scope:** grep all of `{VAULT}`, not a folder list — a vault holds top-level folders beyond the usual structure, and the topic may live in one of them
+   - b) **Priority:** weight `01 Now/`, `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/`, `07 System/` hub files, and `06 Archive/Claude/Session Logs/` first — the archive is where evolution-over-time evidence lives. Note any of these that don't exist in this vault, and any other top-level folder that produced hits you didn't read
+   - Drop hits inside frozen or generated artefacts — provenance snapshots and similar byte-frozen copies that quote historical text verbatim (e.g. `07 System/Provenance/`). Session logs are primary evidence here and stay in scope
+   - Collapse duplicates before counting recurrence: identical content or the same basename in two locations is one occurrence, not two
    - If an Obsidian MCP search tool is available, use it for richer results (tool names vary by server — check what's registered)
    - **Zero hits after keyword variations:** stop and say so — report the terms and locations searched, suggest broader terms or `/research-assistant` for a deeper dig. Don't force the output template onto an empty result
 
-2. **Read matches** - Prioritise by relevance (title/heading matches, match density) and recency; read the top ~10-15 files first and expand only if the patterns are still thin. For each file read, extract:
+2. **Read matches** - Prioritise by relevance (title/heading matches, match density) and recency; read the top ~10-15 files first and expand only if the patterns are still thin. Read whole files only up to ~40 KB; above that (session logs and other long archives routinely exceed it) read just the matching sections — grep for line numbers, then read a window around each hit. For each file read, extract:
    - Key claims or ideas
    - Sources cited
    - Dates (for recency)

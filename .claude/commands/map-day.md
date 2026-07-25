@@ -28,15 +28,19 @@ of places to plot. Works for any city, in or out of China.
 
 ## Prerequisites
 
-- `python3` (stdlib only — no pip installs).
-- Network at build time for geocoding (the resulting map is fully offline). Results
-  are cached to `~/.cache/itinerary-map/geocode-cache.json`, so re-runs are offline.
-- **Organic Maps** installed on the phone with the destination region downloaded.
-- For phone delivery: any way to move a file to the phone — KDE Connect (Linux/KDE),
-  USB/`adb`, AirDrop/Quick Share, or email-to-self (optional — see Phase 4).
+**Hard — verify these, and stop if either is missing:**
+- `python3` (stdlib only — no pip installs). Check with `command -v python3`.
+- Network at build time for geocoding (the resulting map is fully offline).
+  Successful lookups are cached to `~/.cache/itinerary-map/geocode-cache.json`, so a
+  re-run of an unchanged day is offline — but any new or edited `query` still needs
+  the network.
 
-Verify `python3` is present (`command -v python3`); if any prerequisite is missing,
-tell the user the specific thing to install/download and stop.
+**Soft — can't be checked from the laptop; tell the user, don't block on them:**
+- **Organic Maps** installed on the phone with the destination region downloaded.
+  The build runs without it; the map is just unusable until it's there.
+- Some way to move a file to the phone — KDE Connect (Linux/KDE), USB/`adb`,
+  AirDrop/Quick Share, or email-to-self. Phase 4 falls through channels; if none is
+  reachable, leave the file in the vault and say so.
 
 ## Arguments
 
@@ -52,9 +56,14 @@ tell the user the specific thing to install/download and stop.
 Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`. Abort if it fails.
 
 ### Phase 1: Gather the stops
-- If given a date, read the matching day block from `01 Now/This Week.md`. Pull out
-  every place with a location: name, any address/cross-street/district already in
+- If given a date, read the matching day block from `01 Now/This Week.md`. Day blocks
+  are flat task checklists, not itineraries — most lines carry no location at all, and
+  a past day may be collapsed to a single prose paragraph with no list left. Pull out
+  only the lines that name a place: name, any address/cross-street/district already in
   the note, the time (if given), and a one-line note.
+- **A day needs roughly three or more located stops to be worth mapping.** If the day
+  block yields fewer, say so and stop — don't build a one-pin map, and don't pad the
+  day with places the user didn't plan.
 - **Reuse addresses already in the vault** before geocoding from scratch — check the
   relevant place/recommendations docs for the destination (e.g. a city's walking-tour
   or recommendations note). Grep the trip folder for the place name.
@@ -99,17 +108,34 @@ Write a JSON file (to scratch) in this shape:
   last-entry; omit it for soft opening-hours where arriving any time later is fine.
 - For a POI you already know OSM lacks (or that geocodes wrong on a dry run), supply
   `lat`/`lon` directly and omit `query` to skip geocoding.
-- **Dry-run probe** (optional, to sanity-check a doubtful query before the full run) —
-  use `--data-urlencode` so spaces, quotes, `&` and CJK in the place name are encoded
-  correctly (hand-building the URL is exactly how the query silently truncates):
+- **Dry-run probe** (optional, to sanity-check a doubtful stop before the full run).
+  Probe the service the stop will actually use — an address stop goes to Nominatim, a
+  `poi` stop goes straight to Overpass and never touches Nominatim, so a Nominatim hit
+  says nothing about it. Either way use `--data-urlencode` so spaces, quotes, `&` and
+  CJK in the place name are encoded correctly (hand-building the URL is exactly how the
+  query silently truncates).
+  **Address stops** — `limit=1`, because the script only ever takes the first hit; a
+  rank-2 match is not what will be pinned:
   ```
   curl -sG "https://nominatim.openstreetmap.org/search" \
       --data-urlencode "q=<place>, <city>" \
-      --data-urlencode "format=json" --data-urlencode "limit=3" \
+      --data-urlencode "format=json" --data-urlencode "limit=1" \
       -A "OpenCairn-itinerary-map/1.0 (+https://github.com/OpenCairn/OpenCairn)" \
     | python3 -m json.tool
   ```
-  Read the `display_name` of each hit — is it the right place in the right city?
+  Read the `display_name` — is it the right place in the right city? (Raise `limit`
+  only to see what else is nearby, never to call a lower-ranked hit a pass.)
+  **`poi` stops** — exact whole-name match inside the region's bounding box, given as
+  `south,west,north,east`:
+  ```
+  curl -s "https://overpass-api.de/api/interpreter" \
+      --data-urlencode 'data=[out:json][timeout:25];nwr["name"="<exact name>"](<s>,<w>,<n>,<e>);out center 1;' \
+      -A "OpenCairn-itinerary-map/1.0 (+https://github.com/OpenCairn/OpenCairn)" \
+    | python3 -m json.tool
+  ```
+  An empty `elements` list means wrong capitalisation, wrong name, or the venue simply
+  isn't in OSM under it — the real run also tries `name:en`, `alt_name` and
+  `official_name`, so probe those tags too before calling it a genuine zero.
 
 ### Phase 3: Run the script
 ```
@@ -118,17 +144,29 @@ python3 "$VAULT_PATH/.claude/scripts/itinerary-map.py" <input.json> \
 ```
 - Optional flags: `--keep-order` emits stops in input order (skips the
   cheapest-insertion route optimisation — use when the user has already fixed the
-  order); `--max-spread-km <km>` tunes the wrong-city guard (default 50; `0` disables
-  it, e.g. for a genuine multi-city day).
+  order; it also **ignores every `fixed` anchor**, so time order survives only if the
+  input is already in it); `--max-spread-km <km>` tunes the wrong-city guard (default
+  50; `0` disables it, e.g. for a genuine multi-city day); `--no-network` is
+  cache-only — never calls Nominatim/Overpass, so anything not already cached comes
+  back unresolved.
 - Output folder: a `Maps/` subfolder of the relevant trip, so artefacts live with the
   trip and sync with the vault. Create it if absent. If the day has no obvious trip folder
   (a pasted list, a home-city day), **ask the user where to save** rather than guessing.
-- **Check the run output:** `UNRESOLVED` = a genuine OSM miss → fix the `query` and
-  re-run, or supply manual `lat`/`lon`; `NETWORK` = a transient failure → just re-run;
-  `OUTLIER` = the stop geocoded far from the day's median position (a same-named place
-  in another city resolves cleanly and would otherwise be a silently-wrong pin) — it is
-  dropped from the map, so fix the `query`, mark it `"poi": true`, or supply `lat`/`lon`.
-  You can't inspect the phone app yourself, so when a manual coord is needed, take it
+- **Check the run output — stdout *and* stderr.** Every partial failure still exits 0,
+  so the exit code proves nothing:
+  - stdout `UNRESOLVED (n): <names>` — the roll-up of every stop that got no pin. A
+    name annotated `(network — re-run)` was a transient failure, so just re-run; one
+    annotated `(wrong-city outlier — fix query)` geocoded far from the day's median and
+    was dropped from the map; a bare name is a genuine OSM miss. For the latter two,
+    fix the `query`, mark the stop `"poi": true`, or supply manual `lat`/`lon`.
+  - stderr `! NETWORK …` / `! UNRESOLVED …` / `! OUTLIER …` — the per-stop detail
+    behind those roll-up entries, including how far the outlier sat from the median.
+  - stderr `! WARNING: the two resolved points are … km apart` — fires when only two
+    points resolved and they are far apart. The guard can't tell which one is wrong, so
+    **nothing is dropped and both pins ship**; check both yourself before trusting the map.
+  - stderr `No resolvable stops. Aborting.` with exit 1 — nothing resolved, so neither
+    the KML nor the day-sheet was written. Fix the queries and re-run.
+- You can't inspect the phone app yourself, so when a manual coord is needed, take it
   from a web source or **ask the user** to look the place up in Organic Maps' on-device
   search (pair the name with its romanised form).
 - **Not-in-OSM fallback** (Overpass honest zero, no usable address): either pin the

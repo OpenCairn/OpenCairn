@@ -56,6 +56,7 @@ Accept a list of file paths. Convert each to a vault-relative path (e.g., `05 Re
 ### 4. Write or Update Flag File
 
 ```bash
+PROJECT_TAG="<tag from Step 2>"
 TODAY=$(date +"%Y-%m-%d")
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 FLAG_DIR="{VAULT}/07 System/Provenance/pending"
@@ -109,13 +110,17 @@ for DOC in "${FINAL_PRODUCTS[@]}"; do
   DOC_HASH=$(sha256sum "$DOC" | cut -d' ' -f1)
   DOC_SHORT="${DOC_HASH:0:16}"
   RELATIVE_PATH="${DOC#{VAULT}/}"
-  SAFE_NAME=$(basename "$DOC" .md | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')
+  # Keep the real extension — a non-markdown work product must not be snapshotted as .md
+  BASE=$(basename "$DOC")
+  EXT=""
+  [[ "$BASE" == *.* ]] && EXT=".${BASE##*.}"
+  SAFE_NAME=$(basename "$BASE" "$EXT" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')
 
   mkdir -p "{VAULT}/07 System/Provenance"
   # Preimage snapshot — a hash without the exact bytes proves nothing. The work product is a
   # living document; once it's edited, this snapshot is the only copy that matches the proof.
   # Explicit existence guards, not cp/mv -n (deprecated in newer coreutils, non-portable).
-  SNAP="{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.snapshot.md"
+  SNAP="{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.snapshot${EXT}"
   [[ -e "$SNAP" ]] || cp "$DOC" "$SNAP"
 
   # OTS stamp — the logged status comes from the OUTCOME, never assumed. DOC_SHORT in the
@@ -142,13 +147,27 @@ done
 Append each emitted row to the log via `locked-edit.sh --append` (`_shared-rules.md` §5 — all of the log's writers serialise on its canonical lock):
 
 ```bash
-printf '%s\n' "<row emitted above>" | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --append
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --append
+<row emitted above, pasted verbatim — one line per row>
+EOF
+grep -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md"   # must be 0
 ```
+
+The heredoc must be quoted (`<< 'EOF'`): the row carries backticks around the hash, and an unquoted string would run the hash as a command and append a row with an empty hash column.
 
 **Re-hash** (file edited since last hash — existing entry in flag file and provenance log):
 
 1. **Re-run the initial-hash block** for the file. The new hash gives the snapshot and `.ots` new `DOC_SHORT`-suffixed filenames, so the original proof and snapshot are untouched; append the new row to the log as above.
-2. **Mark the OLD row superseded:** Read the log, copy the old row **verbatim**, and `locked-edit.sh --replace` it with the identical row, OTS column rewritten to `superseded`. Literal match only — no regex, no sed.
+2. **Mark the OLD row superseded:** Read the log, copy the old row **verbatim**, and `locked-edit.sh --replace` it with the identical row, OTS column rewritten to `superseded`. Literal match only — no regex, no sed. The old row goes above the separator line, the rewritten row below:
+
+```bash
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --replace
+<old row, verbatim>
+========OPENCAIRN-LOCKED-EDIT-SEP========
+<same row, OTS column now: superseded>
+EOF
+grep -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md"   # must be 0
+```
 3. **Update the flag file's "Hashed Immediately" entry** to the new hash + timestamp (the original attestation lives on in the log and in its snapshot/proof files).
 
 Transcript and session log hashing is always deferred to `/goodnight` — they're not final yet.
@@ -205,7 +224,7 @@ Catches stragglers and verifies:
 
 ## Integration
 
-- **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs and `.snapshot.md` preimages in `07 System/Provenance/`
+- **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs and `.snapshot.*` preimages (the work product's own extension) in `07 System/Provenance/`
 - **Processed by:** `/goodnight` (step 17), `/morning` (catch-up step 2a.h, when goodnight was missed), `/weekly-hygiene` (provenance section)
 - **Verified by:** `/weekly-hygiene` (provenance verification section)
 
