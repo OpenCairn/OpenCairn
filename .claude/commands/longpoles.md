@@ -34,7 +34,7 @@ Use the Grep tool to find all `[LP]` references across `{VAULT}`:
    - Show the file path (relative to vault root for readability)
    - Derive the group heading from the file's name or its parent project/area folder — whichever reads as the natural short label; don't open files just to name the heading
    - Show each `[LP]` item with its surrounding context
-   - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status
+   - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status. If it has no checkbox — a plain bullet, a tagged heading, a line of prose — it has **no status**: mirror the source marker as it appears and don't invent a checkbox
 
 ### 3. Present Summary
 
@@ -51,12 +51,14 @@ Run `date +%Y-%m-%d` for the Scanned date — never infer it.
 
 ### [Another File] — `relative/path/to/other.md`
 - [ ] [LP] Another blocking item
+- [LP] Untracked item with no completion marker
 
 ---
 
 ### Summary
 - **Open:** X items still blocking
 - **Done:** Y items completed (can be cleaned up)
+- **No status:** Z items with no completion marker (not counted as open or done)
 - **Hottest file:** [file with most open longpoles, or "none" if no items are open]
 ```
 

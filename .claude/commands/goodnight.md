@@ -18,6 +18,8 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
+**Write mechanism — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tasks.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9, collapses in Step 10), use `--replace` — NOT `--append`, which adds at EOF outside any day section.
+
 ### 0. Resolve Vault Path
 
 Determine the vault base path. Run:
@@ -38,6 +40,7 @@ date +"%Y-%m-%d"                   # for file paths and session timestamp
 **Concurrent session check:** Count active Claude instances (excluding this one):
 
 ```bash
+command -v pgrep >/dev/null || exit 0
 OTHER_CLAUDE=$(( $(pgrep -c -x claude) - 1 ))
 echo "Other active Claude sessions: $OTHER_CLAUDE"
 ```
@@ -257,7 +260,7 @@ EOF
 Session number assigned: N
 ```
 
-**Post-write reconciliation (the concurrent-session check):** Compare the assigned N against `STEP2_LAST_N` — the baseline displayed at Step 2's checkpoint (use the literal value from the page, not internal memory). If `N − 1 > STEP2_LAST_N`, sessions `STEP2_LAST_N + 1` through `N − 1` were added by parallel instances since Step 2. For each: read its summary from the session file (the only exception to the write-only-after-initial-read rule — read just the new session blocks, not the whole file), update your working memory, and patch the daily report's Sessions list (Step 8 output, already on disk) to include it. Display: `Reconciliation: baseline X, assigned N → M missed session(s) patched` (or `→ no missed sessions`).
+**Post-write reconciliation (the concurrent-session check):** Compare the assigned N against `STEP2_LAST_N` — the baseline displayed at Step 2's checkpoint (use the literal value from the page, not internal memory). If `N − 1 > STEP2_LAST_N`, sessions `STEP2_LAST_N + 1` through `N − 1` were added by parallel instances since Step 2. For each: read its summary from the session file (the only exception to the write-only-after-initial-read rule — read just the new session blocks, not the whole file), update your working memory, and patch the daily report's Sessions list (Step 8 output, already on disk) to include it — insert and renumber so the goodnight entry stays last. Display: `Reconciliation: baseline X, assigned N → M missed session(s) patched` (or `→ no missed sessions`).
 
 **First session of the day** (no session file exists yet): no special flag needed — the same invocation lays down the `# Claude Session - DATE` header automatically when the file is absent/empty, assigns N=1, and writes atomically inside the lock.
 
@@ -330,7 +333,10 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
 - **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
 - **Daily report path**: `<vault>/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
-- **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. The session log doesn't yet contain all of these (Step 14 wrote the goodnight session entry but Steps 11-14a edits happen elsewhere); enumerate them from memory of the goodnight flow.
+- **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. Build it from two sources, not from memory (typed-from-memory lists silently drop entries): (1) verbatim from Session N's `### Files Created` and `### Files Updated` sections as written at Step 14, plus (2) the named post-Step-14 edits — the Step 14a WIP write and any daily-report patches from Step 14's reconciliation. Display the count before despatch:
+  ```
+  File list: C from Session N + P post-Step-14 → F files in brief ✓
+  ```
 - **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, WIP propagation done)
 - **Enumerated identifiers** verbatim from (a)
 - **⛔ Session-boundary attribution** — embed **`_shared-rules.md` §20** in the brief (already in context — Step 0 reads it in full). The file list above is the attribution boundary; the vault's auto-save commit window is not. Without it a sub-agent reads a concurrent session's file out of a shared commit and writes a self-consistent record of work this run never did.
@@ -340,7 +346,7 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
   - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
   - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (WIP, This Week, Tickler, project/area hubs)
 - **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (WIP, This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
-- **Audit protocol pointer**: read `audit.md` (same commands directory) Phase 2 (Layers 1-5) first; do NOT recall the protocol from memory.
+- **Audit protocol pointer**: read `audit.md` Phase 2 (Layers 1-5) first (in `~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists — substitute the resolved vault path); do NOT recall the protocol from memory.
 - **Special-focus instruction** (the empirically-missed Layer 3 category): "**Phase/status framings rendered historical by session actions** is the category prior inline audits silently miss. For each project/area hub touched by today's session work, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work completed today; flag every hit. This includes goodnight's OWN `Pickup Context` / Daily Report describing goodnight's already-run steps (this audit, item routing) as forthcoming — written before this audit fired, so a 'the audit will…' framing is already stale; reframe to completed/current tense. Do NOT flag legitimate forward-routing to tomorrow's anchors — Pickup Context naming tomorrow's work is its purpose, not staleness. Also: read each touched project/area hub IN FULL, not just the subsection that was edited."
 - **Read-coverage backstop**: "If your file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage."
 - **WIP timestamp-bump exclusion**: "If `01 Now/Works in Progress.md` shows only a `Last updated:` timestamp change with no content write under a project heading, that bump is intentional unconditional bookkeeping (Step 14a) — do NOT flag it as a missing Files Updated entry, and do NOT add it; the Step (f) backfill excludes it by design. Only a content write to WIP (a project-entry Status/Last/Next/narrative rewrite) belongs in Files Updated."
@@ -394,9 +400,11 @@ Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. R
 
 Check for provenance flag files created during today's sessions:
 ```bash
-# Inline date — a variable set in a prior Bash tool call does not survive to this one; an empty
-# expansion would glob ALL pending flags and stamp/delete the wrong days' artefacts.
-ls "{VAULT}/07 System/Provenance/pending/$(date +%Y-%m-%d)"*.md 2>/dev/null
+# Substitute the literal YYYY-MM-DD from Step 1 — do NOT re-derive the date here. A shell variable
+# set in a prior Bash tool call does not survive to this one (an empty expansion would glob ALL
+# pending flags and stamp/delete the wrong days' artefacts), and an inline `date` re-derivation in a
+# run that has crossed local midnight globs tomorrow's prefix, matches nothing, and strands the flag.
+ls "{VAULT}/07 System/Provenance/pending/YYYY-MM-DD"*.md 2>/dev/null
 ```
 
 **⚠ Ordering dependency:** Steps 14-16 MUST complete before this step. The session log and transcript must be in their final state before hashing — if you hash then append, the hash is immediately invalid and the OTS stamp covers the wrong content. This is the single most common execution error in this skill. The audit step (15) and transcript export (16) both potentially modify the session log and transcript, so both must finish before provenance hashing.
@@ -408,7 +416,7 @@ If any flags exist, process each one:
 4. Hash the session log (now final — goodnight session appended in step 14, audit findings inlined in step 15)
 5. OTS stamp all hashed files in a single `ots stamp` invocation (batching reduces calendar submissions)
 6. Append entries to `07 System/AI Provenance Log.md` via `locked-edit.sh --append` (mechanism in `/provenance` Step 5)
-7. Delete the flag file only after verifying every listed item has a log row — a partially processed flag stays in `pending/` for `/weekly-hygiene`
+7. Delete each flag only after a log row exists for every required target — each listed work product, the transcript, and the session log (not merely the flag's listed work products). Any flag with a target still unrowed stays in `pending/` for `/weekly-hygiene`
 
 If no flags exist, skip silently. See `/provenance` for flag file format and full hashing instructions.
 
@@ -430,7 +438,7 @@ Goodnight.
 - **Accountability:** Each session line should clearly state what was accomplished — the Sessions list is the record of what got done
 - **Quick:** This should take 3-5 minutes unless there's a lot to capture
 - **No guilt:** If it was a low-output day, just note the status honestly
-- **Always resolve vault path first:** Step 0 determines whether to use NAS mount or local fallback. If neither is accessible, abort rather than silently fail.
+- **Always resolve vault path first:** Step 0 confirms `VAULT_PATH` is set and points at a real directory. If it doesn't resolve, abort rather than silently fail.
 - **File locking is mandatory — via the dedicated scripts** (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`), never inline `flock` and never the Edit tool on shared files. Inline flock commands corrupt `settings.local.json` via the permission system — the exact failure class Step 14's script mandate exists to prevent (see `_shared-rules.md` §5).
 
 ### Working Memory Model (Critical)
@@ -448,7 +456,7 @@ Goodnight.
 4. Handle mid-flow corrections (Step 6) - update working memory AND files
 5. Generate daily report from working memory (Step 8)
 
-**Session file updates are write-only after initial read.** You update them when the user marks something done (so future runs see correct state), but you don't re-read them within this session.
+**Session files are write-only after initial read.** When the user marks something done you update the SSOT files (This Week.md, Tickler, project files — see Step 4) so future runs see correct state; session logs stay as the historical record, and you don't re-read them within this session.
 
 ## Triggers
 

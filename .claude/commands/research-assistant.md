@@ -50,7 +50,7 @@ Use this search strategy:
 
 **d) Explore connected notes:**
 - Follow links from relevant notes
-- Check backlinks (files that link TO the current note). Route by what's available: an Obsidian MCP search tool if registered; else the Obsidian CLI if present and running (`obsidian version 2>/dev/null` returns output → `obsidian backlinks file="Note Name"`); else Grep `{VAULT}` for the note's name in wikilink form (`[[Note Name`)
+- Check backlinks (files that link TO the current note). Route by what's available: the Obsidian CLI if present and running (`obsidian version 2>/dev/null` returns output → `obsidian backlinks file="Note Name"`); if the CLI is absent, errors, or times out, fall through to a literal grep of `{VAULT}` covering **both** link forms — bare (`rg -lF "[[Note Name" {VAULT}`) and path-based (`rg -lF "[[<Folder>/Note Name" {VAULT}`). Path-based links are the vault convention and the bare form alone under-reports badly; `-F` is required because `[[` is not a valid regex.
 
 3. **Synthesize what's found:**
 
@@ -100,7 +100,7 @@ After external research (if needed):
 - Search for people names, project names, specific frameworks
 
 **File type targeting:**
-- `.md` files for notes and summaries — Grep searches text formats only
+- `.md` files for notes and summaries — but the Grep tool honours the vault's ignore rules, so text files the vault ignores (scripts, configs, `.txt` captures) are silently skipped. Before concluding "nothing found", repeat the search in bash with `rg --no-ignore` over `{VAULT}`
 - PDFs and images/screenshots in relevant Area/resource folders: locate them by filename (`ls`/Glob — Grep can't see their contents), then open promising ones with the Read tool; if a format can't be read, list the candidates for the user instead of guessing at contents
 
 **Time-based search:**

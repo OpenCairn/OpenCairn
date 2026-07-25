@@ -33,11 +33,11 @@ You are helping the user resume previous work with full context.
 
    The user gave you a topic, keyword, or file path. Find the relevant session and project context using your normal search tools (Grep, Glob, Read).
 
-   - **Run the scan script** to get recent session metadata cheaply:
+   - **Run the scan script** to get recent session metadata cheaply, filtering inside the command so only matching rows come back:
      ```bash
-     "{VAULT}/.claude/scripts/pickup-scan.sh" --days=30
+     "{VAULT}/.claude/scripts/pickup-scan.sh" --days=30 | grep -i -- 'TOPIC'
      ```
-     The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position). Filter for lines where TITLE, PROJECT, or SUMMARY match the user's input (case-insensitive). If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
+     Substitute the user's keyword for `TOPIC`. The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position); the grep matches against TITLE, PROJECT, and SUMMARY alike. If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **Keep the filter in the pipeline every time you widen the window.** Unfiltered output is sorted newest-first and grows fast enough to be truncated, which cuts exactly the older rows the wider window exists to reach. If output is ever truncated or spilled to a file, re-run with the filter (or a tighter one) rather than reading the preview. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
 
    - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Backlog/`), WIP entries, and area files as needed.
 
@@ -80,7 +80,7 @@ You are helping the user resume previous work with full context.
    Read `{VAULT}/01 Now/Works in Progress.md`. Parse each `###` entry, extracting:
    - **Name** (the heading text)
    - **Status** (from the `**Status:**` line, if present — abbreviate to one word if verbose; omit the column for entries without one)
-   - **Last touched** (date from the `**Last:**` line, if present)
+   - **Last touched** (date from the `**Last:**` line, if present) — render it exactly as written, truncated at the first ` — ` or ` - ` so trailing prose is dropped. `**Last:**` values come in many shapes; never reformat one or synthesise a weekday that isn't in the source.
 
    Show only the **top section** (entries above `## Active`, if any) and the **Active section**. These are the things worth picking up. Collapse any other sections (Maintenance, Backlog, etc.) into counts — only those that exist; a minimal vault may have just Active and Backlog.
 
@@ -90,7 +90,7 @@ You are helping the user resume previous work with full context.
    Works in Progress:
 
      1. Project Alpha                          Active    | Last: Sun 29 Mar
-     2. Tax 2025-26                            Active    | Last: Thu 26 Mar
+     2. Tax 2025-26                            Active    | Last: 2026-03-26
      3. Travel 2026                            Active    | Last: Mon 30 Mar
 
      Active
@@ -109,7 +109,7 @@ You are helping the user resume previous work with full context.
 
 8. **Wait for user response:**
 
-   - **Number** → Load that WIP's context: follow the project/area link in `**Next:**` to read the project hub, then read the newest **standalone session-link line** in the entry (`→ [[06 Archive/Claude/Session Logs/...]]` — `/park` writes session links as separate lines under the entry, never inside `**Next:**`, which holds exactly one pointer or action), and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
+   - **Number** → Load that WIP's context: follow the project/area link in `**Next:**` to read the project hub — if the entry has no `**Next:**` line, follow the first `→ [[03 Projects/` or `→ [[04 Areas/` link in the entry instead; if it has neither, say so and offer the entry's session links — then read the newest **standalone session-link line** in the entry (`→ [[06 Archive/Claude/Session Logs/...]]` — `/park` writes session links as separate lines under the entry, never inside `**Next:**`, which holds exactly one pointer or action), and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
    - **"show all"** → Redisplay with Maintenance and Backlog entries included
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally

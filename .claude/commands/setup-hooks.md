@@ -18,47 +18,64 @@ Two scripts work together:
 - `skill-edit-marker.sh` (PostToolUse on `Write|Edit`) — notes, per session, when a file
   under any `.claude/commands/` directory is edited.
 - `skill-edit-survey.sh` (Stop) — if a command file was edited this session, it blocks the
-  stop **once** to inject a reminder: consult `_shared-patterns.md` and survey sibling
-  skills for transferable infrastructure before wrapping up, then log a one-line outcome
-  to `cross-pollination.log` (which `/quarterly-hygiene` consumes).
+  stop **once** to inject a reminder: first a **placement check** on what was just written
+  (durable procedure stays in the skill, volatile facts move out — this gate can reverse
+  the edit), then consult `_shared-patterns.md` and survey sibling skills for transferable
+  infrastructure, then log a one-line outcome to `cross-pollination.log` (which
+  `/quarterly-hygiene` consumes). Trivial edits — typo, wording, one-liner — are carved out
+  of the survey.
 
 **Trade-off to state plainly before enabling:** when you edit a skill file, the hook adds
-**one extra turn** at the end of that session. If you don't actively maintain a skill
-library, you probably don't want it.
+**one extra turn per edit batch** — a session with several separate rounds of skill edits
+pays it several times. If you don't actively maintain a skill library, you probably don't
+want it.
 
 ## Steps
 
-1. **Resolve the config root** (honours a custom config dir):
-   ```bash
-   CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-   ```
+Each snippet resolves the config root inline — shell state does not carry between calls,
+so never assign it once and reference it later.
 
-2. **Prerequisite — `jq`.** The hook scripts and the wiring script all require it:
+1. **Prerequisite — `jq`.** The hook scripts and the wiring script all require it:
    ```bash
    command -v jq >/dev/null 2>&1 && echo "jq: ok" || echo "jq: MISSING"
    ```
    If missing, stop and give the install hint for the user's OS
    (`sudo apt install jq` / `brew install jq` / `sudo dnf install jq`).
 
-3. **Prerequisite — scripts present.** They ship via `/update`; if absent, the user hasn't
+2. **Prerequisite — scripts present.** They ship via `/update`; if absent, the user hasn't
    synced yet:
    ```bash
-   ls -1 "$CONFIG_DIR/scripts/skill-edit-marker.sh" \
-         "$CONFIG_DIR/scripts/skill-edit-survey.sh" \
-         "$CONFIG_DIR/scripts/wire-skill-edit-hook.sh" 2>&1
+   CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/skill-edit-marker.sh" \
+         "$CD/scripts/skill-edit-survey.sh" \
+         "$CD/scripts/wire-skill-edit-hook.sh" 2>&1
    ```
    If any are missing, instruct the user to run `/update` first, then re-run `/setup-hooks`.
 
-4. **Apply.** If the user passed `--remove`, run with that flag; otherwise add:
+3. **Apply.** First validate `$ARGUMENTS`: the only accepted values are empty or exactly
+   `--remove`. Anything else — stop, tell the user the usage is
+   `/setup-hooks [--remove]`, and run nothing. Then run the matching literal form (never
+   splice the raw argument string into the command line):
    ```bash
-   "$CONFIG_DIR/scripts/wire-skill-edit-hook.sh" $ARGUMENTS
+   # add
+   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-skill-edit-hook.sh"
+   # remove
+   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-skill-edit-hook.sh" --remove
    ```
    The script makes a timestamped backup, merges idempotently (no duplicates on re-run),
    validates the JSON before replacing, and prints the resulting `.hooks` block.
 
-5. **Confirm and report.** Show the user the printed `.hooks` block and the backup path.
-   Note that the hook takes effect for **new** sessions, and that they can disable it any
-   time with `/setup-hooks --remove`.
+4. **Confirm and report — branch on what the script actually printed.** Report only what is
+   in the output; never describe a backup or a `.hooks` block that wasn't printed.
+
+   | Script output | Report |
+   |---|---|
+   | `Updated … Backup: …` plus a `.hooks` block | Show the user the `.hooks` block and the backup path. |
+   | `No changes — hooks already in their target state (…)` | Say the settings already match the requested state; no backup was made and nothing changed. |
+   | `No settings file at … — nothing to remove.` | Say there were no hooks to remove. |
+   | Non-zero exit (missing `jq`, usage error, unparseable existing settings, produced-invalid-JSON abort) | Settings are unchanged. Show the script's error line verbatim, state the remedy it implies, and stop — do not retry or hand-edit `settings.json`. |
+
+   Whenever the end state is hooks-enabled, note that the hook takes effect for **new**
+   sessions, and that they can disable it any time with `/setup-hooks --remove`.
 
 ## Caveats
 

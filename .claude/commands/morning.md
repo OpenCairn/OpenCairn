@@ -45,10 +45,10 @@ date +"%Y-%m-%d"                   # for file paths if needed
 Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/offline). For each day, in chronological order:
 
 1. Check if a daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
-2. If daily report exists → skip this day (already closed out).
-3. Check if a session log exists: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
-4. If no session log or no sessions → skip silently (nothing to close out).
-5. If sessions exist but no daily report → **/goodnight was missed.** Run a lightweight catch-up:
+2. Check if a session log exists: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+3. If no session log or no sessions → skip silently (nothing to close out).
+4. **Skip the day only if it is closed out on both surfaces** — the daily report exists **and** the session log carries a close-out entry (`^## Session [0-9]+ - Goodnight:` or `Goodnight catch-up via /morning`). The report is written at 2a.b but the session entry, audit and provenance come at 2a.e/g/h, so a report-only test marks an interrupted catch-up permanently closed and nothing downstream repairs it — 2b skips days with no close-out session, and only provenance has its own net.
+5. Otherwise → **/goodnight was missed, or a previous catch-up did not finish.** Run a lightweight catch-up, skipping any sub-step whose artefact is already present and complete (do not duplicate an existing daily report — verify and extend it instead):
 
    a. Read the day's session log and its day section in This Week.md.
    b. **Generate the daily report** at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8: convert the day section into `## Today's Plan` with `[x]`→`✓` and `[ ]`→plain bullets; list sessions; list blockers. Include the catch-up close-out itself as the last numbered Sessions entry (`N. **Goodnight catch-up via /morning** — [one-line outcome]`), mirroring /goodnight Step 8's include-the-close-out rule — plan the line here to match the session entry 2a.e writes. **Omit the `## Outside-Claude` section** — no debrief prompt fires during 2a itself (the user is async — the caught-up day is done, not memory-fresh). Step 4 (Open Space) runs the deferred off-Claude debrief for each caught-up day; any activity it surfaces is back-filled into that day's daily report via the Step 5 Capture Gate (see Step 5).
@@ -106,9 +106,10 @@ For each day that now has a daily report (whether from /goodnight or 2a), check 
 5. If no post-goodnight sessions → skip silently.
 6. If post-goodnight sessions found:
    - Read each post-goodnight session block.
-   - **Append** the late session(s) to the `## Sessions` list in the daily report. That is the only daily-report section late sessions touch — any completions they contain live in the SSOT files (This Week.md, Tickler, project files), not the report.
+   - **Drop the ones already reconciled.** Read the daily report's `## Sessions` list and skip any late session whose number or topic already appears there. 2b re-runs over every day that has a report — a second /morning the same day, or tomorrow's pass over yesterday, hits the same sessions again, and the session-log test at step 4 stays true forever. If every candidate is already present, skip the day silently (no append, no note, no display).
+   - **Append** the remaining late session(s) to the `## Sessions` list in the daily report. That is the only daily-report section late sessions touch — any completions they contain live in the SSOT files (This Week.md, Tickler, project files), not the report.
    - Do NOT modify other sections — `## Today's Plan`, `## Outside-Claude`, and `## Blockers` were set deliberately at close-out and remain valid.
-   - Add a note at the end of the Sessions section: `*Sessions N–M added by /morning (ran after close-out)*`
+   - Add a note at the end of the Sessions section naming only the sessions this pass appended: `*Sessions N–M added by /morning (ran after close-out)*`. If an earlier pass already left such a note, extend its range rather than adding a second one.
    - **Refresh the collapsed day's one-liner in This Week.md.** /goodnight Step 10 collapsed the day to `## [emoji] [Day] [Date] — [Theme] ✅` + one sentence + report link. If the late sessions change what the day amounted to, extend that sentence to mention them; otherwise leave it alone. (The collapse format carries no session count — do not invent or parse one.)
    - Display:
      ```
@@ -139,7 +140,7 @@ WMO weather codes → emoji: 0 ☀️, 1 🌤️, 2 ⛅, 3 ☁️, 45/48 🌫️
 
 If the API call fails (no internet, timeout), skip silently — weather is nice-to-have, not blocking.
 
-Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the banner area (after the `**Location:**` line, before the `---` separator that divides the banner from the day sections). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
+Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the banner area (after the `**Location:**` line, before the `---` separator that divides the banner from the day sections). If the file has no banner — no `**Location:**` line, no `---` — insert the block directly after the `# This Week — ...` heading and add a `**Location:** [current city]` line above it and a `---` below it, so the banner matches the Step 7 creation skeleton from then on. Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
 
 **Drop any `**Status:**` line from the banner.** Deprecated — duplicates today's day section, drifts the moment the plan shifts mid-session, and creates a second authoritative surface for today's focus that can silently diverge from the day section (which is the real artefact). Keep `**Location:**` (stable travel context) and the weather block (external, refreshed); remove any legacy `**Status:**` line on this morning's pass.
 
@@ -160,10 +161,10 @@ Read and present:
   Also check for a "Completed" or "Likely Stale" section — if it has unchecked items, note the count: `[N] items flagged for deletion — confirm during this session?`
 - **Review staleness:** Check when the last weekly review and quarterly review were run:
   ```bash
-  ls -1t "{VAULT}/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | head -1
-  ls -1t "{VAULT}/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | head -1
+  ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | sort | tail -1
+  ls -1 "{VAULT}/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | sort | tail -1
   ```
-  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md`. **Date the review from its own header, and compute the elapsed days in bash** — the general rule is `_shared-rules.md` §22 (artefact age comes from content, never mtime); the two wrong sources it bans show up here as:
+  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md` — both lexically sortable, which is why selection sorts on filename and never on mtime (`ls -t` is banned by the same rule that governs the dating below). **Date the review from its own header, and compute the elapsed days in bash** — the general rule is `_shared-rules.md` §22 (artefact age comes from content, never mtime); the two wrong sources it bans show up here as:
 
   - **Not the filename**, via internal arithmetic — the date-mapping class LLMs are unreliable at.
   - **Not the file's mtime.** Any later touch resets it — an audit remediation, a sync write, a hygiene pass, an editor opening the file — so a review edited after the fact reads as *fresher than it was run*. The error is asymmetric in the dangerous direction: it makes an overdue review look current, which is the exact failure this check exists to catch.
@@ -343,6 +344,11 @@ If yes — and if replacing a stale file, first show unchecked items from the ol
 
 ````
 # This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
+
+**Location:** [current city]
+[weather block from step 3, if the fetch succeeded]
+
+---
 
 ## [Today] [DD] [Mon]
 [Full timeline with ### Morning/Afternoon/Evening sections as above]

@@ -27,6 +27,19 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
 
    **If several wins surfaced, write one entry per *mechanism*, not per symptom.** Wins sharing a cause — one good decision paying off in several visible ways — belong in a single entry, because the reusable pattern is one pattern and splitting it produces two half-patterns that each look incidental. Wins with independent causes need separate entries, because a merged pattern generalises to neither. **Test:** did one choice produce both? Same entry. Otherwise, separate. Run this test explicitly when a session produced more than one win; the default of logging whatever was most recently discussed silently drops the rest.
 
+   **⛔ Display the test's result before writing any entry** — one line per merge, per split, and per win you decided not to log at all:
+
+   ```
+   Mechanism test: N wins surfaced → M entries
+   - "[win A]" + "[win B]" → merged: [shared mechanism]
+   - "[win C]" → separate: [independent mechanism]
+   - "[win D]" → not logged: [why]
+   ```
+
+   Without this, the skill can log a defensible-looking set of entries while quietly dropping the wins that didn't make the cut — which is the exact failure the paragraph above warns about, arriving through the skill rather than around it. The count `N` is the observable: it must come from a scan of the session, not from the entries you have already decided to write.
+
+   **⛔ You cannot proceed to Phase 2 until this block appears in your response.** If you find yourself drafting entry text without having displayed it, stop and return to this step.
+
 2. **If unclear, ask concisely:**
    - "What was the win?" (if not obvious from context)
    - "What made this work?" (if the mechanism isn't clear)
@@ -70,7 +83,7 @@ The goal isn't celebration — it's pattern extraction. What specifically worked
    - Search for key nouns from the win (e.g., tool names, approaches, design patterns)
    - Search the wins log file
 
-8. **If pattern detected** (2+ similar wins), suggest promotion:
+8. **If pattern detected** (2+ similar wins — count distinct `### ` entry headings whose entries match, not raw grep hits: the just-added entry plus at least one distinct prior entry), suggest promotion:
    - **Default target: `07 System/` context files** — specific operational patterns belong near the system they govern
    - **CLAUDE.md only for truly cross-cutting patterns** — approaches that apply regardless of domain
    ```

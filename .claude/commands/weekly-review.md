@@ -24,7 +24,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%G-W%V"` (for file naming: YYYY-Wnn.md). `%G` (ISO year), not `%Y` — they differ in the 29 Dec–3 Jan boundary window, and `%Y-W%V` there produces a nonexistent week key that corrupts the latest-file sort.
-   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | sort -r | head -1`
+   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
    - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. **The last covered date is the latest of: the dated links AND any "*(no report for [date] …)*" notes in that section** — a review can end on days that produced no daily report (travel/offline days), and taking only the last dated link would make the next review re-cover them. If the review's title date range ends later still, prefer the title's end date and note the discrepancy. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
    - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
@@ -54,7 +54,13 @@ The weekly review creates the crucial link between tactical execution (daily/ses
        ```bash
        cd "{VAULT}" && git rev-list -n 1 --before="YYYY-MM-DD 14:00" HEAD
        ```
-       Confirm the commit actually falls on the target day (`git show -s --format=%ci $COMMIT`) — `--before` returns the *latest prior* commit, which can be a previous day's. Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section. If the commit is from an earlier day, or the day section lacks a populated `### Morning` subsection (the marker `/morning` adds when expanding today — future-day sections have none, so its absence means the snapshot is pre-plan), fall back to the first commit *of that day* whose day section has one. No such commit → skip the day and note it in the table.
+       Confirm the commit actually falls on the target day (`git show -s --format=%ci $COMMIT`) — `--before` returns the *latest prior* commit, which can be a previous day's. Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section.
+
+       **Locating the day section.** Match `## ` headings by the date they carry, per `_shared-rules.md` §9's heading parse — headings routinely carry leading emoji, an em-dash title and trailing status glyphs (`## ☀️ Thu 23 Jul — [title] ✅`), so match on the day-name + day-of-month token anywhere in the heading and ignore the rest. Never require an exact heading shape, and skip `## ` headings that carry no date (e.g. `## Refs`).
+
+       **Deciding whether the snapshot is post-plan.** A populated `### Morning` subsection is the strongest signal, but it is *not* required — This Week.md does not consistently carry it, and keying on it alone drops fully planned, fully executed days. Treat the snapshot as post-plan if the day section holds any scheduled item bullets (excluding the container headers listed below); use `### Morning` only to prefer one candidate commit over another. If the commit is from an earlier day, or its day section holds no scheduled items, fall back to the first commit *of that day* whose day section does.
+
+       **Distinguish the two null outcomes** — they mean opposite things and the table must not conflate them: no usable commit for that day → `— no snapshot`; a located day section that genuinely holds no scheduled items → `— not planned`.
      - **Daily report.** Reuse the daily report read above.
      - **Vault attention profile.** Run:
        ```bash
@@ -68,9 +74,10 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
 
    **Sweep for tagged tasks:**
-   - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
-   - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
-   - Guillotines [GT]: `grep -r "\[GT\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l`
+   - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - Guillotines [GT]: `grep -r "\[GT\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - The trailing `| grep -v` is the correctness backstop, not belt-and-braces: `--exclude-dir` is a silent no-op when `grep` resolves to a drop-in replacement, and without the filter the sweep returns archived items as if live. Never drop it.
    - Read the matched files and extract the tagged items for review (for [GT], note each hard deadline and whether it's overdue/imminent)
 
    **Direction (strategic layer):**
@@ -119,7 +126,7 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 5. **Generate weekly review:**
 
-Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix sorts *after* the bare name, so step 1's `sort -r | head -1` previous-review lookup finds the latest run without changes.
+Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
 
 **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already purged Tasks.md, so any `Tasks.md Lnn` carried into this durable review is stale on write. Name items (tasks, WIP entries, Tickler lines, aged open loops) by title/heading/content.
 
@@ -173,6 +180,8 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 | Day | Scheduled | Checked | Added | Migrated |
 |-----|-----------|---------|-------|----------|
 | [Day DD] | N | N | N | N |
+
+*[For a day with no usable snapshot, write `— no snapshot` in the Scheduled cell and leave the rest blank; for a located but empty day section, write `— not planned`. Never render either as `0`.]*
 
 **Folder-attention profile ([period] total, distinct files touched):**
 - [folder at scheduled-vocabulary depth] — N
@@ -266,15 +275,18 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    **An item whose deadline you cannot resolve still counts.** If it names an event with no date in its own text ("before the conference"), do **not** go hunting for one and do **not** invent one — leave it out of the earliest-date arithmetic but keep it in the list and in `N`. The pointer model makes this cheap: the reminder's job is to put the user back in front of the review, and an item with a fuzzy deadline needs that more than one with a crisp date, not less.
 
-   **(c) Dedup, then write one line** (§5 — `write-tickler.sh`, never the Edit tool). A review re-run in the same ISO week would otherwise add a second line:
+   **(c) Dedup, then write one line** (§5 — `write-tickler.sh`, never the Edit tool). A review re-run in the same ISO week would otherwise add a second line.
+
+   **Use the basename step 5 actually wrote**, collision-guard letter suffix included (`SLUG` below = `YYYY-Wnn` or `YYYY-Wnnb`, …), in **both** the grep and the wikilink. A bare `YYYY-Wnn` is a *prefix* of the suffixed sibling: as a dedup key it matches the earlier review's line and silently suppresses this review's backstop, and as a wikilink it points the reminder at the wrong review. Anchor the grep with the closing `]]` so the match is exact rather than prefix-wise.
 
    ```bash
-   # 0 → write. Non-zero → a reminder for this review already exists (a same-week re-run);
-   # skip the write and report it. Absent Tickler is fine: grep says 0, write-tickler.sh creates it.
-   grep -c "Weekly Reviews/YYYY-Wnn" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
+   # 0 → write. Non-zero → a reminder for this review already exists (a re-run of the same
+   # review file); skip the write and report it. Absent Tickler is fine: grep says 0,
+   # write-tickler.sh creates it.
+   grep -cF "Weekly Reviews/SLUG]]" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
 
    "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" \
-     "- [ ] Weekly review YYYY-Wnn flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]]"
+     "- [ ] Weekly review SLUG flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/Claude/Weekly Reviews/SLUG]]"
    ```
 
    **This step's disallowed sink is the review file itself** (§18 requires each caller to name its own): a deadline-bearing correction left only in "Course Corrections Needed" or "Big Rocks" is the failure this exists to prevent. One dated pointer discharges the whole set.
@@ -316,11 +328,11 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    **Gather context for dynamic sections:**
    - Read `{VAULT}/01 Now/Works in Progress.md` — every active entry is a candidate for inclusion, not just "projects." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
-   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (sorted descending) for trajectory and recent events. The current week's review data is already available from earlier steps.
+   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (same pattern-constrained `LC_ALL=C sort -r` listing as step 1, `head -3`) for trajectory and recent events. The current week's review data is already available from earlier steps.
    - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because WIP and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a WIP "Next" pointer, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
 
    **Read previous context version** to carry forward stable sections:
-   - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/` (sorted by filename descending)
+   - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/Claude/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
    - The file has two kinds of sections:
      - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
      - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from WIP): Regenerate fully from WIP, recent weekly reviews, and this week's review data.

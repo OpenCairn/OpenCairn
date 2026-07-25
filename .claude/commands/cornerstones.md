@@ -42,7 +42,9 @@ For each cornerstone, note whether it appears to be:
 - **Done** — has a completion marker (`- [x]`)
 - **Stalled** — context suggests no progress (e.g., explicitly noted as blocked or waiting)
 
-If you can't determine status from the grep context alone, say so — don't guess.
+- **Undetermined** — the grep context doesn't settle it
+
+If you can't determine status from the grep context alone, mark it **Undetermined** — don't guess.
 
 ### 4. Present Summary
 
@@ -58,9 +60,18 @@ Output format:
 ### [another file]
 - [CS] [task description] — **[status]**
 
+### ❓ Undetermined
+- [CS] [task description or verbatim marker] — [file path] — what the context leaves unresolved
+
 ---
 
-**Total:** X cornerstones (Y open, Z done, W stalled)
+**Total:** X cornerstones (Y open, Z done, W stalled, V undetermined)
+```
+
+Not every `[CS]` hit is a task line. Where the tag sits in a heading, a frontmatter or status field, or a note-level label rather than a bullet, quote the line verbatim and label it as a marker — don't manufacture a task description from it:
+
+```
+- [CS] marker — `[verbatim line]` — **[status]**
 ```
 
 If no `[CS]` tags are found, say so clearly — the user may not have adopted the tag yet.

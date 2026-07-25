@@ -35,7 +35,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 3. **Deep context-file accuracy re-read (non-temporal drift).**
    `/weekly-hygiene` step 13 scans only *temporal* markers (dates, "currently", "soon"). This is the heavier pass that catches durable facts which never trip a temporal scan and so silently rot for years:
    - Read each `{VAULT}/07 System/Context - *.md` file end-to-end.
-   - Check durable claims for drift: job title / role, location, hardware specs and model numbers, active subscriptions, default tools and workflows, named collaborators/clinics. **Evidence source:** skim the quarter's weekly reviews (Synthesis + Projects Active sections) for events that contradict a claim; for claims not covered there, present to the user as a "still true?" check rather than asserting drift — this skill gathers no other activity data, and `/quarterly-review`'s full gather runs after it.
+   - Check durable claims for drift: job title / role, location, hardware specs and model numbers, active subscriptions, default tools and workflows, named collaborators/clinics. **Evidence source:** skim the weekly reviews inside the evidence window (Synthesis + Projects Active sections) for events that contradict a claim; for claims not covered there, present to the user as a "still true?" check rather than asserting drift — this skill gathers no other activity data, and `/quarterly-review`'s full gather runs after it.
+   - **Evidence window** — the run cadence is not the calendar quarter (mid-quarter and standalone runs are expected), so anchoring on the quarter start leaves reviews between the last pass and the boundary permanently unread. Window start = the `**Generated:**` date in the latest `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/*.md` (filename descending; take the date from that content header, never from mtime — `_shared-rules.md` §22), falling back to the quarter start when no prior report exists. Window end = today. State the window in the report so the next run's start is unambiguous.
    - **Guardrail (inherited from weekly-hygiene 13):** edit a context file ONLY with user-provided replacement text. Never rewrite, rephrase, or infer an update autonomously — these are high-trust prose documents; wrong corrections are worse than stale content. Present each flagged claim, ask, then edit only what the user supplies.
 
 4. **CRM stale-entry review.** (if `{VAULT}/07 System/CRM/` exists)
@@ -54,15 +55,19 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
 6. **Session-log archiving (90-day rolling).**
    Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 14b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
-   - **Identify candidates** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). Written without bare dollar-digit awk fields — the slash-command loader substitutes `$0`–`$9` as argument placeholders and would mangle them before the executor sees the snippet; ISO date names make plain string comparison correct:
+   - **Identify candidates, partitioned by collision** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat log whose destination year folder already holds that basename is a **duplicate**, not a move candidate — partition it out here so every downstream step (dry-run, drag set, report) sees the same two sets. Written without bare dollar-digit awk fields — the slash-command loader substitutes `$0`–`$9` as argument placeholders and would mangle them before the executor sees the snippet; ISO date names make plain string comparison correct:
      ```bash
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
-     ls -1 "{VAULT}/06 Archive/Claude/Session Logs/" \
-       | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' \
-       | while read -r f; do [ "${f%.md}" \< "$CUTOFF" ] && echo "$f"; done
+     LOGS="{VAULT}/06 Archive/Claude/Session Logs"
+     ls -1 "$LOGS" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
+       [ "${f%.md}" \< "$CUTOFF" ] || continue
+       y=${f%%-*}
+       if [ -e "$LOGS/$y/$f" ]; then echo "DUPLICATE: $f -> $y/"; else echo "MOVE: $f -> $y/"; fi
+     done
      ```
-   - **Dry-run first:** present the candidate list grouped by destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`" (real years derived from the filenames; never a literal `YYYY` folder). Get explicit confirmation before moving anything. **Unattended runs (cron, headless automation) stop here** — report the candidate list and move nothing; the confirmation gate cannot be waived.
-   - **Move via Obsidian GUI drag-and-drop (preferred — heals wikilinks instantly).** Create one year folder per destination year in the candidate list (single-dir `mkdir -p ".../Session Logs/2025"` etc.), then hand off to the user: have them multi-select the aged logs in Obsidian's file explorer and drag each year's batch into its folder. Obsidian rewrites every inbound wikilink in one pass — a few seconds for the whole set. Report the count once the user confirms the drag is done.
+   - **Dry-run first:** present the `MOVE` list grouped by destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. Get explicit confirmation before moving anything. **Unattended runs (cron, headless automation) stop here** — report both lists and move nothing; the confirmation gate cannot be waived.
+   - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `/weekly-hygiene` holds for duplicate detection). The user decides.
+   - **Move via Obsidian GUI drag-and-drop (preferred — heals wikilinks instantly).** Create one year folder per destination year in the `MOVE` list (single-dir `mkdir -p ".../Session Logs/2025"` etc.), then hand off to the user: have them multi-select **only the `MOVE` files** in Obsidian's file explorer and drag each year's batch into its folder — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Obsidian rewrites every inbound wikilink in one pass — a few seconds for the whole set. Report the count once the user confirms the drag is done.
      **Do NOT use the `obsidian move` CLI for batches** — it boots a fresh Electron instance per call (loading the entire vault index) and deadlocks on the single-instance lock after a handful of files. Fine for a one-off move, unusable for a batch.
    - **Fallback for interactive sessions without the Obsidian GUI: raw `mv`, after the dry-run confirmation.** Session logs have globally-unique `YYYY-MM-DD.md` basenames, so Obsidian resolves a stale-path wikilink by basename fallback — a *scoped* exception to the general "never raw `mv`" rule. One loop does year-derivation, folder creation, collision refusal, and reporting:
      ```bash
@@ -76,12 +81,15 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
        else mv "$LOGS/$f" "$LOGS/$y/$f" && echo "MOVED: $f -> $y/"; fi
      done
      ```
-     Full CLI link-verification is still skipped (`obsidian unresolved`/`backlinks` time out mid-reindex on a large vault) — but the basename-fallback claim is GUI behaviour this repo can't prove, so **spot-check once per run**: pick one moved log with a known inbound link and confirm it resolves (in the GUI next session, or `obsidian unresolved` filtered to that basename once reindex settles). Record the result in the report.
-   - **Idempotent:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs.
+     Count the `SKIP (exists)` lines and carry the number into the report's skipped bullet — a silent skip is how duplication survives a pass that claims to be clean.
+     Full CLI link-verification is still skipped (`obsidian unresolved`/`backlinks` time out mid-reindex on a large vault) — but the basename-fallback claim is GUI behaviour this repo can't prove, so **spot-check once per run**: pick one moved log with a known inbound link and confirm it resolves (in the GUI next session, or `obsidian unresolved` filtered to that basename once reindex settles). Record the result — basename and pass/fail — in the report's spot-check bullet. **On fail** (the link no longer resolves), stop using the raw-`mv` fallback for the rest of the run, flag the moved batch in the report as needing link repair, and route repair to the user via the Obsidian GUI (drag the files back, or re-drag them into the year folder so Obsidian rewrites the links) — do not attempt a bulk link rewrite from the shell.
+   - **Idempotent for moves, not for duplicates:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs. A skipped collision is the exception — the flat copy stays flat and older than every future cutoff, so it resurfaces each run. The `MOVE`/`DUPLICATE` partition is what keeps it distinguishable from a newly-aged log rather than padding the move count forever.
 
 7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
    The library-level layer of the cross-pollination system — the per-edit layer is the skill-edit Stop hook (ships with the template; opt in via `/setup-hooks` — see `_shared-patterns.md`), the index is `_shared-patterns.md` (commands directory). Once a quarter, look across *all* skills for infrastructure that's been reinvented rather than shared. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
-   - **Inventory** the commands directory (`~/.claude/commands/*.md` or `{VAULT}/.claude/commands/*.md`); grep for recurring mechanisms (manifest/JSONL + resume, `[i/N]` progress strings, parallel `gemini`/`codex` despatch, file-size + resize loops, `command -v` prereq blocks, cost estimation) and count distinct skills implementing each.
+   - **Inventory** the commands directory (`~/.claude/commands/*.md` or `{VAULT}/.claude/commands/*.md`). Derive the search targets rather than working a fixed list — a hardcoded list drifts into naming only mechanisms already indexed, which makes the "unindexed" branch unreachable and the audit a no-op:
+     - Extract the already-indexed mechanisms from `_shared-patterns.md` (its entry headings / `→` reference targets). These are the *divergence* candidates.
+     - Then grep the skills for repeated constructs **not** on that list — recurring bash idioms, repeated prose contracts, shared prereq/estimation/progress/despatch shapes, any block that reads as copied between skills — and count distinct skills implementing each. These are the *discovery* candidates, and they are the point of the pass.
    - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
    - **Read `~/.claude/cross-pollination.log` — only if it exists** (`[ -f ~/.claude/cross-pollination.log ]`): index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. **If absent** (template installs that haven't opted into the Stop hook via `/setup-hooks`), record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
    - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.
@@ -107,6 +115,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - [Unresolved broken links, orphans, dead-ends, tier mismatches from the weekly report — not re-derived]
 
    ## Context Files (deep, non-temporal)
+   *Evidence window: YYYY-MM-DD → YYYY-MM-DD (previous report's Generated date / quarter start — no prior report)*
    | File | Status | Durable claim flagged | Resolution |
    |------|--------|----------------------|------------|
    | Context - X.md | Stale | [claim] | [user-provided fix / pending] |
@@ -121,6 +130,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ## Session-Log Archiving
    - Flat session logs: N (keeping last ~90 days flat)
    - Archived this run: N logs → YYYY/ subfolders (or "none — nothing older than 90 days")
+   - Skipped (already archived): N — flat copies whose year folder already holds that basename; duplication surfaced, nothing deleted [list or "none"]
+   - Wikilink spot-check: [pass / fail — basename / n/a — nothing moved]
 
    ## Skill-Library Flywheel (draft)
    - Proposed new index entries (≥2 reuses, unindexed): [list or "none"]
@@ -143,7 +154,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ Context files re-read: N, M durable-drift flags
    ✓ CRM stale entries: N flagged
    ✓ Corrections-log index: [refreshed (N entries re-bucketed) / no curated index present]
-   ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out")
+   ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
+   ✓ Wikilink spot-check: [pass / fail — basename / n/a]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Skill self-review: [no gaps / N observations logged]
 

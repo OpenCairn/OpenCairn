@@ -39,7 +39,7 @@ This is the "return from sabbatical" complement to daily pickup.
 
 3. **Load hibernate snapshot:**
    - Read the full snapshot file
-   - Extract: active projects, open loops, return priorities, expected return date
+   - Extract: active projects, open loops, deliberate deferrals, return priorities, expected return date
    - Calculate break duration: days between hibernate date and now
 
 4. **Display snapshot summary:**
@@ -54,6 +54,14 @@ Break duration: [N days/weeks/months]
 
 Snapshot context:
 [2-3 sentence summary from snapshot about situation at hibernation]
+
+Open loops at hibernation:
+- [Loop 1]
+- [Loop 2]
+[etc. — the full list, so the user can answer step 5 against it]
+
+Deliberately deferred during the break:
+- [Deferred item]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Loading pre-break state...
@@ -63,7 +71,7 @@ Loading pre-break state...
    - **What changed during break:** "What happened during the break that affects your work/priorities?"
    - **Completed offline:** "Did you complete any of the open loops while away?"
    - **New priorities:** "Have your priorities shifted since the snapshot?"
-   - **Dropped projects:** "Are any of the active projects no longer relevant?"
+   - **Deferrals:** "The break is over — resume any of the deliberately deferred items, or keep them parked?" (list them; break-end is their un-defer trigger and they exist on no other surface)
    - **Time-sensitive updates:** "Any new deadlines or time-sensitive items?"
 
 6. **Display active projects from snapshot:**
@@ -85,13 +93,15 @@ Active projects at hibernation (N total):
 [etc.]
 
 Which projects are still active? [Enter numbers, 'all', or 'none']
+For the rest, say which are completed and which are dropped.
 >
 ```
 
 7. **Update based on the user's answers:**
-   - Record completed loops in the awaken summary's "Completed during break" lines (step 8); flip any matching `- [ ]` items in the SSOT files (This Week.md, Tickler, project hubs) to `[x]`. The snapshot itself keeps plain bullets — there are no checkboxes to flip there, and it stays a frozen record.
+   - Record completed loops in the awaken summary's "Completed during break" lines (step 8); flip any matching `- [ ]` items in the SSOT files (This Week.md, Tasks.md, Tickler, project hubs) to `[x]` — write mechanism per `_shared-rules.md` §5 (`locked-edit.sh`, not the Edit tool; `write-tickler.sh` for Tickler). The snapshot itself keeps plain bullets — there are no checkboxes to flip there, and it stays a frozen record.
    - Capture new items from "what changed" in the awaken summary; route the actionable ones to SSOT via step 9 alongside the Immediate Next Actions.
-   - Completed or dropped projects → route through `/complete-project` (it owns artefact routing and link-safe archival — don't improvise an archive move here).
+   - Deferred items the user is resuming → treat as actionable and route via step 9; ones staying parked → note in the awaken summary, no SSOT write.
+   - Note completed or dropped projects for the summary — the `/complete-project` delegation happens after step 8, so a stall there can't cost the orientation record.
    - Update priorities based on new reality
 
 8. **Generate awaken summary** and append to the hibernate snapshot file:
@@ -121,6 +131,9 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 **Dropped/deferred:**
 - [Project D] - [Reason]
 
+**Deferrals from the snapshot:**
+- [Deferred item] - [Resuming / staying parked]
+
 ### Updated Priorities
 
 1. [Current top priority]
@@ -142,7 +155,9 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
 **First session post-return:** [placeholder — session numbers are assigned at park time, after this step; back-fill this link at the first `/park` after `/awaken`, or leave the placeholder]
 ```
 
-9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
+   Once the summary is appended: completed or dropped projects → route through `/complete-project` (it owns artefact routing, link-safe archival, and the WIP removal — don't improvise an archive move here). It runs after the write so an abort there leaves the orientation record intact.
+
+9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md and Tasks.md, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
    - For each action in "Immediate Next Actions" (plus actionable "what changed" items from step 7):
      - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`).
      - If This Week.md is stale/missing → add to `01 Now/Tasks.md` — not a today-dated Tickler entry; Tickler is for future-dated triggers (§4), and a genuinely future-dated action goes there via `write-tickler.sh`.
@@ -153,7 +168,7 @@ Which projects are still active? [Enter numbers, 'all', or 'none']
    - Update "Last updated" timestamp
    - Update project statuses with post-break reality
    - Remove 🛌 emoji from active projects
-   - Completed/dropped projects → `/complete-project` per step 7; remove only their WIP entries here, don't bare-archive project files
+   - Completed/dropped projects: `/complete-project` (step 8) removes the WIP entry itself. Only remove entries here for projects it did not process — it was deferred, aborted, or the user declined — and don't bare-archive project files
 
 11. **Display completion message:**
 
@@ -195,6 +210,10 @@ You can:
 
 What would you like to do?
 ```
+
+Continuations:
+- **Option 2:** read Works in Progress plus the most recent session logs, present them in place of the step 4 summary, then run steps 5-11 against that state (skip the snapshot append in step 8 — write the awaken summary to the current session log instead).
+- **Option 3:** skip the restore; ask for 1-3 priorities for today, route them via step 9, and stop.
 
 **If multiple snapshots exist:**
 - Default to most recent

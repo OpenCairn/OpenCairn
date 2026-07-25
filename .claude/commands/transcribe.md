@@ -44,7 +44,7 @@ A human-edited published transcript (podcast show site, Substack, official trans
    - Run **one** web search (if a web-search tool is available): `"<video/episode title>" transcript`. Prefer the official show/publisher page; treat third-party aggregator sites (usually auto-generated, not human-edited) as no better than WhisperX.
    - If neither `yt-dlp` nor a web-search/fetch tool is available, skip discovery and fall through to Phase 1 — rely only on a user-supplied URL (step 1).
 3. If no credible candidate is found, say so in one line and fall through to Phase 1. Don't over-search — this is a quick best-effort check, not a research task.
-4. **Fetch and validate the candidate.** Extract the body to a file with the **`_shared-rules.md` §15 extractor**, which needs `curl`/`pandoc`/`python3`+`bs4`/`lxml` (its prereq check is the gate — if those are missing, skip the published path and fall through to Phase 1's WhisperX run after telling the user). The body lands at `<BODY_FILE>` — §15's printed `BODY=` path, a **deterministic function of the URL**, so you can reuse that exact path in step 6 (or re-derive it from the URL); there is no random temp name to carry across tool calls. Judge it on structure with **shell probes, not by reading the whole body into context** — `wc -w "<BODY_FILE>"`, `grep -nE` for speaker labels / transcript markers, and `head`/`tail` for a bounded look. Accept as a genuine transcript if it has sustained episode-specific prose AND either (a) speaker turn-taking, (b) continuous single-speaker prose (lectures/monologues have no turns), or (c) the page explicitly labels itself a transcript. Reject show notes, a summary, an excerpt, or a paywalled stub. As a sanity floor, *if you can cheaply get duration* (`yt-dlp --print "%(duration)s" "URL"` for YouTube), expect ≳80–100 words per minute of audio — but don't reject a labelled transcript just for running light, and skip the floor when duration is unknown. If it's a summary or partial, discard it and fall through to Phase 1.
+4. **Fetch and validate the candidate.** Read §15 of `_shared-rules.md` (same commands directory as this file) first — this skill doesn't load that file wholesale, so the extractor isn't in context until you read it. Extract the body to a file with the **§15 extractor**, which needs `curl`/`pandoc`/`python3`+`bs4`/`lxml` (its prereq check is the gate — if those are missing, skip the published path and fall through to Phase 1's WhisperX run after telling the user). The body lands at `<BODY_FILE>` — §15's printed `BODY=` path, a **deterministic function of the URL**, so you can reuse that exact path in step 6 (or re-derive it from the URL); there is no random temp name to carry across tool calls. Judge it on structure with **shell probes, not by reading the whole body into context** — `wc -w "<BODY_FILE>"`, `grep -nE` for speaker labels / transcript markers, and `head`/`tail` for a bounded look. Accept as a genuine transcript if it has sustained episode-specific prose AND either (a) speaker turn-taking, (b) continuous single-speaker prose (lectures/monologues have no turns), or (c) the page explicitly labels itself a transcript. Reject show notes, a summary, an excerpt, or a paywalled stub. As a sanity floor, *if you can cheaply get duration* (`yt-dlp --print "%(duration)s" "URL"` for YouTube), expect ≳80–100 words per minute of audio — but don't reject a labelled transcript just for running light, and skip the floor when duration is unknown. If it's a summary or partial, discard it and fall through to Phase 1.
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity, human-edited; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler.
    2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
@@ -127,6 +127,13 @@ audio = whisperx.load_audio(audio_file)
 result = model.transcribe(audio, batch_size=batch_size)
 language = result["language"]
 
+# distil-large-v3 is English-only — its output on other languages is unreliable.
+if language != "en":
+    raise SystemExit(
+        f"Detected language '{language}', but distil-large-v3 is English-only. "
+        "Re-run with a multilingual model (large-v3) or use /transcribecloud."
+    )
+
 # 2. Align (word-level timestamps)
 model_a, metadata = whisperx.load_align_model(language_code=language, device=device)
 result = whisperx.align(result["segments"], model_a, metadata, audio, device)
@@ -134,15 +141,19 @@ result = whisperx.align(result["segments"], model_a, metadata, audio, device)
 # 3. Diarize (optional)
 if diarize:
     from whisperx.diarize import DiarizationPipeline
-    diarize_model = DiarizationPipeline(
-        model_name="pyannote/speaker-diarization-3.1",
-        device=device,
-        token=os.environ.get("HF_TOKEN"),  # whisperx 3.8.x param is `token` (NOT use_auth_token, which is the older pod-pinned API in /transcribecloud); None → falls back to the cached huggingface-cli login
-    )
-    assert diarize_model.model is not None, (
-        "DiarizationPipeline.model is None — token rejected or licence gates not accepted "
-        "(see Prerequisites; Pipeline.from_pretrained fails silently on auth errors)"
-    )
+    try:
+        diarize_model = DiarizationPipeline(
+            model_name="pyannote/speaker-diarization-3.1",
+            device=device,
+            token=os.environ.get("HF_TOKEN"),  # whisperx 3.8.x param is `token` (NOT use_auth_token, which is the older pod-pinned API in /transcribecloud); None → falls back to the cached huggingface-cli login
+        )
+    except Exception as e:
+        # Pipeline.from_pretrained returns None on auth/licence failure, so the
+        # constructor blows up inside itself (typically AttributeError on .to()).
+        raise RuntimeError(
+            "Diarisation pipeline failed to load — token rejected or licence gates not accepted "
+            "(see Prerequisites)"
+        ) from e
     diarize_segments = diarize_model(
         audio,
         num_speakers=num_speakers,
@@ -199,7 +210,7 @@ Replace the placeholder variables with actual values.
    ```
    The timestamp is derived from the `start` field of the first word in each paragraph group.
 
-   Map raw labels (`SPEAKER_00`, `SPEAKER_01`, ...) to `Speaker 1`, `Speaker 2`, etc. in order of first appearance. The words array is found at `segments[].words[]`, each with `word`, `start`, `end`, `score`, and `speaker` keys.
+   Map raw labels (`SPEAKER_00`, `SPEAKER_01`, ...) to `Speaker 1`, `Speaker 2`, etc. in order of first appearance. The words array is found at `segments[].words[]`. Only `word` is guaranteed — `start`, `end`, `score` and `speaker` are all optional: alignment omits timing for tokens it can't align (numerals, symbols, out-of-vocabulary fragments), and speaker assignment skips any word without a `start`. Never index these keys directly. A word missing `start`/`end` keeps its text but contributes no timestamp and no gap: attach it to the paragraph in progress and take timing from the nearest neighbour that has it.
 
 3. **LLM cleanup pass** (skip if `--raw` was passed):
 
@@ -232,7 +243,7 @@ Replace the placeholder variables with actual values.
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
-   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14):** saving the whole note via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+   > ⚠️ **Verbatim fidelity (`_shared-rules.md` §14 — read that section now; this skill doesn't load the file wholesale):** saving the whole note via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
 
    **Write the header only** with the editor tool (down to and including the `---`):
 
@@ -265,6 +276,7 @@ Replace the placeholder variables with actual values.
 ## Notes
 
 - WhisperX uses faster-whisper (CTranslate2 backend) which is faster than HF Transformers for inference.
+- distil-large-v3 is **English-only** — Phase 2 aborts if the detected language isn't English. For other languages, run the multilingual `large-v3` (much slower on CPU) or `/transcribecloud`. This is why the auto-caption step is best-effort rather than a non-English pathway.
 - GPU (CUDA) is used automatically if available; falls back to CPU with int8 quantisation.
 - Models are cached after first download (~1.5GB for distil-large-v3, ~2-4GB for pyannote diarisation models).
 - On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.

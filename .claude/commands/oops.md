@@ -44,7 +44,16 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
 ### Phase 2: Check for Rule Collision
 
-3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md, auto-memory files (`MEMORY.md` and its topic files, if present), and any loaded context files for rules that cover this situation.
+3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md, the auto-memory directory, and any loaded context files for rules that cover this situation.
+
+   **Grep the memory directory — don't rely on what's loaded.** `MEMORY.md` is an index of one-line pointers; the trigger conditions Phase 2 has to diagnose live in the topic files, and a topic file only loads when relevance-matching happened to fire. Resolve the directory rather than guessing it (the project directory name is the absolute cwd with every `/` and `.` replaced by `-`):
+
+   ```bash
+   M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory
+   [ -d "$M" ] || ls -d ~/.claude/projects/*/memory/   # fall back to listing if the derived path is absent
+   ```
+
+   Then Grep that directory for key nouns from the mistake. If no memory directory exists, note it and carry on with CLAUDE.md and context files.
 
    **If a matching rule exists**, the lesson isn't "follow the rule" — the rule already failed to fire. Diagnose why:
    - **Was the rule in context?** (Was CLAUDE.md or the relevant context file loaded when the mistake happened?)
@@ -87,10 +96,16 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - Corrections log: `{VAULT}/07 System/Claude Corrections Log.md`
    - Get date: `date +"%Y-%m-%d"`
 
-7. **Append to the corrections log** using the Edit tool:
+7. **Append to the corrections log** via `locked-edit.sh --append` (`_shared-rules.md` §5), NOT the Edit tool — the log is a shared append-only file, and the lockless read-modify-write both races concurrent writers and pulls the whole (ever-growing) log into context. `--append` needs no prior read:
    - **First run:** if `{VAULT}/07 System/Claude Corrections Log.md` doesn't exist, create it from the template in **Setup** below, then continue
-   - Read the current end of `{VAULT}/07 System/Claude Corrections Log.md`
-   - Use Edit tool to append the new entry after the last line
+   - Pipe the entry in on stdin:
+
+   ```bash
+   cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/Claude Corrections Log.md" --append
+   <entry, in the format below — its leading blank line separates it from the previous entry>
+   EOF
+   ```
+
    - Entry format (substitute actual values):
 
    ```markdown
@@ -141,7 +156,7 @@ The corrections log entry follows this exact structure:
 - **Be specific:** "Assumed X" not "Made an assumption"
 - **No hedging:** "Forgot to use tool" not "Perhaps could have used tool"
 - **Transferable lessons:** The lesson should help in future similar situations, not just this exact case
-- **Keep it short:** Each field should be 1-2 sentences max
+- **Keep it short:** Mistake and Correction are 1-2 sentences each. Lesson and Rule collision get whatever the mechanism needs — Rule collision has to carry the existing rule, why it didn't fire, and the fix, and a Lesson stripped to one clause usually degrades into an intention
 - **Title is searchable:** Choose words you'd grep for later
 
 ## Setup

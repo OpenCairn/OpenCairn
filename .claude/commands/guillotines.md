@@ -31,13 +31,16 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 - Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/Provenance/`). A `[GT]` copied into a frozen snapshot is not a live deadline
+- Drop **mentions of the tag** as opposed to tagged items. A `[GT]` sitting inside running prose, or listed alongside other bare tag tokens (documentation of the tagging scheme, notes about the scanner, examples in a how-to), is describing the tag, not carrying a deadline. The tell: the tag isn't the leading marker of a task line, and the line reads as a sentence about tags. These are not mis-tagged items — never surface them for correction
 - Note each hit's completion marker: a checked-off item (`- [x]`) is a *met* (or dead) deadline, not a live one — route it to the Done section in Step 4, never to the timeline
 
 ### 3. Extract the Deadline for Each Item
 
 For every `[GT]` hit, pull the hard date from the item text (e.g. "expires 30 Sep 2026", "by 1 Jul", "due 2026-09-30"):
 
-- If a date is present, compute days remaining mechanically — `echo $(( ($(date -d "<deadline>" +%s) - $(date -d "<today>" +%s)) / 86400 ))` with `<today>` from Step 1, so both ends anchor at midnight and the result is exact whole days — never by internal arithmetic; month-boundary slips are exactly the errors this skill exists to prevent. Verify any ambiguous or weekday-bearing date with `date -d "<date>"` too.
+- If a date is present, strip the surrounding prose first and pass **only the bare date token** to `date -d` — `expires 30 Sep 2026` → `30 Sep 2026`, `by 1 Jul` → `1 Jul`. `date -d` cannot parse the leading verb and will reject the whole string.
+- Compute days remaining mechanically — `d=$(date -d "<bare date>" +%s) && echo $(( ($d - $(date -d "<today>" +%s)) / 86400 ))` with `<today>` from Step 1, so both ends anchor at midnight and the result is exact whole days — never by internal arithmetic; month-boundary slips are exactly the errors this skill exists to prevent. Verify any ambiguous or weekday-bearing date with `date -d "<date>"` too.
+- **Never emit a number from a failed parse.** If `date -d` errors (`invalid date`, non-zero exit, no output), the arithmetic still prints a plausible-looking figure — a large negative one that reads as wildly overdue. Check that the date command succeeded before using the result; on any parse failure, classify the item **Ambiguous** and print no days-remaining count.
 - **Approximate or partial dates** (e.g. "March 2027", "late Oct") — don't invent a day. Resolve conservatively to the *earliest* day of the stated window for sorting, and prefix the displayed date with `~` so the imprecision is visible.
 - **Bare dates with no year** (e.g. "by 1 Jul") resolve to the *next* occurrence: if that date in the current year is already past, assume next year. Exception: if the current-year date passed *recently* (within ~90 days), the item may be overdue rather than 9+ months out — flag it as ambiguous instead of silently assuming next year. Echo the resolved absolute date in the output so a mis-parse is visible.
 - If **no** date is present in the grep context, Read the surrounding lines of the source file before classifying — `-C 1` often clips a date sitting in a nearby line or heading. Only if the file genuinely carries no hard date is the item mis-tagged — a guillotine without a deadline is just a task. Surface it separately under "Undated" for correction.
@@ -47,7 +50,7 @@ For every `[GT]` hit, pull the hard date from the item text (e.g. "expires 30 Se
 
 Order items by deadline **ascending — soonest blade first.** Undated items are excluded from the sort and surfaced in their own section (see template below). Apply status markers:
 
-- 🔴 **OVERDUE** — deadline is in the past. The blade has dropped; surface first and loudest. Applies to *open* items only — a past deadline on a checked-off item (`- [x]`) was met, not missed; list it under **Done** *(tag can be removed)*, outside the timeline.
+- 🔴 **OVERDUE** — deadline is in the past, i.e. the Step 3 count is negative (the formula is deadline − today). Display it as a **positive** number of days elapsed — take the absolute value; never render a negative count in a `days ago` slot. The blade has dropped; surface first and loudest. Applies to *open* items only — a past deadline on a checked-off item (`- [x]`) was met, not missed; list it under **Done** *(tag can be removed)*, outside the timeline.
 - 🟠 **IMMINENT** — due today (0 days — call it out as **DUE TODAY**) through ≤30 days out.
 - 🟡 **APPROACHING** — ≤90 days out.
 - ⚪ **DISTANT** — >90 days out.
@@ -61,6 +64,7 @@ Order items by deadline **ascending — soonest blade first.** Undated items are
 
 🔴 **OVERDUE**
 - [ ] [GT] Item description — deadline DD Mon YYYY (**X days ago**) — `relative/path.md`
+- [ ] [GT] Same obligation recorded in two places — deadline DD Mon YYYY (**X days ago**) — `first/path.md`, `second/path.md`
 
 🟠 **IMMINENT (≤30d)**
 - [ ] [GT] Item description — deadline DD Mon YYYY (**X days left**) — `relative/path.md`
@@ -84,6 +88,8 @@ Order items by deadline **ascending — soonest blade first.** Undated items are
 ### Bottom line
 The next blade: **[item]** in **X days** (DD Mon YYYY).
 ```
+
+**N** is the count of distinct obligations *after* deduplication (per "One obligation, one line" below), not the raw grep hit count; **M** is the number of distinct source files those obligations appear in. Where one obligation lives in several files, list every path on its single line, comma-separated, with the canonical source first.
 
 Omit any section with no items. Mirror each item's source marker (`- [ ]` / `- [x]` / plain bullet) — don't invent checkboxes. Bottom line adapts: if the soonest dated open item is overdue, lead with "The blade has dropped on **[item]** — X days ago"; if no dated open items exist, "No dated guillotines open."
 

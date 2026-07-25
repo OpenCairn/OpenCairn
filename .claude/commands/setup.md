@@ -17,6 +17,18 @@ You are running the initial setup for a new OpenCairn user. This handles environ
 
 Run all checks first, display the result, then act on what's missing.
 
+0. **Confirm the working directory is the vault** — every check below uses a relative path, and Phase 2's remedies create a git repo in whatever directory Claude Code was launched from. Run this first and stop if it fails:
+   ```bash
+   if [[ -f CLAUDE.md && -d "07 System" && -d .claude/commands ]]; then
+     echo "VAULT_CWD_OK"
+   else
+     echo "NOT_VAULT_CWD"
+   fi
+   ```
+   On `NOT_VAULT_CWD`, tell the user to restart Claude Code from their vault directory and run `/setup` there. Do not continue to the remaining checks, and do not run any Phase 2 remedy.
+
+   (`resolve-vault.sh` is not the right tool here — it validates `$VAULT_PATH`, which `/setup` exists to establish.)
+
 1. **Detect OS:**
    ```bash
    uname -s
@@ -260,18 +272,20 @@ Capture: principles (optional — the template already includes two defaults).
 
 Use the Edit tool to replace bracketed placeholders with the user's answers:
 
-1. Replace `[Your name], [age]. [Brief description of your profession/life stage.]` with the user's identity line
-2. Replace `[1-2 sentences about what you're primarily working on or focused on right now.]` with current focus
-3. Replace the multi-line thinking style block — this spans 3 lines from `[Describe your thinking style.` through `or toward deliberation?]`. Replace all 3 lines with the user's answer.
-4. Replace `[e.g., en_GB.UTF-8, TZ=Europe/London]` with confirmed locale
-5. Replace `[Do you want to understand the "why" or just follow instructions?]` with evidence preference
-6. Replace `[Comfortable with complexity? Prefer simplified explanations?]` with technical depth
-7. Replace `[Do you want Claude to challenge your ideas or mostly agree?]` with pushback preference
-8. Replace the `[Domain A]` / `[Domain B]` entries with the user's domain list, one line per domain:
-   ```
-   - **[Domain]:** `07 System/Context - [Domain].md`
-   ```
-9. Replace `[Add your own principles here]` with the user's principles (keep the two default principles above)
+1. Replace `[Your Name]` in the H1 title line with the user's name
+2. Delete the instructional HTML comment block at the top of the file (the one beginning `INSTRUCTIONS:`) — it sits above the first section, so the section-scoped cleanup below won't catch it
+3. Replace `[Your name], [age]. [Brief description of your profession/life stage.]` with the user's identity line
+4. Replace `[1-2 sentences about what you're primarily working on or focused on right now.]` with current focus
+5. Replace the multi-line thinking style block — this spans 3 lines from `[Describe your thinking style.` through `or toward deliberation?]`. Replace all 3 lines with the user's answer.
+6. Replace `[e.g., en_GB.UTF-8, TZ=Europe/London]` with confirmed locale
+7. Replace `[Do you want to understand the "why" or just follow instructions?]` with evidence preference
+8. Replace `[Comfortable with complexity? Prefer simplified explanations?]` with technical depth
+9. Replace `[Do you want Claude to challenge your ideas or mostly agree?]` with pushback preference
+10. Replace the `[Domain A]` / `[Domain B]` entries with the user's domain list, one line per domain:
+    ```
+    - **[Domain]:** `07 System/Context - [Domain].md`
+    ```
+11. Replace `[Add your own principles here]` with the user's principles (keep the two default principles above)
 
 Remove HTML comments (`<!-- ... -->`) from sections that have been filled in — they're instructions for setup, not permanent content.
 
@@ -279,7 +293,7 @@ After editing, display: `✓ CLAUDE.md personalised`
 
 ### Phase 5: Create Context File Stubs
 
-For each domain the user listed, create a stub file at `07 System/Context - [Domain].md`:
+For each domain the user listed, create a stub file at `07 System/Context - [Domain].md` — **only if that file does not already exist**. If it does, leave it untouched and report it as existing; a re-run must never overwrite a populated context file.
 
 ```markdown
 # Context - [Domain]
@@ -321,7 +335,7 @@ After creating stubs, display:
 ```
 ✓ Created context file stubs:
   - 07 System/Context - [Domain1].md
-  - 07 System/Context - [Domain2].md
+  - 07 System/Context - [Domain2].md (already existed — left untouched)
   - 07 System/Context - Direction.md (personalised / template — fill in later)
   ...
 ```
@@ -339,6 +353,8 @@ Template remote: [✓]
 VAULT_PATH:      [✓]
 Bash version:    [✓] (macOS only)
 Scripts:         [✓]
+python3:         [✓ / ⚠ missing — planning-file writes (locked-edit.sh) + transcript export fail]
+jq:              [✓ / ○ missing — only needed for the optional /setup-hooks cross-pollination hook]
 CLAUDE.md:       [✓]
 Context files:   [N] created
 

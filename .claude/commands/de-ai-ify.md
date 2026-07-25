@@ -24,6 +24,8 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
    If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; `/setup` documents how to set it per-OS). Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`; if both exist, prefer the copy in the same directory as this command file) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Analyse the text:**
+   - **Establish medium and register first.** Map the medium (blog post, email, IM, vault note, document) and the relationship to the reader onto the matching register section of the voice profile — that section, not the profile as a whole, governs the rewrite. If the medium or register is genuinely ambiguous from the text and the surrounding context, ask once before rewriting. When this skill is invoked by another command, the register passed at invocation wins.
+   - **Gate the structural rules by length and genre.** Checklist and step 3 items that presuppose document-length prose (intros, argument structure, conclusions, listicle-to-narrative) don't apply to a short message, a deliberate bullet list, or a status update — skip them rather than prosifying the form the user chose. Lexical and tone items still apply.
    - Identify AI patterns (see checklist below)
    - Note structural issues (generic intro/conclusion, listicles, etc.)
    - Find ideas worth keeping
@@ -34,7 +36,7 @@ Read `{VAULT}/07 System/Context - Voice & Writing Style.md` — concrete before/
 
 - **If it exists and is populated:** use it alone. Do NOT trawl secondary sources on a routine run — the profile already distils them.
 - **If it's missing or thin:** say so, offer the first-run profile build (see Voice Training Sources below), and rewrite using this file's defaults — or user-supplied samples — in the meantime.
-- **Secondary sources are for profile building/refinement only**, not per-run reads: archived AI-chat exports (the user's own prompts, not AI responses), published writing (blog posts, essays), and the user's Obsidian notes (especially in `07 System/` and `03 Projects/`).
+- **Secondary sources are for profile building/refinement only**, not per-run reads: published writing (blog posts, essays), sent messages in the target medium, and the user's Obsidian notes (especially in `07 System/` and `03 Projects/`).
 
 3. **Apply transformations:**
 
@@ -60,17 +62,17 @@ Read `{VAULT}/07 System/Context - Voice & Writing Style.md` — concrete before/
 
 4. **Rewrite the text:**
 
-Present two versions:
+Present two versions. If either text contains its own fenced code block, wrap it in a fence at least one backtick longer than the longest fence inside it (four or more backticks) so the nesting survives:
 
 **Original:**
-```
+````
 [Original text]
-```
+````
 
 **De-AI-ified (the user's voice):**
-```
+````
 [Rewritten text]
-```
+````
 
 **Key changes:**
 - Removed: [List of AI patterns eliminated]
@@ -129,9 +131,11 @@ Present two versions:
 
 **Primary sources** (the user's authentic writing — use whichever exist in the vault):
 1. Published writing (blog posts, essays)
-2. The user's messages in archived AI-chat exports (their prompts, not AI responses)
+2. Messages the user actually sent in the target medium (email, IM, forum posts)
 3. Personal writing in note-app exports (their words, not captures)
 4. Obsidian project files and context files (their documentation)
+
+**Not a voice source:** instructions the user wrote to an AI assistant. Prompts are terse, imperative, and speed-optimised — a task register, not a style sample. Mining them corrupts the profile.
 
 **What to extract:**
 - Vocabulary preferences (technical terms they use naturally)

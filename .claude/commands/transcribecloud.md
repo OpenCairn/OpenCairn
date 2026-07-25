@@ -65,7 +65,7 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
    - L40S (~USD 0.80–1.00/hr) — expensive, only if nothing cheaper available
 
    Secure-cloud variants cost ~2× community but provision faster and more reliably. For jobs under ~1 hour of audio, the hourly difference is negligible at job total cost. Some GPUs are secure-only (`communityCloud: false`) — check that field before choosing a cloud tier.
-6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~1 min setup + ~1 min per hour of audio on mid-tier GPU), estimated cost.
+6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~10 min setup — the Phase 3 dependency install dominates — plus ~1 min per hour of audio on mid-tier GPU), estimated cost.
 7. **Confirm output location** with user if not specified via `--output`.
 
 ### Phase 1.5: Published-transcript check (single-source runs only)
@@ -76,6 +76,7 @@ A cloud run **costs money**, so the bar to spend pod time is *higher* than for l
 - The job is a **single source** — exactly one YouTube video (not a playlist) or one named podcast/talk episode. Skip for multi-file jobs, directories, playlists, or `mixed` sources — a per-file published check doesn't fit a batch and isn't worth the latency.
 - `--no-published` was **not** passed.
 - The source has a plausible online origin (YouTube URL, or a podcast episode the user named/linked). Skip for opaque local files with no obvious published page.
+- Diarisation was **not** requested via `--diarize`/`--diarise`/`--speakers N` — a published transcript cannot satisfy a diarisation request (a user-supplied transcript URL still wins, per `/transcribe` Phase 0 step 1).
 
 When the gate passes, run the **full discover → validate → choose** logic from `/transcribe` Phase 0 steps 1–5 (user-supplied URL wins; else scan the YouTube description / show-notes / one web search; validate it's a *full verbatim transcript*, not show-notes or a summary; present the choice and wait — don't auto-pick). The only cloud-specific change to the choice framing: option 2 is **"run WhisperX on a paid RunPod GPU"**, so state the *dollar* cost of the cloud run alongside the fidelity tradeoff.
 
@@ -151,15 +152,34 @@ Connection-timeout symptoms are ambiguous — the same error can mean (a) sshd h
 
 Run all commands via SSH. If using exposed TCP, standard `ssh ... "command"` works. If using proxy, use the `script -qec 'ssh -tt ...'` PTY wrapper shown in Phase 2 step 5.
 
-1. **Install dependencies (pins are MANDATORY — see note below):**
+1. **Install dependencies (pins are MANDATORY — see note below).** This pulls several GB of wheels (the cu124 torch wheel alone is ~2.5 GB) and dominates pod setup time — it routinely outlasts the Bash tool timeout. So **write it to a script and run it detached, polling a log**, exactly as Phase 5 does; a blocking foreground SSH call will be killed mid-install and leave a half-populated `site-packages`.
+
 ```bash
-apt-get update -qq && apt-get install -y -qq ffmpeg && \
-pip install -q 'numpy<2.0' && \
-pip install -q yt-dlp 'whisperx==3.4.2' --no-deps && \
-pip install -q 'faster-whisper==1.2.1' 'transformers==4.40.2' 'huggingface_hub==0.24.7' pandas nltk omegaconf 'pyannote-audio==3.3.2' matplotlib && \
-pip install -q torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-cache-dir && \
+# Write the install script on the pod (quoted heredoc — nothing expands locally):
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'cat > /workspace/setup.sh' <<'SETUP'
+set -e
+apt-get update -qq && apt-get install -y -qq ffmpeg
+pip install -q 'numpy<2.0'
+pip install -q yt-dlp 'whisperx==3.4.2' --no-deps
+pip install -q 'faster-whisper==1.2.1' 'transformers==4.40.2' 'huggingface_hub==0.24.7' pandas nltk omegaconf 'pyannote-audio==3.3.2' matplotlib
+pip install -q torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-cache-dir
 pip install -q 'ctranslate2>=4.5.0'
+echo INSTALL_OK
+SETUP
+
+# Launch detached — returns in <1s:
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
+  'cd /workspace; nohup bash setup.sh </dev/null > /workspace/setup.log 2>&1 &'
 ```
+
+**Poll** every ~60–90s, same protocol as Phase 5 (the `sleep` runs inside the SSH call, so the tool blocks for the interval):
+```bash
+ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/setup.log; tail -n 20 /workspace/setup.log'
+```
+- Final line `INSTALL_OK` → continue to step 2.
+- Log frozen with no `INSTALL_OK` → check the process is actually gone (`pgrep -af 'bash setup.sh'`) before calling it dead; a large wheel download is legitimately quiet for minutes. Process gone + no `INSTALL_OK` → read the tail for the failing line. `set -e` aborts on the first failure and pip re-runs are idempotent, so relaunching the same script after a kill or a fixed error resumes safely.
+
+Over proxy SSH, wrap each call in the Phase 2 step 5 PTY form; a stdin-piped heredoc doesn't survive that wrapper, so transfer `setup.sh` with `runpodctl send` (Phase 4 pattern) instead of piping it.
 
 **Why pinned:** upstream whisperx jumped to 3.8.x (requires torch 2.8+, pyannote-audio 4.x) and pyannote-audio jumped to 4.0.x (breaking Inference API). Both happened between 2026-04-21 and 2026-04-22. Unpinned installs resolve to the newest wheels and break at runtime. The pin set above is the mid-2024 constellation that works with the cu124 image. If you bump any of these, re-validate end-to-end (not just imports) — SETUP_OK below is necessary but not sufficient.
 
@@ -326,7 +346,7 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/transcrib
 The leading `wc -l` is the line count — compare it across consecutive polls to tell a *running* log (advancing) from a *dead* one (frozen). Classify each poll — **do not proceed to Phase 6 until you reach Success:**
 - **Success** — the log's final line is `Done.` → continue to Phase 6.
 - **Failure (crash)** — the log contains `Traceback (most recent call last)` → an unhandled exception (includes the diarisation `AssertionError`); stop, diagnose, don't retrieve. Match this specific marker, **not** a bare `Error` / `None` substring — benign output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs, if the traceback names a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the failure the Phase 3 note warns is easy to miss under `nohup`).
-- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. **Before declaring death, check the process is actually gone:** `pgrep -af 'python3 transcribe.py'` in the same SSH call — the first-run `large-v3` weight download (~3 GB, tqdm disabled) is legitimately quiet for minutes after the `Loading ASR model` line, and a live process + frozen log during that window is *still running*, not dead. Process gone + stalled count = died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
+- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. **Before declaring death, check the process is actually gone:** `pgrep -af 'python3 transcribe.py'` in the same SSH call — a live process + frozen log is *still running*, not dead. Two legitimate quiet windows: the first-run `large-v3` weight download (~3 GB, tqdm disabled) after the `Loading ASR model` line, and any single file's transcription, which emits nothing between its `[i/N] name...` line and its elapsed-time line. Process gone + stalled count = died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
 - **Still running** — line count is **still advancing**, no `Done.` → keep polling. Hard ceiling `max(30 min, ~2× the Phase 1 runtime estimate)` as a final backstop.
 
 The script itself:
@@ -510,9 +530,9 @@ for i, audio_file in enumerate(files, 1):
     # Per-file status manifest (.jsonl so Phase 6's *.json count ignores it)
     with open(os.path.join(output_dir, "manifest.jsonl"), "a") as mf:
         mf.write(json.dumps({"file": basename, "status": "ok", "elapsed_s": round(elapsed, 1)}) + "\n")
-    print(f"{elapsed:.1f}s")
+    print(f"{elapsed:.1f}s", flush=True)
 
-print("Done.")
+print("Done.", flush=True)
 ```
 
 Replace `DIARIZE`, `NUM_SPEAKERS`, and `LANGUAGE` with actual values from arguments. `LANGUAGE` defaults to `"en"`; set to `None` only when `--language auto` was passed.
@@ -632,7 +652,7 @@ ref_dir="${VOICE_REF_DIR:-$VAULT_PATH/voice-references}"                   # def
 { [ -n "$ref_dir" ] && [ -d "$ref_dir" ]; } && echo "voice refs: $ref_dir" || echo "no voice references found — speaker names will degrade to Speaker N"
 ```
 
-Pass the resolved `$ref_dir` to Phase 8. If it comes back empty, that is the expected "no references" path — proceed with `Speaker N` labels, don't error.
+The block **echoes** the resolved path — read it out of that output and **substitute the literal path** into every later command (the transfer below, and the Phase 8 script's `ref_dir`). Shell state does not persist between Bash calls, so a later `"$ref_dir"` is empty; and on the pod neither `VAULT_PATH` nor `VOICE_REF_DIR` exists (ssh doesn't forward them), so a pod-side re-derivation resolves to a non-existent `/root/...` path. Both failures are silent — every cluster quietly degrades to `Speaker N`. If the resolver comes back empty, that is the expected "no references" path — proceed with `Speaker N` labels, don't error.
 
 **Capture spec:** 20–30s of clean solo speech from each known speaker. Natural conversational register (not reading aloud — reading voice differs meaningfully). No background music, no second speaker bleed-through, no heavy compression. A phone voice-memo .m4a is fine.
 
@@ -642,7 +662,7 @@ Pass the resolved `$ref_dir` to Phase 8. If it comes back empty, that is the exp
 
 **Where Phase 8 runs (choose one):**
 
-- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. **First transfer the voice-reference files to the pod** — they live in the local vault and are not on the pod otherwise (`scp -i ~/.ssh/id_ed25519 -P PORT "$ref_dir"/*.{m4a,wav} root@IP:/workspace/voice-refs/` after a `mkdir -p`, or `runpodctl send` over proxy) — and point the script's `ref_dir` at that pod path, else it finds 0 references and silently degrades every cluster to `Speaker N`. Then run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
+- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. **First transfer the voice-reference files to the pod** — they live in the local vault and are not on the pod otherwise (`scp -i ~/.ssh/id_ed25519 -P PORT "<RESOLVED_REF_DIR>"/*.{m4a,wav} root@IP:/workspace/voice-refs/` after a `mkdir -p`, substituting the literal path the resolver echoed — not `$ref_dir`, which is empty in a new Bash call — or `runpodctl send` over proxy) — and hard-code the script's `ref_dir` to that pod path, else it finds 0 references and silently degrades every cluster to `Speaker N`. Then run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
 - **Locally in a pinned venv (for repeat runs on old JSONs without a pod).** The laptop's system Python has numpy 2.x and no pyannote, which will fail on the np.NaN path. Create a dedicated venv once:
   ```bash
   python3 -m venv ~/.venvs/whisperx-phase8
@@ -740,8 +760,11 @@ def assign_names(cluster_embeddings, ref_embeddings, span_durations=None,
 # 1. Load transcript JSON
 # 2. embs = data.get("cluster_embeddings", {})
 # 3. durs = data.get("cluster_span_durations", {})
-# 4. vault = os.environ.get("VAULT_PATH") or os.path.expanduser("~/Files")
-#    ref_dir = os.environ.get("VOICE_REF_DIR") or os.path.join(vault, "voice-references")  # pass through from the resolver above
+# 4. ref_dir = "<literal path>"   # hard-code it: the resolver's echoed path when running locally,
+#    #                              the pod path (e.g. /workspace/voice-refs) when running on-pod.
+#    #                              Do NOT re-derive from VAULT_PATH/VOICE_REF_DIR — those are unset
+#    #                              on the pod (ssh doesn't forward env), and the fallback resolves to
+#    #                              a non-existent /root/... path, silently yielding {}.
 #    refs = load_reference_embeddings(ref_dir) if os.path.isdir(ref_dir) else {}  # {} → degrade to Speaker N
 #    NB: do NOT shell out to `find '$VAULT_PATH' ...` — single quotes pass the var literally and the find finds nothing.
 # 5. assignments = assign_names(embs, refs, span_durations=durs)
