@@ -63,3 +63,4 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Empty CLI output is not zero** — cross-check rows vs total; crash ≠ empty; stop re-invoking. → `weekly-hygiene` Step 12, `quarterly-hygiene` Step 6
 - **Portability note on GNU-only snippets** — name the BSD/Windows equivalent beside it. → `_shared-rules.md §5`, `weekly-hygiene` Guidelines, `quarterly-hygiene` Step 6
 - **Deferred cross-skill handoff via a drop-box** — writer drops a dated artefact; later skill consumes it. → `provenance` (flags, deleted on processing), `park` Step 4(a) (receipt, time-filtered)
+- **Name what was checked and found clean** — silence ≠ endorsement; unswept and swept-clear are different claims. → `security-audit` (Already solid), `landscape-profiles/cybersec` (Stack swept)
