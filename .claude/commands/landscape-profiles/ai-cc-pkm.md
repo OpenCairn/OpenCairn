@@ -7,14 +7,14 @@ The default profile. Tool-adoption lens on the AI / Claude Code / Obsidian-PKM l
 ## File naming
 
 - Filename suffix: **none** (display form `YYYY-Www.md`, e.g. `2026-W16.md`).
-- Prior-scan glob (executable): **`20[0-9][0-9]-W[0-9][0-9].md`** — anchored so the `.md` follows the week number directly, which excludes both topic-suffixed files like `2026-W16-cybersec.md` and any legacy `YYYY-MM.md` files (neither matches the pattern). Pick the most recent match by parsed week label, or `ls -t` mtime as a cheap proxy.
+- Prior-scan glob (executable): **`20[0-9][0-9]-W[0-9][0-9].md`** — anchored so the `.md` follows the week number directly, which excludes both topic-suffixed files like `2026-W16-cybersec.md` and any legacy `YYYY-MM.md` files (neither matches the pattern). Pick the most recent match by parsed week label (`ls -1 … | sort -r`); mtime breaks ties only — never anchors the delta.
 
 ## Contextualising reads
 
 Relevance is filtered through both "what I do privately" and "what I publicly claim to do."
 
-- **Current Claude Code usage patterns** — sample 2–4 recent files from `{VAULT}/06 Archive/Claude/` (daily logs, weekly reviews, corrections log). Get a feel for session shape, what gets delegated, friction points, and what the user praises.
-- **Public-facing work relevant to the domain** — the user's public site(s), if any are listed in CLAUDE.md (e.g. a personal site posting Claude Code / Obsidian / self-hosting content); other sites the user runs for other domains.
+- **[required] Current Claude Code usage patterns** — sample 2–4 recent files from `{VAULT}/06 Archive/Claude/` (daily logs, weekly reviews, corrections log). Get a feel for session shape, what gets delegated, friction points, and what the user praises.
+- **[optional] Public-facing work relevant to the domain** — the user's public site(s), if any are listed in CLAUDE.md (e.g. a personal site posting Claude Code / Obsidian / self-hosting content); other sites the user runs for other domains.
 
 ## Sources
 
@@ -68,7 +68,7 @@ For each, focus on what's new or changed since the last scan.
 
 - **Mandatory mechanical digest:** fetch *every* Zvi post published since the last scan run. Scan each post end-to-end (not just headlines/TOC) for any Claude Code / AI-tool / PKM / agent-workflow / AI-coding-infra item. Extract every such item regardless of how buried. The OCLI near-miss is the load-bearing precedent — headline-scan is not sufficient for this source.
 - **Bootstrap (first-ever scan run):** no prior scan exists, so "since last run" is undefined. Default window: last **4 weeks** of posts. Compute cutoff explicitly: `date -d "4 weeks ago" +%Y-%m-%d`. Acknowledge in the report that this is a cold-start pass.
-- **Subsequent runs:** delta from the most recent scan file's date — use `ls -t` (mtime sort) to find the most recent file, then parse its report-date header.
+- **Subsequent runs:** delta from the most recent scan file's date — find the most recent file by the ISO week label in its filename (`ls -1 … | sort -r`, mtime for ties only), then parse its report-date header.
 - **Review the Zvi mandatory-digest rule after 3 runs.** The rule is single-point-justified (OCLI only). After the third run with Zvi digest performed, explicitly evaluate: did Zvi surface anything non-obvious that headline-scan would have missed? If no, downgrade to headline-scan with selective deep-read on Claude-Code-adjacent sections. Record the evaluation in that run's report.
 
 ## Assessment frame

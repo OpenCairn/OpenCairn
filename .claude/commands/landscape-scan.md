@@ -25,6 +25,17 @@ The engine never collapses a profile's passes into a single verdict, and never s
 
 ## Instructions
 
+### Standing gate — binds every step and the report, for every profile
+
+**⛔ Read-the-source gate (mandatory).** Any *comparative claim that names a specific local skill* — that an external finding obsoletes / upgrades / replaces / collides with / is inferior or superior to / makes redundant `/X` — MUST be backed by reading `/X`'s own source *this run*, **wherever the claim appears** (Step 7's fit pass, Step 8, or any section of the report). Sub-agents and external write-ups only ever see a name plus a one-line description, so their comparative claims are *structurally speculation*. **Name/description overlap is a prompt to open the file, never a verdict.**
+
+- **Who reads:** the actor that writes the claim. A sub-agent that can't load local skills emits "name overlap — source unread" and leaves the verdict to the orchestrator, which opens the named source itself before accepting or reporting it.
+- **What to read:** the named skill's source at `$COMMANDS_DIR/<name>.md` (the commands dir resolved in Step 0; fall back to `~/.claude/commands/<name>.md` only if `COMMANDS_DIR` couldn't be fixed) — enough of the body to establish its operating layer and mechanism, not just the frontmatter one-liner.
+- **If no source file exists, the claim is *more* suspect, not less.** Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never wave it through.
+- **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded as `Source read: <path>` (or `no file — claim dropped`).
+
+This gate lives here, outside the numbered steps, because it is not conditional on any profile key. It previously sat inside Step 8, which `cybersec` skips entirely — so a profile that never runs an obsolescence check was never handed the rule, while the rule's own text claimed to bind everywhere.
+
 ### 0. Resolve vault path and load shared rules
 
 ```bash
@@ -78,12 +89,19 @@ Determine which mode(s) apply, in precedence order:
 
 Relevance judgement requires knowing what the user is *already doing* (and, for tool profiles, what they're *publicly positioning*; for threat profiles, *what they actually run*). Without this, assessments default to generic-audience relevance and miss what matters.
 
-**Load the profile's `Contextualising reads` list**, proportionate to the scope of the run. Also:
+**Load the profile's `Contextualising reads` list.** Every entry in that list is marked **[required]** or **[optional]**:
 
-- **Prior scan** — the most recent one for *this topic* regardless of age (it stays the delta anchor after a multi-week gap; note in the report if it's older than ~2 weeks), from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`), sort by mtime (`ls -t`). Quote the directory but never the glob — `ls -t "{VAULT}/06 Archive/Landscape Scans/"<glob>` — a fully-quoted path makes the brackets literal and false-reports a cold start; an unquoted path breaks on the directory's spaces. Don't re-report things already classified unless their status changed. If the glob returns nothing, list the directory before concluding: no landscape files at all → genuine cold start, say so; files from other topics present but none matching this profile's pattern → report "no prior scans matched glob `<glob>`" so a mis-written pattern surfaces instead of silently reading as a cold start.
+- **[required]** entries load on every run, whatever the run's scope. If a required read is missing or unusable, follow the profile's stated handling for it — never proceed by inferring what it would have said. A profile marks an entry required when its assessment is unsound without it (e.g. `cybersec`'s stack inventory *is* the allow-list its exposure pass runs against; without it, findings get judged on product-name matches).
+- **[optional]** entries load proportionate to the scope of the run. These are the ones "keep it light" applies to.
+
+An unmarked entry is treated as **[required]** — the safe default, since the failure mode of skipping a genuinely required read is a confident assessment built on nothing.
+
+Also:
+
+- **Prior scan** — the most recent one for *this topic* regardless of age (it stays the delta anchor after a multi-week gap; note in the report if it's older than ~2 weeks), from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`). **Pick the most recent by the ISO week label parsed from the filename, not by mtime** — per `_shared-rules.md` §22, a filename that encodes the date is the authority, and Step 10 appends addenda in place, so a re-run of an older scan makes the stale file the newest by mtime and silently mis-anchors the delta. Sort lexically (`ls -1 … | sort -r`); mtime breaks ties only. Quote the directory but never the glob — `ls -1 "{VAULT}/06 Archive/Landscape Scans/"<glob> | sort -r` — a fully-quoted path makes the brackets literal and false-reports a cold start; an unquoted path breaks on the directory's spaces. Don't re-report things already classified unless their status changed. If the glob returns nothing, list the directory before concluding: no landscape files at all → genuine cold start, say so; files from other topics present but none matching this profile's pattern → report "no prior scans matched glob `<glob>`" so a mis-written pattern surfaces instead of silently reading as a cold start.
 - **Just-in-time routing-table context** — if a specific finding later touches a CLAUDE.md routing-table topic, load that context before assessing that finding.
 
-Keep this light — the goal is *calibration*, not total recall.
+Keep the **[optional]** reads light — for those, the goal is *calibration*, not total recall. This softener does not reach `[required]` entries.
 
 ### 5. Scan mode — curated sources
 
@@ -119,12 +137,7 @@ The default profile's fit pass may name a specific local skill — that triggers
 
 Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit.
 
-**⛔ Read-the-source gate (mandatory).** Any *comparative claim that names a specific local skill* — that an external finding obsoletes / upgrades / replaces / collides with / is inferior or superior to / makes redundant `/X` — MUST be backed by reading `/X`'s own source *this run*, **wherever the claim appears** (Step 7's fit pass, this step, or any section of the report). Sub-agents and external write-ups only ever see a name plus a one-line description, so their comparative claims are *structurally speculation*. **Name/description overlap is a prompt to open the file, never a verdict.**
-
-- **Who reads:** the actor that writes the claim. A sub-agent that can't load local skills emits "name overlap — source unread" and leaves the verdict to the orchestrator, which opens the named source itself before accepting or reporting it.
-- **What to read:** the named skill's source at `$COMMANDS_DIR/<name>.md` (the commands dir resolved in Step 0; fall back to `~/.claude/commands/<name>.md` only if `COMMANDS_DIR` couldn't be fixed) — enough of the body to establish its operating layer and mechanism, not just the frontmatter one-liner.
-- **If no source file exists, the claim is *more* suspect, not less.** Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never wave it through.
-- **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded as `Source read: <path>` (or `no file — claim dropped`).
+Every comparative claim this step produces is bound by the **⛔ Read-the-source gate** at the top of Instructions — read `/X`'s source this run, record `Source read: <path>`, drop the claim if no file exists.
 
 If the vault contains a capability audit project doc, update the relevant domain section.
 
@@ -217,7 +230,11 @@ Run weekly (typical) per topic, or whenever the user explicitly requests it — 
 
 ## Adding a new topic
 
-Drop a `landscape-profiles/<topic>.md` file defining the seven profile keys (`One-liner`, `Contextualising reads`, `Sources`, `Assessment frame`, `Report sections`, `File naming`, `Obsolescence check` — the last with an explicit value, e.g. "does not run", since Step 8 branches on the value). No engine edits needed. Keep profiles template-suitable where possible: cite the user's real infrastructure by pointing the profile at a vault doc (e.g. a stack-inventory note) rather than hardcoding personal specifics into the profile.
+Drop a `landscape-profiles/<topic>.md` file defining the seven profile keys (`One-liner`, `Contextualising reads`, `Sources`, `Assessment frame`, `Report sections`, `File naming`, `Obsolescence check` — the last with an explicit value, e.g. "does not run", since Step 8 branches on the value).
+
+**Mark every `Contextualising reads` entry `[required]` or `[optional]`** — Step 4's "keep it light" reaches the optional ones only, and an unmarked entry defaults to required. Mark an entry required when the profile's assessment is unsound without it, and state there what to do when it's missing.
+
+Most new topics need no engine edits. Two caveats: Step 8's vocabulary (skill obsolescence) and Step 9's install-cooldown framing are tool-adoption specifics hard-wired outside the seven keys, so a profile in a different domain may need them generalised. Keep profiles template-suitable where possible: cite the user's real infrastructure by pointing the profile at a vault doc (e.g. a stack-inventory note) rather than hardcoding personal specifics into the profile.
 
 ## Integration with Other Commands
 
