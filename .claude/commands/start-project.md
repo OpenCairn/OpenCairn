@@ -42,13 +42,15 @@ date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'
 If project name not provided as parameter, ask:
 > "What's the name of the project?"
 
+**Run Step 3's conflict check now, as soon as the name is known** — before spending the user's time on the remaining questions. A collision may change the name or abort the run, which makes every answer gathered first a wasted interaction.
+
 Then ask:
 > "What does 'done' look like for this project? (One sentence or a few bullet points)"
 
 Ask for deadline/target (optional):
 > "Any deadline or target date? (Leave blank if open-ended)"
 
-Ask about initiative linkage:
+Ask about initiative linkage — **skip this question if `--initiative=Name` was passed**, and use that value:
 > "Is this part of a larger initiative? (e.g., 'Summer Vacation', 'Working Memory Consolidation')"
 
 ### 3. Check for conflicts
@@ -57,21 +59,25 @@ Ask about initiative linkage:
 - Check if `{VAULT}/03 Projects/Backlog/[Project Name].md` already exists
 - Check if `{VAULT}/03 Projects/Cold/[Project Name].md` already exists
 - Glob the vault for any other `[Project Name].md` — a completed project of the same name may live in `04 Areas/` or `06 Archive/Projects/`, and a basename collision breaks the basename wikilinks other skills write (e.g. `/complete-project`'s completion record). Warn on any hit.
+- Check for a duplicate `### [Project Name]` heading in `{VAULT}/01 Now/Works in Progress.md`. A second identical heading breaks `_shared-rules.md` §6's FIFO awk (it stops at the first `### `) and `/pickup`'s per-`###` parse — a file-level check alone won't catch it.
 - If exists, warn and ask if they want to:
   - Resume existing project
   - Create with different name
+  - **Finish a half-done creation** — hub file exists but no WIP entry (or vice versa), the signature of an earlier run that failed partway. Create only the missing artefacts; don't rewrite what's there.
   - Abort
 
 ### 4. Create project file
 
-Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`):
+Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
+
+Omit the `**Initiative:**` line entirely when there's no initiative — don't write the words "(if applicable)" into the file.
 
 ```markdown
 # [Project Name]
 
-**Status:** Active | **Target:** [Deadline or "Open-ended"]
+**Status:** Active | **Target:** [Deadline or "Open-ended"]     <!-- `Backlog` under --backlog: the Status must match the folder tier, or /weekly-hygiene flags a tier mismatch -->
 **Created:** [Date]
-**Initiative:** [[03 Projects/[Initiative Name]]] (if applicable)
+**Initiative:** [[03 Projects/[Initiative Name]]]
 
 ---
 
@@ -114,7 +120,7 @@ Project initialised.
 <!-- /park appends session links here -->
 ```
 
-Leave Session History empty apart from the comment — `/park` is the writer (it appends `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N — gloss)` when it runs). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
+Leave Session History empty apart from the comment — `/park` is the writer (it appends the session link there when it runs — see `park.md` for the exact format, which this file must not restate and let drift). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
 
 ### 5. Update Works in Progress
 
@@ -135,7 +141,7 @@ Use the file's **actual path** in the `**Next:**` link — `[[03 Projects/Backlo
 
 Every project gets its own `###` entry. Initiative membership is carried by the template's `**Initiative:**` field and the Step 6 backlink — never by nesting the entry under the initiative's WIP section, which makes it invisible to `/pickup`'s per-`###` parse.
 
-Update "Last updated" timestamp.
+Update the `**Last updated:**` timestamp, matching the file's existing format — `date +"%Y-%m-%d %H:%M %Z"`. Per `_shared-rules.md` §19 the `date` result must come from a *prior* tool call; a value composed in the same call as the write is an estimate, not a clock read.
 
 ### 6. Link from initiative (if applicable)
 
@@ -154,16 +160,18 @@ Ask:
 
 If yes:
 ```bash
-mkdir -p "{VAULT}/05 Resources/[Project Name]"
+if [ -d "{VAULT}/05 Resources/[Project Name]" ]; then echo "existed"; else mkdir -p "{VAULT}/05 Resources/[Project Name]" && echo "created"; fi
 ```
+
+Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a colliding topic folder, so an unconditional "✓ created" can claim a folder this run didn't make. Then **uncomment the hub's `## Resources` link** to point at the folder; left commented, nothing links it and the folder is orphaned.
 
 ### 8. Display confirmation
 
 ```
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
 ✓ Added to Works in Progress ([Active / Backlog] section)
-✓ Linked from initiative: [Initiative Name] (if applicable)
-✓ Resources folder created: 05 Resources/[Project Name]/ (if applicable)
+[✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
+[✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 
 Project ready. What's the first action?
 ```
