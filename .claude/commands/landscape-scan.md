@@ -34,7 +34,7 @@ The engine never collapses a profile's passes into a single verdict, and never s
 - **If no source file exists, the claim is *more* suspect, not less.** Confirm the skill exists at all; absence of a file is grounds to **drop the claim**, never wave it through.
 - **Checkable:** every comparative verdict naming a skill traces to a source read this run, recorded as `Source read: <path>` (or `no file — claim dropped`).
 
-This gate lives here, outside the numbered steps, because it is not conditional on any profile key. It previously sat inside Step 8, which `cybersec` skips entirely — so a profile that never runs an obsolescence check was never handed the rule, while the rule's own text claimed to bind everywhere.
+This gate lives here, outside the numbered steps, because it is not conditional on any profile key — a profile that skips the obsolescence check is still bound by it.
 
 ### 0. Resolve vault path and load shared rules
 
@@ -96,6 +96,14 @@ Relevance judgement requires knowing what the user is *already doing* (and, for 
 
 An unmarked entry is treated as **[required]** — the safe default, since the failure mode of skipping a genuinely required read is a confident assessment built on nothing.
 
+**Emit the resolved reads as an observable (required output)**, before any assessment — a gate that only asserts is a gate an executor can skip silently:
+
+```
+Contextualising reads: [required] 2/2 loaded | [optional] 1/2 | missing: <name> — <handling applied>
+```
+
+Carry the same line into the report's `## Contextualising reads` section. A run that reaches assessment without having displayed it has not passed this step.
+
 Also:
 
 - **Prior scan** — the most recent one for *this topic* regardless of age (it stays the delta anchor after a multi-week gap; note in the report if it's older than ~2 weeks), from `{VAULT}/06 Archive/Landscape Scans/` — use the profile's **concrete prior-scan glob** (an executable shell pattern, e.g. `20[0-9][0-9]-W[0-9][0-9]-cybersec.md`, not the display template `YYYY-Www.md`). **Pick the most recent by the ISO week label parsed from the filename, not by mtime** — per `_shared-rules.md` §22, a filename that encodes the date is the authority, and Step 10 appends addenda in place, so a re-run of an older scan makes the stale file the newest by mtime and silently mis-anchors the delta. Sort lexically (`ls -1 … | sort -r`); mtime breaks ties only. Quote the directory but never the glob — `ls -1 "{VAULT}/06 Archive/Landscape Scans/"<glob> | sort -r` — a fully-quoted path makes the brackets literal and false-reports a cold start; an unquoted path breaks on the directory's spaces. Don't re-report things already classified unless their status changed. If the glob returns nothing, list the directory before concluding: no landscape files at all → genuine cold start, say so; files from other topics present but none matching this profile's pattern → report "no prior scans matched glob `<glob>`" so a mis-written pattern surfaces instead of silently reading as a cold start.
@@ -129,7 +137,7 @@ The active profile's frame is authoritative; the two below are illustrative of t
 - Default `ai-cc-pkm`: **Fit** (does it replace / extend / lose-to what we have?) + **Capability** (what does it unlock that isn't being done today?).
 - `cybersec`: **Exposure** (does it reach something on the stack inventory, and by what path?) + **Action** (severity → patch now / cooldown-then-patch / monitor / not-exposed-note).
 
-The default profile's fit pass may name a specific local skill — that triggers the read-the-source gate in Step 8. The cybersec profile's exposure pass may name a specific stack component — that requires checking it against the stack-inventory doc, not asserting exposure from a product-name match.
+The default profile's fit pass may name a specific local skill — that triggers the ⛔ Read-the-source gate (the standing gate at the top of `## Instructions`). The cybersec profile's exposure pass may name a specific stack component — that requires checking it against the stack-inventory doc, not asserting exposure from a product-name match.
 
 ### 8. Obsolescence / collision check — only if the profile's `Obsolescence check` value calls for it
 

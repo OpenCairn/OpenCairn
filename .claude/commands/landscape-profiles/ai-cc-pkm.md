@@ -13,7 +13,7 @@ The default profile. Tool-adoption lens on the AI / Claude Code / Obsidian-PKM l
 
 Relevance is filtered through both "what I do privately" and "what I publicly claim to do."
 
-- **[required] Current Claude Code usage patterns** — sample 2–4 recent files from `{VAULT}/06 Archive/Claude/` (daily logs, weekly reviews, corrections log). Get a feel for session shape, what gets delegated, friction points, and what the user praises.
+- **[required] Current Claude Code usage patterns** — sample 2–4 recent files across `{VAULT}/06 Archive/Claude/Daily Reports/`, `{VAULT}/06 Archive/Claude/Weekly Reviews/`, and `{VAULT}/07 System/Claude Corrections Log.md` (the corrections log's canonical home is `07 System/`, not the archive). Get a feel for session shape, what gets delegated, friction points, and what the user praises. **If missing:** on a fresh clone these may be absent or empty — say so in the report's `## Contextualising reads` section, run the fit pass against `CLAUDE.md` alone, and mark every assessment *uncalibrated*. Infer nothing about usage patterns from an empty archive.
 - **[optional] Public-facing work relevant to the domain** — the user's public site(s), if any are listed in CLAUDE.md (e.g. a personal site posting Claude Code / Obsidian / self-hosting content); other sites the user runs for other domains.
 
 ## Sources
@@ -69,14 +69,23 @@ For each, focus on what's new or changed since the last scan.
 - **Mandatory mechanical digest:** fetch *every* Zvi post published since the last scan run. Scan each post end-to-end (not just headlines/TOC) for any Claude Code / AI-tool / PKM / agent-workflow / AI-coding-infra item. Extract every such item regardless of how buried. The OCLI near-miss is the load-bearing precedent — headline-scan is not sufficient for this source.
 - **Bootstrap (first-ever scan run):** no prior scan exists, so "since last run" is undefined. Default window: last **4 weeks** of posts. Compute cutoff explicitly: `date -d "4 weeks ago" +%Y-%m-%d`. Acknowledge in the report that this is a cold-start pass.
 - **Subsequent runs:** delta from the most recent scan file's date — find the most recent file by the ISO week label in its filename (`ls -1 … | sort -r`, mtime for ties only), then parse its report-date header.
-- **Review the Zvi mandatory-digest rule after 3 runs.** The rule is single-point-justified (OCLI only). After the third run with Zvi digest performed, explicitly evaluate: did Zvi surface anything non-obvious that headline-scan would have missed? If no, downgrade to headline-scan with selective deep-read on Claude-Code-adjacent sections. Record the evaluation in that run's report.
+- **Review the Zvi mandatory-digest rule once 3 runs have carried it.** The rule is single-point-justified (OCLI only), so it gets a sunset check rather than standing forever.
+
+  **Mechanical trigger — run this in Step 4, don't rely on remembering.** Count prior reports for this profile with its own glob, and check whether the review has already happened:
+
+  ```
+  ls -1 "{VAULT}/06 Archive/Landscape Scans/"20[0-9][0-9]-W[0-9][0-9].md | wc -l
+  grep -l "Zvi rule review:" "{VAULT}/06 Archive/Landscape Scans/"20[0-9][0-9]-W[0-9][0-9].md
+  ```
+
+  If the count is ≥ 3 and no prior report carries the marker, the review is **due this run** (and is *overdue*, not optional, if the count exceeds 3). Evaluate: did Zvi surface anything non-obvious that a headline-scan would have missed? If no, downgrade to headline-scan with selective deep-read on Claude-Code-adjacent sections. Record the outcome in this run's report as a literal line — `Zvi rule review: kept` or `Zvi rule review: downgraded to headline-scan` — which is what the next run's grep looks for.
 
 ## Assessment frame
 
 Two passes per finding. Run both, report both, never collapse to one verdict.
 
 **Fit pass:**
-- Does this replace something we already have? (adopt candidate) — *naming a specific local skill here triggers the engine's Step 8 read-the-source gate; don't assert replacement from a name match.*
+- Does this replace something we already have? (adopt candidate) — *naming a specific local skill here triggers the engine's ⛔ Read-the-source gate (standing gate at the top of `## Instructions`); don't assert replacement from a name match.*
 - Does this extend or complement current workflow? (adapt candidate)
 - Is our implementation still superior? (note-and-move)
 
@@ -92,7 +101,7 @@ Two passes per finding. Run both, report both, never collapse to one verdict.
 
 **Value: runs.** *Distinct from the capability pass.* The capability pass asks "what does this finding unlock for the user?" — this asks "does this finding obsolete one of our existing skills?" Two different questions.
 
-Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit. The engine's Step 8 read-the-source gate governs every comparative claim that names a local skill.
+Check whether any existing skill domains now have mature external alternatives that didn't exist (or weren't mature enough) when the skill was written. Lightweight, not a deep audit. The engine's ⛔ Read-the-source gate governs every comparative claim that names a local skill — it is a standing gate, not conditional on this step running.
 
 Per relevant finding, compare against the user's existing skills:
 - Does this replace something we built? (adopt)

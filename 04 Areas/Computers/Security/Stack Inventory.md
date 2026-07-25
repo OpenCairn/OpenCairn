@@ -36,6 +36,12 @@ Packages whose compromise is high-impact (SSH, OpenSSL/TLS libs, sudo, container
 - [unknown — fill in] — version + exposure
 - [unknown — fill in] — version + exposure
 
+## Phones / mobile
+
+Phones and tablets that hold accounts, 2FA, or vault data — OS + version, and how exposed (e.g. sideloaded apps, USB debugging, public Wi-Fi use):
+
+- [unknown — fill in] — OS + version + exposure
+
 ## Vendor advisory URLs
 
 Fill these from the gear named above so subsequent scans check them automatically (the `cybersec` profile's source list points here):
