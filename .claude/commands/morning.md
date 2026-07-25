@@ -135,6 +135,8 @@ Parse the JSON and format as a compact markdown block:
 
 WMO weather codes → emoji: 0 ☀️, 1 🌤️, 2 ⛅, 3 ☁️, 45/48 🌫️, 51-55 🌦️, 61-65 🌧️, 71-75 🌨️, 80 🌦️, 81-82 🌧️, 95-99 ⛈️. Only show rain % if >5%.
 
+**⛔ The `HH:MM` in the `*Updated ...*` stamp must come from a `date +"%a %d %b %H:%M %Z"` result you have already seen** — never estimated from when you think the fetch happened (`_shared-rules.md` §19, clock values: two calls, ordered).
+
 If the API call fails (no internet, timeout), skip silently — weather is nice-to-have, not blocking.
 
 Include the weather output in the landscape presentation, and if This Week.md exists, update or insert the weather block in the banner area (after the `**Location:**` line, before the `---` separator that divides the banner from the day sections). Replace any existing `**Weather` / `**Forecast:**` / `*Updated ... via Open-Meteo*` lines with the fresh output.
@@ -161,7 +163,7 @@ Read and present:
   ls -1t "{VAULT}/06 Archive/Claude/Weekly Reviews/"*.md 2>/dev/null | head -1
   ls -1t "{VAULT}/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | head -1
   ```
-  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md`. **Date the review from its own header, and compute the elapsed days in bash.** Two wrong sources to avoid:
+  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md`. **Date the review from its own header, and compute the elapsed days in bash** — the general rule is `_shared-rules.md` §22 (artefact age comes from content, never mtime); the two wrong sources it bans show up here as:
 
   - **Not the filename**, via internal arithmetic — the date-mapping class LLMs are unreliable at.
   - **Not the file's mtime.** Any later touch resets it — an audit remediation, a sync write, a hygiene pass, an editor opening the file — so a review edited after the fact reads as *fresher than it was run*. The error is asymmetric in the dangerous direction: it makes an overdue review look current, which is the exact failure this check exists to catch.

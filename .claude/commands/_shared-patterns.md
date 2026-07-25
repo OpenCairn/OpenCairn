@@ -49,10 +49,12 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Quoted heredoc for literal payloads** — unquoted `<<EOF` expands/executes `$`, backticks in content; quote `<<'EOF'`, printf the parts that should expand. → `_shared-rules.md §5`, `_skill-monitor`
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
 - **Preference quiz with ranked hard requirements** — AskUserQuestion; skip context-answered; rank firmest→negotiable. → `shop` Phase 2, `book-stay` Step 2
-- **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `weekly-hygiene` Steps 2-3, `morning` Step 3
+- **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `_shared-rules.md §22`, `morning` Step 3, `weekly-hygiene` Steps 2-3 + Step 7
+- **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 7
 - **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g
 - **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 14(b), `goodnight` Step 15(b)
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 4(d), `goodnight` Step 14b, `_shared-rules.md §16` (brief evidence: primary/secondary/unverified)
+- **Clock value read before written** — `date` result in a *prior* call; same-call is an estimate. → `_shared-rules.md §19`, `park` Step 13b, `morning` Step 3
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 13, `goodnight` Step 9, `weekly-review` Step 5a
 - **One log entry per root cause** — fold same-cause items; split independent ones. → `oops` Phase 1, `win` Phase 1
 - **Gate emits an observable, not an assertion** — nil case cites its evidence. → `park` Step 4(a), `park` Step 13, `oops` Phase 1
