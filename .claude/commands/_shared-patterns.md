@@ -51,7 +51,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Preference quiz with ranked hard requirements** — AskUserQuestion; skip context-answered; rank firmest→negotiable. → `shop` Phase 2, `book-stay` Step 2
 - **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `_shared-rules.md §22`, `morning` Step 3, `weekly-hygiene` Steps 2-3 + Step 7
 - **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 7
-- **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. → `park` Step 14(d), `goodnight` Step 15(e), `morning` 2a.g
+- **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. Two sides: forbid it in the reviewer's brief (→ `park` Step 14(b), `goodnight` Step 15(c), `morning` 2a.g) and re-check any git-derived finding before accepting it (→ `park` Step 14(d), `goodnight` Step 15(e))
 - **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 14(b), `goodnight` Step 15(c)
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 4(d), `goodnight` Step 14b, `_shared-rules.md §16` (brief evidence: primary/secondary/unverified)
 - **Clock value read before written** — `date` result in a *prior* call; same-call is an estimate. → `_shared-rules.md §19`, `park` Step 13b, `morning` Step 3
