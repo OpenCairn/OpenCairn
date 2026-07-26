@@ -312,8 +312,14 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
 
   `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
 
+- **Seats do not verify equally, and the read-only measure is what causes the gap.** Where a CLI offers a filesystem-level read-only sandbox, the seat keeps shell and can check a claim against local man pages, config and unit files. Where no read-only sandbox or command-level policy is available, the remaining option is to deny the shell tool outright (shell *is* a write path: `echo > file`) — which also removes that seat's ability to verify anything locally. Classify each seat by the outcome, not by the product: whichever seats end up shell-denied under your despatch config are the ones that cannot verify. Two consequences to design around, not fix:
+  - **A shell-denied seat's findings skew toward the unverifiable.** In a tiebreak, its unique claim about a flag, key or path carries less evidential weight than the same claim from a seat that could run the command. Weigh by what the seat could actually check; don't count votes.
+  - **A seat whose only evidence route is the network fails wholesale when that route degrades**, producing no output rather than a weaker review. Silence from such a seat is a transport failure, never endorsement — announce it as a reduced panel.
+
+  **Remedy — a pre-flight, and it is the orchestrator's job.** Before despatch, not after: if any seat is shell-denied and the review turns on anything a shell would settle (a flag's behaviour, a config key, whether a path exists, what a command actually prints), run those checks yourself and embed the output under §16's out-of-band heading. For a shell-denied seat, "material the reviewer cannot reach from the artefact" includes everything behind a shell, so omitting it reproduces §16's partial-evidence false positives in that seat specifically. Doing it afterwards does not help — by then the seat has already guessed, and you are adjudicating its guess instead of preventing it. Every skill despatching a mixed-capability panel runs this as a step in its own pre-despatch sequence and points here rather than restating it.
+
 - **The Grok seat is an API seat, not a CLI seat — it reads nothing.** `xai_client.py` posts to xAI's Responses API over stdlib `urllib`; it has no filesystem access, so the target must be passed with `--source` and is inlined into the prompt as a delimited appendix. Three consequences that the other two seats don't have:
-  - **Manifest in place of a read-list.** The wrapper appends each source as `path | bytes | sha256` and instructs the seat to reproduce that manifest verbatim and quote what it relied on. That manifest is the Grok seat's evidence standard — the read-list rule (`audit.md`, `second-opinion.md`) is satisfied by the manifest, not waived. A Grok review with neither manifest nor quotes is brief-echo and is discarded exactly like a CLI review with no read-list.
+  - **Manifest in place of a read-list.** The wrapper appends each source as `path | bytes | sha256` and instructs the seat to reproduce that manifest verbatim and quote what it relied on. That manifest is this seat's evidence standard — the attestation rule (**§23**) is satisfied by the manifest, not waived. §23 carries the enforcement test; note it requires manifest **and** quoted passages, so supplying only one fails.
   - **Size cap, fail-closed.** `MAX_INLINE_BYTES` (400 KB, ~100k tokens — kept under xAI's >200k-token tier where the per-token rate doubles). Over the cap the wrapper raises and the seat is **dropped with the reduced panel announced**; it never silently truncates, because a truncated appendix produces confident findings about text the seat never saw.
   - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when `XAI_API_KEY` is set, 1 otherwise. Probe *before* despatch — an unset key must degrade to a three-seat panel up front, not fail mid-run. Note the key must be in the environment the Bash tool actually runs in; a key exported only in `~/.bashrc` will not reach a non-interactive shell (same trap as `second-opinion.md` Phase 2A step 5).
 
@@ -645,3 +651,30 @@ Canonical rule for every skill that asks how old an artefact is, or that windows
 **Required output — emit the derived value.** State the date and the elapsed days, or the resolved window and where it came from, before drawing any conclusion from it. `last run <date>, N days ago` and `window: <date>..today | source: <file>` are checkable; a bare "current" / "overdue" verdict, or a candidate list with no stated window, means the check was done from impression. Make the fallback branch visible rather than silent.
 
 **Checkable:** no skill computes an age or a window from `stat`, `-mtime`, or `ls -t`, and every such check prints the value it derived.
+
+---
+
+## 23. Reviewer Evidence Attestation (a review counts only as far as it shows its work)
+
+Canonical rule for every skill that despatches a review to a reviewer whose tool calls you cannot see — panel seats, delegated audit sub-agents, any brief sent to a separate context. Those skills point here and carry no copy to drift. §16 governs what evidence *you* must put **into** a brief; this section governs what evidence the reviewer must return **out** of one.
+
+**The rule.** A reviewer's working is invisible to you, so a review is evidence only to the extent it attests where its claims came from. Require the attestation in the brief's output-format section, and enforce it on receipt. The artefact differs by what the seat can reach; the standard does not:
+
+| Seat can reach | Required attestation |
+|---|---|
+| The filesystem | The list of files it read |
+| A shell | For each command-backed claim: the exact command and the quoted output |
+| The network | For each fetched-source claim: the URL and the quoted passage |
+| Nothing (sources inlined into its prompt) | The source manifest reproduced verbatim, **and** the passages it relied on |
+
+A seat owes every row its reach covers, not one of them. **Paste this table into the brief body — do not point the reviewer at this file.** A reviewer's workspace is the audit target, which is rarely the directory holding these rules, so a bare cross-reference is an instruction it cannot follow, and discarding it on receipt then punishes a competent review for a rule it never saw.
+
+**Enforcement.** A review attesting nothing is brief-echo, not independent judgement — discard it and say so in the synthesis rather than quietly running an N-1 panel labelled as N. Partial attestation is not discarded wholesale: the unattested claims are reported as unverified and never promoted to findings on the reviewer's say-so. Where a row requires two artefacts, missing either fails that claim; the test is not "neither was supplied".
+
+**Attestation is a locator, not a proof — spot-check before promoting.** A citation is as forgeable as the claim it supports, so an unchecked URL-and-quote does not merely fail to help, it actively inverts the ranking below: a fabricated primary source outranks an honest "from recall". Before promoting any fetched-source or command-backed finding that changes what you do, verify it yourself — open the URL and match the quote, or re-run the command. If you cannot, carry the finding as `[unverified]` at its unattested rank. The attestation's job is to make the check cheap and targeted, not to substitute for it.
+
+**Do not solve the invisibility problem by cutting off the reach.** A seat that can search will sometimes locate the primary source you did not know to put in the brief, which is precisely the discovery a fixed evidence block cannot supply and the reason an independent seat is worth its cost. Removing the capability removes the upside along with the risk. Attestation keeps both: the seat may go looking, and you can see what it came back with.
+
+**Evidence class is the tiebreak, and it outranks seat count.** Rank a finding by what backs it: a command the reviewer ran, then a primary source it quoted, then a secondary source, then unattested assertion. A lone finding carrying a quoted primary source outranks a majority reasoning from recall, and on a question of how a tool actually behaves, the seat that ran the command or read the source wins regardless of how many disagree. Correlated agreement is weak evidence to begin with (models share priors); agreement with nothing behind it is none. This is what makes attestation load-bearing rather than bookkeeping — without it the classes are indistinguishable, and a confident guess reads exactly like a verified fact.
+
+**Checkable:** every brief a skill despatches names the required attestation for the seats it is despatching to, and every finding carried into a synthesis is traceable to a read, a manifest entry, a command, or a citation.
