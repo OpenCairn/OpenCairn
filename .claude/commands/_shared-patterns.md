@@ -23,7 +23,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
 - **Parallel cross-model panel despatch** — one seat per model family, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
-- **Reviewer evidence attestation** — read-list / manifest / URL+quote; evidence class outranks vote count. → `_shared-rules.md §23`
+- **Reviewer evidence attestation** — read-list / command / manifest / URL+quote; class outranks votes. → `_shared-rules.md §23`
 - **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
