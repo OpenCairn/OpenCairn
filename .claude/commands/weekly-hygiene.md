@@ -364,15 +364,33 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Record *which* subcommands are broken in the tool-routing doc, not here.** Per-subcommand reliability is environment-specific and changes when the tool is updated — a volatile fact, so it gets one home and pointers from everywhere else. Its home is the vault's tool-routing doc (the one this skill's own guidance on search-tool selection points at); this skill carries only the durable mechanism above. A skill file that names which subcommand is currently broken will still be asserting it a year after the fix.
 
    **Shared-patterns pointer check** (if `_shared-patterns.md` exists in the commands directory). The pattern index points each entry at a reference (`→ ` + backtick-quoted skill name, or `_shared-rules.md §N` for shared-rules sections). Verify every pointer still resolves to a live file; a dangling pointer means the reference was renamed or removed. The `sed` normalisation strips a trailing ` §N` and `.md` so both pointer forms reduce to a file test. The extraction anchors on the **final** `→` on each line (`.*→ \K[^→]*$`) — entry titles may themselves contain arrows, and capturing from the first `→` misreads those titles as stale pointers.
+   **Scan every commands tree present, not the first one found.** A pointer can resolve in the personal copy and dangle in the template — the copy other people install — so binding to one tree makes template-only breakage structurally undetectable. Probe the conventional template locations; `OPENCAIRN_TEMPLATE_DIR` overrides for a non-standard checkout.
    ```bash
-   CMDS=~/.claude/commands; [ -f "$CMDS/_shared-patterns.md" ] || CMDS="{VAULT}/.claude/commands"
-   PF="$CMDS/_shared-patterns.md"
-   if [ -f "$PF" ]; then
-     awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '.*→ \K[^→]*$' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u | while read -r s; do
-       [ -f "$CMDS/$s.md" ] || echo "STALE pointer: $s (no $CMDS/$s.md)"
-     done
-   fi
+   TREES=""
+   for d in ~/.claude/commands "{VAULT}/.claude/commands" \
+            "${OPENCAIRN_TEMPLATE_DIR:-/nonexistent}/.claude/commands" \
+            ~/repos/OpenCairn/.claude/commands ~/OpenCairn/.claude/commands ~/src/OpenCairn/.claude/commands; do
+     [ -f "$d/_shared-patterns.md" ] || continue
+     r=$(realpath "$d" 2>/dev/null) || continue
+     case " $TREES " in *" $r "*) continue ;; esac      # dedupe: symlinked/duplicate paths
+     TREES="$TREES $r"
+   done
+   [ -n "$TREES" ] && echo "Pointer check: scanning $(echo $TREES | wc -w) tree(s)" \
+                   || echo "Pointer check: NO commands tree found (check unusable)"
+   for CMDS in $TREES; do
+     PF="$CMDS/_shared-patterns.md"; n=0; bad=0
+     while read -r s; do
+       n=$((n+1))
+       [ -f "$CMDS/$s.md" ] || { echo "  STALE pointer: $s (no $CMDS/$s.md)"; bad=$((bad+1)); }
+     done < <(awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '.*→ \K[^→]*$' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u)
+     echo "Pointer check [$CMDS]: $n pointers, $bad stale"
+   done
    ```
+
+   **⛔ Emit the per-tree line even when clean.** "No stale pointers" and "never looked" are indistinguishable in a silent check, which is exactly how the dangling `security-audit` pointer shipped. A run that reports no tree count has not verified anything.
+
+   **Anchor drift is NOT checked, deliberately — don't re-propose a grep for it.** Most entries point at a sub-step (`` `goodnight` Step 15(b) ``) and only the filename is tested, so a pointer does survive a renumber intact; two confirmed drifts exist. A text grep cannot close it: sub-step identity is **structural**, a lettered bullet nested under a numbered step, so `park` Step 12(a) is a real target that appears nowhere in `park.md` as literal text. Heading notation also varies library-wide (`15c`, `14 a`, `### 15.`, `## Phase 0 —`). Every cheap variant was measured against the live library and produced 7 to 9 false positives with zero true ones. Closing this needs a markdown structure parser that walks a step's body for its lettered children, which is disproportionate to an advisory check; until someone wants to build that, anchors are verified by the reviewer, not the sweep.
+
    Any `STALE pointer` lines are tier-2 findings: fix the pointer (renamed skill) or drop the entry (removed skill) in `_shared-patterns.md`. Per its staleness contract, this check is what keeps the index drift-proof.
 
    **Obsidian Sync ghost detection** (optional, user-supplied script — not shipped with the template; if `~/repos/scripts/obsidian-ghost-check.sh` exists):
@@ -487,6 +505,16 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    CURRENT_SHORT="${CURRENT_HASH:0:16}"
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
+
+   **Snapshot fallback for MISMATCH — try this first.** `/provenance` writes a preimage snapshot beside the proof at `07 System/Provenance/<date>-<name>-<short8>.snapshot<ext>`, where `<short8>` is the first 8 characters of the logged hash. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
+   ```bash
+   # LOGGED = logged 16-hex short hash
+   SNAP=$(ls "{VAULT}/07 System/Provenance/"*-"${LOGGED:0:8}".snapshot.* 2>/dev/null | head -1)
+   if [ -n "$SNAP" ] && [ "$(sha256sum "$SNAP" | cut -c1-16)" = "$LOGGED" ]; then
+     echo "VERIFIED via snapshot: $SNAP"
+   fi
+   ```
+   A hit upgrades the row to **"verified via snapshot"**. Fall through to the git-history walk only when no snapshot resolves: the snapshot is both the cheaper check and the stronger evidence, being the exact attested bytes written at hash time rather than a blob inferred from history. Reporting MISMATCH/FAILED without running this is a false negative, not an integrity signal.
 
    **Git-history fallback for MISMATCH** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. Walk the file's history for a blob whose hash matches the logged one:
    ```bash
