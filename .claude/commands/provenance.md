@@ -59,7 +59,7 @@ Accept a list of file paths. Convert each to a vault-relative path (e.g., `05 Re
 PROJECT_TAG="<tag from Step 2>"
 TODAY=$(date +"%Y-%m-%d")
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
-FLAG_DIR="{VAULT}/07 System/Provenance/pending"
+FLAG_DIR="{VAULT}/07 System/.Provenance/pending"
 mkdir -p "$FLAG_DIR"
 SAFE_TAG=$(echo "$PROJECT_TAG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
 [[ -z "$SAFE_TAG" ]] && SAFE_TAG="untagged"   # punctuation/non-ASCII-only tags would otherwise yield "YYYY-MM-DD-.md"
@@ -116,17 +116,25 @@ for DOC in "${FINAL_PRODUCTS[@]}"; do
   [[ "$BASE" == *.* ]] && EXT=".${BASE##*.}"
   SAFE_NAME=$(basename "$BASE" "$EXT" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')
 
-  mkdir -p "{VAULT}/07 System/Provenance"
+  # The leading dot is load-bearing — do NOT rename this to a plain folder.
+  # Snapshots are byte-exact preimages, and a markdown preimage sitting in an
+  # indexed folder is treated by the editor as ordinary vault content: renaming
+  # or moving any note the snapshot happens to link to rewrites those links
+  # INSIDE the frozen copy, silently breaking the hash it is named after. A
+  # dot-prefixed folder is outside the index, so link-healing never reaches it.
+  # Cost of the dot: snapshots cannot be wikilinked from notes (reference them
+  # by path instead). Verify before changing: preimages must stay byte-stable.
+  mkdir -p "{VAULT}/07 System/.Provenance"
   # Preimage snapshot — a hash without the exact bytes proves nothing. The work product is a
   # living document; once it's edited, this snapshot is the only copy that matches the proof.
   # Explicit existence guards, not cp/mv -n (deprecated in newer coreutils, non-portable).
-  SNAP="{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.snapshot${EXT}"
+  SNAP="{VAULT}/07 System/.Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.snapshot${EXT}"
   [[ -e "$SNAP" ]] || cp "$DOC" "$SNAP"
 
   # OTS stamp — the logged status comes from the OUTCOME, never assumed. DOC_SHORT in the
   # proof name prevents same-basename collisions. Don't suppress stderr — a stamp failure's
   # reason gets reported, not buried.
-  OTS_DEST="{VAULT}/07 System/Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.ots"
+  OTS_DEST="{VAULT}/07 System/.Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.ots"
   OTS_STATUS="none (ots unavailable)"
   if command -v ots &>/dev/null; then
     if ots stamp "$DOC"; then
@@ -183,7 +191,7 @@ Transcript and session log hashing is always deferred to `/goodnight` — they'r
   Transcript: deferred to /goodnight
   Session log: deferred to /goodnight
 
-  Flag: 07 System/Provenance/pending/YYYY-MM-DD-tag.md
+  Flag: 07 System/.Provenance/pending/YYYY-MM-DD-tag.md
   → /goodnight will process this flag and complete hashing.
 ```
 
@@ -192,7 +200,7 @@ Transcript and session log hashing is always deferred to `/goodnight` — they'r
 ### `/goodnight` (step 17)
 
 Processes today's flag files:
-1. Read each flag in `07 System/Provenance/pending/` matching today's date
+1. Read each flag in `07 System/.Provenance/pending/` matching today's date
 2. Hash any work products listed but not yet hashed (check "Hashed Immediately" section). **For entries already in "Hashed Immediately", re-hash and compare against the recorded hash** — a silent edit between the immediate hash and goodnight is otherwise undetectable; on mismatch, announce it and run the Step 5 re-hash path (superseding row), don't skip silently
 3. Hash session transcript (now exported and final)
 4. Hash session log (now final)
@@ -219,12 +227,12 @@ Catches stragglers and verifies:
 - **Idempotent.** Multiple `/provenance` calls in the same session with the same tag merge new work products into the existing flag file — no duplicates, no second flag. If the tag changes between calls, a separate flag file is created (different tags = different provenance entries).
 - **Relative paths.** Work products are logged with vault-relative paths (e.g., `05 Resources/Commentary/file.md`) to avoid collisions and enable verification from any machine.
 - **Append-only log.** Rows are never rewritten — re-hashes append a superseding row and mark the old one `superseded`. A mutable log can't be distinguished from a tampered one.
-- **Snapshots preserve the preimage.** Each immediate hash copies the exact hashed bytes to `07 System/Provenance/` beside the `.ots` proof — without them, the first edit to the living document makes the proof unverifiable.
+- **Snapshots preserve the preimage.** Each immediate hash copies the exact hashed bytes to `07 System/.Provenance/` beside the `.ots` proof — without them, the first edit to the living document makes the proof unverifiable.
 - **OTS is best-effort, and the log says so honestly.** Requires network access to Bitcoin calendar servers. The OTS column records the outcome — `pending` only when a stamp actually succeeded; `none (ots unavailable)` / `none (stamp failed)` otherwise — so a missing proof never masquerades as a pending one.
 
 ## Integration
 
-- **Creates:** Flag files in `07 System/Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs and `.snapshot.*` preimages (the work product's own extension) in `07 System/Provenance/`
+- **Creates:** Flag files in `07 System/.Provenance/pending/`, entries in `07 System/AI Provenance Log.md` (for immediately-hashed work products), `.ots` proofs and `.snapshot.*` preimages (the work product's own extension) in `07 System/.Provenance/`
 - **Processed by:** `/goodnight` (step 17), `/morning` (catch-up step 2a.h, when goodnight was missed), `/weekly-hygiene` (provenance section)
 - **Verified by:** `/weekly-hygiene` (provenance verification section)
 

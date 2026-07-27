@@ -405,7 +405,7 @@ Check for provenance flag files created during today's sessions:
 # set in a prior Bash tool call does not survive to this one (an empty expansion would glob ALL
 # pending flags and stamp/delete the wrong days' artefacts), and an inline `date` re-derivation in a
 # run that has crossed local midnight globs tomorrow's prefix, matches nothing, and strands the flag.
-ls "{VAULT}/07 System/Provenance/pending/YYYY-MM-DD"*.md 2>/dev/null
+ls "{VAULT}/07 System/.Provenance/pending/YYYY-MM-DD"*.md 2>/dev/null
 ```
 
 **⚠ Ordering dependency:** Steps 14-16 MUST complete before this step. The session log and transcript must be in their final state before hashing — if you hash then append, the hash is immediately invalid and the OTS stamp covers the wrong content. This is the single most common execution error in this skill. The audit step (15) and transcript export (16) both potentially modify the session log and transcript, so both must finish before provenance hashing.

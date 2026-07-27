@@ -71,7 +71,7 @@ Cryptographic audit trail for AI collaboration disclosure (journals, legal).
 ```
 Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin blockchain
                                                           ↓
-                                                   07 System/Provenance/DATE.ots
+                                                   07 System/.Provenance/DATE.ots
 ```
 
 ### Design Decisions
@@ -86,7 +86,7 @@ Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin 
 
 ### OTS verification
 
-`ots verify -f <session-file> <proof.ots>` — the `-f` flag is required because the `.ots` proof was moved from the sessions directory to `07 System/Provenance/`. Without `-f`, ots looks for the target file adjacent to the proof and fails.
+`ots verify -f <session-file> <proof.ots>` — the `-f` flag is required because the `.ots` proof was moved from the sessions directory to `07 System/.Provenance/`. Without `-f`, ots looks for the target file adjacent to the proof and fails.
 
 For non-final entries of the day (e.g. a park entry that was later followed by goodnight), the OTS proof was overwritten. `/verify-provenance` will show "OTS FAILED" for these entries. This is expected under end-of-day primacy, not a bug.
 

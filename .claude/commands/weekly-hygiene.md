@@ -476,7 +476,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **14a. Process stale provenance flags:**
    ```bash
-   ls "{VAULT}/07 System/Provenance/pending/"*.md 2>/dev/null
+   ls "{VAULT}/07 System/.Provenance/pending/"*.md 2>/dev/null
    ```
    If any flag files exist (these are sessions where `/provenance` was invoked but `/goodnight` didn't process them — missed goodnight, crashed session, etc.):
    - Read each flag to get the tag and work product list
@@ -505,10 +505,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
 
-   **Snapshot fallback for MISMATCH — try this first.** `/provenance` writes a preimage snapshot beside the proof at `07 System/Provenance/<date>-<name>-<short8>.snapshot<ext>`, where `<short8>` is the first 8 characters of the logged hash. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
+   **Snapshot fallback for MISMATCH — try this first.** `/provenance` writes a preimage snapshot beside the proof at `07 System/.Provenance/<date>-<name>-<short8>.snapshot<ext>`, where `<short8>` is the first 8 characters of the logged hash. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
    ```bash
    # LOGGED = logged 16-hex short hash
-   SNAP=$(ls "{VAULT}/07 System/Provenance/"*-"${LOGGED:0:8}".snapshot.* 2>/dev/null | head -1)
+   SNAP=$(ls "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".snapshot.* 2>/dev/null | head -1)
    if [ -n "$SNAP" ] && [ "$(sha256sum "$SNAP" | cut -c1-16)" = "$LOGGED" ]; then
      echo "VERIFIED via snapshot: $SNAP"
    fi
@@ -527,7 +527,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    A hit upgrades the row from MISMATCH to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering. No hit leaves it a MISMATCH, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later) or that predates git tracking of that path — assess those against mtime and known tooling behaviour, and say which case applies.
 
-   **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/Provenance/`) can still be verified against each other.
+   **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/.Provenance/`) can still be verified against each other.
 
    **OTS availability guard:** `command -v ots` is necessary but not sufficient — stamping and upgrading only need the Python `ots` client (calendar servers), but *verifying* needs an attestation source, and the Python client supports only a local Bitcoin node (no explorer fallback). Pick the verify path in order:
    1. **Local node present** (`~/.bitcoin/.cookie` exists, or `bitcoin-cli getblockcount` succeeds) → Python `ots verify`.
@@ -535,7 +535,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
    **Upgrade OTS proofs:**
-   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/Provenance/` (calendar servers — works without a node). If upgrade succeeds, update the provenance log entry to "confirmed".
+   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/.Provenance/` (calendar servers — works without a node). If upgrade succeeds, update the provenance log entry to "confirmed".
 
    **Verify OTS proofs:**
    For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.

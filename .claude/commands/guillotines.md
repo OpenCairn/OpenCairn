@@ -30,7 +30,7 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 - Restrict to Markdown with `glob: "*.md"` — notes are Markdown; without the filter the scan can hit scripts, JSON, or binary sidecars on vaults whose ignore rules don't already limit matches
 - Use `output_mode: "content"` with `-C 1` (1 line of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
-- Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/Provenance/`). A `[GT]` copied into a frozen snapshot is not a live deadline
+- Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/.Provenance/`). A `[GT]` copied into a frozen snapshot is not a live deadline
 - Drop **mentions of the tag** as opposed to tagged items. A `[GT]` sitting inside running prose, or listed alongside other bare tag tokens (documentation of the tagging scheme, notes about the scanner, examples in a how-to), is describing the tag, not carrying a deadline. The tell: the tag isn't the leading marker of a task line, and the line reads as a sentence about tags. These are not mis-tagged items — never surface them for correction
 - Note each hit's completion marker: a checked-off item (`- [x]`) is a *met* (or dead) deadline, not a live one — route it to the Done section in Step 4, never to the timeline
 
