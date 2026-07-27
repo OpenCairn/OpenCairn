@@ -66,6 +66,8 @@ When migrating Tickler items:
 
 **Every mutation of a shared planning file — `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`, `01 Now/Tasks.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, `/start-project`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
 
+**Creation is not mutation — a first write uses `Write`, not the lock.** The rule above governs *editing existing content*: the hazard it prevents is a lost read-modify-write cycle, and a file that does not yet exist has no content to lose. (`locked-edit.sh` *can* create a missing target — that capability is real, it is simply not the reason to reach for it.) The genuine risk when creating is two sessions racing to create the *same* file, and the lock does not address that: it would serialise both writes and report success twice. That is a name-collision check's job, owned by the creating skill's own conflict step, which must test both the file path **and** any index/dashboard heading the new file claims. A skill whose Step-N creates a project or area doc should say so explicitly rather than leaving the mechanism unstated, since an unstated mechanism reads as an oversight against this section.
+
 ```bash
 # Replace a unique block (old_string must match exactly once, like the Edit tool):
 cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/01 Now/Works in Progress.md" --replace
@@ -235,6 +237,7 @@ match, fix the heading before trusting any count from it.
 - **Always check current date/time** via the `date` command at the start of every command. Never assume, cache, or reuse timestamps from prior tool calls.
 - **Use system timezone** (local time wherever the user is). During travel, sessions are dated in local context (Tokyo → JST, Denver → MST). This is intentional — local time is more meaningful than forcing the home timezone.
 - **Verify date-to-weekday mappings** with `date -d`. LLMs are unreliable at mapping dates to days of the week. When writing "Mon 15 Feb" or similar, always run `date -d "2026-02-15" +%A` in bash first.
+- **Portability — `date -d` is GNU-only.** On macOS/BSD the equivalent is `date -j -f "%Y-%m-%d" "2026-02-15" +%A`, and relative arithmetic is `date -v+6d +"%A %d %b"` rather than `date -d "+6 days" …`. `brew install coreutils` provides `gdate` with GNU semantics, which is the simplest fix for a mac user running this library. This applies to **every** `date -d` in this file (§9's rolling-window arithmetic, §18's deadline derivation) and in any skill that loads it — the date rules above are mandatory and frequently executed, so unlike §5's post-failure diagnostics a portability gap here breaks normal operation on the first run.
 
 ---
 

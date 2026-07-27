@@ -70,6 +70,8 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 
 Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
 
+**Write mechanism:** this step **creates** a file, so it uses `Write`, not `locked-edit.sh`. Per `_shared-rules.md` §5, the lock governs mutation of existing content; there is no read-modify-write cycle to lose here. Duplicate-creation safety is Step 3's collision check, not the lock's — the lock would serialise two racing creates and report success for both. Steps that mutate `Works in Progress.md` or an initiative hub later in this skill are mutations and **do** go through `locked-edit.sh`.
+
 Omit the `**Initiative:**` line entirely when there's no initiative — don't write the words "(if applicable)" into the file.
 
 ```markdown
