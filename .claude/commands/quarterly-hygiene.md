@@ -174,7 +174,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 - **Mechanical, not reflective.** Structural checks and flags only. `/quarterly-review` handles strategy, alignment, and planning.
 - **No re-doing weekly-hygiene.** Broken links, orphans, dead-ends, tier reconciliation, temporal context-staleness — all weekly's job. This command reads weekly's report; it does not re-scan.
 - **User confirmation for context files and CRM.** High-trust; wrong corrections beat stale content only if the user supplied them. Never infer an update.
-- **No recursive bash on the vault.** Use the Obsidian CLI for structural queries; single-directory `ls` is fine, tree walks are not.
+- **Bound tree-walk cost on the vault — don't ban tools by name.** The expensive case is reading *content* across untracked mass (an unbounded `--no-ignore` sweep at the vault root, an unfiltered `grep -r`); an ignore-respecting `rg` or a metadata-only `find` usually is not. Structural queries still route to the Obsidian CLI. Check the vault's search-routing doc for the permitted/prohibited split before assuming any tool is barred outright.
 - **Portability note.** `date -d` is GNU-only — on macOS/BSD substitute `date -v-90d +%F` (same caveat family as weekly-hygiene's Guidelines).
 - **Report is consumable.** `/quarterly-review` reads this report so findings flow into the strategic review without re-gathering — the same contract `/weekly-review` has with `/weekly-hygiene`.
 
