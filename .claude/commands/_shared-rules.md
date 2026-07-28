@@ -681,3 +681,28 @@ A seat owes every row its reach covers, not one of them. **Paste this table into
 **Evidence class is the tiebreak, and it outranks seat count.** Rank a finding by what backs it: a command the reviewer ran, then a primary source it quoted, then a secondary source, then unattested assertion. A lone finding carrying a quoted primary source outranks a majority reasoning from recall, and on a question of how a tool actually behaves, the seat that ran the command or read the source wins regardless of how many disagree. Correlated agreement is weak evidence to begin with (models share priors); agreement with nothing behind it is none. This is what makes attestation load-bearing rather than bookkeeping — without it the classes are indistinguishable, and a confident guess reads exactly like a verified fact.
 
 **Checkable:** every brief a skill despatches names the required attestation for the seats it is despatching to, and every finding carried into a synthesis is traceable to a read, a manifest entry, a command, or a citation.
+
+---
+
+## 24. Driving the Obsidian CLI (link-healing moves, batches, verification)
+
+Canonical rule and **single source of truth** for every skill that moves, renames, or deletes vault files through the `obsidian` CLI — `quarterly-hygiene` Step 6, `complete-project` Step 5, `inbox-processor` Step 4. Those skills point here and carry no copy to drift. Behaviour below verified against **Obsidian 1.12.7**; treat the version stamp as the staleness marker and re-verify rather than trusting it indefinitely.
+
+**The durable rule, independent of any tool version.** A path-qualified wikilink (`[[folder/note]]`) does not survive the file moving unless something rewrites it. Only a link-aware move does that, so raw `mv` on a linked note is never correct — not as a fallback, not for a batch, not "just this once". Where a link-aware move is unavailable, **move nothing and defer**: relocating files and orphaning their links is worse than not running.
+
+**Do not rely on basename fallback to cover a raw `mv`.** Two independent reasons, and the second holds regardless of resolver behaviour: a path-qualified link is a path, not a name; and vault filenames are far less unique than they look — date-keyed conventions (`YYYY-MM-DD.md`) collide exactly across folders, so a bare-name resolution can bind a different note entirely. Any skill claiming a "globally unique basename" exception is asserting something the vault's own naming conventions contradict.
+
+**Current CLI behaviour (the volatile half — this is the only place it is stated).**
+
+- It drives the **already-running app**; it does not boot an instance per call. So a batch is fine, and it is fast. It also heals inbound wikilinks including `#heading` anchors.
+- **It requires the app to be running.** With no app, calls silently do nothing and every item appears to fail. Probe before writing anything (`obsidian version`), and treat a whole-batch failure as the app being down rather than a per-file problem.
+- **It reads stdin.** Inside a `while read` loop it swallows the loop's input, so only the first item is processed while the run still looks successful. Pass `</dev/null` on every call.
+- **Operations apply asynchronously and the exit status is unreliable** (non-zero even on success). Verify by **result** — the file's presence at source and destination — after a settle delay of a couple of seconds. Never key on the exit code or an immediate `test`. Re-verify an apparent failure after a further delay before retrying.
+- **Graph queries (`unresolved`, `backlinks`) return empty or stale while the app reindexes. Empty is not zero** — re-query once the index settles rather than reading a blank result as a pass.
+- **Link healing writes the copies of a duplicated file non-atomically.** If a batch is resolving duplicate pairs and each move heals links inside files *later* in the batch, a byte-compare of a still-unresolved pair can catch one copy mid-rewrite and report a difference that is not real. So **re-verify a refusal or skip after a delay before treating it as genuine**, exactly as for an apparent failure. A compare-before-delete guard is still correct: its failure mode is a false skip, never a false delete.
+
+**Verification, and it must produce numbers.** Take the vault's unresolved-link count before the batch and again after; a link-preserving move must not increase it. Then confirm no moved item appears as an unresolved target. A skill that reports no numbers has verified nothing.
+
+**Structural moves need the sync client ON.** Moves made while a vault's sync client is off never reach the remote, so the remote keeps the pre-move tree; the next merge-on-reconnect pushes it back down and **resurrects a copy of everything just moved**. The resurrection is silent, and because the resurrected copies absorb the inbound links, nothing looks broken while duplication accumulates. This is not shell-checkable — confirm with the user before a structural batch, and record which way it went.
+
+**Checkable:** no skill executes a raw `mv` on a linked vault note, no skill keys a move's success on the CLI's exit status, every CLI call inside a loop carries `</dev/null`, and every structural batch reports a before/after unresolved-link count. A skill restating this section's CLI behaviour instead of pointing at it is the drift this section exists to prevent.

@@ -66,23 +66,30 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      done
      ```
    - **Dry-run first:** present the `MOVE` list grouped by destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. Get explicit confirmation before moving anything. **Unattended runs (cron, headless automation) stop here** — report both lists and move nothing; the confirmation gate cannot be waived.
-   - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `/weekly-hygiene` holds for duplicate detection). The user decides.
-   - **Move via Obsidian GUI drag-and-drop (preferred — heals wikilinks instantly).** Create one year folder per destination year in the `MOVE` list (single-dir `mkdir -p ".../Session Logs/2025"` etc.), then hand off to the user: have them multi-select **only the `MOVE` files** in Obsidian's file explorer and drag each year's batch into its folder — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Obsidian rewrites every inbound wikilink in one pass — a few seconds for the whole set. Report the count once the user confirms the drag is done.
-     **Do NOT use the `obsidian move` CLI for batches** — it boots a fresh Electron instance per call (loading the entire vault index) and deadlocks on the single-instance lock after a handful of files. Fine for a one-off move, unusable for a batch.
-   - **Fallback for interactive sessions without the Obsidian GUI: raw `mv`, after the dry-run confirmation.** Session logs have globally-unique `YYYY-MM-DD.md` basenames, so Obsidian resolves a stale-path wikilink by basename fallback — a *scoped* exception to the general "never raw `mv`" rule. One loop does year-derivation, folder creation, collision refusal, and reporting:
+   - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `/weekly-hygiene` holds for duplicate detection). If the user does ask for a resolution, the safe order is: byte-compare the pair and **refuse on any difference**, delete the *archived* copy, then move the flat copy into place with a link-aware move — the flat copy is the one inbound links resolve to, so it must be the survivor. Treat a refusal per `_shared-rules.md` §24 before calling it genuine. The user decides.
+   - **Move per file with `obsidian move` (primary path — it heals inbound wikilinks).** Drive it per **`_shared-rules.md` §24**, which owns this CLI's behaviour and its preconditions. Create one year folder per destination year in the `MOVE` list (`mkdir -p ".../Session Logs/2025"` etc.), then move each file:
      ```bash
+     pgrep -f '[o]bsidian' >/dev/null || echo "ABORT: Obsidian is not running — the CLI drives the running app"
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
      LOGS="{VAULT}/06 Archive/Claude/Session Logs"
+     REL="06 Archive/Claude/Session Logs"   # vault-relative form the CLI expects
      ls -1 "$LOGS" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
        [ "${f%.md}" \< "$CUTOFF" ] || continue
        y=${f%%-*}
        mkdir -p "$LOGS/$y"
-       if [ -e "$LOGS/$y/$f" ]; then echo "SKIP (exists): $f"
-       else mv "$LOGS/$f" "$LOGS/$y/$f" && echo "MOVED: $f -> $y/"; fi
+       if [ -e "$LOGS/$y/$f" ]; then echo "SKIP (exists): $f"; continue; fi
+       obsidian move path="$REL/$f" to="$REL/$y/$f" >/dev/null 2>&1 </dev/null
+       sleep 2.5
+       if [ ! -e "$LOGS/$f" ] && [ -e "$LOGS/$y/$f" ]; then echo "MOVED: $f -> $y/"
+       else echo "FAIL: $f"; fi
      done
      ```
+     The `</dev/null`, the settle delay, and the verify-by-result check are all load-bearing, and each fails silently if dropped — see **`_shared-rules.md` §24** for why (it is the single source of truth for this CLI's behaviour; do not restate it here).
+   - **Obsidian GUI drag-and-drop is an equivalent alternative** if the user would rather do it by hand: have them multi-select **only the `MOVE` files** and drag each year's batch into its folder — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Report the count once the user confirms the drag is done.
+   - **⛔ Never fall back to raw `mv`** — per **`_shared-rules.md` §24**, which also explains why a "globally unique basename" exception does not exist. If a link-aware move is unavailable, **move nothing**: report the `MOVE` list and defer the roll. Session logs cross-link each other densely, so one moved date can strand dozens of inbound links, and a roll that relocates the files while orphaning their links is worse than a roll not run.
      Count the `SKIP (exists)` lines and carry the number into the report's skipped bullet — a silent skip is how duplication survives a pass that claims to be clean.
-     Full CLI link-verification is still skipped (`obsidian unresolved`/`backlinks` time out mid-reindex on a large vault) — but the basename-fallback claim is GUI behaviour this repo can't prove, so **spot-check once per run**: pick one moved log with a known inbound link and confirm it resolves (in the GUI next session, or `obsidian unresolved` filtered to that basename once reindex settles). Record the result — basename and pass/fail — in the report's spot-check bullet. **On fail** (the link no longer resolves), stop using the raw-`mv` fallback for the rest of the run, flag the moved batch in the report as needing link repair, and route repair to the user via the Obsidian GUI (drag the files back, or re-drag them into the year folder so Obsidian rewrites the links) — do not attempt a bulk link rewrite from the shell.
+   - **Verify link integrity and put the numbers in the report** — §24's before/after unresolved-link counts, plus a confirmation that no moved date appears as an unresolved target. Record both totals in the report's link-integrity bullet; a roll reporting no numbers has verified nothing.
+   - **⛔ Confirm the vault's sync client is ON before rolling** (or that the vault has none), and note which in the report. A structural batch run with sync off gets silently resurrected on the next reconnect — mechanism in §24. Not shell-checkable; ask the user.
    - **Idempotent for moves, not for duplicates:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs. A skipped collision is the exception — the flat copy stays flat and older than every future cutoff, so it resurfaces each run. The `MOVE`/`DUPLICATE` partition is what keeps it distinguishable from a newly-aged log rather than padding the move count forever.
 
 7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
@@ -179,4 +186,4 @@ Quarterly (last week of March, June, September, December), or as a precursor to 
 
 - **Feeds `/quarterly-review`:** the strategic review consumes this report for its Vault Health section.
 - **Consumes `/weekly-hygiene`:** carries forward unresolved structural findings rather than re-scanning.
-- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, then Obsidian GUI drag-and-drop; raw `mv` fallback for interactive no-GUI sessions — unattended runs stop at the dry-run); keeps the flat directory to ~one quarter of logs.
+- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, then per-file `obsidian move` so inbound links are healed — never raw `mv`; unattended runs stop at the dry-run); keeps the flat directory to ~one quarter of logs.
