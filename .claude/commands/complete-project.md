@@ -90,7 +90,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
      - **Truly dead** (old CSVs, superseded docs, one-time exports) → `06 Archive/`
    - **Stopping rule:** one pass. Don't re-interrogate artefacts the user has already routed, and don't ask about files under ~5 that are obviously project-internal scratch — route them with the project file.
    - If the project has a resource folder in `03 Projects/`, apply the same test to its contents — don't move the whole folder blindly
-   - **Moving a folder:** a folder move means moving each file individually, per the batch note above and `_shared-rules.md` §24. `mkdir -p` the destination, move each file, then remove the empty source folder. If the Obsidian app is unavailable, hand off to the user to multi-select in the file explorer and drag the batch across — Obsidian heals every inbound link in one pass. Raw `mv` only for files first verified link-free with `obsidian backlinks`.
+   - **Moving a folder:** a folder move means moving each file individually, per the batch note above and `_shared-rules.md` §24. `mkdir -p` the destination, move each file, then remove the empty source folder. If the Obsidian app is unavailable, hand off to the user to multi-select in the file explorer and drag the batch across — Obsidian heals every inbound link in one pass. Raw `mv` only for files verified link-free **via a backlinks route §24 marks reliable** — and treat a nil result from an unreliable route as *unverified*, not as zero. A false "no inbound links" is precisely the orphaning §24 exists to prevent, so the gate is only as good as the route behind it.
 
    **Step 5b — Move the project file:**
    - Determine destination based on the artefact routing test:
