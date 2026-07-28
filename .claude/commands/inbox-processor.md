@@ -82,7 +82,7 @@ If the second confirmation isn't given, the items stay deferred; execute the res
 
 4. **Execute moves** (after confirmation):
    - Move items to their new locations. For any item that may have inbound links or embeds (notes *and* attachments — `![[file.pdf]]` embeds break too), use a link-healing move (Obsidian's move) rather than raw `mv`. Verify "link-free" before a raw `mv`: a backlink/structural query, or grep the vault for the filename. Fresh captures usually have none. If link-healing moves may be needed, probe first with `obsidian version 2>/dev/null` **before any writes** — it requires the Obsidian app to be running, which a PATH check alone does not establish. If it's unavailable, raw-`mv` only verified link-free items and defer the rest.
-   - **The Obsidian CLI is single-file only, never a batch.** It boots a fresh app instance per call and deadlocks on the single-instance lock after a handful of files — an inbox is the archetypal bulk case. For a batch of link-bearing items, move them by drag in the Obsidian GUI (which heals links), or split the work: raw-`mv` the items verified link-free and hand the remainder to the GUI. This overrides "Batch similar items" below wherever link healing is in play.
+   - **The Obsidian CLI handles an inbox-sized batch fine — but drive it per `_shared-rules.md` §24** (the single source of truth for this CLI: the `</dev/null`, the settle delay, verify-by-result, and why raw `mv` is never the batch shortcut). Each requirement fails *silently* if dropped, so a batch that reports success is not evidence it worked.
    - Create necessary folders if they don't exist
    - Update relevant index files (project pages, hub files) for durable notes that need discoverability — not for raw attachments/receipts. Hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool
    - Apply only the renames approved in the Step 3 plan
@@ -140,7 +140,7 @@ Item → Is it SYSTEM documentation (how the vault/Claude works)?
 - **Rename for clarity:** Add dates, context, or more descriptive names when moving — always proposed in the Step 3 plan, never ad hoc
 - **Link, don't duplicate:** If item relates to multiple places, keep in one location and link from others
 - **Ask when uncertain:** If categorisation isn't obvious, present options and ask the user
-- **Batch similar items:** If multiple items go to same destination, move them together — but not via the Obsidian CLI, which is single-file only (see Step 4)
+- **Batch similar items:** If multiple items go to same destination, move them together — drive the moves per Step 4
 - **Update indexes:** If adding a durable note to a project or area, update the relevant hub file (skip for raw attachments/receipts — see Step 4)
 
 ## Special Cases

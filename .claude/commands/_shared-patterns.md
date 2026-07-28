@@ -44,7 +44,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `park` Step 8a
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 1, `hibernate`/`awaken` Step 1
 - **Weekday via `date -d`, never internal mapping** — verify weekday+date pairs before writing. → `park` Step 11, `guillotines` Step 3
-- **`obsidian move` is one-off only** — batches deadlock the single-instance lock; GUI drag. → `quarterly-hygiene`, `complete-project` Step 5
+- **Link-aware moves: never raw `mv`, batches are fine** — CLI behaviour + verification live in one place, not in each skill. → `_shared-rules.md §24`, `quarterly-hygiene` Step 6, `complete-project` Step 5, `inbox-processor` Step 4
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
 - **Quoted heredoc for literal payloads** — unquoted `<<EOF` expands/executes `$`, backticks in content; quote `<<'EOF'`, printf the parts that should expand. → `_shared-rules.md §5`, `_skill-monitor`
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight`/`park` Step 16, `weekly-hygiene`
