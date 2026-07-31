@@ -79,7 +79,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 ### Part 2: Vault Health (from quarterly-hygiene)
 
 7. **Fold in the quarterly-hygiene findings.**
-   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its findings (carried weekly-hygiene structural items, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, actions taken/routed) into the output's Vault Health section. A stale (older-quarter) report is folded with its stale label per step 2; only if no report exists at all, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
+   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its findings (carried weekly-hygiene structural items, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed) into the output's Vault Health section. A stale (older-quarter) report is folded with its stale label per step 2; only if no report exists at all, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
 
 8. **Execute strategic edits (user-confirmed only):**
    - Apply Direction.md updates the user approved during step 6 (user-provided text only). Re-read Direction.md immediately before each edit to avoid stale writes.
@@ -140,7 +140,7 @@ Projects to explicitly abandon rather than let linger:
 ## Vault Health
 *Source: Quarterly Hygiene Reports/YYYY-QN (current / stale — from YYYY-QN, re-run recommended / not found — run /quarterly-hygiene)*
 
-[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, actions taken/routed. Not re-derived here.]
+[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed. Not re-derived here.]
 
 ## Next Quarter
 
