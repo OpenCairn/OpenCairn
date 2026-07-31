@@ -122,7 +122,7 @@ A **tickler** sits underneath the day layer: `/park` offers to defer open loops 
 
 ### Quarter: Quarterly Review
 
-`/quarterly-review` is the deepest pass: strategic alignment (are you working on the right things?), priority drift, next quarter's Big Rocks, and a `Context - Direction.md` overhaul. Structural deep maintenance (full context-file re-read, CRM stale-entry review, oversized files, session-log archiving) is handled by `/quarterly-hygiene`, which the review consumes — mirroring how `/weekly-review` pairs with `/weekly-hygiene`. Too heavy for weekly, but accumulates real debt if never done.
+`/quarterly-review` is the deepest pass: strategic alignment (are you working on the right things?), priority drift, next quarter's Big Rocks, and a `Context - Direction.md` overhaul. Structural deep maintenance (full context-file re-read, CRM stale-entry review, corrections-log index refresh, session-log archiving, skill-library flywheel audit, panel model-currency check) is handled by `/quarterly-hygiene`, which the review consumes — mirroring how `/weekly-review` pairs with `/weekly-hygiene`. Too heavy for weekly, but accumulates real debt if never done.
 
 ### Extended Breaks: Hibernate and Awaken
 
@@ -243,7 +243,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 |---------|-------------|
 | `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
 | `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, `Context - Direction.md` overhaul. Consumes `/quarterly-hygiene` for vault structural health. |
-| `/quarterly-hygiene` | Quarterly deep vault maintenance: full context-file re-read (non-temporal drift), CRM stale-entry review, oversized/near-empty files, 90-day-rolling session-log archiving into `YYYY/` folders. Mechanical companion to `/quarterly-review`. |
+| `/quarterly-hygiene` | Quarterly deep vault maintenance: full context-file re-read (non-temporal drift), CRM stale-entry review, corrections-log index refresh, 90-day-rolling session-log archiving into `YYYY/` folders, skill-library flywheel audit, cross-model panel model-currency check. Mechanical companion to `/quarterly-review`. |
 
 **Learning loops:**
 
