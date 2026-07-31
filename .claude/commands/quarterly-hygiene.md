@@ -1,6 +1,6 @@
 ---
 name: quarterly-hygiene
-description: Quarterly deep vault maintenance — heavy structural checks too slow or too rarely-needed for weekly: full context-file re-read, CRM stale-entry review, session-log archiving, skill-library flywheel audit
+description: Quarterly deep vault maintenance — heavy structural checks too slow or too rarely-needed for weekly: full context-file re-read, CRM stale-entry review, session-log archiving, skill-library flywheel audit, cross-model panel model-currency check
 ---
 
 # Quarterly Hygiene - Deep Vault Maintenance
@@ -101,9 +101,16 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - **Read `~/.claude/cross-pollination.log` — only if it exists** (`[ -f ~/.claude/cross-pollination.log ]`): index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. **If absent** (template installs that haven't opted into the Stop hook via `/setup-hooks`), record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
    - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.
 
+8. **Cross-model panel model-currency check.** (if any of the panel seats from `_shared-rules.md` §10 are installed; if none are, note "no cross-model panel configured — model-currency check skipped" in the report)
+   Panel seats resolve their models in three different ways — a session-inherited seat floats with the session, a CLI-default seat moves with CLI updates, and a config/script pin stays put until edited — so pinned seats silently fall behind frontier releases with no signal. Once a quarter, resolve each installed seat's *actual* model and compare it against the provider's current lineup:
+   - **Resolve, don't recall.** Read each seat's actual model per §10's *seat model resolution* bullet — the single source of truth for where each seat's pin lives and how to probe an unpinned CLI default; do not recite config paths from memory or from this file.
+   - **Compare against the provider's current lineup, fetched fresh this run:** the provider's models endpoint where a key is available (per §10), a web search for the others. Never judge currency from memory — training-data staleness is exactly the failure this check exists to catch.
+   - **Flag two conditions:** (a) a pin that is no longer the provider's strongest reasoning model; (b) a pin on an unstable alias (`-preview`, `-exp`, an undated "latest" alias) — providers deprecate and repoint these without notice, so propose the stable id even when the underlying model is current.
+   - **Present, don't auto-bump.** A model bump can invalidate verified seat behaviour — read-only policy guarantees, tool-call guards, context-size and pricing caps tuned to a specific model (see §10). Propose each bump as a one-line config change; on user confirmation, apply it and run a one-line smoke test of that seat before reporting it done.
+
 ### Output
 
-8. **Write the quarterly hygiene report:**
+9. **Write the quarterly hygiene report:**
    ```bash
    mkdir -p "{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports"
    ```
@@ -145,16 +152,23 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Divergent reimplementations of indexed patterns: [list or "none"]
    - Dead/cold index entries (never surfaced): [list or "none"]
 
+   ## Panel Model Currency
+   | Seat | Resolved model | Pin source | Current? | Proposed action |
+   |------|---------------|------------|----------|-----------------|
+   | [seat] | [model id] | [config path / CLI default / session] | [yes / stale / unstable alias] | [bump to X — pending / applied + smoke-tested / none] |
+
+   (or "no cross-model panel configured — model-currency check skipped")
+
    ## Actions Taken / Routed
    - [Confirmed edits applied this run]
    - [Unresolved items the user didn't engage with → Tasks.md, weekly-hygiene's tier-2 fallback form: `- [ ] [description] → [[06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
    - [Flywheel proposals stay in this report as pending user decisions — they are not routed]
    ```
 
-9. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
+10. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
    The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.
 
-10. **Display confirmation:**
+11. **Display confirmation:**
    ```
    ✓ Quarterly hygiene report: 06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md
    ✓ Weekly-hygiene report: [carried / carried (stale — re-run recommended) / not found]
@@ -164,6 +178,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
    ✓ Wikilink spot-check: [pass / fail — basename / n/a]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
+   ✓ Panel model currency: [N seats checked, M stale/unstable pins flagged / no panel configured]
    ✓ Skill self-review: [no gaps / N observations logged]
 
    Quarterly hygiene complete. Run /quarterly-review to fold these findings into the strategic review.
