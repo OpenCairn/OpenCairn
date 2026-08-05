@@ -10,7 +10,7 @@ You are helping the user restore context after an extended break from regular wo
 
 ## Philosophy
 
-After weeks or months away, bare `/pickup` shows current WIPs but lacks the context of *why* those projects exist or what changed during the break. Awaken bridges the gap by:
+After weeks or months away, bare `/pickup` shows current projects but lacks the context of *why* those projects exist or what changed during the break. Awaken bridges the gap by:
 - Loading the pre-break state snapshot
 - Acknowledging what changed during the break
 - Updating priorities based on new reality
@@ -30,7 +30,7 @@ This is the "return from sabbatical" complement to daily pickup.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
-   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` step 1)
+   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` Step 0)
 
 2. **Find hibernate snapshot:**
    - Check `{VAULT}/06 Archive/Hibernate Snapshots/` for most recent snapshot
@@ -98,7 +98,7 @@ For the rest, say which are completed and which are dropped.
 ```
 
 7. **Update based on the user's answers:**
-   - Record completed loops in the awaken summary's "Completed during break" lines (step 8); flip any matching `- [ ]` items in the SSOT files (This Week.md, Tasks.md, Tickler, project hubs) to `[x]` — write mechanism per `_shared-rules.md` §5 (`locked-edit.sh`, not the Edit tool; `write-tickler.sh` for Tickler). The snapshot itself keeps plain bullets — there are no checkboxes to flip there, and it stays a frozen record.
+   - Record completed loops in the awaken summary's "Completed during break" lines (step 8); flip any matching `- [ ]` items in the SSOT files (This Week.md, Tickler, project docs) to `[x]` — write mechanism per `_shared-rules.md` §5 (`locked-edit.sh`, not the Edit tool; `write-tickler.sh` for Tickler). The snapshot itself keeps plain bullets — there are no checkboxes to flip there, and it stays a frozen record.
    - Capture new items from "what changed" in the awaken summary; route the actionable ones to SSOT via step 9 alongside the Immediate Next Actions.
    - Deferred items the user is resuming → treat as actionable and route via step 9; ones staying parked → note in the awaken summary, no SSOT write.
    - Note completed or dropped projects for the summary — the `/complete-project` delegation happens after step 8, so a stall there can't cost the orientation record.
@@ -148,27 +148,26 @@ For the rest, say which are completed and which are dropped.
 - [Second thing to do]
 - [Third thing to do]
 
-**Note:** These actions are also routed to SSOT per step 9 (This Week.md / Tasks.md, or future-dated Tickler). The list above is a point-in-time record.
+**Note:** These actions are also routed to SSOT per step 9 (This Week.md, or dated Tickler). The list above is a point-in-time record.
 
 ### Session Link
 
 **First session post-return:** [placeholder — session numbers are assigned at park time, after this step; back-fill this link at the first `/park` after `/awaken`, or leave the placeholder]
 ```
 
-   Once the summary is appended: completed or dropped projects → route through `/complete-project` (it owns artefact routing, link-safe archival, and the WIP removal — don't improvise an archive move here). It runs after the write so an abort there leaves the orientation record intact.
+   Once the summary is appended: completed or dropped projects → route through `/complete-project` (it owns artefact routing and the link-safe move out of the `03 Projects/` root — don't improvise a move here). It runs after the write so an abort there leaves the orientation record intact.
 
-9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md and Tasks.md, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
+9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md and Whimsy, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
    - For each action in "Immediate Next Actions" (plus actionable "what changed" items from step 7):
-     - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`).
-     - If This Week.md is stale/missing → add to `01 Now/Tasks.md` — not a today-dated Tickler entry; Tickler is for future-dated triggers (§4), and a genuinely future-dated action goes there via `write-tickler.sh`.
-   - Dedup check before each write: grep the target file, Tickler.md, and Tasks.md. Already present somewhere → skip the write; if the new placement supersedes a Tickler copy, delete the Tickler copy per §4 (Tickler SSOT transfer).
-   - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes.
+     - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists.
+     - If This Week.md is stale/missing → dated items go to the Tickler via `write-tickler.sh`; undated items go to `04 Areas/Whimsy/_notes.md` as a plain line (no checkbox) — unless they belong to a project, in which case add to that project doc's `## Next Actions`.
+   - Dedup check before each write: grep the target file and Tickler.md. Already present somewhere → skip the write; if the new placement supersedes a Tickler copy, delete the Tickler copy per §4 (Tickler SSOT transfer).
+   - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes (Whimsy lines stay plain).
 
-10. **Update Works in Progress** (via `locked-edit.sh`, not the Edit tool — WIP is a shared planning file, see `_shared-rules.md` §5):
-   - Update "Last updated" timestamp
-   - Update project statuses with post-break reality
-   - Remove 🛌 emoji from active projects
-   - Completed/dropped projects: `/complete-project` (step 8) removes the WIP entry itself. Only remove entries here for projects it did not process — it was deferred, aborted, or the user declined — and don't bare-archive project files
+10. **Update project docs** (via `locked-edit.sh`, not the Edit tool — project docs are shared planning files, see `_shared-rules.md` §5):
+   - For each still-active project, update its `03 Projects/[name].md` doc — `## Current Objective` / status and the co-located `**Last update:**` stamp — with post-break reality
+   - Remove 🛌 hibernation markers from active project docs
+   - Completed/dropped projects: `/complete-project` (step 8) moves the doc out of the root itself. Only touch docs here for projects it did not process — it was deferred, aborted, or the user declined — and don't bare-move project files
 
 11. **Display completion message:**
 
@@ -176,7 +175,7 @@ For the rest, say which are completed and which are dropped.
 ✓ Hibernate snapshot loaded from: [Date]
 ✓ Break duration: [N days/weeks/months]
 ✓ Projects updated: [N still active, M completed, P dropped]
-✓ Works in Progress synchronized
+✓ Project docs synchronized
 
 Welcome back. You're oriented.
 
@@ -205,14 +204,14 @@ No hibernate snapshot found.
 
 You can:
 1. Run `/pickup` and tell it what you want to resume (it auto-extends search window)
-2. Manually review Works in Progress and recent sessions
+2. Manually review the 03 Projects root docs + Strategic Overview and recent sessions
 3. Start fresh if the gap is too large
 
 What would you like to do?
 ```
 
 Continuations:
-- **Option 2:** read Works in Progress plus the most recent session logs, present them in place of the step 4 summary, then run steps 5-11 against that state (skip the snapshot append in step 8 — write the awaken summary to the current session log instead).
+- **Option 2:** read the `03 Projects/` root docs (plus `01 Now/Strategic Overview.md` if present — note its generated-on date) and the most recent session logs, present them in place of the step 4 summary, then run steps 5-11 against that state (skip the snapshot append in step 8 — write the awaken summary to the current session log instead).
 - **Option 3:** skip the restore; ask for 1-3 priorities for today, route them via step 9, and stop.
 
 **If multiple snapshots exist:**
@@ -245,7 +244,7 @@ This is fine - life happens. Priorities may have shifted more than expected.
 
 | Feature | /pickup | /awaken |
 |---------|---------|---------|
-| Source | Works in Progress | Hibernate snapshot |
+| Source | Project docs (03 Projects root) | Hibernate snapshot |
 | Scope | Current projects | Pre-break state + what changed |
 | Update | Read-only | Interactive update |
 | Frequency | Daily/session | Extended breaks only |

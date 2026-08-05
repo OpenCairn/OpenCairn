@@ -55,8 +55,8 @@ User asks about photography, health, career, etc.
 User wants to work on a specific project.
 
 1. Read CLAUDE.md
-2. Read `01 Now/Works in Progress.md` for current status
-3. Read the project hub page in `03 Projects/`
+2. Read `01 Now/Strategic Overview.md` for the current landscape (rendered by `/morning`)
+3. Read the project doc in `03 Projects/` — the SSOT for status and next actions
 4. Read linked resource files as needed
 
 ### Pattern 3: Research/Discovery

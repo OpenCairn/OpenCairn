@@ -1,18 +1,18 @@
 ---
 name: start-project
-description: Spin up a new project - create file, add to WIP, link to initiative
+description: Spin up a new project - create the project doc in 03 Projects, link to initiative
 argument-hint: "[Project Name] [--initiative=Name] [--backlog]"
 ---
 
 # Start Project - New Project Initialisation
 
-You are helping the user spin up a new project. This command creates the project file, adds it to Works in Progress, and optionally links it to an initiative project.
+You are helping the user spin up a new project. This command creates the project doc in `03 Projects/` — folder location IS status (root = active, `Backlog/` = backlog), so creating the doc there is the whole registration — and optionally links it to an initiative project.
 
 ## Philosophy
 
 Projects should be explicit from the start. Creating a project properly:
 - Forces clarity on what "done" looks like
-- Makes the commitment visible in Works in Progress
+- Makes the commitment visible in the `03 Projects/` root (and in /morning's Strategic Overview render)
 - Links to broader context if part of an initiative
 - Creates the session linkage from day one
 
@@ -47,6 +47,9 @@ If project name not provided as parameter, ask:
 Then ask:
 > "What does 'done' look like for this project? (One sentence or a few bullet points)"
 
+Ask which bucket it belongs to (one line — the doc's `bucket:` frontmatter, which /morning's Strategic Overview groups by):
+> "Which bucket?" (offer the vault's taxonomy — Project Doc Format in `07 System/Vault Organisation Principles.md`)
+
 Ask for deadline/target (optional):
 > "Any deadline or target date? (Leave blank if open-ended)"
 
@@ -58,26 +61,28 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 - Check if `{VAULT}/03 Projects/[Project Name].md` already exists
 - Check if `{VAULT}/03 Projects/Backlog/[Project Name].md` already exists
 - Check if `{VAULT}/03 Projects/Cold/[Project Name].md` already exists
-- Glob the vault for any other `[Project Name].md` — a completed project of the same name may live in `04 Areas/` or `06 Archive/Projects/`, and a basename collision breaks the basename wikilinks other skills write (e.g. `/complete-project`'s completion record). Warn on any hit.
-- Check for a duplicate `### [Project Name]` heading in `{VAULT}/01 Now/Works in Progress.md`. A second identical heading breaks `_shared-rules.md` §6's FIFO awk (it stops at the first `### `) and `/pickup`'s per-`###` parse — a file-level check alone won't catch it.
+- Glob the vault for any other `[Project Name].md` — a completed project of the same name may live in `04 Areas/.../Archive/` or `06 Archive/`, and a basename collision breaks basename wikilinks elsewhere in the vault. Warn on any hit.
 - If exists, warn and ask if they want to:
   - Resume existing project
   - Create with different name
-  - **Finish a half-done creation** — hub file exists but no WIP entry (or vice versa), the signature of an earlier run that failed partway. Create only the missing artefacts; don't rewrite what's there.
+  - **Finish a half-done creation** — hub file exists but the initiative backlink or resources folder is missing, the signature of an earlier run that failed partway. Create only the missing artefacts; don't rewrite what's there.
   - Abort
 
 ### 4. Create project file
 
 Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
 
-**Write mechanism:** this step **creates** a file, so it uses `Write`, not `locked-edit.sh`. Per `_shared-rules.md` §5, the lock governs mutation of existing content; there is no read-modify-write cycle to lose here. Duplicate-creation safety is Step 3's collision check, not the lock's — the lock would serialise two racing creates and report success for both. Steps that mutate `Works in Progress.md` or an initiative hub later in this skill are mutations and **do** go through `locked-edit.sh`.
+**Write mechanism:** this step **creates** a file, so it uses `Write`, not `locked-edit.sh`. Per `_shared-rules.md` §5, the lock governs mutation of existing content; there is no read-modify-write cycle to lose here. Duplicate-creation safety is Step 3's collision check, not the lock's — the lock would serialise two racing creates and report success for both. Steps that mutate an initiative hub later in this skill are mutations and **do** go through `locked-edit.sh`.
 
 Omit the `**Initiative:**` line entirely when there's no initiative — don't write the words "(if applicable)" into the file.
 
 ```markdown
+---
+bucket: [bucket from step 2]
+---
+
 # [Project Name]
 
-**Status:** Active | **Target:** [Deadline or "Open-ended"]     <!-- `Backlog` under --backlog: the Status must match the folder tier, or /weekly-hygiene flags a tier mismatch -->
 **Created:** [Date]
 **Initiative:** [[03 Projects/[Initiative Name]]]
 
@@ -89,9 +94,9 @@ Omit the `**Initiative:**` line entirely when there's no initiative — don't wr
 
 ---
 
-## Current Status
+## Current Objective
 
-Project initialised.
+[First milestone toward the goal — or the goal restated, if it's one push]
 
 **Last update:** [Date] - Created
 
@@ -124,26 +129,17 @@ Project initialised.
 
 Leave Session History empty apart from the comment — `/park` is the writer (it appends the session link there when it runs — see `park.md` for the exact format, which this file must not restate and let drift). Seeding a link at creation time means fabricating the session number and topic before `/park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `/park` appends only where it exists.
 
-### 5. Update Works in Progress
+### 5. Root-cap check
 
-**Write mechanism (F1):** WIP edits use `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5). To insert the entry, `--replace` the target section's heading line with the heading followed by the new entry — `--append` lands at EOF, not in the section.
+Creating the doc in the `03 Projects/` root IS the registration — folder location is status (root = active, `Cold/` = paused, `Backlog/` = backlog); there is no separate index to update. `/morning`'s Strategic Overview render picks the new doc up on its next run.
 
-Read `{VAULT}/01 Now/Works in Progress.md`
+After creating (skip under `--backlog`), count the root:
 
-Add to the **Active** section — or the **Backlog** section if `--backlog` (the WIP section must match the file's folder tier; a Backlog-folder file listed under Active is a tier mismatch `/weekly-hygiene` flags):
-
-```markdown
-### [Project Name]
-**Status:** Just started
-**Last:** [Date] - Created
-**Next:** → [[03 Projects/[Project Name]]]
+```bash
+ls "{VAULT}/03 Projects/"*.md 2>/dev/null | wc -l
 ```
 
-Use the file's **actual path** in the `**Next:**` link — `[[03 Projects/Backlog/[Project Name]]]` when `--backlog` (`/pickup` follows this link to load the hub; the root form dangles).
-
-Every project gets its own `###` entry. Initiative membership is carried by the template's `**Initiative:**` field and the Step 6 backlink — never by nesting the entry under the initiative's WIP section, which makes it invisible to `/pickup`'s per-`###` parse.
-
-Update the `**Last updated:**` timestamp, matching the file's existing format — `date +"%Y-%m-%d %H:%M %Z"`. Per `_shared-rules.md` §19 the `date` result must come from a *prior* tool call; a value composed in the same call as the write is an estimate, not a clock read.
+If the count is >5, say so and suggest which existing root project looks most moveable to `03 Projects/Cold/` — the root is the active-attention set, and it only stays legible if it stays small. Note it for the user; don't move anything without their say-so.
 
 ### 6. Link from initiative (if applicable)
 
@@ -171,7 +167,8 @@ Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a co
 
 ```
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
-✓ Added to Works in Progress ([Active / Backlog] section)
+✓ Registered by location: [03 Projects root (active) / Backlog] — folder is status
+[⚠ Root count now N (>5) — consider moving [candidate] to Cold — omit when ≤5 or --backlog]
 [✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
 [✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 
@@ -197,7 +194,7 @@ Project ready. What's the first action?
 - Work that will span multiple sessions
 
 **Don't use when:**
-- Quick task (just add to Working Memory or WIP quick wins)
+- Quick task (route to This Week or the Tickler — small items need no home doc)
 - Existing project already covers this work
 - Area maintenance (belongs in `04 Areas/`, not a project)
 
@@ -205,9 +202,9 @@ If unsure whether something is a project or a task: if it needs multiple session
 
 ## Integration
 
-- **Works in Progress:** Project appears in Active (or Backlog)
+- **03 Projects root:** the doc's folder is its status; /morning's Strategic Overview renders it
 - **Initiatives:** Linked bidirectionally for navigation
 - **Session summaries:** Session History section captures all work
-- **complete-project:** Eventual counterpart to archive when done
+- **complete-project:** Eventual counterpart to route the doc out of the root when done
 
 

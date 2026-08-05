@@ -1,6 +1,6 @@
 ---
 name: weekly-hygiene
-description: Vault structural maintenance - broken links, stale items, tier mismatches, hygiene report
+description: Vault structural maintenance - broken links, stale items, folder mismatches, hygiene report
 ---
 
 # Weekly Hygiene - Vault Structural Maintenance
@@ -9,7 +9,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tickler.md`, `Tasks.md`, `07 System/AI Provenance Log.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area hub files (WIP pruning/strike-through, WIP↔This Week reconciliation, Tickler past-due edits, This Week and Tasks purges, routed-finding writes to Tasks.md, provenance log appends and path self-heals, hub `**Status:**` propagation, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool. The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
+**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into a project doc's `## Next Actions`, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
+
+**Disengage routing — applies to every "user disengages" branch below.** A finding the user declines to resolve in-session routes to the relevant project/area doc's `## Next Actions` where one is identifiable, else to the Tickler dated 7 days out — always with a hygiene-report back-reference, never to the Whimsy sink, never silently dropped. Write formats and mechanisms: step 17.
 
 0. **Resolve Vault Path**
 
@@ -19,70 +21,39 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
-1. **WIP Metrics & Pruning**
+1. **Project-Doc Health**
+
+   Project docs in `03 Projects/` are the task SSOT: root = active, `Cold/` = paused, `Backlog/` = someday — the folder is the status. Each root doc carries `bucket:` frontmatter plus `## Current Objective` and `## Next Actions`.
 
    **Gather:**
-   - WIP line count: `wc -l "{VAULT}/01 Now/Works in Progress.md"`
-   - WIP session links: `grep -c "06 Archive/Claude/Session Logs" "{VAULT}/01 Now/Works in Progress.md"`
-   - Count session links per WIP section (Big Rocks vs Active vs Backlog) — heaviest sections are pruning candidates
-   - WIP completed/strikethrough items: `grep -cE "\[x\]|~~.*~~" "{VAULT}/01 Now/Works in Progress.md"`
-   - For each Active/Big Rock project, check the **Last:** date — flag any 14+ days stale
-   - Per-entry line count (excluding session link lines starting with →): flag entries exceeding 30 lines
-
-   **Auto-fix:**
-   - Trim session log links to **3 most recent per entry** (matching the `_shared-rules.md` §6 / `/park` FIFO cap — one number everywhere, so weekly trims don't churn against park's cap) — only lines matching `→ [[06 Archive/Claude/Session Logs/`. **Preserve all other reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers, not session history. Session history lives in the archive and project hub pages, not WIP.
-   - Remove completed/strikethrough checklist items (the `[x] ~~done thing~~ ✅` pattern)
-   - Remove resolved open decisions (strikethrough decisions that were answered)
-   - Collapse resolved inline narratives: when a paragraph or sub-section contains 3+ items all marked ✅/resolved/completed, replace with a single summary line referencing the linked project/area file
-   - Per-entry line budget: when a single WIP entry exceeds 30 lines (excluding session links), collapse verbose sub-sections to summary + link. Prioritise collapsing: duplicated detail (confirmation numbers, prices, addresses already in linked files), resolved narratives, sub-topics that have their own WIP entry
-   - Detect sub-entry sprawl: when a WIP entry contains dedicated sub-topic headings, per-sub-topic session links, or content that duplicates a separate WIP entry, collapse to a cross-reference
+   - List root docs: `ls "{VAULT}/03 Projects/"*.md`
+   - For each root doc, check for `bucket:` in the frontmatter, a `## Current Objective` heading, and a `## Next Actions` heading — list violations
+   - Root-doc count: flag if >5 (excluding `Cold/` and `Backlog/`)
+   - Staleness candidates: flag root docs whose `## Next Actions` are all ticked (no open `- [ ]`), or whose `## Current Objective` reads as completed — candidates for `Cold/` or `/complete-project` (moves are executed in step 2's folder audit)
 
    **Confirm with user:**
-   - Flag Active/Big Rock projects whose **Last:** date is 14+ days stale — recommend demote or nudge
-   - **When a demote/promote is actioned in-session, propagate the tier change to the project's hub `**Status:**` field** (`03 Projects/<name>.md` or the relevant area hub), not just the WIP entry. The WIP tier and the hub's own Status line are the same fact in two places; moving the WIP entry while leaving the hub reading "Active" leaves a stale cross-reference.
+   - Structure violations: fix in-session (add the missing frontmatter key or section via `locked-edit.sh`) with the user's confirmation
+   - Staleness candidates: recommend `Cold/` or `/complete-project`
 
-   **If not resolved in-session:** For each stale entry the user doesn't address, append `⚠ Hygiene Wnn: Nd stale — demote?` after the entry's `**Status:**` line in WIP. Note in report as `→ routed to WIP entry`.
+   **If not resolved in-session:** route each finding per the disengage-routing rule — a structure violation or staleness flag goes under that doc's own `## Next Actions`; a doc lacking that section (itself a violation) goes to the Tickler dated 7 days out via `write-tickler.sh`.
 
-2. **WIP ↔ This Week Reconciliation**
-
-   WIP is the canonical project dashboard; This Week is the tactical weekly view with higher-frequency updates. Items completed in This Week but not reflected in WIP create stale priors for every session that reads WIP.
-
-   **Gather:**
-   - Read `{VAULT}/01 Now/Works in Progress.md` (already loaded from step 1)
-   - Read `{VAULT}/01 Now/This Week.md`
-   - For each `[x]` or `✅` item in This Week, check whether the corresponding WIP entry still shows it as pending or as an unchecked `[ ]` item
-   - WIP `**Next:**` fields: flag any that contain **multiple actions** (queue) — these always need migration. Also flag entries with task content where a project/area doc exists — should be a pointer instead. A single next action is acceptable for lightweight entries that have no project doc.
-
-   **Auto-fix:**
-   - Update WIP entries to reflect completions confirmed in This Week (strike through items, update status lines)
-   - For Next fields with queued actions: migrate to the project doc, replace with a pointer
-   - For Next fields with task content where a project doc exists: replace with a pointer (`→ [[03 Projects/...]]`)
-
-   **Cross-reference sweep:**
-   - For each status change (battery disconnect, order placed, task completed), grep the vault for other files containing the stale value
-   - **Also for each NEW option/alternative added to a pre-existing decision/record** (surfaced while reconciling WIP/This Week, or from live docs modified since the last hygiene pass — a new option is not a "status change," so it slips the status-only sweep above): grep the decision's **anchor** (route/decision/record key) — NOT the new option text, which sibling docs that lack the option won't contain — across sibling docs (hubs, timelines, tables, indexes), and propagate the new entry into each, including parallel table rows a prose-only edit misses
-   - Update cross-references in live files (project pages, area files, vehicle docs, etc.)
-   - Leave Archive/, Session Logs/, and .stversions/ untouched — those are historical records or Syncthing versions
-
-   **Report:** List each reconciliation applied (file, old → new), plus any cross-reference updates in other files.
-
-3. **Projects Folder Audit**
+2. **Projects Folder Audit**
 
    **Gather:**
    - List top-level: `ls "{VAULT}/03 Projects/"`
    - List Cold/: `ls "{VAULT}/03 Projects/Cold/" 2>/dev/null`
    - List Backlog/: `ls "{VAULT}/03 Projects/Backlog/" 2>/dev/null`
-   - Cross-reference with WIP sections — flag tier mismatches (e.g., Active project with file in Cold/, Backlog WIP entry with file in root)
+   - A project's tier IS its folder — there is no separate dashboard to reconcile. Flag folder mismatches: root docs that look dead (step 1's staleness candidates), and Cold/ docs that look active (open dated commitments, or content contradicting "paused")
 
    **Confirm with user:**
-   - Move project files to match their WIP tier
-   - Archive completed project files to `06 Archive/`
+   - Move mismatched docs to the folder matching their actual state (dead-looking root doc → `Cold/` or `/complete-project`; active-looking Cold/ doc → root)
+   - Completed/abandoned projects with reference value → `04 Areas/[Area]/Archive/`; revivable-someday → `03 Projects/Cold/`. `06 Archive/` holds immutable write-once records only — never park project files there.
 
-   **If not resolved in-session:** For each tier mismatch the user doesn't address, append `⚠ Hygiene Wnn: file in wrong tier — move to Cold/?` to the WIP entry (if one exists) or add to Tasks.md with a hygiene report back-reference (if no WIP entry).
+   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move?` under the doc's own `## Next Actions`, else Tickler +7 days.
 
    **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Triage each hit per `_shared-rules.md §12` (grep-hit triage): fix stale wikilinks/locators in non-archive files; leave archive/session-log references as historical records; for a hash/provenance-log path, update the locator on the move, never the content hash/timestamp/proof.
 
-4. **Tickler Hygiene**
+3. **Tickler Hygiene**
 
    **Gather:**
    - Read `{VAULT}/01 Now/Tickler.md` (if it exists)
@@ -92,20 +63,20 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Resolve in-session:**
    - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
    - For each completed/struck item: confirm it's genuinely done, then remove it during the sweep (per the Tickler "delete if done" convention). When removing a mid-list item, match its **trailing** newline (not a leading one) so its neighbours don't join onto one line; re-grep for a join defect after.
-   - **If user disengages:** route unresolved past-due items to Tasks.md with a hygiene report back-reference.
+   - **If user disengages:** route each unresolved past-due item per the disengage-routing rule (its project/area doc's `## Next Actions` where identifiable, else re-date it in the Tickler 7 days out via `write-tickler.sh`).
 
-5. **Working Memory Sweep**
+4. **Working Memory Sweep**
 
    **Gather:**
    - Read `{VAULT}/01 Now/Working memory.md`
    - Count items in each section (Fresh Captures, To Review, etc.)
    - Flag sections with 10+ unprocessed items
-   - Identify any items that appear to be actionable tasks that should be in WIP or project files
+   - Identify any items that appear to be actionable tasks that should be in a project doc's `## Next Actions`
    - Note items that have routing guidance but haven't been moved yet
 
    **If not resolved in-session:** For oversized sections (10+ items), add `⚠ Hygiene Wnn: N items, 10+ unprocessed — triage needed` at the top of that section in Working Memory.
 
-6. **Scratchpad Sweep**
+5. **Scratchpad Sweep**
 
    **Gather:**
    - Find all Scratchpad.md files: `find "{VAULT}" -name "Scratchpad.md" -type f -not -path "*/.stversions/*" -not -path "*/06 Archive/*"`
@@ -115,7 +86,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Flag as "unsent `/reply` draft — at-risk work product"
    - Present file path, heading, and first non-empty body line to user
    - Per-draft confirmation required: "sent" (→ remove section per §11 boundary rules via `locked-edit.sh`), "still needed" (→ route to durable location), or "discard" (→ remove section)
-   - **Routing for "still needed":** CRM dossier if one exists for the recipient; else relevant project/area doc; else `01 Now/Tasks.md` as fallback with a backlink
+   - **Routing for "still needed":** CRM dossier if one exists for the recipient; else relevant project/area doc; else the Tickler dated 7 days out via `write-tickler.sh`, with a backlink
    - Protected draft sections are excluded from general scratchpad triage below — handle them here first
    - See `_shared-rules.md` §11 for section boundary rules and cleanup ownership
 
@@ -131,7 +102,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    A marker reading `⚠ Hygiene W30: 195L, first flagged W18` says the file has gone untouched across twelve sweeps — the fact worth acting on, and one no mtime-derived figure can express once the marker itself has been written. (Applies to any recurring marker that reports elapsed time on a file the marker is written into: same defect, same fix.)
 
-7. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
+6. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
    - Read CRM index to get list of known names
    - Extract names from recent session files. Drop heading lines and the standard session-log/planning **section names** before counting — otherwise structural headings (`### Files Updated`, `## This Week`, …) dominate the frequency list and bury real people:
@@ -160,19 +131,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session:**
    - Present candidates to user. For confirmed names, create CRM entries in the appropriate range file (A-F, G-L, M-R, S-Z) during the sweep.
-   - **If user disengages:** route unresolved candidates to Tasks.md with a hygiene report back-reference.
+   - **If user disengages:** route unresolved candidates per the disengage-routing rule (a CRM candidate rarely has a project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
 
-8. **This Week.md Hygiene**
+7. **This Week.md Hygiene**
 
    **Auto-fix:**
    - Read `{VAULT}/01 Now/This Week.md`
-   - Purge completed items: delete all `- [x]` lines from **past** day sections in This Week.md (date < today) and from Tasks.md. **Do not purge today's day section** — completed items there are at-a-glance context until `/goodnight` archives them to the daily report. Future day sections shouldn't have `[x]` items, but if they do, leave them. `- [ ]` items are always untouched.
+   - Purge completed items: delete all `- [x]` lines from **past** day sections in This Week.md (date < today). **Do not purge today's day section** — completed items there are at-a-glance context until `/goodnight` archives them to the daily report. Future day sections shouldn't have `[x]` items, but if they do, leave them. `- [ ]` items are always untouched.
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved/done/strikethrough. Recommend deletion.
    - Update header metadata: check the `**Location:**` line against the most recent daily report. Flag if stale. (The `**Status:**` line has been deprecated — if one is still present as legacy, flag it for removal rather than staleness.)
 
-9. **Claude Memory Audit**
+8. **Claude Memory Audit**
 
    Claude Code's auto-memory (`~/.claude/projects/*/memory/` — the topic files plus the `MEMORY.md` index) holds behavioural corrections, user preferences, and technical reference notes. Topic files are surfaced by **relevance matching** (loaded only when semantically relevant); the `MEMORY.md` index is loaded **in full every session** and is hard-capped.
 
@@ -218,9 +189,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Present each entry with its classification and recommended action
    - For trims: show the compressed hook. For migrations: show the destination and confirm it loads on the entry's trigger before moving.
    - Execute confirmed trims, deletions, and (rare) migrations during the sweep. Update the `MEMORY.md` index; delete memory files only for migrated or deleted entries.
-   - **If user disengages:** route unresolved entries to Tasks.md with a hygiene report back-reference.
+   - **If user disengages:** route unresolved entries per the disengage-routing rule (memory entries rarely map to a project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
 
-10. **Claude Internal File Cleanup**
+9. **Claude Internal File Cleanup**
 
    Claude Code generates ephemeral files across several internal directories. These accumulate indefinitely with no built-in retention. Work product in plans should be migrated to the vault by `/park` or `/goodnight` before session end. Other directories (`debug/`, `paste-cache/`, `shell-snapshots/`, `telemetry/`) contain session logs, clipboard caches, environment snapshots, and failed telemetry events — none are read back after the session that created them.
 
@@ -244,11 +215,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    done
    ```
 
-   **Plans directory — guarded deletion.** Plan files may be referenced by open work (WIP entries, Tasks). Before deleting each stale plan, grep its filename against `01 Now/Works in Progress.md` and `01 Now/Tasks.md`. Exclude matches — report them as "retained (referenced by open work)" instead.
+   **Plans directory — guarded deletion.** Plan files may be referenced by open work (project docs, This Week, Tickler). Before deleting each stale plan, grep its filename against `03 Projects/`, `01 Now/This Week.md`, and `01 Now/Tickler.md`. Exclude matches — report them as "retained (referenced by open work)" instead.
    ```bash
    find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
      base=$(basename "$f")
-     if grep -qF "$base" "{VAULT}/01 Now/Works in Progress.md" "{VAULT}/01 Now/Tasks.md" 2>/dev/null; then
+     if grep -qrF "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
        echo "RETAINED (referenced): $base"
      else
        rm "$f" && echo "DELETED: $base"
@@ -257,9 +228,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Report per-directory counts (deleted, retained, and remaining).
 
-11. **Session Transcript Export**
+10. **Session Transcript Export**
 
-   Backstop for `/park` step 16 and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
+   Backstop for `/park` step 11 and `/goodnight` step 16, which export daily. This catches any days missed (skipped park/goodnight, crashed session, etc.). Claude Code auto-deletes JSONL session files after 30 days — this ensures nothing slips through.
 
    **Auto-fix:**
    ```bash
@@ -275,7 +246,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    Report the script's stdout summary in the hygiene report.
 
-12. **Vault Consistency Checks**
+11. **Vault Consistency Checks**
 
    If the Obsidian CLI is available and Obsidian is running (`obsidian version 2>/dev/null` returns output), use it — it queries Obsidian's live index and is orders of magnitude faster than bash pipelines.
 
@@ -409,13 +380,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    `*.sync-conflict-*` is Syncthing's pattern; a filename containing `conflicted copy` is Obsidian Sync's. (`06 Archive/` is deliberately **not** excluded — a conflict file beside an archived note is still live data-divergence.) For each hit, derive the base note and `diff` against it — the two schemes derive differently:
    - Syncthing `notes.sync-conflict-<date>-<time>-<id>.md` → remove the `.sync-conflict-<date>-<time>-<id>` infix, **keeping the real extension** → `notes.md`. The extension stays at the end and the infix sits before it (`document.txt` → `document.sync-conflict-20210507-080621-CEIVOCO.txt`), so do *not* strip to end-of-string — that drops the `.md`.
    - Obsidian `notes (Conflicted copy <device> <ts>).md` → strip the ` (Conflicted copy …)` segment, keep the extension → `notes.md`.
-   - **Base note missing** (renamed or deleted since the conflict was written): treat as an orphaned conflict file — present it, don't assume a base, route to Tasks.md if unresolved.
+   - **Base note missing** (renamed or deleted since the conflict was written): treat as an orphaned conflict file — present it, don't assume a base, route per the disengage-routing rule if unresolved.
 
    The diff decides the resolution — two real shapes:
    - **Strict subset / redundant** (the conflict copy adds nothing the base lacks) → delete the copy, base unchanged.
-   - **Divergent fork** (each side carries unique content — e.g. two devices appended different work offline): do *not* "keep newer" — a parallel fork looks like a stale pair but newest-wins silently drops the other side's real work. A union-merge that preserves *all* unique content (and repoints inbound wikilinks if it renumbers/moves headings) is reflective work beyond this mechanical sweep — **route it to the user / Tasks.md as a manual merge**; never summarise, rewrite, or choose between the two sides autonomously.
+   - **Divergent fork** (each side carries unique content — e.g. two devices appended different work offline): do *not* "keep newer" — a parallel fork looks like a stale pair but newest-wins silently drops the other side's real work. A union-merge that preserves *all* unique content (and repoints inbound wikilinks if it renumbers/moves headings) is reflective work beyond this mechanical sweep — **route it to the user as a manual merge** (per the disengage-routing rule if not done in-session); never summarise, rewrite, or choose between the two sides autonomously.
    **Confirm per file — never auto-delete.** Deletion mechanism by source: a Syncthing `*.sync-conflict-*` file is safe to `rm` once its content is confirmed merged or redundant; an Obsidian Sync "conflicted copy" must be deleted *inside Obsidian* (via the app or the Obsidian delete tool, never `rm` — delete-on-disk can resurrect it via Sync).
-   **If user disengages:** route to Tasks.md with a hygiene report back-reference — don't let it go undetected until next week.
+   **If user disengages:** route per the disengage-routing rule (the doc the conflicted note belongs to where identifiable, else Tickler +7 days) — don't let it go undetected until next week.
 
    **Terminology consistency** (if `_terminology-checks.md` exists in the commands directory):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
@@ -423,13 +394,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Concatenated list items** (planning-doc structural integrity):
    Item removals can eat the separator newline and join two list items onto one line — a leading-`\n` deletion that consumes the preceding line's terminator. Scan the planning docs:
    ```bash
-   for f in "Works in Progress.md" "This Week.md" "Tasks.md" "Tickler.md"; do
+   for f in "This Week.md" "Tickler.md"; do
      grep -nHE '[^[:space:]]- \[[ x]\]' "{VAULT}/01 Now/$f" 2>/dev/null
    done
    ```
    Any non-space immediately before a `- [ ]`/`- [x]` is a join defect (legit nested items are space- or tab-indented, so they don't match). Split the two items onto separate lines via `locked-edit.sh` and report each fix.
 
-13. **Context File Staleness Detection**
+12. **Context File Staleness Detection**
 
    Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
 
@@ -467,14 +438,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For Expired: ask user for the updated text, then edit the context file. Never rewrite, rephrase, or infer updates autonomously — only write what the user provides.
    - For Verify: present as a quick scan checklist — "still true?" For each claim the user confirms is stale, ask for replacement text and edit. For claims still true, no action.
    - For Approaching expiry: ask user — update now (provide text) or add to Tickler under the expiry date? If Tickler: `- [ ] Update Context - [Name].md: [specific stale claim]`
-   - **If user disengages:** route unresolved items to Tasks.md with a hygiene report back-reference.
+   - **If user disengages:** route unresolved items per the disengage-routing rule (context files have no project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
    - **Guardrail:** Edit context files only with user-provided replacement text. These are high-value prose documents — never rewrite, rephrase, or infer updates autonomously.
 
-14. **Provenance: Process Stale Flags & Verify Hashes**
+13. **Provenance: Process Stale Flags & Verify Hashes**
 
    This step absorbs the former `/verify-provenance` skill. Two jobs: catch missed flags, then verify existing entries.
 
-   **14a. Process stale provenance flags:**
+   **13a. Process stale provenance flags:**
    ```bash
    ls "{VAULT}/07 System/.Provenance/pending/"*.md 2>/dev/null
    ```
@@ -487,7 +458,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Append entries to `07 System/AI Provenance Log.md`
    - Delete the processed flag file
 
-   **14b. Verify existing provenance entries:**
+   **13b. Verify existing provenance entries:**
 
    Read `{VAULT}/07 System/AI Provenance Log.md`. For each entry:
 
@@ -542,7 +513,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
-15. **Supply-chain config tripwire** (AI-assistant hook integrity)
+14. **Supply-chain config tripwire** (AI-assistant hook integrity)
 
    A 2026 class of npm/PyPI worm (Shai-Hulud / "Miasma" / "Hades" family) persists by writing `SessionStart` hooks into AI-assistant config files (`.claude/`, `.cursor/`, `.gemini/`) so the payload re-executes on every project open — uninstalling the offending package does **not** remove it. This weekly tripwire surfaces such hooks for a human eyeball; it does not auto-judge.
 
@@ -560,11 +531,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    For each hit, read the hook / `.pth` and confirm it's expected (a known editor hook, a template's own hook, a setuptools/distutils `.pth`). The malicious signature: shells out to `curl`/`wget`/`node`/`python` against an unfamiliar URL or path, base64-decodes a blob, or touches `~/.ssh`, a password-manager store, or a wallet keystore. **Three outcomes, not one:**
    - **Clean** (no hits, or every hit is known-legit) → record "config tripwire: clean" and move on.
    - **Unexplained hit you can't classify** → surface it to the user *in this session, now* — don't bury it in the report or defer it.
-   - **Hit matching the malicious signature** → treat as an **active compromise, not a hygiene item.** Do NOT route it to Tasks.md as a backlog line — that is the wrong severity channel. Halt: stop opening projects in the affected directory, tell the user immediately and in plain language, and run incident response — assume everything reachable during the exposure window was already exfiltrated (1Password items unlocked in that window, SSH keys, API tokens, `.claude`/`.cursor`/`.gemini` configs), so rotate/revoke those, remove the hook from the config file, and trace which package introduced it. The weekly cadence is the *detection* budget; the *response* to a true positive is immediate, not weekly.
+   - **Hit matching the malicious signature** → treat as an **active compromise, not a hygiene item.** Do NOT bury it in a project doc's `## Next Actions` or the Tickler as a backlog line — that is the wrong severity channel. Halt: stop opening projects in the affected directory, tell the user immediately and in plain language, and run incident response — assume everything reachable during the exposure window was already exfiltrated (1Password items unlocked in that window, SSH keys, API tokens, `.claude`/`.cursor`/`.gemini` configs), so rotate/revoke those, remove the hook from the config file, and trace which package introduced it. The weekly cadence is the *detection* budget; the *response* to a true positive is immediate, not weekly.
 
    **Package drift review (routine awareness — separate from the tripwire outcomes above).** If the host runs a package-drift reporter (check `~/.local/state/package-drift-report.txt`, or the user's tech-infra context for its report path), read the latest report. Surface READY items for the user to apply manually; do not auto-apply. Items tagged `SELF` sit in the AI agent's own request path (the CLI itself, a router/proxy in front of it) — those are applied only from a plain shell outside the agent, never from within a session (an agent updating its own transport kills the session mid-update). No reporter → skip silently in execution but still record the report line in the hygiene report.
 
-16. **Skill-Monitor Log Processing**
+15. **Skill-Monitor Log Processing**
 
    Skills log self-improvement observations to `{VAULT}/06 Archive/Claude/Skill Monitor Log.md` per `_skill-monitor.md` instead of proposing edits in-session. This step is the weekly processing point.
 
@@ -575,12 +546,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - After processing: remove the blocks belonging to applied and rejected findings; blocks for deferred findings stay. Disposition is per observation, not per block — when one block's bullets got different dispositions, rewrite the block keeping only the deferred bullets. The removal is a read-modify-write racing possible concurrent appends — rewrite via `locked-edit.sh --replace` per block, never the Edit tool. Match each block including its trailing blank line (mid-file removals otherwise join adjacent entries); on exit 2 (no match) re-read the log and retry; on exit 3 (identical duplicate blocks — same skill, same day, same bullet) use `--replace-all`. After removals, re-read the log and check for joined headings.
    - **If user disengages:** leave the log untouched; entries persist to next week.
 
-17. **Write Hygiene Report**
+16. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
    Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
 
-   **⛔ Cite report/flag items by stable identifier, not line number** — see `_shared-rules.md` §13. Acute here: step 8's completed-`[x]` purge mutates Tasks.md *within this same run*, so any `Tasks.md Lnn` written into the report or a routed `⚠ Hygiene Wnn:` flag afterward is stale on write. Name items by title/heading/content.
+   **⛔ Cite report/flag items by stable identifier, not line number** — see `_shared-rules.md` §13. Acute here: step 7's completed-`[x]` purge mutates This Week.md *within this same run*, so any `This Week.md Lnn` written into the report or a routed `⚠ Hygiene Wnn:` flag afterward is stale on write. Name items by title/heading/content.
 
    ```markdown
    # Vault Hygiene Report
@@ -588,22 +559,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Generated:** YYYY-MM-DD HH:MM
    **Status:** [Clean / N issues found]
 
-   ## WIP Health
-   - Line count: N lines (target: <300)
-   - Session links: N total (heaviest: [Project] with M links)
-   - Completed items removed: N
-   - Session links trimmed: N
-   - Stale Active projects (Last: 14+ days ago): [list or "none"]
-   - Entries exceeding 30-line budget: [list or "none"]
-   - Narratives collapsed: N
-
-   ## WIP ↔ This Week Reconciliation
-   - Stale WIP items updated: N
-   - Cross-reference updates: N files
-   - [List each: file, old → new]
+   ## Project-Doc Health
+   - Root docs: N (flag >5; Cold/: N, Backlog/: N)
+   - Structure violations (missing bucket / Current Objective / Next Actions): [list or "none"]
+   - Staleness candidates (Next Actions all ticked / objective reads completed): [list or "none"]
 
    ## Projects Folder
-   - Tier mismatches: [list or "none"]
+   - Folder mismatches: [list or "none"]
    - Recommended moves: [list or "none"]
 
    ## Tickler
@@ -712,37 +674,39 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Actions Routed
    - [For each routed item: description → destination file]
-   - Routed to WIP entries: N
+   - Routed to project docs (Next Actions): N
    - Routed to SSOT files (Working Memory, scratchpads, terminology): N
-   - Routed to Tasks.md (fallback): N
-   - Routed to Tickler: N
+   - Routed to Tickler (+7d): N
    ```
 
-18. **Route unresolved findings**
+17. **Route unresolved findings**
 
     For each finding not resolved during the sweep:
 
-    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — placed after the entry's `**Status:**` line (for WIP entries), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
-    - **Tier 2 items the user declined to engage with:** Write to Tasks.md: `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]`
+    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — appended under `## Next Actions` (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
+    - **Tier 2 items the user declined to engage with** (the disengage-routing rule) — two destinations:
+      - **Project/area doc identifiable:** append `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under the doc's `## Next Actions` via `locked-edit.sh`.
+      - **No doc identifiable:** write a Tickler entry dated 7 days out via `write-tickler.sh`, same line format.
+      Findings never go to the Whimsy sink and are never silently dropped.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent.
     - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
-    - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers — in WIP via the step 1 pruning sweep; in the other routing destinations (Tasks.md, Working Memory, scratchpads) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
+    - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers in every routing destination (project docs, Working Memory, scratchpads, Tickler) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
-19. **Display confirmation:**
+18. **Display confirmation:**
 
     ```
     ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
-    ✓ Auto-fixes applied: N (session link trimming, completed item removal, backlog purge, internal file cleanup)
+    ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, internal file cleanup)
     ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
-    ✓ Routed to SSOT: M (N to WIP entries, M to files, P to Tasks.md)
+    ✓ Routed to SSOT: M (N to project docs, M to files, P to Tickler)
 
     Vault hygiene complete. Run /weekly-review to incorporate findings into your weekly reflection.
     ```
 
 ## Guidelines
 
-- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 13) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
-- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale entries, tier mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route to Tasks.md as fallback — never drop findings silently.
+- **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
+- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale project docs, folder mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route per the disengage-routing rule — the relevant project/area doc's `## Next Actions` where one exists, else the Tickler dated 7 days out — never to Whimsy, never dropped silently.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run auto-removes strikethrough content.
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.

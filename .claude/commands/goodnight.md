@@ -18,7 +18,7 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
-**Write mechanism — applies to every step below.** All mutations of `Works in Progress.md`, `This Week.md`, `Tasks.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9, collapses in Step 10), use `--replace` — NOT `--append`, which adds at EOF outside any day section.
+**Write mechanism — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9, collapses in Step 10), use `--replace` — NOT `--append`, which adds at EOF outside any day section.
 
 ### 0. Resolve Vault Path
 
@@ -58,7 +58,7 @@ Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 1
 Read and compile:
 - **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
-- **Works in Progress:** Read `{VAULT}/01 Now/Works in Progress.md` for project states
+- **Project states:** Read `{VAULT}/01 Now/Strategic Overview.md` (this morning's rendered dashboard) — or the `03 Projects/` root docs directly if it's missing or stale
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
@@ -186,16 +186,18 @@ mkdir -p "{VAULT}/06 Archive/Claude/Daily Reports"
 Before collapsing, scan today's section — and any earlier days that are still verbose — for `- [ ]` items. For each:
 - **Has a natural future day?** → Move to that day's section.
 - **Priority item that should happen tomorrow?** → Move to tomorrow's section.
-- **Low priority / no deadline?** → Move to Tasks.md (`{VAULT}/01 Now/Tasks.md`).
+- **Low priority / no deadline?** → Append to Whimsy (`{VAULT}/04 Areas/Whimsy/_notes.md`) as a plain line, **no checkbox** — Whimsy holds ideas without completion state; retrieval is browsing, not scanning. **Batch veto:** collect this branch's candidates and display one line — `→ Whimsy (someday, no obligation): item · item · …` — then write only after the user's next response: unvetoed items go; a vetoed item reroutes (Tickler / project doc) or deletes. The reckoning is the user's, never silently the model's. **This is a blocking prompt: do not proceed to Step 10 or write to Whimsy until the user responds.** (The candidates persist in the Step 8 daily report meanwhile — recovery is possible but never rely on it.)
 - **Already appears in a future day?** → Delete the duplicate from today, don't move.
 
-**Deadline tokens force a dated surface** — per **`_shared-rules.md` §18** (already in context — Step 0 reads it in full). This skill's undated sink is the "low priority / no deadline" branch above: `→ Tasks.md` is the failure for a deadline-bearing item, which must land in a day section or the Tickler (via `write-tickler.sh`) instead.
+**Cap awareness (30/week binding, 10/day shape — default; the vault's Project Doc Format section wins if it states different caps):** before moving items into future day sections, count the destination day's unchecked items and the forward-window total (today + 6 days). Day at 10 or window at 30 → route to the Tickler or the project doc instead; §18 still binds — a deadline-bearing item takes the Tickler, never the project doc or Whimsy. Never silently stack an over-cap surface.
+
+**Deadline tokens force a dated surface** — per **`_shared-rules.md` §18** (already in context — Step 0 reads it in full). This skill's undated sink is the "low priority / no deadline" branch above: `→ Whimsy` is the failure for a deadline-bearing item, which must land in a day section or the Tickler (via `write-tickler.sh`) instead.
 
 **Critical: carry items forward intact.** Move the full item text, sub-items, checklists, and surrounding context exactly as they appear. A multi-line checklist (e.g. a sprint with Tier 1/Tier 2 items) is an active working artefact — move the entire block, not a summary. Never summarise, condense, or strip items during routing — including `[x]` items. Completed items within a block are progress context.
 
 **Block boundary rule:** A section header (bold text line like `**Sprint Tier 1:**`) and all items beneath it until the next section header form a block. If *any* `- [ ]` item remains in a block, move the entire block (header + all items + `[x]` items). The destination should be a copy of the source block, not a reconstruction.
 
-Preserve existing project/area links when moving items. If an item lacks a link, add one (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`, or `→ [[01 Now/Works in Progress#Heading]]`). No link for items with no project context.
+Preserve existing project/area links when moving items. If an item lacks a link, add one (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`). No link for items with no project context.
 
 Also check for sub-sections scoped to a future day. Move the entire sub-section to the appropriate future day before collapsing.
 
@@ -264,35 +266,31 @@ Session number assigned: N
 
 **First session of the day** (no session file exists yet): no special flag needed — the same invocation lays down the `# Claude Session - DATE` header automatically when the file is absent/empty, assigns N=1, and writes atomically inside the lock.
 
-### 14a. Update Works in Progress
+### 14a. Update project docs
 
-If any project status changed significantly today, update `{VAULT}/01 Now/Works in Progress.md` with current state. **Always bump the "Last updated" timestamp** at the top of WIP — goodnight always modifies planning files (This Week.md, Tasks.md, Tickler), so the timestamp should reflect the current date/time even if no individual project entry was edited.
+If a project's state materially changed today, update that project's doc in `03 Projects/` — rewrite its `## Current Objective` / `## Next Actions` to match reality, via `locked-edit.sh` (see `_shared-rules.md` §5). No change, no edit.
 
-**Write mechanism:** apply every WIP edit here (project-entry rewrites and the timestamp bump) — and the project-hub propagation edits below — through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
+**Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected Current Objective / Next Actions in the relevant project doc *and* any matching area hub in `04 Areas/`. A stale "awaiting X" line will mislead the next `/morning` or `/pickup` into expecting something that has already happened.
 
-**Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected `**Last:**` / `**Next:**` / `**Next action:**` fields across WIP *and* any matching project hub in `03 Projects/` or `04 Areas/`. A stale "awaiting X" line in WIP or a hub file will mislead the next `/morning` or `/pickup` into expecting something that has already happened.
-
-**⛔ CHECKPOINT:** Display `✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ`. Do not proceed to Step 15 without this line.
-
-**Why this step is here (not at the end):** Earlier orderings put WIP update after provenance hashing. That left WIP edits uncovered by the auto-audit (Step 15) and meant the provenance hash was computed against a not-yet-final WIP propagation state. Moving WIP ahead of audit fixes both — audit's Layer 3 propagation check covers the WIP edits, and provenance hashing in Step 17 captures the final state.
+**Why this step is here (not at the end):** project-doc edits ahead of the audit means the audit's Layer 3 propagation check covers them, and provenance hashing in Step 17 captures the final state.
 
 ### 14b. Value check (SOURCE)
 
-Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, Tasks.md, project files, session entry, WIP. §19 is the single source of truth for what the check covers and for its required output line — read it there rather than working from any restatement, including one here.
+Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, project files, session entry. §19 is the single source of truth for what the check covers and for its required output line — read it there rather than working from any restatement, including one here.
 
 ### 15. Delegate /audit to a fresh sub-agent
 
-The audit runs in a fresh model context via the Agent tool, NOT inline. /goodnight is 18 steps with heavy state propagation; inline audit at step 15 suffers cognitive load, recency bias on just-edited files, and enumeration scoping limited to "what /goodnight directly edited" rather than "what world-state changes the day caused." Sub-agent delegation eliminates all three. See `park.md` (same commands directory) Step 14 tail for the full empirical rationale — the same applies here a fortiori (/goodnight does heavier state propagation than /park).
+The audit runs in a fresh model context via the Agent tool, NOT inline. /goodnight is 18 steps with heavy state propagation; inline audit at step 15 suffers cognitive load, recency bias on just-edited files, and enumeration scoping limited to "what /goodnight directly edited" rather than "what world-state changes the day caused." Sub-agent delegation eliminates all three. The same applies here a fortiori — /goodnight does heavier state propagation than /park.
 
 **(a) Enumerate identifiers IN MAIN SESSION (required checkpoint).** The enumeration discipline must stay in the main session — it's the load-bearing defence against silent miss-pattern. List every identifier as `old → new` pairs, plus any *new* named state introduced, before dispatching the sub-agent.
 
 /goodnight's distinctive Layer 3 substrate (use as a checklist when enumerating):
 - Completed-loop identifiers (text marked `[x]` in This Week.md, deleted from Tickler, or marked done in a project file via Step 4 / Step 6)
 - Items moved between day sections in Step 9 (old day → new day)
-- Items routed to Tasks.md in Step 9 (new home for the loop text)
+- Items routed to Whimsy in Step 9 (new home for the loop text)
 - Day-section collapses in Step 10 (verbose section → one-liner; the outbound `[[…|Full report]]` link must resolve to a real file)
 - New day sections added by rolling-window maintenance in Step 11
-- WIP `**Last:**` / `**Next:**` / `**Next action:**` field changes from Step 14a (especially propagation-from-debrief edits)
+- Project-doc Current Objective / Next Actions changes from Step 14a (especially propagation-from-debrief edits)
 - NEW: today's daily report file at `06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
 - NEW: the goodnight session entry itself at Session N in today's session log
 
@@ -303,10 +301,10 @@ Identifiers in scope:
 [OR (nil case, formatted as enumerated checklist, not bare assertion):]
 - Completed-loop status flips: none
 - Day-section moves (Step 9): none
-- Tasks.md routings: none
+- Whimsy routings: none
 - Day-section collapses (Step 10): none / Daily-report wikilink targets: none broken
 - Rolling-window day additions (Step 11): none
-- WIP Last/Next field changes: none
+- Project-doc Current Objective/Next Actions changes: none
 - New named state introduced (daily report, goodnight session entry): always at least these two — list them
 - Commits pushed today (each hash is its own identifier — see the push-side rule below): none
 → All Layer 3 substrate enumerated; propagation check follows in sub-agent.
@@ -333,11 +331,11 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
 - **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
 - **Daily report path**: `<vault>/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
-- **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. Build it from two sources, not from memory (typed-from-memory lists silently drop entries): (1) verbatim from Session N's `### Files Created` and `### Files Updated` sections as written at Step 14, plus (2) the named post-Step-14 edits — the Step 14a WIP write and any daily-report patches from Step 14's reconciliation. Display the count before despatch:
+- **File list** — every file /goodnight touched, embedded as a newline-separated list inline in the prompt. Build it from two sources, not from memory (typed-from-memory lists silently drop entries): (1) verbatim from Session N's `### Files Created` and `### Files Updated` sections as written at Step 14, plus (2) the named post-Step-14 edits — any Step 14a project-doc writes and any daily-report patches from Step 14's reconciliation. Display the count before despatch:
   ```
   File list: C from Session N + P post-Step-14 → F files in brief ✓
   ```
-- **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, WIP propagation done)
+- **One-paragraph summary** of what /goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, project-doc propagation done)
 - **Enumerated identifiers** verbatim from (a)
 - **⛔ Session-boundary attribution** — embed **`_shared-rules.md` §20** in the brief (already in context — Step 0 reads it in full). The file list above is the attribution boundary; the vault's auto-save commit window is not. Without it a sub-agent reads a concurrent session's file out of a shared commit and writes a self-consistent record of work this run never did.
 - **⛔ Pre-state authority** — where a finding would turn on what a file looked like *before* this run, the authoritative pre-state is the main session's own Read, not the repository's history. When a status, tick, count, or "was something dropped" claim is in scope (routing verdicts and day-section collapses put one in scope on most nights), embed the relevant pre-edit content in the brief, and instruct: "Do NOT reconstruct pre-state from the vault's auto-save git. Commit boundaries there are arbitrary and unrelated to session boundaries, so a state that existed only between two commits appears in neither — an item the user changed shortly before this run can read as unchanged in the last commit and be gone from the next. Any git-derived 'silently dropped' or data-loss finding must be verified against the specific commit's diff content and timing, and against the pre-state embedded above, before you remediate it." Without this clause an auditor can produce a confident, fully-remediated finding about work that was never lost — and the remediation itself then corrupts an accurate record. Sibling of `_shared-rules.md` §20: that governs *attribution* from auto-save git (who did what), this governs *pre-state* (what it was before).
@@ -345,13 +343,12 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
   - `<vault>/.claude/scripts/update-session-section.sh` — for session-log section edits (preserves flock concurrency safety)
   - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section. **Caveat:** the script dedups by normalised path and *silently discards* the new text for a file already listed — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh … "Files Updated" --replace` instead
   - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
-  - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (WIP, This Week, Tickler, project/area hubs)
-- **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (WIP, This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
+  - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (This Week, Tickler, project/area hubs)
+- **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, the Edit tool is acceptable. The lockless Edit tool races with concurrent parks/goodnights on planning files and silently clobbers."
 - **Audit protocol pointer**: read `audit.md` Phase 2 (Layers 1-5) first (in `~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists — substitute the resolved vault path); do NOT recall the protocol from memory.
 - **Special-focus instruction** (the empirically-missed Layer 3 category): "**Phase/status framings rendered historical by session actions** is the category prior inline audits silently miss. For each project/area hub touched by today's session work, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work completed today; flag every hit. This includes goodnight's OWN `Pickup Context` / Daily Report describing goodnight's already-run steps (this audit, item routing) as forthcoming — written before this audit fired, so a 'the audit will…' framing is already stale; reframe to completed/current tense. Do NOT flag legitimate forward-routing to tomorrow's anchors — Pickup Context naming tomorrow's work is its purpose, not staleness. Also: read each touched project/area hub IN FULL, not just the subsection that was edited."
 - **Read-coverage backstop**: "If your file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage."
-- **WIP timestamp-bump exclusion**: "If `01 Now/Works in Progress.md` shows only a `Last updated:` timestamp change with no content write under a project heading, that bump is intentional unconditional bookkeeping (Step 14a) — do NOT flag it as a missing Files Updated entry, and do NOT add it; the Step (f) backfill excludes it by design. Only a content write to WIP (a project-entry Status/Last/Next/narrative rewrite) belongs in Files Updated."
-- **Layer 5 specifics for /goodnight**: "Trace tomorrow's /morning against current This Week.md / Tickler / WIP. Will it surface the right items, or is anything we marked complete still showing as open? Will collapsed-day one-liners' `[[…|Full report]]` links resolve? Will rolling-window day additions be visible to /morning's Step 6 maintenance pass without conflict?"
+- **Layer 5 specifics for /goodnight**: "Trace tomorrow's /morning against current This Week.md / Tickler / project docs. Will it surface the right items, or is anything we marked complete still showing as open? Will collapsed-day one-liners' `[[…|Full report]]` links resolve? Will rolling-window day additions be visible to /morning's Step 6 maintenance pass without conflict?"
 - **Authority**: remediate inline using Edit / Bash / scripts. Re-audit after every fix; iterate until clean.
 - **Report format expected back**: per-layer findings (or nil-case statements that explicitly name what was checked — generic affirmations like "approach is sound" are not acceptable); list of remediation edits with file paths + summary of change; bytes-read-per-hub for read-coverage verification; final clean-pass confirmation OR "could not clean — N issues remain because X" if iteration stalled.
 
@@ -361,9 +358,9 @@ The prompt must be **self-contained** — the sub-agent has zero /goodnight cont
 
 - **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step d) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-goodnight state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03** (in `/park`, which shares this audit-delegation design): an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line as a fabrication.
 
-**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a WIP edit, the Step 14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
+**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a project-doc edits, the Step 14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
 
-1. List every file goodnight touched at Step 11 onward (WIP from 14a, daily-report patches from Step 14's reconciliation, any audit remediation from (e)). **Exclude WIP if the only change was the bare "Last updated" timestamp bump** — that bump is unconditional meta-bookkeeping, not content, so recording it adds a near-identical noise line to every goodnight log. If Step 11/14a wrote *content* to WIP (a project-entry Status/Last/Next rewrite), backfill that content change (not the bump); if WIP got nothing but the timestamp bump, omit it and don't let the audit flag its absence.
+1. List every file goodnight touched at Step 11 onward (project docs from 14a, daily-report patches from Step 14's reconciliation, any audit remediation from (e)).
 2. Diff that list against the `### Files Updated` already in Session N's entry.
 3. Pipe the missing lines through `backfill-files-updated.sh "<session-file>" N`.
 
@@ -379,7 +376,7 @@ This is the F4 fix: the session log's footprint record must match what goodnight
 
 You cannot proceed to Step 16 without all six. If you find yourself walking the audit layers yourself in /goodnight's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
 
-**Why auto-run + delegate:** /goodnight propagates state across This Week.md, Tickler, project files, WIP, and project hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's /morning or /pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). See `park.md` (same commands directory) Step 14 tail for the full mechanism analysis.
+**Why auto-run + delegate:** /goodnight propagates state across This Week.md, Tickler, project docs, and area hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's /morning or /pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). 
 
 ### 16. Export Session Transcripts
 
@@ -427,7 +424,6 @@ If no flags exist, skip silently. See `/provenance` for flag file format and ful
 ```
 ✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
 ✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
-✓ WIP timestamp bumped: YYYY-MM-DD HH:MM TZ
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
 ✓ Transcripts exported: N sessions → 06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md
 ✓ Provenance: N files hashed [OR "no flags"]
@@ -471,9 +467,9 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** This Week.md, Claude Sessions (today), Works in Progress
+- **Reads from:** This Week.md, Claude Sessions (today), Strategic Overview / project docs
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Tasks.md), Tickler.md (deletes completed items), Project files (marks complete), Works in Progress (if needed)
+- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Whimsy), Tickler.md (deletes completed items), Project docs (marks complete, Current Objective / Next Actions if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/afternoon` (mid-day)
-- **Auto-runs:** `/audit` on the just-completed goodnight (Step 15) — same protocol as `/park`'s Step 14
+- **Auto-runs:** `/audit` on the just-completed goodnight (Step 15) — same protocol as `/park`'s Step 9
 - **Replaces:** `/daily-review` (deprecated)

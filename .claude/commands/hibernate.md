@@ -29,22 +29,22 @@ This is the "big picture" complement to session-level parking.
 
 1. **Check current date and time** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
-   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` step 1)
+   - Get current time: `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (the `LC_TIME=C` guard is load-bearing — `%p` expands empty under many non-English locales; same fix as `/park` Step 0)
    - Combined stamp for the snapshot's `**Created:**` field: `YYYY-MM-DD at HH:MMam/pm`
 
 2. **Read comprehensive context:**
-   - `{VAULT}/01 Now/Works in Progress.md` - active projects
+   - `{VAULT}/03 Projects/` root docs - active projects (each doc's `bucket:`, `## Current Objective`, `## Next Actions`); plus `01 Now/Strategic Overview.md` if present (/morning's rendered view — note its generated-on date)
    - `{VAULT}/01 Now/This Week.md` - the day-level SSOT for live status (deadlines, deferrals, current position); reconcile against it per step 3
    - Recent session metadata via `"{VAULT}/.claude/scripts/pickup-scan.sh"` (its default window is the same 10 days) — then read only the session blocks relevant to active projects, not 10 days of logs end-to-end. If the script errors (fresh vault, old bash), fall back to reading the most recent 2-3 session logs directly.
    - Last daily report (if exists) - recent progress
    - Last weekly review (if exists) - patterns and insights
 
 3. **Extract active state:**
-   - All projects listed as "Active" in Works in Progress
+   - All project docs in the `03 Projects/` root (root = active; folder location is status)
    - All unchecked open loops from recent sessions
    - All time-sensitive items or deadlines
    - Any "waiting on" dependencies
-   - **Reconcile every status fact against This Week.md before it enters the snapshot** (deadlines, review dates, deferrals, "waiting on", current position) — WIP and session logs can lag the day plan by a session or two, and this snapshot is read back weeks/months later, so a stale fact rots the longest. The trap is promoting a *secondary-surface* value (a session-log "Files Updated" line, a WIP "Next" pointer, a prior snapshot) to current state: a date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles. If This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — don't snapshot a plausible-looking secondary-surface value as fact. **If This Week.md doesn't exist** (it's optional in the template), WIP and session logs are the primary sources — skip the reconciliation pass rather than omitting every status fact.
+   - **Reconcile every status fact against This Week.md before it enters the snapshot** (deadlines, review dates, deferrals, "waiting on", current position) — project docs and session logs can lag the day plan by a session or two, and this snapshot is read back weeks/months later, so a stale fact rots the longest. The trap is promoting a *secondary-surface* value (a session-log "Files Updated" line, a project doc's Next Actions pointer, a prior snapshot) to current state: a date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles. If This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — don't snapshot a plausible-looking secondary-surface value as fact. **If This Week.md doesn't exist** (it's optional in the template), project docs and session logs are the primary sources — skip the reconciliation pass rather than omitting every status fact.
 
 4. **Interactive interview** (ask the user):
    - **Break duration:** "How long do you expect to be away?" (days/weeks/months)
@@ -73,10 +73,10 @@ This is the "big picture" complement to session-level parking.
 ## Active Projects (N total)
 
 ### [Project Name 1] ⚠️
-**Status:** [Current state from Works in Progress]
-**Last activity:** [Date from WIP]
+**State:** [Current state from the project doc's ## Current Objective]
+**Last activity:** [Date from the project doc's Last update stamp]
 **Open loops:**
-- [Open loop from sessions or WIP]
+- [Open loop from sessions or the project doc]
 - [Another open loop]
 
 **Resume context:** [One sentence about where to pick up]
@@ -131,9 +131,9 @@ This is the "big picture" complement to session-level parking.
 
    Each **Session Links** line is conditional: omit the line entirely if no such file exists. Never write a placeholder or guessed wikilink into the snapshot.
 
-6. **Update Works in Progress:** (via `locked-edit.sh`, not the Edit tool — WIP is a shared planning file, see `_shared-rules.md` §5)
-   - Add "Last updated" note: "Hibernated YYYY-MM-DD - see hibernate snapshot"
-   - Optionally add 🛌 emoji to active projects to indicate hibernation
+6. **Update project docs:** (via `locked-edit.sh`, not the Edit tool — project docs are shared planning files, see `_shared-rules.md` §5)
+   - Add a note to each active project doc's `## Current Status` / `## Current Objective` block: "Hibernated YYYY-MM-DD - see hibernate snapshot"
+   - Optionally add 🛌 emoji to the doc's status line to indicate hibernation (`/awaken` step 10 removes it)
 
 7. **Display confirmation:**
 

@@ -8,7 +8,7 @@
 #
 # Examples (use heredocs, not printf — printf interprets % as format specifiers):
 #   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "/path/to/2026-03-12.md" 25
-#   - 01 Now/Works in Progress.md - Updated project status
+#   - 03 Projects/Website rebuild.md - Updated Current Objective and Next Actions
 #   - 01 Now/This Week.md - Routed task to Thursday
 #   EOF
 #

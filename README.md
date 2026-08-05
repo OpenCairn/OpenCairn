@@ -100,7 +100,7 @@ The core mechanic. Based on the "shutdown complete" ritual — the idea that you
 
 **End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
 
-**Next session:** `/pickup` shows your Works in Progress as a numbered list — pick one to load its project hub and last session context. Or pass a topic/keyword to jump straight in; a shell script extracts session metadata as compact TSV so targeted searches are cheap.
+**Next session:** `/pickup` shows your active projects (the `03 Projects/` root, grouped by bucket) as a numbered list — pick one to load its project hub and last session context. Or pass a topic/keyword to jump straight in; a shell script extracts session metadata as compact TSV so targeted searches are cheap.
 
 All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), so concurrent Claude instances and NAS-mounted vaults don't trample each other.
 
@@ -108,7 +108,7 @@ All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), s
 
 | Skill | When | What |
 |---------|------|------|
-| `/morning` | Start of day | Read the landscape (WIP, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
+| `/morning` | Start of day | Read the landscape (renders the Strategic Overview from the `03 Projects/` docs, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
 | `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
 | `/goodnight` | End of day | Inventory open loops, set tomorrow's queue, generate daily report, log the session |
 
@@ -118,7 +118,7 @@ A **tickler** sits underneath the day layer: `/park` offers to defer open loops 
 
 ### Week: Weekly Review
 
-`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in WIP, and flags open loops older than 14 days. It also reviews the **corrections log** — `/oops` captures mistakes and lessons as you go; the weekly pass looks for recurring patterns worth promoting to context files, so you only get something wrong once. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
+`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in the `03 Projects/` root, and flags open loops older than 14 days. It also reviews the **corrections log** — `/oops` captures mistakes and lessons as you go; the weekly pass looks for recurring patterns worth promoting to context files, so you only get something wrong once. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
 
 ### Quarter: Quarterly Review
 
@@ -140,12 +140,12 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory - what's in flight right now | Works in Progress, This Week (rolling 7-day plan), scratch notes |
+| **01 Now** | Active working memory - what's in flight right now | Strategic Overview (rendered dashboard), This Week (rolling 7-day plan), scratch notes |
 | **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
 | **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
 | **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
 | **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
-| **06 Archive** | Completed or inactive items | Finished projects, old session logs, historical notes |
+| **06 Archive** | Immutable write-once records (logs, reports, snapshots) | Session logs, daily/weekly reports, scans |
 | **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, Direction (strategic plans), decision/corrections/wins logs |
 
 **Areas vs Resources (differs from standard PARA):** NIPARAS uses Areas and Resources differently to Tiago Forte's original PARA. Here, **Areas** are domains you actively maintain, each containing its own nested reference material and Archive subfolders. **Resources** is a staging ground for generic stuff that doesn't belong to an Area yet. When something accumulates enough mass, it graduates to an Area. The key shift is that reference material lives *inside* the Area it belongs to, rather than in a separate top-level folder.
@@ -197,7 +197,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 /plugin install opencairn@opencairn
 ```
 
-This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops`, `/win`, and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
+This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops` and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
 ---
 
@@ -206,7 +206,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` and `/win` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 
 **Daily rhythm:**
 
@@ -220,8 +220,8 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 
 | Skill | What it does |
 |---------|-------------|
-| `/pickup` | Session start. Shows your Works in Progress, or pass a topic/keyword/file path to jump straight into a specific project. Loads project hub and last session context on selection. |
-| `/park` | Session capture and open-loop closure. Quality gate, session summary, open loops, WIP update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
+| `/pickup` | Session start. Shows your active projects, or pass a topic/keyword/file path to jump straight into a specific project. Loads project hub and last session context on selection. |
+| `/park` | Session capture and open-loop closure. Quality gate, session summary, open loops, project-doc update, reference graph tracing, bidirectional linking. Args: `--quick`, `--full`, `--auto`. |
 
 **Extended breaks:**
 
@@ -234,14 +234,14 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 
 | Skill | What it does |
 |---------|-------------|
-| `/start-project` | Creates a new project file with goal/status/next actions, adds to Works in Progress, optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
-| `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves to archive, removes from WIP, logs completion. Args: optional project name. |
+| `/start-project` | Creates a new project doc (bucket frontmatter, Current Objective, Next Actions) in the `03 Projects/` root — creation is registration. Optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
+| `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves the project doc out of the `03 Projects/` root to the Area's `Archive/`, logs completion. Args: optional project name. |
 
 **Reviews:**
 
 | Skill | What it does |
 |---------|-------------|
-| `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), WIP integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
+| `/weekly-review` | Weekly aggregation: accomplishments, project movement, aged open loops (14+ days), project-doc integrity, corrections log review. Generates a review file. Delegates structural maintenance to `/weekly-hygiene`. |
 | `/quarterly-review` | Deep strategic review: projects completed/stalled/abandoned, priority shifts, next quarter's Big Rocks, `Context - Direction.md` overhaul. Consumes `/quarterly-hygiene` for vault structural health. |
 | `/quarterly-hygiene` | Quarterly deep vault maintenance: full context-file re-read (non-temporal drift), CRM stale-entry review, corrections-log index refresh, 90-day-rolling session-log archiving into `YYYY/` folders, skill-library flywheel audit, cross-model panel model-currency check. Mechanical companion to `/quarterly-review`. |
 
@@ -250,7 +250,6 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | Skill | What it does |
 |---------|-------------|
 | `/oops` | Captures a mistake. Extracts what went wrong, the correction, and the transferable lesson. Appends to Claude Corrections Log. Checks for patterns warranting promotion to CLAUDE.md. |
-| `/win` | Captures a success. Extracts what went well, why, and the transferable pattern. Appends to Claude Wins Log. The counterpart to `/oops`. |
 
 **Research & thinking:**
 
@@ -283,7 +282,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/archive-transcript` | Archives a podcast/talk transcript from a URL into the vault — verbatim body plus a synthesis header — without routing the full text through context or letting a formatting hook corrupt the verbatim quotes. The capture counterpart to `/podcast-digest`. |
 | `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
-| `/weekly-hygiene` | Vault structural maintenance: WIP metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
+| `/weekly-hygiene` | Vault structural maintenance: project-doc metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
 | `/book-stay` | Hotel-booking pipeline: quizzes preferences (ranked hard requirements), researches candidates with region-aware channel advice, live-verifies finalists with the user pulling prices, hands off the booking, then fans the confirmation out across the vault's trip docs. |
 | `/map-day` | Turns a day's itinerary (a This Week date, or a pasted list of places) into a phone-glanceable Organic Maps KML plus a tight markdown day-sheet. Geocodes each stop via OSM, orders them around fixed-time anchors, and emits numbered pins + a route line. Offline-first; works in or out of China. |
 
@@ -293,7 +292,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 |---------|-------------|
 | `/audit` | Rigorous five-layer evaluation of any implementation (code, config, plans, processes). Layers: approach → environment → migration → implementation → execution. Iterates until clean. |
 | `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. Verification is handled automatically by `/weekly-hygiene`. |
-| `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 14b); this skill just redirects there. |
+| `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 13b); this skill just redirects there. |
 
 **Infrastructure:**
 
@@ -301,6 +300,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 |---------|-------------|
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
+| `/migrate` | One-shot migration of a pre-2026-08 vault to the project-doc task system — per-component consent (now/later/never, recorded), veto-style Tasks.md triage, Doctor-style closing verify. `/update` redirects here on old-format detection. |
 | `/setup-hooks` | Opt in to the optional skill-edit cross-pollination survey hook (a Stop hook that nudges a sibling-skill review when you edit a skill). Idempotently wires it into `settings.json`; `--remove` to disable. Needs `jq`. |
 
 **Aliases:**

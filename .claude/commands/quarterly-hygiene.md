@@ -7,7 +7,7 @@ description: Quarterly deep vault maintenance — heavy structural checks too sl
 
 You are running the quarterly deep-maintenance pass. This is the mechanical companion to `/quarterly-review` (which handles strategy), exactly as `/weekly-hygiene` is to `/weekly-review`.
 
-It does the heavy structural checks that are too slow or too rarely-needed for the weekly pass. **It does NOT repeat `/weekly-hygiene`'s work** — broken links, orphans, dead-ends, WIP/tier reconciliation, Tickler, Working Memory, and the *temporal* context-staleness scan all belong to weekly-hygiene. This command consumes weekly-hygiene's report and layers the quarterly-only deep passes on top.
+It does the heavy structural checks that are too slow or too rarely-needed for the weekly pass. **It does NOT repeat `/weekly-hygiene`'s work** — broken links, orphans, dead-ends, project-doc health, Tickler, Working Memory, and the *temporal* context-staleness scan all belong to weekly-hygiene. This command consumes weekly-hygiene's report and layers the quarterly-only deep passes on top.
 
 ## Instructions
 
@@ -33,14 +33,14 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 ### Quarterly-only deep passes
 
 3. **Deep context-file accuracy re-read (non-temporal drift).**
-   `/weekly-hygiene` step 13 scans only *temporal* markers (dates, "currently", "soon"). This is the heavier pass that catches durable facts which never trip a temporal scan and so silently rot for years:
+   `/weekly-hygiene` step 12 scans only *temporal* markers (dates, "currently", "soon"). This is the heavier pass that catches durable facts which never trip a temporal scan and so silently rot for years:
    - Read each `{VAULT}/07 System/Context - *.md` file end-to-end.
    - Check durable claims for drift: job title / role, location, hardware specs and model numbers, active subscriptions, default tools and workflows, named collaborators/clinics. **Evidence source:** skim the weekly reviews inside the evidence window (Synthesis + Projects Active sections) for events that contradict a claim; for claims not covered there, present to the user as a "still true?" check rather than asserting drift — this skill gathers no other activity data, and `/quarterly-review`'s full gather runs after it.
    - **Evidence window** — the run cadence is not the calendar quarter (mid-quarter and standalone runs are expected), so anchoring on the quarter start leaves reviews between the last pass and the boundary permanently unread. Window start = the `**Generated:**` date in the latest `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/*.md` (filename descending; take the date from that content header, never from mtime — `_shared-rules.md` §22), falling back to the quarter start when no prior report exists. Window end = today. State the window in the report so the next run's start is unambiguous.
    - **Guardrail (inherited from weekly-hygiene 13):** edit a context file ONLY with user-provided replacement text. Never rewrite, rephrase, or infer an update autonomously — these are high-trust prose documents; wrong corrections are worse than stale content. Present each flagged claim, ask, then edit only what the user supplies.
 
 4. **CRM stale-entry review.** (if `{VAULT}/07 System/CRM/` exists)
-   `/weekly-hygiene` step 7 scans for *new* names to add. This reviews *existing* entries for decay:
+   `/weekly-hygiene` step 6 scans for *new* names to add. This reviews *existing* entries for decay:
    - Read the CRM index and range files.
    - Flag entries with outdated roles, superseded contact details, or context that this quarter's events have overtaken.
    - **Don't auto-modify** — present findings and let the user decide.
@@ -54,7 +54,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Apply the count/date refresh directly; present any *taxonomy* change (a new or removed category) for user approval before writing — the buckets are a high-trust curation, the counts are not.
 
 6. **Session-log archiving (90-day rolling).**
-   Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 14b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
+   Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 13b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
    - **Identify candidates, partitioned by collision** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat log whose destination year folder already holds that basename is a **duplicate**, not a move candidate — partition it out here so every downstream step (dry-run, drag set, report) sees the same two sets. Written without bare dollar-digit awk fields — the slash-command loader substitutes `$0`–`$9` as argument placeholders and would mangle them before the executor sees the snippet; ISO date names make plain string comparison correct:
      ```bash
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
@@ -116,7 +116,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ```
    Write to `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md`:
 
-   **⛔ Cite report items by stable identifier, not line number** — see `_shared-rules.md` §13. Reference any `Tasks.md` / WIP / `Tickler.md` item by title/heading/content, never by line number; structural maintenance this run shifts line numbers, so an `Lnn` reference is stale on write.
+   **⛔ Cite report items by stable identifier, not line number** — see `_shared-rules.md` §13. Reference any project-doc / Strategic Overview / `Tickler.md` item by title/heading/content, never by line number; structural maintenance this run shifts line numbers, so an `Lnn` reference is stale on write.
 
    ```markdown
    # Quarterly Hygiene Report - YYYY QN
@@ -161,7 +161,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
    ## Actions Taken / Routed
    - [Confirmed edits applied this run]
-   - [Unresolved items the user didn't engage with → Tasks.md, weekly-hygiene's tier-2 fallback form: `- [ ] [description] → [[06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
+   - [Unresolved items the user didn't engage with → the relevant project/area doc, else Tickler +7d, back-linked: `[description] → [[06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
    - [Flywheel proposals stay in this report as pending user decisions — they are not routed]
    ```
 
