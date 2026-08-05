@@ -57,6 +57,33 @@ git rev-parse --verify HEAD >/dev/null 2>&1 && echo "HEAD_OK" || echo "NO_COMMIT
 ```
 If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked — the Step 4–6 diffs show the template as wholesale deletions (hiding local customisations right before checkout clobbers them) and Error Recovery has no pre-update HEAD to restore from.
 
+### Step 1c: Old-Format Vault Check
+
+The template's task system changed in Aug 2026 (project docs as SSOT; Tasks.md and Works in Progress removed). Updating an old-format vault would ship skills that ignore surfaces the vault still relies on. Check:
+
+```bash
+# Primary marks — either file alone is enough
+if [ -e "01 Now/Tasks.md" ] || [ -e "01 Now/Works in Progress.md" ]; then echo OLD_FORMAT; else echo FORMAT_OK; fi
+
+# Secondary probe — root project docs carrying **Status:** without bucket: frontmatter
+grep -LZ '^bucket:' "03 Projects/"*.md 2>/dev/null | xargs -r0 grep -l '^\*\*Status:\*\*' | head -3
+
+# Migration decisions on record — read before judging
+cat "07 System/Migration Record.md" 2>/dev/null
+```
+
+If the secondary probe returns any file, print `SCHEMA_DRIFT` and treat it as `OLD_FORMAT`.
+
+If `OLD_FORMAT` — and the Migration Record doesn't record those components as `never` — abort:
+```
+✗ This vault uses the pre-2026-08 task format (Tasks.md / Works in Progress present,
+  or project docs carry **Status:** without bucket: frontmatter).
+  Run /migrate first — it converts the vault component-by-component with your consent,
+  then /update proceeds normally. Migration decisions are recorded in
+  07 System/Migration Record.md: components recorded `never` (intentional divergence)
+  unblock /update; `later` deferrals keep the gate.
+```
+
 ### Step 2: Determine Template Remote
 
 ```bash

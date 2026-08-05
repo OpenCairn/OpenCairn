@@ -22,13 +22,13 @@ If the output is the literal `NO_VAULT`, no vault is configured — don't abort;
 ## Inputs
 
 - City + dates + context (purpose, solo/companion, budget tier hint)
-- Currently-loaded vault state (Works in Progress, the relevant project hub, any existing accommodation doc for the city)
+- Currently-loaded vault state (the relevant project hub, any existing accommodation doc for the city)
 
 ## Steps
 
 ### 1. Context-load + lead-time check
 
-- Read `01 Now/Works in Progress.md`, the travel project hub if one exists, and any existing accommodation doc for the city. On a fresh vault with none of these, note it and continue — don't invent structure.
+- Read the travel project hub if one exists (`03 Projects/<Trip Name>.md`) and any existing accommodation doc for the city. On a fresh vault with neither, note it and continue — don't invent structure.
 - **Don't re-research what's already in the vault — refine instead.**
 - **Stale check:** if the existing doc has a SUPERSEDED banner or is >1 month old, treat it as historical context only. If the user has flagged a context shift since the doc was written (e.g. "we used to be planning A but now it's B"), explicitly re-open rather than refining.
 - **Compute booking lead time** (`check-in date − today`; run `date` for today — never assume it). Warn the user if it's <7 days: most chain-hotel package discounts require 7-21 days advance booking, so the realistic discount ceiling at short lead time is ~5-10% via a loyalty member rate, not the 18-25% a package can reach. **But distinguish chain-loyalty packages (lead-time-gated) from OTA promo discounts (not).** OTA promotions ("intro offer", "mobile exclusive") and individual property opening-discounts often apply at any lead time — don't tell the user to expect zero discounts last-minute. Set expectations on chain packages specifically.
@@ -138,7 +138,7 @@ User pastes confirmation # back; agent captures it.
 
 - The accommodation doc for this trip leg, already written at Step 8 — update it: mark booked, confirmation #, booking URL, free-cancel deadline.
 - The trip's timeline / overview docs, if the trip has them.
-- `01 Now/Works in Progress.md` (relevant project entries — usually 2: the travel project + the project that drove the trip). When updating a WIP `Last:` field, follow `/park`'s Last-field cap rule in full (including its migrate-first precondition and dropped-identifier grep) — don't work from a paraphrase of it.
+- The `03 Projects/` doc of the project that drove the trip (event prep, work engagement), if distinct from the trip hub below — update its status/Next Actions where the booking changes them.
 - `01 Now/This Week.md`, if it exists (mark task done, update the Status banner if the booking changes it)
 - Any project-specific doc that referenced "where am I sleeping" (e.g. event prep, retreat hub)
 - **Booking References file** for the trip, if the trip keeps one. If it doesn't and the user wants one, the minimal structure is one section per booking: confirmation #, channel + URL, total paid, cancellation deadline, property contact.
@@ -149,7 +149,7 @@ User pastes confirmation # back; agent captures it.
   3. **Relocated-anchor coverage:** if this booking moved a section/doc (e.g. consolidated a sub-trip's notes into a new file), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction — a narrow pattern drops semantic-variant pointers like "the trip doc".
 - Superseded shortlists: add this banner at the top of the old doc/section rather than deleting — `> ⚠️ SUPERSEDED — active doc: [[<new doc>]]` — and keep the research below it.
 
-**Edit safety:** Shared planning files in the fan-out (`Works in Progress.md`, `This Week.md`, project hubs) go through `locked-edit.sh`, not the Edit tool — see `_shared-rules.md` §5. For all edits (either mechanism): PostToolUse formatters may modify files between Read and Edit. Use *minimal-context* `old_string`s (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-Read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
+**Edit safety:** Shared planning files in the fan-out (`This Week.md`, project hubs) go through `locked-edit.sh`, not the Edit tool — see `_shared-rules.md` §5. For all edits (either mechanism): PostToolUse formatters may modify files between Read and Edit. Use *minimal-context* `old_string`s (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-Read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
 
 ## Heuristics summary (the load-bearing ones)
 

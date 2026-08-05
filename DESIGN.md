@@ -44,7 +44,7 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
 
 ### What each stage produces
 
-| Command | Session file | WIP update | Bidirectional links | OTS stamp | Quality gate |
+| Command | Session file | Project-doc update | Bidirectional links | OTS stamp | Quality gate |
 |---------|-------------|-----------|-------------------|-----------|-------------|
 | `/checkpoint` | Append | No | No | No | No |
 | `/park` | Append | Yes | Yes | Yes | Yes |
@@ -141,7 +141,7 @@ Session work → /park captures outcomes → feeds back up
 
 ### Why this layer exists
 
-Without explicit strategic plans, the system is excellent at managing *what you're doing* but can't tell you if *you're doing the right things*. You can have a perfectly clean WIP, every open loop routed, every session parked — and still be spending a sabbatical optimising logistics for a life direction you haven't validated.
+Without explicit strategic plans, the system is excellent at managing *what you're doing* but can't tell you if *you're doing the right things*. You can have a perfectly rendered dashboard, every open loop routed, every session parked — and still be spending a sabbatical optimising logistics for a life direction you haven't validated.
 
 The weekly review already asks "are you working on the right things?" — Direction.md gives it a reference document to check against, rather than relying on whatever's in the user's head at review time.
 
@@ -188,9 +188,11 @@ Level 2: Detail pages       — Projects, areas, specific files. Loaded on deman
 
 **The routing table** in CLAUDE.md maps topics to context files. When the user mentions "photography", Claude loads `Context - Photography.md`. When they mention "health", it loads `Context - Health & Optimisation.md`. Multiple topics trigger multiple loads.
 
-### Works in Progress as entry point
+### Project docs as entry point
 
-`01 Now/Works in Progress.md` is the first file to check for any prompt that relates to an ongoing project. It has status, next actions, and links to recent sessions. From there, Claude follows links to project files and session archives as needed.
+The `03 Projects/` root docs are the SSOT for ongoing work — each carries `bucket:` frontmatter, a `## Current Objective`, and `## Next Actions`, and its **folder location is its status** (root = active, `Cold/` = paused, `Backlog/` = unstarted). For any prompt relating to an ongoing project, the relevant project doc is the first file to check.
+
+`/morning` renders those docs into `01 Now/Strategic Overview.md`, a read-only dashboard for scanning the whole landscape at once — regenerated each run, never hand-edited. Read the Overview to find the right project; read the project doc for the truth. From either, Claude follows links to supporting files and session archives as needed.
 
 ---
 
@@ -208,7 +210,7 @@ Rules that span multiple commands. Violating these causes bugs.
 
 5. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
 
-6. **Checkpoint is a subset of park.** Same session format, no WIP update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
+6. **Checkpoint is a subset of park.** Same session format, no project-doc update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
 
 ---
 

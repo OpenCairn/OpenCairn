@@ -22,22 +22,21 @@ When a session or task links to a project context:
 
 - **Finite work (in flight)** → link to `03 Projects/[name].md` (or `03 Projects/Backlog/[name].md`)
 - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
-- **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a new project file, and do not create a WIP entry.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and creating a project file (or WIP entry) retroactively is noise. Example: a published post on your blog links to `[[04 Areas/Blog/Blog]]`, not a newly-created post-specific project file.
+- **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a project file retroactively.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and a retroactive project file is noise. Example: a published post on your blog links to `[[04 Areas/Blog/Blog]]`, not a newly-created post-specific project file.
 - **Operational/meta work with no natural project or area home** (e.g. /morning, /goodnight, general sysadmin, security hygiene, vault maintenance) → `Project: None (operational <scope>)` — e.g. `None (operational /morning)`, `None (operational tech-infra)`. Don't reach for a loosely-related project to fill the slot; `None` is the correct answer.
-- **Never link to:** WIP sections (`01 Now/Works in Progress#...`), Resources, Archive, or 07 System files (these are references and meta, not project/area homes). This governs *outbound* links from an item to its home — it is not in tension with §3, where a WIP entry's own `**Next:**` slot links *out to* the project file. Item → WIP is banned; WIP → project is the required direction.
-- **No canonical home and work is still in flight?** Create a project or area file rather than linking to WIP
+- **Never link to:** Resources, Archive, or 07 System files (these are references and meta, not project/area homes).
+- **No canonical home and work is still in flight?** Create a project or area file. Small one-off items may simply live in This Week or the Tickler with no home doc.
 - **Working in Resources?** That's a signal it should graduate to an Area
-- **Why:** WIP is for status tracking, not session clustering. Consistent project links enable reliable pickup grouping.
+- **Why:** Consistent project links enable reliable pickup grouping.
 
 ---
 
 ## 3. Item Linking Convention
 
-Every actionable item in a day section, Tasks.md, or planning document should link to its project/area context where one exists:
+Every actionable item in a day section or planning document should link to its project/area context where one exists:
 
 - Project doc exists → `→ [[03 Projects/Project Name]]`
 - Area doc exists → `→ [[04 Areas/path/doc]]`
-- No dedicated doc but tracked in WIP → `→ [[01 Now/Works in Progress#Heading]]`
 - Standalone/generic items (no project context) → no link
 
 When moving items that already have project/area links, preserve them. Replace session log links (`→ [[06 Archive/...]]`) with project/area links — session context is low-value once the item is in a planning doc.
@@ -52,7 +51,6 @@ When migrating Tickler items:
 - Preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`)
 - Replace session-log-only links with the relevant project/area link
 - Add links to bare items per the Item Linking Convention (Section 3)
-- **Deduplicate against Tasks.md:** After migrating each Tickler item, check whether a matching item already exists in Tasks.md (`01 Now/Tasks.md`) (same task, possibly different phrasing). If so, delete the Tasks.md copy — the day section is now SSOT.
 
 ---
 
@@ -64,16 +62,16 @@ When migrating Tickler items:
 
 ### Planning-file writes go through `locked-edit.sh` (NOT the Edit tool)
 
-**Every mutation of a shared planning file — `01 Now/Works in Progress.md`, `01 Now/This Week.md`, `01 Now/Tickler.md`, `01 Now/Tasks.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, `/start-project`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
+**Every mutation of a shared planning file — `01 Now/This Week.md`, `01 Now/Tickler.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, `/start-project`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss. (`01 Now/Strategic Overview.md` is not in this class: it is `/morning`'s rendered read-only output, rewritten wholesale by `Write` on each render — other skills never edit it.)
 
 **Creation is not mutation — a first write uses `Write`, not the lock.** The rule above governs *editing existing content*: the hazard it prevents is a lost read-modify-write cycle, and a file that does not yet exist has no content to lose. (`locked-edit.sh` *can* create a missing target — that capability is real, it is simply not the reason to reach for it.) The genuine risk when creating is two sessions racing to create the *same* file, and the lock does not address that: it would serialise both writes and report success twice. That is a name-collision check's job, owned by the creating skill's own conflict step, which must test both the file path **and** any index/dashboard heading the new file claims. A skill whose Step-N creates a project or area doc should say so explicitly rather than leaving the mechanism unstated, since an unstated mechanism reads as an oversight against this section.
 
 ```bash
 # Replace a unique block (old_string must match exactly once, like the Edit tool):
-cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/01 Now/Works in Progress.md" --replace
-**Last:** 2026-06-01 — old state
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/03 Projects/Project Name.md" --replace
+**Last update:** 2026-06-01 - old state
 ========OPENCAIRN-LOCKED-EDIT-SEP========
-**Last:** 2026-06-02 — new state
+**Last update:** 2026-06-02 - new state
 EOF
 # Other modes: --replace-all (every occurrence), --append (stdin appended at EOF).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match · 3 ambiguous (>1 match under --replace).
@@ -158,7 +156,7 @@ After killing, the lock releases and subsequent script invocations work normally
 
 - **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another Claude session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
 - **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
-- **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. WIP/This Week/Tickler/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
+- **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. This Week/Tickler/project-doc/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
 
 #### Failure mode C: Bash tool backgrounds a command that finishes normally
 
@@ -199,36 +197,9 @@ before = before.rstrip("\n") + "\n\n" + addendum + "\n\n"
 
 ---
 
-## 6. WIP Session Link FIFO Cap
+## 6. (retired 2026-08-05 — WIP demoted) WIP Session Link FIFO Cap
 
-When adding session links (`→ [[06 Archive/Claude/Session Logs/...]]`) to a WIP entry:
-
-1. Add the new link
-2. Count standalone session link lines (lines matching `→ [[06 Archive/Claude/Session Logs/`) in this WIP entry
-3. If more than 3, remove the oldest by date until exactly 3 remain
-4. **Do NOT trim non-session-log reference links** (`→ [[03 Projects/`, `→ [[04 Areas/`, etc.) — these are navigation pointers
-
-Session history lives in the archive and project hub pages; WIP links are convenience pointers, not the record of truth.
-
-**Mechanical verification (required after every WIP edit):**
-```bash
-# Extract the WIP entry for this project and count session links
-# Substitute the heading text (e.g. "Claude Code Learning / OpenCairn")
-# Uses awk index() for fixed-string matching (headings often contain / and &)
-# Letter-var z=0 binding works around the slash-command loader consuming bare dollar-digit tokens (positional-arg placeholders). See github.com/anthropics/claude-code/issues/52226
-awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | grep -c '^→ \[\[06 Archive/Claude/Session Logs/'
-```
-**Assert the heading matched before believing the count.** The awk emits nothing when the heading
-doesn't match — a renamed, retyped or emoji'd heading yields `0`, which the gate reads as clean
-forever. Run the slice on its own first; if it is empty, the heading is the fault, not the links:
-
-```bash
-awk -v z=0 'f && /^### /{exit} index($z, "### HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/Works in Progress.md" | head -1
-```
-
-Display one of: `FIFO check: N/3 session links` · `FIFO check: HEADING NOT FOUND — "<heading>" does not
-match any ### entry (count unusable)`. If more than 3, fix before proceeding; if the heading didn't
-match, fix the heading before trusting any count from it.
+Session links now live in project docs' `## Session History`; no dashboard cap applies.
 
 ---
 
@@ -340,7 +311,7 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 
 **Section boundary.** A draft section starts at the heading line, includes all content through the trailing `> Context:` / `> Note:` blockquote, and ends before the next line matching the same heading pattern, the next `#`-heading, or EOF.
 
-**Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 10(b) and `/weekly-hygiene` Step 6 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
+**Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 4 and `/weekly-hygiene` Step 5 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
 
 **Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
 
@@ -348,7 +319,7 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 
 ## 12. Grep-hit triage (reference-graph / Layer-3 propagation)
 
-When propagating a changed identifier across the vault — `park` Step 12 (reference graph), `audit` Layer 3, `complete-project`'s moved-anchor sweep — classify each grep hit **by what the value does, not by the file type** before editing:
+When propagating a changed identifier across the vault — `park` Step 6 (reference graph), `audit` Layer 3, `complete-project`'s moved-anchor sweep — classify each grep hit **by what the value does, not by the file type** before editing:
 
 **First, choose the right grep target — the value sibling docs actually contain.** For a *changed* value, grep the old value. For a **NEW option/alternative added to a pre-existing decision/record**, the new value is *absent* from the very sibling docs that need it (the stale timeline row, the index that lists only the incumbent) — so grep the decision's **anchor** (route/decision/record key), the join key those docs already share, **not** the new option text. Grepping the new value finds nothing and false-passes the propagation.
 
@@ -358,7 +329,7 @@ When propagating a changed identifier across the vault — `park` Step 12 (refer
 
 **For link-integrity questions specifically, prefer structural queries over text grep.** A rename/move/delete that needs link-integrity verification is a structural question, not a text search. The system probably has a purpose-built query: an Obsidian vault has `obsidian unresolved` (queries the live link index); a codebase has language-server "find references" or `git grep` with the right filters; a wiki has a broken-link report. Read the project's tool-routing doc (e.g. CLAUDE.md, a contributor guide, or a "how to search" reference) before designing the verification step. The grep-as-default reflex is itself a failure mode — text search is sensitive to file format, encoding, hidden-directory exclusions, and ignore-pattern semantics that the structural query is indifferent to.
 
-- **Stale cross-reference** — a pointer meant to track the current value but now wrong → **update it**. (The most common miss.) **Includes dated rolling current-state fields** an owning rule defines as replace-on-update — notably WIP per-entry `**Last:**` / `**Next:**` (`/park` Step 11: "replace, don't chain") and live planning/hub `Status` / `Current position` lines: the date is a refresh stamp, not a frozen-event timestamp, so update them when the session changed the state they summarise. **A hub's Status / Current-Status section also carries a co-located date-only `**Last update:**` / `**Last updated:**` stamp separate from the content it sits above** — when you edit that section's content, bump the stamp to the current date in the *same* pass; it's part of the edit's footprint, not a frozen timestamp. A content flip that updates the prose but leaves the co-located date stamp stale is a recurring miss (propagation catches the value, not the stamp beside it). **The enclosing artefact governs:** a "current"-phrased line inside a frozen artefact (session log, daily report, weekly-context snapshot, provenance record) stays historical, and a path that relocates with content is a **Live locator** (below), not this — don't infer "rolling" from wording alone.
+- **Stale cross-reference** — a pointer meant to track the current value but now wrong → **update it**. (The most common miss.) **Includes dated rolling current-state fields** an owning rule defines as replace-on-update — notably a project doc's `## Current Objective` / `## Next Actions` state (replace, don't chain) and live planning/hub `Status` / `Current position` lines: the date is a refresh stamp, not a frozen-event timestamp, so update them when the session changed the state they summarise. **A hub's Status / Current-Status section also carries a co-located date-only `**Last update:**` / `**Last updated:**` stamp separate from the content it sits above** — when you edit that section's content, bump the stamp to the current date in the *same* pass; it's part of the edit's footprint, not a frozen timestamp. A content flip that updates the prose but leaves the co-located date stamp stale is a recurring miss (propagation catches the value, not the stamp beside it). **The enclosing artefact governs:** a "current"-phrased line inside a frozen artefact (session log, daily report, weekly-context snapshot, provenance record) stays historical, and a path that relocates with content is a **Live locator** (below), not this — don't infer "rolling" from wording alone.
 - **Enumeration-predicate hit** — a hit where the changed identifier is still a valid list member, but the list's *governing predicate* makes a current-state claim the change falsifies for that member (a status flip to "deferred" where the name sits inside "three items **confirmed** (…, X, …)" or "launching **\<month\> \<year\>** (…, X, …)"; or a count: "3 items (A, B, X)" now 2). **Mechanical trigger:** the identifier and an *old* status/date/count token from the change sit in the *same* line, list-item, table cell/row, parenthetical, or immediately governing heading — that co-location is the reviewer-observable check. → **Update the framing, not the membership:** split the member out and annotate the new state ("X — deferred"), or revise the count. **Do NOT remove X** unless the change is an actual removal/cancellation (a deferral keeps the member). Do NOT classify "different context → leave" merely because the identifier string is still true. The enclosing-artefact rule still governs — a falsified predicate inside a frozen snapshot, or a timeless/current-neutral list with no stale predicate co-located, stays as-is.
 - **Live locator** — a path/link/ID a *current workflow resolves to locate or re-read an artefact* (e.g. a hash/provenance log's path column that a verify pass re-hashes; a `**Source:**` path a tool reads). On a **move/rename** of unchanged content → update **only the locator field**, never a content hash/timestamp/proof. On a **delete** → leave it and flag (a MISSING / unresolved result is the correct integrity signal). A locator inside an *otherwise-historical* record is still live — this is the subtlest case and the one propagation passes miss.
 - **Historical record** — a frozen record of what was actually said/sent/observed, or where an artefact lived *at event time* → **leave it** (or add a separate relocation note; don't overwrite).
@@ -370,9 +341,9 @@ If you can't tell whether a value is a live locator or a frozen record, **report
 
 ## 13. Cite Vault Items by Stable Identifier, Not Line Number
 
-When a skill writes a **durable artefact** — a report, review, session log, routed flag, or any note that will be re-read later — that references an item living in a churning planning file (a `Tasks.md` task, a WIP entry, a `Tickler.md` line, an open loop), name it by its **title / heading / content**, never by line number (`Tasks.md L43`).
+When a skill writes a **durable artefact** — a report, review, session log, routed flag, or any note that will be re-read later — that references an item living in a churning planning file (a `This Week.md` task, a project-doc Next Action, a `Tickler.md` line, an open loop), name it by its **title / heading / content**, never by line number (`This Week.md L43`).
 
-Line numbers rot the instant the file is edited — and several skills mutate a planning file *within the same run*, so any `Lnn` written after that point is stale on write. The canonical case: `/weekly-hygiene` step 8 purges completed `[x]` lines from `Tasks.md`, shifting every line below; a report generated later in the same run that cites `Tasks.md L43` already points at the wrong line. The durable artefact outlives the line-numbering; the title does not.
+Line numbers rot the instant the file is edited — and several skills mutate a planning file *within the same run*, so any `Lnn` written after that point is stale on write. The canonical case: a purge of completed `[x]` lines from `This Week.md` shifts every line below; a report generated later in the same run that cites `This Week.md L43` already points at the wrong line. The durable artefact outlives the line-numbering; the title does not.
 
 Ephemeral, in-conversation references during a single turn (e.g. a grep result you act on immediately) are exempt — this rule governs what gets **persisted**.
 
@@ -386,7 +357,7 @@ Link the **file** and name the session in plain text after it:
 [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N)
 ```
 
-Applies to every session-log reference a skill writes — continuation links, WIP session links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `/pickup` reads.
+Applies to every session-log reference a skill writes — continuation links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `/pickup` reads.
 
 Heading anchors remain correct for **stable** docs (project hubs, guides, reference notes) where the heading is hand-written and durable.
 
@@ -547,13 +518,13 @@ If a source's text has left context (a long session, a `/compact` — and the fi
 
 ## 17. Push-Side Hub Record (commits are their own identifier class)
 
-Canonical rule for every skill that runs a reference-graph / propagation pass after a session that pushed code — `/park` Step 12(a), `/goodnight` Step 15(a). Those skills point here and carry no copy to drift.
+Canonical rule for every skill that runs a reference-graph / propagation pass after a session that pushed code — `/park` Step 6, `/goodnight` Step 15(a). Those skills point here and carry no copy to drift.
 
 **The rule.** Every commit hash a session records is its own identifier. For each one, grep the vault for that repository's hub and confirm three things:
 
 1. A `## Session History` row exists for the session that pushed it.
 2. The hub's own `**Last update:**` / `Last updated:` stamp is current.
-3. The WIP entry's `**Last:**` field reflects the push.
+3. The project doc's current-state prose (`## Current Objective` / status line) reflects the push.
 
 **Why the ordinary per-identifier pass misses it.** A pushed commit is a world-state change with no textual footprint in the vault. Nothing in the session's file edits contains the hash, so no content grep reaches the hub — and the hub is frequently a file the session never opened. The propagation pass therefore returns a clean, *fully earned* hit-list while the project's own commit-level record silently misses an entry. This is the inverse of the usual failure: not a stale value left behind, but a **new** record never written, in a document whose stated job is to hold it.
 
@@ -565,13 +536,13 @@ Canonical rule for every skill that runs a reference-graph / propagation pass af
 
 ## 18. Deadline Tokens Force a Dated Surface
 
-Canonical rule for every skill that routes open items to a destination — `/park` Step 13, `/goodnight` Step 9. Those skills point here and carry no copy to drift.
+Canonical rule for every skill that routes open items to a destination — `/park` Step 7, `/goodnight` Step 9. Those skills point here and carry no copy to drift.
 
 **The rule.** If an item's text contains a deadline, cut-off, expiry, renewal, or window-close token, its route MUST terminate in a **dated surface**: a specific day section when the date falls inside the rolling window, otherwise the Tickler (via `write-tickler.sh`).
 
-**An undated destination does not discharge such an item**, however canonical that destination is. A project doc, an area hub, a Tasks list — each records *what* to do and never *when it stops being possible*. The undated branch of a routing table exists for items with genuinely no date; a deadline token means the item has one **even when it isn't written as a calendar date**. Derive it (`date -d`), don't route past it.
+**An undated destination does not discharge such an item**, however canonical that destination is. A project doc, an area hub, an undated notes list — each records *what* to do and never *when it stops being possible*. The undated branch of a routing table exists for items with genuinely no date; a deadline token means the item has one **even when it isn't written as a calendar date**. Derive it (`date -d`), don't route past it.
 
-**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `/park` Step 13 the failure is `→ Project: [Name]`; for `/goodnight` Step 9 it is `→ Tasks.md`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
+**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `/park` Step 7 the disallowed sinks are the project doc and Whimsy; for `/goodnight` Step 9 it is `→ Whimsy`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
 
 **Checkable:** any routed item whose text carries a deadline token must land under a dated heading, and the routing summary must name that dated target.
 
@@ -579,7 +550,7 @@ Canonical rule for every skill that routes open items to a destination — `/par
 
 ## 19. Value Provenance Check (SOURCE)
 
-Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `/park` Step 4(d) (as the SOURCE category of its five-check gate), `/goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
+Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `/park` Step 2(c) (the SOURCE check of its quality gate), `/goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
 
 - Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
 - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
@@ -599,7 +570,7 @@ Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *sup
 
 ## 20. Session-Boundary Attribution (the file list is the boundary, not the commit window)
 
-Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 14(b), `/goodnight` Step 15(c). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
+Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 9, `/goodnight` Step 15(c). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
 
 **The rule.** The vault's `.git` is an **auto-save** repo: commits are time-window snapshots, not session boundaries, and concurrent sessions write to the same vault. A file appearing in the same commit as a session's bookkeeping is therefore **not** evidence that session produced it.
 
@@ -688,7 +659,7 @@ A seat owes every row its reach covers, not one of them. **Paste this table into
 
 ## 24. Driving the Obsidian CLI (link-healing moves, batches, verification)
 
-Canonical rule and **single source of truth** for every skill that moves, renames, or deletes vault files through the `obsidian` CLI — `quarterly-hygiene` Step 6, `complete-project` Step 5, `inbox-processor` Step 4. Those skills point here and carry no copy to drift. Behaviour below verified against **Obsidian 1.12.7**; treat the version stamp as the staleness marker and re-verify rather than trusting it indefinitely.
+Canonical rule and **single source of truth** for every skill that moves, renames, or deletes vault files through the `obsidian` CLI — `quarterly-hygiene` Step 6, `complete-project` Step 4, `inbox-processor` Step 4. Those skills point here and carry no copy to drift. Behaviour below verified against **Obsidian 1.12.7**; treat the version stamp as the staleness marker and re-verify rather than trusting it indefinitely.
 
 **The durable rule, independent of any tool version.** A path-qualified wikilink (`[[folder/note]]`) does not survive the file moving unless something rewrites it. Only a link-aware move does that, so raw `mv` on a linked note is never correct — not as a fallback, not for a batch, not "just this once". Where a link-aware move is unavailable, **move nothing and defer**: relocating files and orphaning their links is worse than not running.
 

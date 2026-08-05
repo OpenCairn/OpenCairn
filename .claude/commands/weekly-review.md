@@ -44,8 +44,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
    - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
    - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
-   - Read current `01 Now/Works in Progress.md` to see active projects
-   - Check project files in `03 Projects/` that were active this week
+   - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter plus `## Current Objective` and `## Next Actions`; folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds **5**, flag it and ask which project moves to `Cold/`
 
    **Schedule-vs-Execution data (Alignment Check input):**
    - **Cadence gate.** Run `cd "{VAULT}" && git rev-list --count --since="$PERIOD_START 00:00" HEAD` (count over the *actual review period*, so the window and the threshold measure the same span; `rev-list --count` also avoids the `wc -l` missing-final-newline undercount). If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
@@ -128,7 +127,7 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
 
-**⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already purged Tasks.md, so any `Tasks.md Lnn` carried into this durable review is stale on write. Name items (tasks, WIP entries, Tickler lines, aged open loops) by title/heading/content.
+**⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already reshuffled This Week.md or a project doc, so any `This Week.md Lnn` carried into this durable review is stale on write. Name items (tasks, project-doc actions, Tickler lines, aged open loops) by title/heading/content.
 
 ```markdown
 # Weekly Review — [Date Range]
@@ -236,7 +235,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 [Populated from Hygiene Report if available — see `/weekly-hygiene`]
 
-[Summary of hygiene findings: WIP health, tier mismatches, tickler items, broken links, etc.]
+[Summary of hygiene findings: project-doc health, tier mismatches, tickler items, broken links, etc.]
 
 *If no hygiene report: "No hygiene report available — run `/weekly-hygiene` for vault maintenance."*
 
@@ -267,7 +266,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    The review file is a reflective record, not a task surface — nobody re-reads it, so a course correction naming a deadline dies there, and because writing it down *reads* as acting on it, the next review re-derives the same correction and the item carries indefinitely.
 
-   This step deliberately does **not** route each item to its own dated surface. Doing so needs per-item date resolution, dedup across several files, and conditional writes — more moving parts than a prose step executes reliably, and every part that misfires does so silently. Instead it writes **one** Tickler line pointing back at the review. When that surfaces, `/morning` puts it in front of the user and the existing routers (`/park` Step 13, the day plan) place the individual items with full context. One indirection, one write, almost nothing to get wrong.
+   This step deliberately does **not** route each item to its own dated surface. Doing so needs per-item date resolution, dedup across several files, and conditional writes — more moving parts than a prose step executes reliably, and every part that misfires does so silently. Instead it writes **one** Tickler line pointing back at the review. When that surfaces, `/morning` puts it in front of the user and the existing routers (`/park` Step 7, the day plan) place the individual items with full context. One indirection, one write, almost nothing to get wrong.
 
    **(a) Scan and list.** Read the review's **Course Corrections Needed** and **What's Next → Big Rocks** sections for items whose text carries a deadline, cut-off, expiry, renewal, or `by` / `before` / `closes <date>` clause. Display them with the date each names. **Trigger-contingent items are not deadline-bearing** — "before the next X runs" has no date to derive; leave them out. If nothing qualifies, emit the nil checkpoint and go to step 6.
 
@@ -310,11 +309,10 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
-7. **Update Works in Progress** (if needed):
-   - **Write mechanism (F1):** apply these WIP edits through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
-   - Update project statuses based on weekly progress
-   - Add new projects if they emerged this week
-   - Propagate any status/tier change to the project hub's `**Status:**` line as well (`03 Projects/<name>.md` or the relevant area hub) — same two-places rule as `/weekly-hygiene` step 1; a WIP-only edit leaves a stale cross-reference
+7. **Update project docs** (if needed):
+   - **Write mechanism (F1):** apply these edits through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
+   - Status changes from the review go to the relevant project doc in `03 Projects/` — update its `## Current Objective` / `## Next Actions`; a pause or resume is a folder move (root ↔ `Cold/`), not a status line
+   - New projects that emerged this week get a doc (via `/start-project`)
 
 8. **Generate Claude Web context summary:**
 
@@ -327,15 +325,15 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week, per step 1's `%G-W%V`; unlike the review file, overwriting a same-week context doc is correct — it's a regenerated current-state export, latest wins)
 
    **Gather context for dynamic sections:**
-   - Read `{VAULT}/01 Now/Works in Progress.md` — every active entry is a candidate for inclusion, not just "projects." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
+   - Read the `03 Projects/` root docs (plus `{VAULT}/01 Now/Strategic Overview.md` as a rendered summary) — every active project is a candidate for inclusion, not just "work." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
    - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (same pattern-constrained `LC_ALL=C sort -r` listing as step 1, `head -3`) for trajectory and recent events. The current week's review data is already available from earlier steps.
-   - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because WIP and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a WIP "Next" pointer, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
+   - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because project docs and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a project doc's Next Actions entry, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
 
    **Read previous context version** to carry forward stable sections:
    - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/Claude/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
    - The file has two kinds of sections:
      - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
-     - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from WIP): Regenerate fully from WIP, recent weekly reviews, and this week's review data.
+     - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from the project docs): Regenerate fully from the `03 Projects/` root docs, recent weekly reviews, and this week's review data.
 
    **Stable section verification (anti-confabulation pass).** Carrying-forward propagates whatever was true (or wrong) in the previous version. Errors that entered a stable section once will survive every subsequent week unless explicitly checked. Three rules:
 
@@ -361,10 +359,10 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
    [1-2 sentence identity/situation summary from CLAUDE.md. Write itinerary/location as a date-anchored timeline, not present-tense — see Staleness rules below.]
 
-   [Active personal context from WIP that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't "projects" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
+   [Active personal context from the project docs that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't all "work" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
 
    ## Active threads
-   [Top 3-5 from "What's Next" section of this review, plus significant WIP entries. Include explicit absolute dates / deadlines — never relative ("today", "this week", "tomorrow").]
+   [Top 3-5 from "What's Next" section of this review, plus significant project docs. Include explicit absolute dates / deadlines — never relative ("today", "this week", "tomorrow").]
 
    ## Recent Context
    [Key decisions, changes, events from the review period. 2-4 bullets.]
@@ -404,8 +402,8 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - Factual and current
    - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
    - **Stable sections: carry forward, BUT verify per the Stable section verification rules above** (monthly source re-read, plus distrust lineage/tradition/methodology claims always).
-   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting, reconciling every status fact against This Week.md per the gather-step rule above (the day plan wins over WIP/session-log/prior-doc surfaces).
-   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and WIP (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
+   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting, reconciling every status fact against This Week.md per the gather-step rule above (the day plan wins over project-doc/session-log/prior-doc surfaces).
+   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and project docs (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
 
    **Staleness rules (mandatory).** Claude Web Memory persists between conversations and the doc may be re-pasted weeks after generation. The doc must read sensibly N weeks after the `Last updated:` date.
 
@@ -459,6 +457,7 @@ Recommended: Skim the weekly review itself at the start of next week to set the 
 - **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
 - **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
 - **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
+- **This Week cap — 30/week binding, 10/day shape** (default; the vault's Project Doc Format section wins if it states different caps — tune it there to the user's observed completion throughput): the forward window in `01 Now/This Week.md` (today + the 6 forward days) holds at most 30 unchecked items, no single day more than 10. Before routing any What's Next item into This Week.md, count the window; if the addition would breach the cap, present the overflow and ask the user which items drop (to project docs, the Tickler, or Whimsy). The cap is the anti-graveyard mechanism — never silently exceed it.
 
 ## Frequency
 

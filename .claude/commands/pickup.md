@@ -1,7 +1,7 @@
 ---
 name: pickup
 description: Resume previous work — pass a topic, keyword, or file path to jump straight in
-argument-hint: "[topic, keyword, or file path — optional; bare /pickup shows WIPs]"
+argument-hint: "[topic, keyword, or file path — optional; bare /pickup shows active projects]"
 ---
 
 # Pickup - Session Pickup
@@ -23,7 +23,7 @@ You are helping the user resume previous work with full context.
 3. **Route based on arguments:**
 
    - **Arguments provided** (topic, keyword, or file path) → Step 4 (targeted pickup)
-   - **Bare `/pickup`** with no arguments → Step 6 (WIP overview)
+   - **Bare `/pickup`** with no arguments → Step 6 (project overview)
 
 ---
 
@@ -39,7 +39,7 @@ You are helping the user resume previous work with full context.
      ```
      Substitute the user's keyword for `TOPIC`. The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position); the grep matches against TITLE, PROJECT, and SUMMARY alike. If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **Keep the filter in the pipeline every time you widen the window.** Unfiltered output is sorted newest-first and grows fast enough to be truncated, which cuts exactly the older rows the wider window exists to reach. If output is ever truncated or spilled to a file, re-run with the filter (or a tighter one) rather than reading the preview. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
 
-   - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Backlog/`), WIP entries, and area files as needed.
+   - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Cold/`, `03 Projects/Backlog/`) and area files as needed.
 
    - **Follow CLAUDE.md's context routing table** for domain-specific context files (e.g. travel topic → load travel context files).
 
@@ -73,44 +73,39 @@ You are helping the user resume previous work with full context.
 
 ---
 
-### Works in Progress Overview (bare /pickup)
+### Project Overview (bare /pickup)
 
-6. **Read Works in Progress:**
+6. **Read the project-doc root:**
 
-   Read `{VAULT}/01 Now/Works in Progress.md`. Parse each `###` entry, extracting:
-   - **Name** (the heading text)
-   - **Status** (from the `**Status:**` line, if present — abbreviate to one word if verbose; omit the column for entries without one)
-   - **Last touched** (date from the `**Last:**` line, if present) — render it exactly as written, truncated at the first ` — ` or ` - ` so trailing prose is dropped. `**Last:**` values come in many shapes; never reformat one or synthesise a weekday that isn't in the source.
+   - Read `{VAULT}/01 Now/Strategic Overview.md` if it exists — /morning's rendered view of the project root. Note its generated-on date; if it predates today, say so and treat the live root listing below as authoritative.
+   - List `{VAULT}/03 Projects/*.md` (root only — root = active; folder location is status). For each doc, read its `bucket:` frontmatter and the first line under `## Current Objective`.
+   - Count `Cold/` and `Backlog/` docs for the collapsed line — only tiers that exist.
 
-   Show only the **top section** (entries above `## Active`, if any) and the **Active section**. These are the things worth picking up. Collapse any other sections (Maintenance, Backlog, etc.) into counts — only those that exist; a minimal vault may have just Active and Backlog.
-
-7. **Display a numbered WIP list:**
+7. **Display a numbered project list**, grouped by bucket, with Current Objective one-liners:
 
    ```
-   Works in Progress:
+   Active projects (03 Projects root):
 
-     1. Project Alpha                          Active    | Last: Sun 29 Mar
-     2. Tax 2025-26                            Active    | Last: 2026-03-26
-     3. Travel 2026                            Active    | Last: Mon 30 Mar
+     Craft
+     1. Project Alpha        — [Current Objective one-liner]
+     2. Research Topic       — [Current Objective one-liner]
 
-     Active
-     4. Side Project with Sam                  Active    | Last: Sat 28 Mar
-     5. Research Topic                         Exploring | Last: Mon 30 Mar
-     6. Job Application                        Submitted | Last: Sat 28 Mar
+     Community
+     3. Side Project with Sam — [Current Objective one-liner]
 
-     + 2 maintenance, 15 backlog (say "show all" or name one)
+     + 2 cold, 15 backlog (say "show all" or name one)
 
    Pick a number, or tell me what you want to work on.
    ```
 
-   - Preserve section grouping (top items, then Active heading)
-   - Omit "Last" column for entries with no `**Last:**` line
-   - If WIP file is empty or missing, suggest starting fresh or running `/awaken`
+   - Bucket order: per the vault's bucket taxonomy (Project Doc Format in `07 System/Vault Organisation Principles.md`) — group by `bucket:` value, skip empty buckets; docs with no `bucket:` go last under "(no bucket)"
+   - Truncate Current Objective lines to one glanceable clause; never synthesise one for a doc that lacks the section — leave the slot blank
+   - If the `03 Projects/` root is empty, suggest starting fresh (`/start-project`) or running `/awaken`
 
 8. **Wait for user response:**
 
-   - **Number** → Load that WIP's context: follow the project/area link in `**Next:**` to read the project hub — if the entry has no `**Next:**` line, follow the first `→ [[03 Projects/` or `→ [[04 Areas/` link in the entry instead; if it has neither, say so and offer the entry's session links — then read the newest **standalone session-link line** in the entry (`→ [[06 Archive/Claude/Session Logs/...]]` — `/park` writes session links as separate lines under the entry, never inside `**Next:**`, which holds exactly one pointer or action), and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
-   - **"show all"** → Redisplay with Maintenance and Backlog entries included
+   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/Claude/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
+   - **"show all"** → Redisplay including `Cold/` and `Backlog/` docs (grouped under their tier headings)
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally
 
@@ -118,13 +113,13 @@ You are helping the user resume previous work with full context.
 
 - **Speed over completeness.** Load only what's needed, not everything that exists.
 - **No complex interactive menus.** No hide, snooze, pagination, multi-step view toggles. "Show all" is the only expansion permitted.
-- **Session logs are read on demand.** The scan script extracts metadata cheaply for targeted pickup. Only read full session files when the user has selected a specific WIP or topic.
-- **WIP is the orientation layer.** Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; WIPs are the unit you pick up.
-- **Project hubs live in two places:** `03 Projects/` (active) and `03 Projects/Backlog/` (backlog). Check both.
+- **Session logs are read on demand.** The scan script extracts metadata cheaply for targeted pickup. Only read full session files when the user has selected a specific project or topic.
+- **The project-doc root is the orientation layer** (Strategic Overview is its rendered view). Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; projects are the unit you pick up.
+- **Folder location is status:** `03 Projects/` root = active, `Cold/` = paused, `Backlog/` = backlog. Check all three when a name doesn't turn up.
 - **Trust your search tools.** Don't over-prescribe search strategies. Use Grep, Glob, and the scan script as appropriate for what the user asked.
 
 ## Integration
 
 Combined with `/park`, this forms the **park and pickup system**.
 
-**Reads from:** Works in Progress (bare mode), Session Logs (via pickup-scan.sh for targeted pickup, direct read for selected topic), Project hubs, Context files
+**Reads from:** 03 Projects root docs + Strategic Overview (bare mode), Session Logs (via pickup-scan.sh for targeted pickup, direct read for selected topic), Project hubs, Context files

@@ -30,7 +30,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    - **Boundary rule:** if today falls in the first 2 weeks of a quarter, ask the user once whether this run reviews the just-ended quarter or the current one — a review run 2 Jul almost always covers Q2, and keying it to Q3 mislabels the output file and falsely stales a days-old hygiene report. Use the answer for the hygiene-report lookup, every "current quarter" test, and the output filename. (`/quarterly-hygiene` carries the same rule; keep the two runs on the same quarter.)
 
 2. **Gather quarterly data:**
-   - Read current `01 Now/Works in Progress.md`
+   - Read `01 Now/Strategic Overview.md` (read-only rendered overview) — the SSOT for active-project state is the `03 Projects/` root docs scanned below (`bucket:` frontmatter, Current Objective, Next Actions)
    - **Read the previous quarterly review:** `ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null | sort -r | head -1`. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. Skip any file for the quarter under review (a mid-quarter first run leaves one) and take the newest older-quarter file. If none exists, note it and continue.
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
@@ -45,7 +45,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 3. **Mode choice.** Before the interview, ask the user once: interactive mode (walk through each section together) or auto-generate mode (compile answers from gathered data, present for validation). One question upfront — don't re-ask per section.
 
-4. **Synthesise and present.** Before asking questions, present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned (from WIP and project files), recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. This primes the user for the interview — they confirm, correct, and reflect rather than recall from memory.
+4. **Synthesise and present.** Before asking questions, present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned (from the project docs), recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. This primes the user for the interview — they confirm, correct, and reflect rather than recall from memory.
 
 5. **Run the quarterly strategic interview:**
 
@@ -96,7 +96,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
 
-   **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. Name any `Tasks.md` / WIP / `Tickler.md` item by title/heading/content, never by line number, in this durable record.
+   **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. Name any project-doc / Strategic Overview / `Tickler.md` item by title/heading/content, never by line number, in this durable record.
 
 ```markdown
 # Quarterly Review - YYYY QN ([Month] - [Month])
@@ -161,6 +161,10 @@ Projects to explicitly abandon rather than let linger:
 ```
 
 When listing weekly reviews, preserve each file's exact name including any collision suffix (`YYYY-Wnnb` etc. — weekly-review writes suffixed files when two reviews land in one ISO week); a bare `YYYY-Wnn` link to a suffixed review is broken.
+
+   **Route the forward-looking outputs — the review file is an archive record, not a planning surface:**
+   - **Big Rocks / Long Poles / priorities** → write each into the relevant project doc's Next Actions (via `locked-edit.sh` per `_shared-rules.md` §5), or as a dated Tickler item where no project doc exists yet.
+   - **Kill List / Stop Doing** → act on in-session: propose the `03 Projects/Cold/` moves and list `/complete-project` candidates for the user to confirm. Don't leave them as prose commitments that route nowhere.
 
 12. **Skill self-review (explicit instantiation of `_shared-rules.md` §8 / `_skill-monitor.md`).**
     This command runs ~4×/year, so the implicit skill-monitor watch is easy to skip. Before the final display, run the §8 / `_skill-monitor.md` review against this run end-to-end — did any step misfire, produce noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.

@@ -38,7 +38,7 @@ For each item, determine the appropriate home using NIPARAS logic:
 - **Is this a project?** (Has a specific end goal) → `03 Projects/[Project Name]/`
 - **Is this an ongoing area of responsibility?** → `04 Areas/[Area]/`
 - **Is this reference material?** → `05 Resources/[Topic]/`
-- **Is this completed/inactive?** → `06 Archive/`
+- **Is this an immutable record (dated, never to be edited)?** → `06 Archive/` (write-once records only: transcripts, logs, reports, scans, snapshots). Completed/inactive-but-useful material goes to the relevant `04 Areas/[Area]/Archive/` instead (or `04 Areas/Whimsy/` if aspirational)
 - **Is this system documentation?** → `07 System/`
 
 **Additional routing rules:**
@@ -124,8 +124,10 @@ Item → Is it REFERENCE for future use?
        ├─ Yes → 05 Resources/[Topic]/
        └─ No → Continue...
 
-Item → Is it COMPLETED/INACTIVE?
+Item → Is it an IMMUTABLE RECORD (dated, never to be edited)?
        ├─ Yes → 06 Archive/
+       ├─ Completed/inactive but useful → 04 Areas/[Area]/Archive/
+       │        (aspirational → 04 Areas/Whimsy/)
        └─ No → Continue...
 
 Item → Is it SYSTEM documentation (how the vault/Claude works)?
@@ -148,7 +150,7 @@ Item → Is it SYSTEM documentation (how the vault/Claude works)?
 **Quick thoughts / stream of consciousness:**
 - If actionable: Extract actions to Working Memory, archive the rest
 - If insightful: Move to relevant context file or resource page
-- If neither: Archive to `06 Archive/Quick Thoughts/`
+- If neither: add as a plain line (no checkbox) to `04 Areas/Whimsy/_notes.md`, or delete
 
 **Article clippings:**
 - Route per the Step 2 rule: project → Area's nested reference → `05 Resources/[Topic]/` as the generic fallback
@@ -157,7 +159,7 @@ Item → Is it SYSTEM documentation (how the vault/Claude works)?
 **Meeting notes:**
 - If project-related: `03 Projects/[Project]/`
 - If ongoing relationship/area: `04 Areas/[Area]/`
-- If one-off: `06 Archive/Meetings/`
+- If one-off: `06 Archive/Meetings/` — valid because meeting notes are dated, write-once records (the only thing `06 Archive/` holds), not because Archive is a catch-all for the homeless
 
 **Screenshots:**
 - Keep with the thing they document (never in a generic "Screenshots" folder)

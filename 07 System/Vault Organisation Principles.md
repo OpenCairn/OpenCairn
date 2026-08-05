@@ -10,12 +10,12 @@ This vault uses a seven-folder structure called NIPARAS:
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory, current focus | Works in Progress, This Week (rolling 7-day plan), Working memory scratch |
+| **01 Now** | Active working memory, current focus | Strategic Overview (rendered dashboard), This Week (rolling 7-day plan), Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
 | **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
 | **05 Resources** | Generic scrapbook, pre-emergence staging | Journal, recipes, screenshots, misc |
-| **06 Archive** | Deep freeze for cross-cutting completed projects, historical reference | Old projects spanning multiple areas, session logs, historical notes |
+| **06 Archive** | Immutable write-once records only — dated, append-only, never edited after writing | Session transcripts/logs, daily/weekly reports, scans, snapshots |
 | **07 System** | Meta-documentation | This file, context files, vault config |
 
 ### The Key Distinction: Projects vs Areas
@@ -54,12 +54,18 @@ Related files live in the relevant Area folder (e.g., travel files in `04 Areas/
 Idea emerges     → 03 Projects/Backlog/Project Name.md
 Becomes active   → 03 Projects/Project Name.md
 Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
-                    06 Archive/Project Name.md                (if cross-cutting)
+                    04 Areas/<dominant area>/Archive/         (if cross-cutting: pick the dominant area)
 ```
 
-**Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects without a natural area home go to `06 Archive/`. This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
+## Project Doc Format
 
-**Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks can live as WIP entries without a dedicated page.
+Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it), a `## Current Objective` (1-2 sentences), and a scannable `## Next Actions`. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. `/morning` renders the root docs into `01 Now/Strategic Overview.md` (read-only dashboard; never hand-edit).
+
+**This Week cap: 30/week binding, 10/day shape** (defaults — tune here; skills treat this section as the SSOT).
+
+**Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
+
+**Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks live as This Week / Tickler items without a dedicated page.
 
 **Why?**
 - One place to see project status (the hub page)
