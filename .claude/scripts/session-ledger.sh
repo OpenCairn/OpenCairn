@@ -102,7 +102,7 @@ if [ "${1:-}" = "--read" ]; then
             if (!(p in first)) { first[p] = $1; order[++n] = p }
             last[p] = $1; count[p]++
             if (index(tools[p], $2) == 0) tools[p] = (tools[p] == "" ? $2 : tools[p] "," $2)
-            a = ($4 == "" ? "main" : $4)
+            a = ($4 == "" ? "?" : $4)   # pre-4-column row: UNKNOWN, never a positive "main"
             if (index(ag[p], a) == 0) ag[p] = (ag[p] == "" ? a : ag[p] "," a)
         }
         END {
