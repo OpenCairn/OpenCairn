@@ -96,6 +96,12 @@ mapfile -t SEP_TARGETS < <(printf '%s\n' "${SEP_TARGETS[@]}" | awk '!seen[$0]++'
 SEP_HITS=""
 for t in "${SEP_TARGETS[@]}"; do
     [ -f "$t" ] || continue
+    # Skill/command/script files legitimately QUOTE the separator token (park.md
+    # documents the post-locked-edit grep; locked-edit.sh defines it). Same
+    # carve-out the lint check below makes, and for the same reason: a file that
+    # documents a marker is not a file that leaked one. locked-edit.sh only ever
+    # writes planning files, so nothing under .claude/ can carry a real leak.
+    case "$t" in */.claude/*) continue ;; esac
     h=$(grep -n 'OPENCAIRN-LOCKED-EDIT-SEP' "$t" 2>/dev/null | head -3 || true)
     [ -n "$h" ] && SEP_HITS="$SEP_HITS$t: $h; "
 done
