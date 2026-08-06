@@ -301,7 +301,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
 | `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
 | `/migrate` | One-shot migration of a pre-2026-08 vault to the project-doc task system — per-component consent (now/later/never, recorded), veto-style Tasks.md triage, Doctor-style closing verify. `/update` redirects here on old-format detection. |
-| `/setup-hooks` | Opt in to the optional skill-edit cross-pollination survey hook (a Stop hook that nudges a sibling-skill review when you edit a skill). Idempotently wires it into `settings.json`; `--remove` to disable. Needs `jq`. |
+| `/setup-hooks` | Opt in to OpenCairn's optional hooks, in two independent sets: `skill-edit` (a Stop hook nudging a sibling-skill review when you edit a skill) and `park` (a write-ledger for exact file enumeration, plus a mid-session snapshot that makes `/park` cheaper). Usage `/setup-hooks [skill-edit\|park\|all] [--remove]`; default `all`. Idempotently wires into `settings.json`. Needs `jq`. |
 
 **Aliases:**
 

@@ -84,7 +84,7 @@ Run all checks first, display the result, then act on what's missing.
    ```
 
 6c. **Check jq available (optional)** — needed *only* if the user later opts into the
-   cross-pollination hook via `/setup-hooks`; core OpenCairn does not require it:
+   cross-pollination and /park acceleration hooks via `/setup-hooks`; core OpenCairn does not require them:
    ```bash
    if command -v jq >/dev/null 2>&1; then
      echo "JQ_OK"
@@ -116,7 +116,7 @@ Run all checks first, display the result, then act on what's missing.
    Bash version:    [✓ 5.x / ⚠ 3.2 — upgrade needed] (macOS only)
    Scripts:         [✓ executable / ✗ need chmod]
    python3:         [✓ / ⚠ missing — planning-file writes (locked-edit.sh) + transcript export fail]
-   jq:              [✓ / ○ missing — only needed for the optional /setup-hooks cross-pollination hook]
+   jq:              [✓ / ○ missing — only needed for the optional /setup-hooks hooks (skill-edit survey, /park acceleration)]
    CLAUDE.md:       [✓ personalised / ○ needs setup]
    ```
 
@@ -354,7 +354,7 @@ VAULT_PATH:      [✓]
 Bash version:    [✓] (macOS only)
 Scripts:         [✓]
 python3:         [✓ / ⚠ missing — planning-file writes (locked-edit.sh) + transcript export fail]
-jq:              [✓ / ○ missing — only needed for the optional /setup-hooks cross-pollination hook]
+jq:              [✓ / ○ missing — only needed for the optional /setup-hooks hooks (skill-edit survey, /park acceleration)]
 CLAUDE.md:       [✓]
 Context files:   [N] created
 
@@ -365,7 +365,7 @@ Next steps:
   • Use /pickup to resume where you left off
   • Use /morning to start your day (surfaces landscape, tickler, disciplines)
   • Use /update periodically to pull the latest commands
-  • Optional: run /setup-hooks to enable the skill-edit cross-pollination survey (needs jq)
+  • Optional: run /setup-hooks to enable the skill-edit survey and/or the /park acceleration hooks (needs jq)
   • Open Obsidian and select this folder as your vault (optional but recommended)
 ```
 
