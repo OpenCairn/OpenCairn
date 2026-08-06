@@ -145,6 +145,12 @@ Ask:
   - New decisions / actionable items → relevant SSOT (This Week.md day section, project file, or Tickler) — NOT the daily report (the daily report is archival; SSOT files surface in `/morning` and `/pickup`)
 - If no: proceed
 
+### 7b. Stranded Claude-internal work product (day-scope net)
+
+`/park` Step 4 catches these per session; this step is the last net of the day, for sessions that ended without a park. Run `find ~/.claude/plans -type f -mtime -1` and Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home; leave spent execution plans.
+
+Output: `✓ No stranded work product` or `🔧 Migrated N item(s): [paths]`.
+
 ### 8. Generate Daily Report
 
 Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`.

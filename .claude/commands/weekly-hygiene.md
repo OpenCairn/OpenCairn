@@ -9,7 +9,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `06 Archive/Claude/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into a project doc's `## Next Actions`, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
+**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into a project doc's `## Next Actions`, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
 **Disengage routing — applies to every "user disengages" branch below.** A finding the user declines to resolve in-session routes to the relevant project/area doc's `## Next Actions` where one is identifiable, else to the Tickler dated 7 days out — always with a hygiene-report back-reference, never to the Whimsy sink, never silently dropped. Write formats and mechanisms: step 17.
 
@@ -537,7 +537,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 15. **Skill-Monitor Log Processing**
 
-   Skills log self-improvement observations to `{VAULT}/06 Archive/Claude/Skill Monitor Log.md` per `_skill-monitor.md` instead of proposing edits in-session. This step is the weekly processing point.
+   Skills log self-improvement observations to `{VAULT}/07 System/Skill Monitor Log.md` per `_skill-monitor.md` instead of proposing edits in-session. This step is the weekly processing point.
 
    - Log missing or empty → record "skill-monitor log: empty" and move on (the report section is still emitted, with zeros — omission reads as "forgot to run").
    - Read the log. Group observations by the file the suggested edit targets — a bullet naming another file (e.g. a `_shared-rules.md` section) routes to that file, with the logging skill kept as evidence; only default to the skill's own file when no other target is named. The same gap observed across sessions is one finding with a recurrence count (recurrence = priority signal), listing the dates it covers.

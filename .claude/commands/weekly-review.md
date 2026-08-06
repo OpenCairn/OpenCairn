@@ -86,7 +86,8 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
    **Claude Corrections Log review:**
    - Read `{VAULT}/07 System/Claude Corrections Log.md`
-   - Identify entries from this week (by date header)
+   - Identify entries from this week (by date header) under the log's `## Log` tail
+   - **A folded log has two surfaces.** Older history lives above as distilled rule bullets, not as `### ` entries, so before proposing a promotion check whether a rule bullet already covers it — a lesson distilled into a rule is captured, and re-promoting it duplicates the rule into CLAUDE.md
    - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
 
 3. **Run the weekly review interview:**

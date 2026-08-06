@@ -45,13 +45,12 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Flag entries with outdated roles, superseded contact details, or context that this quarter's events have overtaken.
    - **Don't auto-modify** — present findings and let the user decide.
 
-5. **Corrections-log Domain Index refresh.** (if `{VAULT}/07 System/Claude Corrections Log.md` has a curated index/summary header)
-   `/oops` appends entries without re-classifying them, so any curated summary at the top of the log — a domain/category breakdown, per-category counts, an "as of" date — drifts between quarters. The per-entry append is deliberately kept cheap (a logging task shouldn't carry classification ceremony), so the re-bucketing is a synthesis pass that belongs here, once a quarter:
-   - Read entries appended since the index's "as of" date (or the whole log if undated).
-   - Bucket each new entry into the existing domain taxonomy; add a category only if several entries cluster outside the current set.
-   - Refresh the approximate per-category counts and bump the index's "as of" date to today.
-   - **Avoid brittle precision:** keep counts approximate (`~N`); do NOT (re)introduce an absolute total that rots on the next `/oops` append — the index is a navigational aid, not a ledger. If the header still asserts a precise entry count, drop it in favour of the "as of" date.
-   - Apply the count/date refresh directly; present any *taxonomy* change (a new or removed category) for user approval before writing — the buckets are a high-trust curation, the counts are not.
+5. **Corrections-log fold.** (if `{VAULT}/07 System/Claude Corrections Log.md` carries distilled rules above a `## Log` tail)
+   `/oops` appends verbatim entries without re-classifying them, so the log grows unboundedly and the rules above it go stale. The per-entry append is deliberately kept cheap (a logging task shouldn't carry classification ceremony), so the fold is a synthesis pass that belongs here, once a quarter:
+   - Read the entries under `## Log`.
+   - Fold each upward: another instance of a known pattern joins that rule's bracketed date list; a genuinely new failure mode becomes a new rule line under the right domain heading. Then delete the verbatim entry, once you have confirmed it is recoverable — a vault under version control holds it; otherwise keep the entry.
+   - Mark a rule superseded, rather than carrying it as live guidance, when the system has since made the failure structurally impossible: a check now enforced by a script, or a file/step the rule names that no longer exists.
+   - Bump the "Last fold" date. Add a domain heading only when several rules cluster outside the current set, and present any such taxonomy change for user approval before writing — the buckets are a high-trust curation.
 
 6. **Session-log archiving (90-day rolling).**
    Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`/weekly-hygiene` 13b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
@@ -137,9 +136,10 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ## CRM Stale Entries
    - [Entry — what's outdated]
 
-   ## Corrections-Log Domain Index
-   - Entries re-bucketed since last curation: N (or "no curated index present")
-   - Index refreshed: ["as of" date bumped to YYYY-MM-DD / n/a]
+   ## Corrections-Log Fold
+   - Entries folded into rules since last fold: N (or "no distilled rules section present")
+   - New rules added: N · merged into existing: N · marked superseded: N
+   - "Last fold" date bumped: [YYYY-MM-DD / n/a]
 
    ## Session-Log Archiving
    - Flat session logs: N (keeping last ~90 days flat)
