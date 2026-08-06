@@ -7,6 +7,8 @@ description: Capture session with bookkeeping — quality gate, session log, pro
 
 Capture a work session: quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, audit. Every session gets the full pass — a trivial session just produces a sparse log entry naturally.
 
+**The propagation agent is despatched at Step 4b and collected at Step 8** — it runs in the background across Steps 4, 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 5 and 7 also write. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction. The saving is bounded by however long Steps 4, 5 and 7 actually take; it does not remove the agent's runtime, it hides as much of it as those steps cover.
+
 **Concurrent parks are safe.** All shared-file writes go through the locking scripts (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`, `write-tickler.sh` — `_shared-rules.md` §5; exit 2/3 = a parallel writer changed the region: re-read and recompute, don't loop-retry; lock timeouts are §5 Failure mode B — kill the hung script, never fall back to the Edit tool). After each `locked-edit.sh` call, grep the target for `OPENCAIRN-LOCKED-EDIT-SEP` (§5). `/goodnight` uses the same machinery; parking before goodnight keeps its daily report coherent.
 
 ## Steps
@@ -17,6 +19,17 @@ Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual caus
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 
+**Parboil draft.** A mid-session snapshot may already hold this park's expensive half — session narrative, identifier enumeration, open-loop list — derived while the context was still cheap:
+
+```bash
+S="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/${CLAUDE_CODE_SESSION_ID:-none}"
+[ -f "$S.parboil.md" ] && { echo "LEDGER NOW: $(wc -l < "$S.tsv" 2>/dev/null || echo 0)"; cat "$S.parboil.md"; } || echo "no parboil draft"
+```
+
+Compare the draft's `SNAPSHOT-LEDGER-LINES: K` against `LEDGER NOW`. **An equal count does not mean nothing changed** — the ledger records file writes only, so decisions taken, messages sent, bookings made and shell-mediated work all move the session on without moving the number. Equal count licenses adopting the *Files* sections, not the narrative: re-check Summary, Key Insights, Next Steps and the enumeration against what happened after the snapshot regardless. Higher → adopt as the base, and **read the delta paths** before extending the enumeration; a draft enumeration carried forward unread becomes the Step 6 agent's grep list, so an error there is a silent reference-graph miss, not a cosmetic one.
+
+Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses, and Steps 2, 4–5 and 8–11 run in full regardless — they verify current state, which no snapshot can stand in for.
+
 ### 1. Merge-continuation check
 
 If this session directly continues a just-parked session (a `/pickup` loaded it and the work finishes its loose end), don't create a new entry — update the existing one via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), then run Steps 2 and 4–11 against the merged session's N. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
@@ -26,10 +39,13 @@ If this session directly continues a just-parked session (a `/pickup` loaded it 
 (a) **Enumerate every file the session created or edited** — vault and non-vault. Recall reliably under-reports the non-vault half (early config edits, tooling side-effects, hook-written files), so derive it mechanically:
 
 ```bash
+"{VAULT}/.claude/scripts/session-ledger.sh" --read
 "{VAULT}/.claude/scripts/park-files.sh" "{VAULT}" [-m MINUTES] [repo ...]
 ```
 
-Reconcile its candidate lines (sync-receipt, config-tree mtimes, repo status, transient surfaces) against your list; anything it returns that you were about to omit gets added. Files another session wrote are not yours — the file list is the attribution boundary (§20); exclude and say so. Display the list.
+The ledger is exact where it reaches — it records the session id at write time, so §20 attribution comes free rather than being inferred — but it only sees Write and Edit tool calls. The mtime sweep stays as the backstop for everything that bypasses them: shell redirection, scripts, formatting-hook collateral. Two distinct failure observables, both meaning "fall back to park-files.sh alone and say so": `NOTE: no ledger` (hook unwired, `jq` missing, or no Write/Edit yet), and `ERROR: CLAUDE_CODE_SESSION_ID unset` with **exit 1** — that exit 1 is expected here and is not the invocation error Step 3 warns about. A sub-agent's writes ledger under **this** session's id, tagged in the `agents` column (`main` vs an agent id) — so the agent boundary §20 turns on is recorded, not inferred, and the Step 4b propagation agent's edits appear inline in your own list rather than somewhere else. `# CONCURRENT-SESSION` lines are therefore genuinely other sessions: exclude per §20 and say so. The `# ledger begins` line is the coverage window — writes that predate the hook being wired are not in it, which is one more reason park-files.sh stays.
+
+Reconcile park-files.sh's candidate lines (sync-receipt, config-tree mtimes, repo status, transient surfaces) against the ledger and your own list; anything either returns that you were about to omit gets added. Files another session wrote are not yours — the file list is the attribution boundary (§20); exclude and say so. Display the list.
 
 (b) **Read each edited file IN FULL** (mid-session direction changes leave stale residue in *unedited* regions) and fix: broken syntax/links/paths, stale interim state, redundancy, typos and spelling per the user's locale, filename still carrying a draft-era prefix after a terminal status change (rename via link-healing move, not raw `mv`), and hook collateral on verbatim external text (§14 — repair via shell, never Edit/Write). A durable doc created this session must be linked from a durable parent (hub/`_index`), not only from rolling-window files. Don't auto-revert changes you didn't make — surface them.
 
@@ -84,11 +100,20 @@ The script handles locking, file/header creation, and atomic numbering — paral
 
 ### 4. At-risk work product
 
-Two checks:
+Three checks:
 - **Conversation-only drafts** Claude composed (emails, messages, analysis, plans) exist only as text output — write each to its semantic vault home. Drafts the user authored/pasted themselves are not at-risk.
 - **Transient surfaces** (Scratchpad, Inbox captures, daily notes) are cleared on a cadence — `park-files.sh`'s `[transient]` lines list this-session candidates mechanically (memory-gating is the failure this check exists to prevent). Read each hit; move durable this-session work product to its semantic home and update every reference to the old location. **Exception:** `/reply` draft sections (headings starting `**Reply to `) need explicit per-draft user confirmation before removal (§11). Pre-existing cross-session content is the user's working buffer — leave it (`/weekly-hygiene`'s job).
+- **Claude-internal files** live outside the vault, so `park-files.sh`'s vault-only transient scan cannot see them: run `find ~/.claude/plans -type f -mmin -<session minutes>` and Read every hit individually. A sub-agent's output (`*-agent-*.md`) shares its parent plan's name prefix but is a separate document with its own migration status — "the plan was migrated" is not a verdict on it. Migrate standalone reference material to its semantic vault home; leave spent execution plans (`/weekly-hygiene` owns their cleanup).
 
 Output: `✓ No at-risk work product to persist` or `🔧 Persisted N item(s): [paths]`.
+
+### 4b. Despatch the propagation agent (background)
+
+**Do this here — after Step 4, before Step 5 — not at Step 6.** Build the identifier enumeration per Step 6 and despatch that agent now, `run_in_background: true`, `model: sonnet`. Step 6 below defines what it does and what its prompt contains; this step fixes *when*.
+
+Not earlier: Step 4 **moves files**, and moves are one of Step 6's identifier classes (full old-path forms). Despatching before Step 4 would put every park-time relocation outside the vault-wide sweep, leaving Step 4's own hand-picked reference update as the only net — which is exactly the candidate-list approach §12 forbids. Not later: walking the headings to Step 6 costs the Step 5 and 7 overlap, which is the saving.
+
+If you reach Step 5 without having despatched it, despatch it before continuing.
 
 ### 5. Project doc update
 
@@ -98,7 +123,7 @@ If the session materially changed a project's state, update that project's doc i
 
 **Enumerate (main session):** list every identifier value the session changed as `old → new` pairs — status flips, factual corrections, renames/moves (include full old-path forms, not just filenames), numeric changes (carry the constrained subject phrase too), new options on pre-existing decisions (carry the decision's anchor), and **world-state changes from what the session did**: a sent message or made booking changes the acted-on entity's state even where no file token changed. Commits pushed this session are their own identifier class — hub record per §17. Display the enumeration. Nil is a positive claim, not a default — display `✓ Reference graph: No identifier values changed` only after actually checking these categories.
 
-**Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a `general-purpose` sub-agent, foreground, with a self-contained prompt embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to `rg --type md -i` each identifier over the whole live vault (exclude `06 Archive/`; separate call per identifier; the vault-wide hit-set IS the scope — no hand-picked candidate lists, and "already updated" docs get re-grepped for other instances), triage every hit per §12 (read §12 itself, don't recall it), run the structural link-integrity query after any file moves, bump co-located `Last updated:` stamps on docs it edits, and report the full per-identifier hit-list with each hit tagged updated / left-and-why. Planning/hub writes via `locked-edit.sh`.
+**Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a `general-purpose` sub-agent **in the background** (`run_in_background: true`) with **`model: sonnet`** — this seat is grep-hit triage against a written rulebook (§12), not judgement, so it does not need the audit seat's model. Despatch at Step 4b, then run Steps 5 and 7 while it works; collect its report at Step 8 before the backfill (the Agent tool's own completion notification is the signal — do not reach for a polling tool; `SendMessage` to the agent if you need to reach it. Backfill and park-verify both depend on its file list). Its prompt is self-contained, embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to `rg --type md -i` each identifier over the whole live vault (exclude `06 Archive/`; separate call per identifier; the vault-wide hit-set IS the scope — no hand-picked candidate lists, and "already updated" docs get re-grepped for other instances), triage every hit per §12 (read §12 itself, don't recall it), run the structural link-integrity query after any file moves, bump co-located `Last updated:` stamps on docs it edits, and report the full per-identifier hit-list with each hit tagged updated / left-and-why. Planning/hub writes via `locked-edit.sh`.
 
 **Out-of-vault facts** (skill/command files asserting things about each other) stay in the main session — the sub-agent has no skill-edit authority: grep `~/.claude/commands` and repo command dirs yourself, propagate mechanical fixes, and log non-mechanical skill changes at Step 10.
 
@@ -120,6 +145,8 @@ Route every open loop to exactly one canonical target — no per-item prompting:
 Output: `✓ Routed: [item] → [target]` per item. A zero-routing claim cites an observable (the dedup grep hit, or the session log's "None — work completed").
 
 ### 8. Backfill + mechanical verification
+
+**Collect Step 6 first.** The background propagation agent must have reported before anything here runs — its edits belong in the backfill, and park-verify's `--touched` list is incomplete without them. If its report hasn't arrived, wait for the completion notification; do not proceed on the assumption it changed nothing.
 
 **Backfill:** park-time edits (Steps 5–7: project docs, This Week, Tickler) postdate the Step 3 log write — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script dedups by path but *silently discards* the incoming description on a hit — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh <log> N "Files Updated" --replace`. Also reconcile inline closures: a Next Steps item that park itself closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
 

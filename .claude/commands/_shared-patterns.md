@@ -67,4 +67,6 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Blanket write-mechanism declaration** — state it once up front, not per step. → `morning`, `goodnight`
 - **Cap check before adding** — count target surface first; overflow → ask which drops. → `weekly-review` (This Week cap), `morning` (root-project cap)
 - **Veto-of-proposed-routes** — propose a destination per item; user pass = veto, not generate; unvetoed executes. → `process-wm`, `goodnight` Step 9 (Whimsy batch), `migrate` component 3
+- **Idempotent hook merge into settings.json** — key on command string; backup, validate, atomic `mv` (unlocked — serialise callers). → `setup-hooks` (both wiring scripts)
+- **A folded log has two surfaces** — count/search distilled rules *and* raw entries; an entry-heading count alone reads zero. → `oops` Phase 5, `weekly-review` (corrections-log review)
 - **Default-with-SSOT-deference** — skill states a working default + defers to the owning vault doc if it differs. → `weekly-review`/`morning`/`goodnight` (This Week caps; owner: Vault Organisation Principles → Project Doc Format)
