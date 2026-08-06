@@ -4,13 +4,13 @@ As you execute this skill, watch for gaps. If you improvise a step that isn't do
 
 At the end of the run, **log observations — do not propose skill edits in-session.** Contemporaneous proposals proved exhausting at every-session frequency; the log batches them into `/weekly-hygiene`, where recurrence across sessions is visible.
 
-- **Something observed:** append one block to `{VAULT}/06 Archive/Claude/Skill Monitor Log.md` via the locked append (never a bare `>>`, never the Edit tool — concurrent sessions interleave otherwise). If no vault path is resolved this session, run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` yourself first and substitute the resolved path below — this file may be loaded by skills that never read `_shared-rules.md`.
+- **Something observed:** append one block to `{VAULT}/07 System/Skill Monitor Log.md` via the locked append (never a bare `>>`, never the Edit tool — concurrent sessions interleave otherwise). If no vault path is resolved this session, run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` yourself first and substitute the resolved path below — this file may be loaded by skills that never read `_shared-rules.md`.
 
 ```bash
 { printf '## %s — /<skill>\n' "$(date +%F)"; cat <<'EOF'
 - [gap observed]: [specific suggested edit]
 EOF
-} | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/06 Archive/Claude/Skill Monitor Log.md" --append
+} | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/Skill Monitor Log.md" --append
 ```
 
 The fence and the heredoc terminator sit at column 0 deliberately — an indented `EOF` is not recognised as the delimiter, so the block must be run as written rather than nested under the bullet.

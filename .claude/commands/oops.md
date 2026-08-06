@@ -121,9 +121,9 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
 8. **Check if this is a pattern.** Use Grep tool to search for similar mistakes:
    - Search for key nouns from the mistake (e.g., tool names, error types, assumption categories)
-   - Search the corrections log file
+   - Search the corrections log file — **both of its surfaces.** A log that has been folded holds most of its history as distilled rule bullets, not as `### ` entries, so an entry-heading count alone reports zero priors on a pattern with a dozen. Search the rule bullets too.
 
-9. **If pattern detected** (2+ similar mistakes — count distinct `### ` entry headings whose entries match, not raw grep hits: the just-added entry plus at least one distinct prior entry), suggest promotion. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.
+9. **If pattern detected — 2+ instances, counted across both surfaces**, suggest promotion. Count distinct `### ` entry headings whose entries match (not raw grep hits), **plus**, for any matching distilled rule bullet, the instances in its trailing bracketed date list (`[<date> ×3, <date>]` is four). A single matching rule bullet already establishes the pattern: the just-added entry is the next instance, and the promotion question is whether the existing rule needs a sharper trigger rather than another log line. If Phase 2 identified a rule collision, specify whether to refine the existing rule's trigger or add a new rule — these are different actions.
    - **Default target: `07 System/` context files** — specific operational rules belong near the system they govern (e.g., NAS path rules → `Context - Technical Infrastructure.md`)
    - **CLAUDE.md only for truly cross-cutting patterns** — habits-of-mind that apply regardless of which system you're working with
    ```
