@@ -3,19 +3,20 @@
 # skill-edit-marker.sh), remind Claude to run a cross-pollination survey before the
 # turn ends. Fires once per EDIT BATCH, not once per stop.
 #
-# Why the batch check exists: the marker is touched by the edit itself, but Claude
+# Why the batch check exists: the marker is created by the edit itself, but Claude
 # usually does the survey in that same turn — so a naive "marker exists → block" fires
 # again after the work is already done, producing a no-op round-trip and a junk
 # `none=no-skill-edits-since-prior-survey` log line. Every back-and-forth after a skill
 # edit repeats it. So before blocking we ask: has an `outcome` line for THIS session
-# been appended since the marker was last touched? If yes, the batch is covered —
-# clear the marker and allow the stop silently. A fresh edit re-touches the marker,
-# making it newer than the log again, so the next genuine batch still fires.
+# been appended since the batch opened? If yes, the batch is covered — clear the marker
+# and allow the stop silently. A fresh edit creates a fresh marker carrying a fresh
+# baseline, so the next genuine batch still fires.
 #
-# The test is `[ "$LOG" -nt "$MARKER" ]` plus "this session's last log line is an
-# outcome" — deliberately no timestamp parsing, since `date -d` is GNU-only and this
-# ships to macOS and Git Bash too. The session-scoped line check keeps a concurrent
-# session's appends from suppressing our fire.
+# The mechanism is a COUNT, not a timestamp: skill-edit-marker.sh writes this session's
+# `outcome`-line count into the marker when the batch opens, and we fire unless that
+# count has since risen. No `date -d`/`stat` (neither portable to macOS and Git Bash),
+# and — unlike a log-mtime comparison — immune to a concurrent session appending to the
+# shared log. Full reasoning at the batch check below.
 #
 # Output contract (Claude Code Stop hooks): top-level additionalContext is NOT read.
 # The nested `hookSpecificOutput.additionalContext` IS read on the Stop path — but it
@@ -96,7 +97,7 @@ REMINDER="You edited one or more skill files in .claude/commands this session. B
 
 THEN, regardless of outcome, append one tab-separated line to ${LOG} recording the result: four tab-separated fields = <UTC-ISO-timestamp>, the word 'outcome', session=<id>, and either 'ported=<from>-><to>' or 'none=<reason>'. Keep it to one line — a plain event log, no analysis. Do not re-survey patterns already incorporated this session."
 
-# Model-visible body on stderr (asyncRewake path).
+# Model-visible body on stderr — CC reads `reason || stderr` on the blocked path.
 printf '%s\n' "$REMINDER" >&2
 
 # Block + reason on stdout (sync `claude -p` fallback path, plus the block decision).
