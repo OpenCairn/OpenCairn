@@ -17,13 +17,16 @@
 # ships to macOS and Git Bash too. The session-scoped line check keeps a concurrent
 # session's appends from suppressing our fire.
 #
-# Output contract (Claude Code Stop hooks): top-level additionalContext is NOT read
-# on the Stop path — Stop is not a member of CC's hookSpecificOutput union. CC takes
-# the model-visible body from `stderr || stdout`, and the sync (`claude -p`) fallback
-# reads the top-level `reason` paired with `decision:"block"`. So we emit the full
-# reminder on BOTH stderr (asyncRewake body) and `reason` (sync fallback), with
-# {"decision":"block", ...} on stdout to force one more turn. The marker is deleted on
-# fire and we honour `stop_hook_active`, so this can never loop.
+# Output contract (Claude Code Stop hooks): top-level additionalContext is NOT read.
+# The nested `hookSpecificOutput.additionalContext` IS read on the Stop path — but it
+# only adds context, it does not buy the extra turn this survey needs. To force one
+# more turn we must emit `decision:"block"`, and on the blocked path CC takes the
+# model-visible body from `reason || stderr`. So we emit the full reminder on BOTH
+# stderr and `reason`, with {"decision":"block", ...} on stdout. The marker is deleted
+# on fire and we honour `stop_hook_active`, so this can never loop.
+#
+# Verify against the harness before trusting this paragraph — it is a volatile claim
+# about one Claude Code version, not durable procedure.
 #
 # Platform: Linux, macOS, Windows (Git Bash). Requires jq.
 
@@ -40,20 +43,32 @@ fi
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 LOG="$CONFIG_DIR/cross-pollination.log"
 
-# Batch check: if this session already logged an `outcome` after the last skill edit,
-# the survey covered this batch — don't block again. Both conditions must hold:
-#   1. the log has been written since the marker was last touched, and
-#   2. this session's most recent log line is an `outcome` (not a bare `fired`).
-# (1) alone would let another session's append suppress us; (2) alone can't tell an
-# outcome from *this* batch from one from a previous batch.
-if [ -f "$LOG" ] && [ "$LOG" -nt "$MARKER" ]; then
-  LAST_LINE=$(grep -F "session=${SID}" "$LOG" 2>/dev/null | tail -1)
-  case "$LAST_LINE" in
-    *"	outcome	"*)
-      rm -f "$MARKER"   # batch already surveyed — allow the stop silently
-      exit 0
-      ;;
-  esac
+# Batch check: has THIS session logged a NEW `outcome` since we last fired? If so the
+# batch is covered — clear the marker and allow the stop silently.
+#
+# This deliberately does NOT compare the log's mtime against the marker's. The log is
+# shared by every concurrent session, so any other session appending a line makes it
+# newer than our marker and satisfies such a test — silently suppressing a survey this
+# session genuinely owed. Counting only OUR session's outcome lines is immune to that,
+# and needs no `stat`/`date -d` (both non-portable).
+#
+# The baseline is written INTO the marker by skill-edit-marker.sh when the batch
+# opens, so the two values are captured at the right moments by construction and no
+# extra state file can go missing. The reminder tells the model to append its outcome
+# line LAST, after any skill edits, so an outcome that lands above the baseline
+# belongs to this batch.
+#
+# Field-split with awk rather than grep: `outcome` free text can itself contain the
+# word "fired", which over-counts a naive grep.
+BASELINE=$(cat "$MARKER" 2>/dev/null || echo 0)
+case "$BASELINE" in ''|*[!0-9]*) BASELINE=0 ;; esac
+
+COUNT=$(awk -F'\t' -v s="session=${SID}" '$2=="outcome" && $3==s {n++} END{print n+0}' "$LOG" 2>/dev/null || echo 0)
+case "$COUNT" in ''|*[!0-9]*) COUNT=0 ;; esac
+
+if [ "$COUNT" -gt "$BASELINE" ]; then
+  rm -f "$MARKER"        # batch already surveyed — allow the stop silently
+  exit 0
 fi
 
 rm -f "$MARKER"  # fire once for this batch
