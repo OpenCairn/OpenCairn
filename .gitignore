@@ -24,6 +24,11 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Lock files from locked-edit.sh / write-tickler.sh, which write `.<basename>.lock`
+# beside their target — so a locked edit to any tracked file leaves one here.
+# Keep the leading dot: `*.lock` would swallow package-lock.json, Cargo.lock, etc.
+.*.lock
+
 # Python bytecode (importing a script for testing writes these next to it,
 # and a bulk `git add .claude/scripts/` would otherwise stage them)
 __pycache__/
