@@ -73,6 +73,8 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 
 7. **Run §10's shell-denied-seat pre-flight before you finalise the brief.** Which seats lack shell is fixed by the despatch config in §10, not by the Phase 2A availability probe, so you can and should resolve this before the brief is written. If any of them is in the panel and the question turns on something a shell would settle — a flag's behaviour, a config key, whether a path exists — check it yourself now and embed the output under the out-of-band heading per §16. Afterwards is too late: the seat has already guessed and you are adjudicating the guess. → `_shared-rules.md` §10.
 
+8. **Open every source the work product cites but the session never read, before you finalise the brief.** Same shape as step 7 and the same deadline, different gap: an unopened citation is closed by opening it, never by disclosing it in the brief. Disclosing aims every seat at one hole, so they converge from the same absent evidence and the synthesis misreads that agreement as corroboration. → `_shared-rules.md` §16.
+
 Write the brief once and save it to a scratch file with a unique name — e.g. `mktemp -t second-opinion-prompt.XXXXXX.md` on macOS/Linux, or a timestamped path like `%TEMP%\second-opinion-prompt-<timestamp>.md` on Windows. Record the path; you'll reuse it in Phase 2 (once to extract its contents for the Claude reviewer's prompt, once per CLI seat to pipe). Unique names matter because two concurrent `/second-opinion` runs on the same machine would otherwise clobber a shared hard-coded path silently.
 
 ### Phase 2A: Launch a fresh panel (Mode A)

@@ -3,8 +3,13 @@
 #
 # Usage: park-verify.sh <vault> <session-log> <N> [--ident STR]... [--touched PATH]...
 #   --ident    a distinctive substring per item/identifier the session completed
-#              (matched fixed-string, case-insensitive, against unchecked "- [ ]" lines)
+#              (matched fixed-string, case-insensitive, against unchecked "- [ ]" lines).
+#              Must be distinctive: a bare number under ~4 digits matches digit runs
+#              inside phone numbers, order IDs and amounts, burying real hits in noise.
 #   --touched  each file the session+park created or edited (repeatable)
+#
+# Paths (<session-log> and --touched) may be absolute, ~-prefixed, or relative to
+# <vault> - all three are normalised on entry.
 #
 # Deterministic checks only - judgement stays with the caller:
 #   numbering   session-log headings carry no duplicate session numbers;
@@ -13,9 +18,11 @@
 #               "### Files Updated" (checked as two separate headings),
 #               and exactly one "### Pickup Context"
 #   project     block's "**Project:**" line exists (printed for caller comparison)
-#   separator   no OPENCAIRN-LOCKED-EDIT-SEP token left in planning files,
-#               the session log, or any touched file
-#   lint        touched .md files: joined list items ("x- [ ]"), 3+ consecutive blanks
+#   separator   no stranded locked-edit delimiter LINE in planning files, the
+#               session log, or any touched file (the padded "====SEP====" form;
+#               prose that merely names the token is not a leak)
+#   lint        touched .md files: joined list items ("x- [ ]"), 3+ consecutive
+#               blanks; exempts `- [ ]` in code spans and "==- [ ]==" highlights
 #   closure     per --ident: unchecked "- [ ]" matches in This Week.md, Tickler.md,
 #               and touched 03 Projects / 04 Areas files -> REVIEW (caller flips
 #               genuinely-completed items, surfaces adjacent-open ones)
@@ -30,13 +37,38 @@ usage() { echo "Usage: $0 <vault> <session-log> <N> [--ident STR]... [--touched 
 [ $# -ge 3 ] || usage
 VAULT="$1"; LOG="$2"; N="$3"; shift 3
 case "$N" in ''|*[!0-9]*) usage ;; esac
+
+# --- path normalisation ------------------------------------------------------
+# Every downstream check keys off the same paths, and all of them used to assume
+# an absolute argument. A relative path (the natural form to paste, since it is
+# what the session log itself uses) fell through the needle builder's non-vault
+# branch to an unmatchable "./01 Now/This Week.md" -> false FAIL backfill; the
+# SAME path also missed the lint branch's "$VAULT"/* guard, so zero files were
+# linted and the check still printed PASS. One root cause, two symptoms, the
+# silent PASS being the dangerous half. Resolve relative args here, once, so no
+# check downstream has to care again.
+VAULT="${VAULT%/}"
+norm_path() {
+    # Strip any leading "./" FIRST. Joining it produces "$VAULT/./x", whose
+    # vault-relative needle is "./x" — the same unmatchable form this function
+    # exists to eliminate, reintroduced by the one path spelling the pre-fix
+    # failure output actually printed (and so the one an operator is most
+    # likely to paste straight back in).
+    set -- "${1#./}"
+    case "$1" in
+        /*)    printf '%s\n' "$1" ;;
+        "~/"*) printf '%s\n' "$HOME/${1#\~/}" ;;
+        *)     printf '%s\n' "$VAULT/$1" ;;
+    esac
+}
+LOG="$(norm_path "$LOG")"
 [ -f "$LOG" ] || { echo "ERROR: session log not found: $LOG" >&2; exit 1; }
 
 IDENTS=(); TOUCHED=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --ident)   [ $# -ge 2 ] || usage; IDENTS+=("$2"); shift 2 ;;
-        --touched) [ $# -ge 2 ] || usage; TOUCHED+=("$2"); shift 2 ;;
+        --touched) [ $# -ge 2 ] || usage; TOUCHED+=("$(norm_path "$2")"); shift 2 ;;
         *) usage ;;
     esac
 done
@@ -102,7 +134,13 @@ for t in "${SEP_TARGETS[@]}"; do
     # documents a marker is not a file that leaked one. locked-edit.sh only ever
     # writes planning files, so nothing under .claude/ can carry a real leak.
     case "$t" in */.claude/*) continue ;; esac
-    h=$(grep -n 'OPENCAIRN-LOCKED-EDIT-SEP' "$t" 2>/dev/null | head -3 || true)
+    # Match the leaked ARTEFACT, not the token. What locked-edit.sh can strand in
+    # a file is its padded stdin delimiter alone on a line; a vault doc that
+    # merely names the token in prose (this repo's own monitor log does, in the
+    # very observations reporting this check's false FAILs) never produces one.
+    # Anchoring here is what makes those hits unresolvable-by-construction, since
+    # "fixing" them would mean editing an earlier session's record.
+    h=$(grep -nE '^[[:space:]]*={4,}OPENCAIRN-LOCKED-EDIT-SEP={4,}[[:space:]]*$' "$t" 2>/dev/null | head -3 || true)
     [ -n "$h" ] && SEP_HITS="$SEP_HITS$t: $h; "
 done
 if [ -n "$SEP_HITS" ]; then
@@ -118,7 +156,13 @@ for t in "${TOUCHED[@]:-}"; do
     case "$t" in *.md) ;; *) continue ;; esac
     case "$t" in */.claude/*) continue ;; esac        # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
     case "$t" in "$VAULT"/*) ;; *) continue ;; esac   # lint vault content files only
-    j=$(grep -nE '[^[:space:]]- \[[ x]\]' "$t" | head -3 || true)
+    # A real joined list is "textrun- [ ] next item". Two preceding characters are
+    # never that: a backtick (prose quoting `- [ ]`, common in corrections entries
+    # and skill-monitor observations whose whole subject IS checkbox syntax) and
+    # "=" (Obsidian's highlight form, "==- [ ] item=="). Both were
+    # flagged repeatedly against content the session never touched, and neither
+    # can be "fixed" without corrupting the file.
+    j=$(grep -nE '[^[:space:]=`]- \[[ x]\]' "$t" | head -3 || true)
     [ -n "$j" ] && LINT_HITS="$LINT_HITS$t joined-list: $j; "
     b=$(awk 'NF{n=0;next}{n++} n==3{print FNR": 3+ blank lines"; exit}' "$t" || true)
     [ -n "$b" ] && LINT_HITS="$LINT_HITS$t $b; "
@@ -159,23 +203,34 @@ FILES_SECTIONS=$(printf '%s\n' "$BLOCK" | awk '/^### Files (Created|Updated|Dele
 # pairs (personal + repo copy of the same file) still collapse to one needle, so
 # count occurrences: a needle shared by K touched paths must appear >= K times.
 declare -A NEEDLE_WANT=()
+declare -A NEEDLE_ALT=()
 NEEDLE_ORDER=()
 for t in "${TOUCHED[@]:-}"; do
     [ -n "$t" ] || continue
     [ "$t" = "$LOG" ] && continue   # the log never lists itself
+    d1="$(dirname "$t")"; d2="$(dirname "$d1")"
+    suffix="$(basename "$d2")/$(basename "$d1")/$(basename "$t")"
     case "$t" in
-        "$VAULT"/*) needle="${t#"$VAULT"/}" ;;
-        *)          d1="$(dirname "$t")"; d2="$(dirname "$d1")"
-                    needle="$(basename "$d2")/$(basename "$d1")/$(basename "$t")" ;;
+        "$VAULT"/*) needle="${t#"$VAULT"/}"; alt="" ;;
+        # A file one level under a home dotdir reduces to "<user>/.config/x.json",
+        # which no sane log entry contains - it is written "~/.config/x.json". Prefer
+        # the ~-form and keep the suffix as an alternate for logs using the long form.
+        "$HOME"/*)  needle="~/${t#"$HOME"/}"; alt="$suffix" ;;
+        *)          needle="$suffix"; alt="" ;;
     esac
     [ -n "${NEEDLE_WANT[$needle]:-}" ] || NEEDLE_ORDER+=("$needle")
     NEEDLE_WANT[$needle]=$(( ${NEEDLE_WANT[$needle]:-0} + 1 ))
+    NEEDLE_ALT[$needle]="$alt"
 done
 MISSING=""
 for needle in "${NEEDLE_ORDER[@]:-}"; do
     [ -n "$needle" ] || continue
     want="${NEEDLE_WANT[$needle]}"
     got=$(printf '%s\n' "$FILES_SECTIONS" | grep -c -i -F -- "$needle" || true)
+    alt="${NEEDLE_ALT[$needle]:-}"
+    if [ "$got" -lt "$want" ] && [ -n "$alt" ]; then
+        got=$(printf '%s\n' "$FILES_SECTIONS" | grep -c -i -F -- "$alt" || true)
+    fi
     if [ "$got" -lt "$want" ]; then
         if [ "$want" -gt 1 ]; then
             MISSING="$MISSING$needle (expected $want entries, found $got); "
@@ -187,7 +242,37 @@ done
 if [ -n "$MISSING" ]; then
     fail backfill "touched but absent from Session $N Files lists: $MISSING"
 else
-    pass backfill "all ${#TOUCHED[@]} touched file(s) recorded in Files lists"
+    # Scoped to the ARGUMENTS, not to the session. "all N touched files recorded"
+    # read as a coverage statement about the run and was written up as one, off a
+    # --touched list narrower than the log's own Files list. The check can only
+    # ever speak for what it was handed; the reverse-coverage REVIEW below is what
+    # speaks for the rest.
+    pass backfill "all ${#TOUCHED[@]} path(s) PASSED TO --touched are recorded in Files lists (says nothing about paths not passed)"
+fi
+
+# --- reverse coverage: does the log list files --touched never saw? ----------
+mapfile -t LOGGED < <(printf '%s\n' "$FILES_SECTIONS" \
+    | awk '/^[[:space:]]*- /{sub(/^[[:space:]]*- /,""); i=index($0," - "); if(i>0) $0=substr($0,1,i-1); if(length($0)) print}')
+UNCOVERED=""
+for lp in "${LOGGED[@]:-}"; do
+    [ -n "$lp" ] || continue
+    # Compare on a canonical form. A $HOME path yields a "~/..." needle while the
+    # log may well spell it "/home/<user>/..." — neither is a substring of the
+    # other, so a raw comparison reports a path as uncovered that WAS passed.
+    lp_c="$lp"; case "$lp_c" in "$HOME"/*) lp_c="~/${lp_c#"$HOME"/}" ;; esac
+    hit=""
+    for needle in "${NEEDLE_ORDER[@]:-}"; do
+        [ -n "$needle" ] || continue
+        n_c="$needle"; case "$n_c" in "$HOME"/*) n_c="~/${n_c#"$HOME"/}" ;; esac
+        case "$n_c" in *"$lp_c"*) hit=1; break ;; esac
+        case "$lp_c" in *"$n_c"*) hit=1; break ;; esac
+    done
+    [ -z "$hit" ] && UNCOVERED="$UNCOVERED$lp; "
+done
+if [ -n "$UNCOVERED" ]; then
+    review backfill "Files lists name path(s) not passed to --touched, so no lint/separator check ran on them: $UNCOVERED"
+else
+    pass backfill "--touched covers every path the Session $N Files lists name"
 fi
 
 # --- result ------------------------------------------------------------------

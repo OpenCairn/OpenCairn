@@ -330,7 +330,7 @@ Identifier count check: enumeration N → brief N ✓
 
 If mismatch, regenerate the prompt from the enumeration block, not from memory.
 
-**(c) Spawn the sub-agent** with `subagent_type: "general-purpose"`, foreground.
+**(c) Spawn the sub-agent** with `subagent_type: "general-purpose"`. **Collect its report before any later step runs** — gate on collection, not on despatch mode: whether the seat runs in the foreground is a harness detail you do not control, so "collected before the next step" holds either way where "despatch it in the foreground" silently doesn't. The completion notification is the only signal it has finished; never substitute a proxy that cannot tell "running" from "finished".
 
 The prompt must be **self-contained** — the sub-agent has zero /goodnight context. Include verbatim:
 
@@ -386,7 +386,7 @@ You cannot proceed to Step 16 without all six. If you find yourself walking the 
 
 ### 16. Export Session Transcripts
 
-Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after 30 days — this preserves them as searchable markdown. Takes <1 second.
+Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after `cleanupPeriodDays` (30 by default) — this preserves them as searchable markdown. Takes <1 second.
 
 ```bash
 python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
