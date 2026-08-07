@@ -389,6 +389,8 @@ When a skill writes **verbatim external text** to the vault — a transcript, a 
 
 **Inline identifiers.** For a stray foreign-spelled token in otherwise-normalised prose (a product name, a US institution, a code symbol), wrap it in an inline code span (backticks) — the markdown strategy preserves code spans. Use this for one-off tokens, not whole bodies.
 
+⛔ **Bare URLs are rewritten too, and this one does not announce itself.** A normaliser matches inside a URL's path segments like any other text, so a link can be silently altered into one that 404s — which reads to a later reader as a *fabricated citation* rather than a formatting artefact. That makes it the highest-consequence case in this section and the one most likely to reach a research or reference note, where citations are the point. Two rules: wrap bare URLs in the same inline code span you'd use for any other protected token, and **verify after the write, not before** — the hook fires on every `Write`/`Edit`, so a link that was correct when composed can be wrong on disk. Checkable: after writing any note carrying citations, extract its URLs (`grep -o 'https\?://[^ )`]*' <file>`) and confirm each still matches the source. Which constructs a given normaliser leaves alone is an implementation detail that changes with its version — establish it empirically once (write a control file containing a known-rewritable token in each construct, then re-read it) and record the result in your project's own reference doc rather than assuming it here. The same applies to verbatim quotations in prose: backticks render them as code, so paraphrase the clause or exclude the whole doc by path instead.
+
 ---
 
 ## 15. Published-Transcript Extraction (fetch a verbatim body to a file)
