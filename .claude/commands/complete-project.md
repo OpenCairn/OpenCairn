@@ -48,12 +48,16 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
 4. **Route project artefacts and move the project file:**
 
-   The key principle: **`06 Archive/` holds write-once records only, never working files.** A completed project's useful material (reference docs, templates, learnings — and usually the project file itself) belongs in the owning Area's `Archive/` subfolder. Material with no reference value is deleted, not archived — a session-log record of the completion is proof enough that it existed.
+   The key principle: **`06 Archive/` holds write-once records only, never working files.** A completed project's useful material (reference docs, templates, learnings — and usually the project file itself) belongs on the owning Area's archival shelf. Material with no reference value is deleted, not archived — a session-log record of the completion is proof enough that it existed.
+
+   **Resolve that shelf before routing anything — propose, then ask. Never invent a shelf, and never file silently.** `Archive/` is the working default, but the vault's archiving convention wins where it differs (Archiving convention in `07 System/Vault Organisation Principles.md` — tune the convention there, not here). Check whether `04 Areas/[Area]/Archive/` actually exists, then **put the proposed shelf to the user and wait for confirmation before any move — whether or not the folder already exists.** The proposal is a suggestion, not a decision. If `Archive/` exists, propose it. If it does **not**, do not create it: an Area lacking one usually shelves finished material a different way (by year, by sub-domain, by destination), and a blind `mkdir -p` manufactures a second tree competing with the real one — show the Area's existing subfolders and propose the one whose scope matches the material's lifetime. Everything below writes to the **confirmed shelf**, written `[shelf]`.
+
+   **State the shelf with its observable, not as an assertion** — print the listing the resolution rests on (`ls` of the Area) alongside the chosen path. "No `Archive/` here, the Area holds X and Y, proposing X" is checkable; "the Area has no archive" is not.
 
    **⚠ How to move files — use `obsidian move`, never shell `mv`.** Every move in this step (artefacts *and* the project file) must go through Obsidian so inbound links auto-heal:
 
    ```bash
-   obsidian move path="03 Projects/[Project Name].md" to="04 Areas/[Area]/Archive/[Project Name].md"
+   obsidian move path="03 Projects/[Project Name].md" to="[shelf]/[Project Name].md"
    ```
 
    Bind with `path=` (exact), not `file=` (resolves by name like a wikilink). Step 2 already located the file at an exact path, and `file=` can bind a same-named note elsewhere in the vault.
@@ -64,8 +68,8 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    **Step 4a — Route artefacts:**
    - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself — explicitly including `05 Resources/[Project Name]/` (created by `/start-project` Step 7) and anything linked from the project file's `## Resources` section, not just folders under `03 Projects/`
-   - **Present the artefacts as one batch with a proposed destination each, not one question per file.** Default every artefact to the owning Area (reference value is the common case and the reversible one) and ask the user only to name the exceptions — "these all go to `04 Areas/[Area]/Archive/` unless you call one dead or still live." An empty reply accepts the defaults.
-     - **Reference value** → `04 Areas/[Area]/Archive/` (a doc still in active use goes in the Area proper, not its Archive)
+   - **Present the artefacts as one batch with a proposed destination each, not one question per file.** Default every artefact to the owning Area (reference value is the common case and the reversible one) and ask the user only to name the exceptions — "these all go to `[shelf]` unless you call one dead or still live." An empty reply accepts the defaults.
+     - **Reference value** → `[shelf]` (a doc still in active use goes in the Area proper, not on its archival shelf)
      - **No reference value** (old CSVs, superseded docs, one-time exports) → **delete**
    - **Stopping rule:** one pass. Don't re-interrogate artefacts the user has already routed, and don't ask about files under ~5 that are obviously project-internal scratch — delete them with the user's batch approval.
    - If the project has a resource folder in `03 Projects/`, apply the same test to its contents — don't move the whole folder blindly
@@ -74,10 +78,10 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    **Step 4b — Move the project file:**
    - Determine destination:
-     - **Reference value** (the common case — the doc records decisions, results, learnings): `04 Areas/[most relevant area]/Archive/[Project Name].md`
+     - **Reference value** (the common case — the doc records decisions, results, learnings): `[shelf]/[Project Name].md`
      - **No reference value** (nothing anyone will re-read): **delete the file** — after the Step 4a backlink check. If the user wants a durable trace beyond the session log, write a short completion record (outcome, result, dates) to `06 Archive/Projects/YYYY/[Project Name].md` — a new write-once record, not the project file. `mkdir -p "{VAULT}/06 Archive/Projects/$(date +%Y)"` first (derive the real year; never a literal `YYYY` folder).
    - If unsure, ask: "Will you ever re-read this doc? Area archive if yes, delete if no."
-   - **Create the destination folder first** — `mkdir -p "{VAULT}/04 Areas/[Area]/Archive"`. `obsidian move` rewrites inbound links but is not documented to create missing destination folders.
+   - **Create the destination folder first** — `mkdir -p "{VAULT}/[shelf]"`, using the shelf **confirmed** at the top of Step 4. Only ever `mkdir` a path the user confirmed; never let this line be the thing that invents a new shelf. `obsidian move` rewrites inbound links but is not documented to create missing destination folders.
    - Then move the file from the exact path recorded in Step 2 using `obsidian move` (see the move-mechanics note above), which rewrites inbound links as it goes
    - **If the move fails** (Electron lock, app closed since the preflight): don't loop-retry. Continue to Step 5 — the completion marker still lands — and report in Step 7 that the file has not moved, naming the exact path it is still at and the intended destination. A named pending move the user can finish is recoverable; a silent failure is not.
 
@@ -126,7 +130,7 @@ Project completion complete. Well done.
 - **Explicit completion prevents drift:** Projects often fade rather than explicitly end - this forces a decision
 - **Completion ≠ success:** Abandoned projects are valid completions. Acknowledging abandonment is better than indefinite limbo.
 - **Outcomes:** Be honest - "Completed successfully", "Abandoned (lost interest)", "Superseded by X", "Merged into Y"
-- **Route by value:** Useful reference → the Area's `Archive/`. No reference value → delete. `06 Archive/` holds only write-once records (a completion record, if one is written) — never the project file or working material.
+- **Route by value:** Useful reference → the Area's archival shelf (`Archive/` where one exists; otherwise resolved with the user, never invented). No reference value → delete. `06 Archive/` holds only write-once records (a completion record, if one is written) — never the project file or working material.
 - **Session archive is the completion log:** Completed projects are recorded in session logs, not in any dashboard
 - **Preserve history where it earns its keep:** A doc with reference value stays intact, just moved. A doc nobody will re-read is deleted, not entombed.
 - **Psychology matters:** Explicit completion provides closure and allows celebration
