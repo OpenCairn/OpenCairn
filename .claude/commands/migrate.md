@@ -64,7 +64,14 @@ Run this if components 2, 3 or 4 ran — each writes `03 Projects/` root docs, w
 
 Render `{VAULT}/01 Now/Strategic Overview.md` **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. In a migrated vault this is usually a creation rather than a refresh: component 4 deletes `01 Now/Works in Progress.md`, the old format's dashboard, and nothing stands in for it until the user's first `/morning`. That gap is what makes a fresh migration feel like it lost something.
 
-**Check:** every root doc appears in the rendered file — compare against Step 4's schema loop, which already enumerates them. Any doc the render had to fail closed on (missing `bucket:` or either heading) is a component-2 retrofit that did not land: report it as component 2 **broken** in Step 4 rather than letting the dashboard absorb it. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
+**Check (run it here — Step 4 cannot do it for you):** list the root and compare it against what the render emitted.
+
+```bash
+ls "{VAULT}/03 Projects/"*.md | sed 's|.*/||; s|\.md$||' | sort
+grep -o '\[\[03 Projects/[^]]*\]\]' "{VAULT}/01 Now/Strategic Overview.md" | sed 's|\[\[03 Projects/||; s|\]\]||' | sort
+```
+
+The two lists must be identical; report the comparison as its own line, not folded into a component's status. Step 4's schema loop looks like it covers this and does not — it enumerates root docs and their `bucket:`/heading status but never opens the rendered file, so it returns the same output whether the render ran, ran wrong, or never ran at all. A doc the render had to fail closed on is a separate finding: it is a component-2 retrofit that did not land, and the schema loop's `MISSING` is what evidences it. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
 
 ### 4. Doctor - verify actual state, then report
 

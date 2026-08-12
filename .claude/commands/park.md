@@ -185,7 +185,9 @@ Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited 
 
 ### 9b. Re-render the Strategic Overview
 
-Trigger off the session log's Files Created/Updated list — complete post-backfill at Step 8, and it bounds authorship where recollection doesn't (§20). If that list carries any `03 Projects/` root doc — created, moved, or edited, by the session or by park itself — re-render `{VAULT}/01 Now/Strategic Overview.md`. No root-doc entry, no render.
+Re-render `{VAULT}/01 Now/Strategic Overview.md` — **unconditionally, every park.** No trigger, no gate.
+
+A gate here is where this step goes wrong. Any trigger derived from *this* session — its Files list, its own edits — is blind to the dominant staleness source: another session editing a root doc while this one ran. That is what staled the dashboard in the first place, and it is invisible to the parking session by construction. An mtime comparison is no better, because a later touch on the dashboard for an unrelated reason resets it and masks the stale source. The render is a deterministic overwrite from six-ish files; paying it every park costs less than one wrong dashboard.
 
 **Here, not at Step 5 (project doc update).** Steps 5, 7 (rule 3), 8 (closure flips) and 9 (audit remediation) all write project docs, so a render at Step 5 omits every edit after it and ships a dashboard that reads as current. Staleness is this file's only failure mode and it is silent: the sources say one thing, the rendered view another, and no downstream reader re-derives it.
 
@@ -195,7 +197,7 @@ Write tool, full overwrite; `locked-edit.sh` does not apply (§5 governs shared 
 
 **Check:** the project wikilinks in the rendered file must match the `03 Projects/` root exactly — list the root (`ls "{VAULT}/03 Projects"/*.md`) and compare names against the rendered ones. An omitted project is the failure this step exists to prevent and it cannot be seen in the rendered file alone: a dashboard listing five real projects reads as correct whether or not a sixth exists. The header count is not the check — the pass that would drop a project also writes that number.
 
-Output: `✓ Strategic Overview: re-rendered (N projects)` or, per the nil-case rule, a skip line citing what was read rather than asserting the negative — `✓ Strategic Overview: no root-doc change (Files list: N entries, none under 03 Projects/ root)`.
+Output: `✓ Strategic Overview: re-rendered (N projects)`.
 
 ### 10. Skill monitor
 

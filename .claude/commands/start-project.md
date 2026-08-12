@@ -159,7 +159,7 @@ Otherwise re-render `{VAULT}/01 Now/Strategic Overview.md`, **following the Stra
 
 Here rather than at Step 4: Step 6 edits an initiative hub, which is itself a root doc. Rendering before the last writer of the source set is the failure this step exists to prevent.
 
-**Check:** the new project's wikilink is present, and the rendered wikilink set matches the root listing — compare against Step 5's `ls` output rather than re-deriving it. The header count is not the check; the pass that would omit a project also writes that number. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
+**Check:** the new project's wikilink is present, and the rendered wikilink set matches the root listing — re-run `ls "{VAULT}/03 Projects/"*.md` here rather than reusing Step 5's output. Step 5 ran before Step 6, and a concurrent session creating or completing a project in between makes the cached listing disagree with what the render just read, which either false-fails or hides a real difference. The header count is not the check; the pass that would omit a project also writes that number. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
 
 Output: `✓ Strategic Overview: re-rendered (N projects)`.
 
