@@ -58,6 +58,14 @@ In the order above. Mechanics:
 - Component 5's execution: move living docs out of `06 Archive/` with the `obsidian` CLI per the routing taxonomy — propose the full move list for the user's review first, never bulk-move unreviewed.
 - Existence-check every destination before appending — `locked-edit.sh` silently creates missing targets, so a typo'd path mints a stray file.
 
+### 3b. Re-render the Strategic Overview
+
+Run this if components 2, 3 or 4 ran — each writes `03 Projects/` root docs, which are the render's source set. Components 1 and 5 alone leave the root untouched; skip and say so.
+
+Render `{VAULT}/01 Now/Strategic Overview.md` **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. In a migrated vault this is usually a creation rather than a refresh: component 4 deletes `01 Now/Works in Progress.md`, the old format's dashboard, and nothing stands in for it until the user's first `/morning`. That gap is what makes a fresh migration feel like it lost something.
+
+**Check:** every root doc appears in the rendered file — compare against Step 4's schema loop, which already enumerates them. Any doc the render had to fail closed on (missing `bucket:` or either heading) is a component-2 retrofit that did not land: report it as component 2 **broken** in Step 4 rather than letting the dashboard absorb it. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
+
 ### 4. Doctor - verify actual state, then report
 
 Check each component's **live state**, not this run's memory of what it did:
@@ -86,5 +94,5 @@ Report one line per component: **live** (verified working) / **broken** (attempt
 ## Integration
 
 **Reads:** `03 Projects/`, `01 Now/Tasks.md`, `01 Now/Works in Progress.md`, Vault Organisation Principles.
-**Writes:** project docs, Tickler, This Week, Whimsy, `07 System/Migration Record.md`; deletes Tasks.md and WIP on consent.
+**Writes:** project docs, Tickler, This Week, Whimsy, `01 Now/Strategic Overview.md` (rendered), `07 System/Migration Record.md`; deletes Tasks.md and WIP on consent.
 **Called by:** `/update` (redirects here on old-format detection).
