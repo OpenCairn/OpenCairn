@@ -478,29 +478,30 @@ grep -E '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 **First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary; everything below is scoped to one side or the other:
 ```bash
 BOUND=$(grep -nE '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | head -1 | cut -d: -f1)
-echo "boundary line: ${BOUND:-NONE}"   # NONE ⇒ no split found: treat the WHOLE file as unlabelled provenance
+if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no heading})"; else echo "boundary line: $BOUND"; fi
 ```
-`NONE` is a real outcome, not a glitch: the page may interleave, or head the transcript differently. Do not silently proceed as if the split succeeded — say the halves are unseparated and fall back to flagging names rather than "resolving" them.
+**⛔ `SPLIT FAILED` aborts the two checks below — do not run them.** This guard is the point: with `$BOUND` empty the slice commands error, but the errors are swallowed by their pipes and each check still emits a *plausible* result — an empty name set (which the rule reads as "the page never names them") and an empty timestamp scan (read as "no usable segment map"). A broken split therefore disguises itself as a legitimate finding *about the page*, which is the same confirmatory-only defect one level up. `BOUND < 3` catches the other direction: a nav link or a heading on line 1 matched first, which leaves the "human-written half" as a single heading line — and a degenerate range like `1,0p` may be accepted silently rather than erroring, so the guard cannot rely on the slice itself failing loudly (see the portability note above: `sed` behaviour here is implementation-dependent). On `SPLIT FAILED`, say the halves are unseparated and **flag** names rather than resolving them.
 
 - **Provenance defaults to unverified, and only positive evidence upgrades it.** Absence of a disclaimer is not evidence of human editing — it is equally consistent with a differently-worded disclaimer, or one outside the selected container. So the header value starts at `published transcript (provenance unverified)` and moves to `(source-provided, auto-generated)` on a match, or to `(human-edited)` only where the page positively claims editing:
   ```bash
-  grep -niE 'automatically generated|auto-generated|AI-generated|machine.generated|may contain errors|transcribed by' "$BODY"
+  sed -n "1,$((BOUND+8))p" "$BODY" | grep -niE 'automatically generated|auto-generated|AI-generated|machine.generated|may contain errors|transcribed by'
   ```
-  **Fail observation: zero matches ⇒ `provenance unverified`, never `human-edited`.** Never let the null select the stronger claim.
+  **Scope it to the boundary region, not the whole body** — a disclaimer sits within a few lines of the transcript heading, whereas on an AI-topic episode those same phrases appear in the transcript as *subject matter* and would downgrade provenance on topical content. **Fail observation: zero matches ⇒ `provenance unverified`, never `human-edited`.** Never let the null select the stronger claim.
 - **Names — compare the matched tokens, not the match count.** A stem grep is non-empty whether the two halves agree or diverge, so hit-count cannot detect garbling. Extract and diff the actual tokens, one side at a time:
   ```bash
-  sed -n "1,$((BOUND-1))p" "$BODY" | grep -oiE '<stem>[a-z]*' | sort -u   # human-written half
-  sed -n "$BOUND,\$p"      "$BODY" | grep -oiE '<stem>[a-z]*' | sort -u   # transcript half
+  sed -n "1,$((BOUND-1))p" "$BODY" | grep -oiE '<stem>[a-z]*' | tr 'A-Z' 'a-z' | sort -u   # human-written half
+  sed -n "$BOUND,\$p"      "$BODY" | grep -oiE '<stem>[a-z]*' | tr 'A-Z' 'a-z' | sort -u   # transcript half
   ```
-  Use a **stem** (whole-surname matching fails — the garbling is phonetic). **Fail observation: the two token sets differ ⇒ the human-written half's spelling wins.** Identical sets means agreement, not that you skipped the check; an empty human-written set means the page never names them — then correct from your own knowledge or flag, never invent, and never report a name unresolvable that this comparison would have settled.
+  Use a **stem** (whole-surname matching fails — the garbling is phonetic). The `tr` is load-bearing: `grep -oiE` matches case-insensitively but prints the *original* case, so without it a name styled all-caps on one side and title-case on the other reads as divergence, and the runner "corrects" a spelling that was already right. Chapter lists and pull-quote attributions are commonly styled in caps, so this is the ordinary case, not an edge one. **Fail observation: the two lowercased token sets differ ⇒ the human-written half's spelling wins** (take its original-case form from the un-`tr`'d output). Identical sets means agreement, not that you skipped the check; an empty human-written set means the page never names them — then correct from your own knowledge or flag, never invent, and never report a name unresolvable that this comparison would have settled.
 - **Speakers — find the timestamped chapter list, which is usually *not* headings.** The section outline the metadata block extracts is often navigational (`Show Notes`, `Resources`, `Transcript`), naming no participant and carrying no time; a page's real segment map is frequently bold prose or a plain list. Scan the human-written half for leading timestamps:
   ```bash
-  sed -n "1,$((BOUND-1))p" "$BODY" | grep -nE '^[^a-z]{0,4}\(?[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?\)?'
+  sed -n "1,$((BOUND-1))p" "$BODY" | grep -nE '^[^a-z0-9]*\(?\**\[?[0-9]{1,2}:[0-9]{2}(:[0-9]{2})?'
   ```
+  The leading class is deliberately unbounded (`*`, not a `{0,4}` cap): a bullet-and-bold prefix like `- **(0:01)**` already spends four characters, so any capped bound is calibrated to one page's exact decoration and an indented or slightly heavier list silently stops matching.
   A turn whose timestamp falls inside a segment naming one participant is that participant, and the show-notes prose says who argued what. **Fail observation: no line carrying a leading timestamp ⇒ there is no usable segment map — fall back to conversational cues, and attribute nothing you cannot place.** A non-empty *outline* is not a usable map; the map must carry times.
 - **Never edit the verbatim body to match** (per §14) — correct the header/synthesis and report the divergence.
 
-⚠️ The word/leak gate above tests a fixed tag set, so inline tags outside it survive into `$BODY` — which matters here in a way it doesn't for verbatim appending, because a surviving tag run buries the divergence mid-line inside multi-thousand-character prose. Pipe through `sed -E 's/<[^>]+>//g'` when resolving identity, and treat any surviving-tag count as a reason to widen the gate's set for the next run.
+⚠️ The word/leak gate above tests a fixed tag set, so inline tags outside it survive into `$BODY` — which matters here in a way it doesn't for verbatim appending, because a surviving tag run buries the divergence mid-line inside multi-thousand-character prose. Pipe through `sed -E 's/<[^>]+>//g'` when resolving identity, and count what actually survived — `grep -coE '<[a-z][^>]*>' "$BODY"` — since the gate itself can only ever report on the tags it enumerates. A non-zero count is the reason to widen that set for the next run.
 
 **Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`/transcribe` locally, `/transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
 
