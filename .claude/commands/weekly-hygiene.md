@@ -28,7 +28,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Gather:**
    - List root docs: `ls "{VAULT}/03 Projects/"*.md`
    - For each root doc, check for `bucket:` in the frontmatter, a `## Current Objective` heading, and a `## Next Actions` heading — list violations
-   - Root-doc count: flag if it exceeds the **active project cap** — read it from `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, defaulting to 5 if the vault states none (excluding `Cold/` and `Backlog/`)
+   - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: grep `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format* for a line starting `**Active project cap:` and state the value found; if that line is absent, state `cap line not found — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap)
    - Staleness candidates: flag root docs whose `## Next Actions` are all ticked (no open `- [ ]`), or whose `## Current Objective` reads as completed — candidates for `Cold/` or `/complete-project` (moves are executed in step 2's folder audit)
 
    **Confirm with user:**

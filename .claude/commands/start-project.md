@@ -139,7 +139,7 @@ After creating (skip under `--backlog`), count the root:
 ls "{VAULT}/03 Projects/"*.md 2>/dev/null | wc -l
 ```
 
-If the count exceeds the **active project cap** — read it from `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, defaulting to 5 if the vault states none — say so and suggest which existing root project looks most moveable to `03 Projects/Cold/` — the root is the active-attention set, and it only stays legible if it stays small. Note it for the user; don't move anything without their say-so.
+If the count exceeds the **active project cap** (resolve it first: grep `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format* for a line starting `**Active project cap:` and state the value found; if that line is absent, state `cap line not found — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap) — say so and suggest which existing root project looks most moveable to `03 Projects/Cold/` — the root is the active-attention set, and it only stays legible if it stays small. Note it for the user; don't move anything without their say-so.
 
 ### 6. Link from initiative (if applicable)
 
