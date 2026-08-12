@@ -728,3 +728,21 @@ Canonical rule and **single source of truth** for every skill that moves, rename
 **Structural moves need the sync client ON.** Moves made while a vault's sync client is off never reach the remote, so the remote keeps the pre-move tree; the next merge-on-reconnect pushes it back down and **resurrects a copy of everything just moved**. The resurrection is silent, and because the resurrected copies absorb the inbound links, nothing looks broken while duplication accumulates. This is not shell-checkable — confirm with the user before a structural batch, and record which way it went.
 
 **Checkable:** no skill executes a raw `mv` on a linked vault note, no skill keys a move's success on the CLI's exit status, every CLI call inside a loop carries `</dev/null`, and every structural batch reports a before/after unresolved-link count. A skill restating this section's CLI behaviour instead of pointing at it is the drift this section exists to prevent.
+
+---
+
+## 25. Write `rg` in Executable Blocks, Never Bare `grep`
+
+Canonical rule for every skill that puts a search command inside a runnable block.
+
+**The agent's shell is not the author's shell.** `grep`, `find` and their neighbours can be shadowed by shell functions or re-execed against a harness-vendored binary, so a block written with `grep` is not necessarily running the `grep` it was tested against — and the substitution is invisible in the block itself. Write `rg`, which is invoked under its own name. Where real GNU `grep` semantics are genuinely required, `command grep` bypasses a *function* shadow; it does not protect against a PATH-level substitution.
+
+**`rg` is not a drop-in, and all three differences fail quietly.**
+
+- **Flags.** `-E` is `--encoding`, not extended-regex — extended syntax is `rg`'s default, so the correct translation *drops* the flag. `rg -nE '<pattern>'` fails with `unknown encoding: <your pattern>`, which reads as a regex error and is not one. `-L` → `--files-without-match`, `-Z` → `--null`, and `-r` is unnecessary since `rg` recurses by default.
+- **Defaults skip files `grep -r` searches.** `rg` ignores hidden files and directories and honours `.gitignore`/`.ignore`. On a tree whose content sits under a dot-directory this returns **nothing**, which reads as a clean negative rather than an unsearched tree. Pass `--hidden --no-ignore` wherever the search must reach those paths, and treat any `rg` null over such a tree as a statement about your flags, not about the tree.
+- **Ordering.** `rg` walks in parallel, so output order is not stable across runs. Pipe through `sort` before diffing two runs or feeding a comparison.
+
+**Verify a swap; never assume it.** Byte-compare against the real binary on input exercising the pattern's edge cases: `diff <(/usr/bin/grep -nE '<p>' f) <(rg -n '<p>' f)`. Two traps when building that control, both of which make a *correct* candidate look broken: `command` is a shell builtin, so `xargs … command grep` cannot exec it; and a single-file test cannot detect a lost `--null`, so include a filename containing a space.
+
+**Checkable:** no runnable block in a skill contains a bare `grep`, and every `rg` whose target tree includes dot-directories or ignored paths either carries `--hidden`/`--no-ignore` or says why it does not.
