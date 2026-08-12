@@ -216,6 +216,36 @@ After all undone items have been routed, collapse today's section — and any ea
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/Claude/Daily Reports/YYYY-MM-DD|Full report]]
 ```
 
+**⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
+
+```bash
+# Items — derive from the daily report's Today's Plan block, NOT the day section. Step 8 wrote that
+# block before Step 9 routed anything, so it is the pre-routing snapshot; by the time this step runs
+# the day section no longer holds the items that were carried forward.
+# Bound the block on `## Sessions`, NOT on a bare `^## ` — the block legitimately contains the
+# copied `## [Day] [DD] [Mon]` heading, which closes a naive bound immediately and silently yields 0.
+REPORT="{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md"
+awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- /'  "$REPORT" | wc -l   # M — total planned
+awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- ✓/' "$REPORT" | wc -l   # N — closed
+# Sessions — the close-out entry is not appended until Step 14, so this counts the day's work
+# sessions, which is what the heading means. The daily report's Sessions list carries one more.
+grep -c '^## Session ' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+```
+
+Then phrase by the result:
+- **N == M** → `All planned items closed across [S] sessions`. Drop the item total: `All` is the whole assertion, and the number adds nothing a reader acts on while still needing maintenance.
+- **N < M** → `[N] of [M] closed`, naming what carried. Here the ratio *is* the signal, so both numbers stay.
+
+A count that changes because the underlying fact changed (an item confirmed done after the fact) is a correct edit, not a defect — re-derive and rewrite. The defect is a number that was never read in the first place.
+
+**⛔ Required output — emit the derived counts before writing the heading.** Format:
+
+```
+Collapse counts: [Day] [DD] [Mon] — items [N]/[M] (source: daily report Today's Plan) · sessions [S] (source: session log, pre-close-out) ✓
+```
+
+This is the load-bearing half. The instruction to count accurately has always been implicit, so what recurs is estimating without noticing — a collapse heading with no emitted count line beside it is the failure signature, and after the collapse nothing in This Week can contradict the number.
+
 Sweep all past days, not just today. Earlier days may still be verbose if a previous `/goodnight` run predates this step or was interrupted. Any day before tomorrow should be a one-liner.
 
 Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in step 9 — route it before collapsing.
