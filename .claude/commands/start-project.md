@@ -131,7 +131,7 @@ Leave Session History empty apart from the comment — `/park` is the writer (it
 
 ### 5. Root-cap check
 
-Creating the doc in the `03 Projects/` root IS the registration — folder location is status (root = active, `Cold/` = paused, `Backlog/` = backlog); there is no separate index to update. `/morning`'s Strategic Overview render picks the new doc up on its next run.
+Creating the doc in the `03 Projects/` root IS the registration — folder location is status (root = active, `Cold/` = paused, `Backlog/` = backlog); there is no separate index to update. The Strategic Overview is a rendered view of that root, not a second registry — Step 6b re-renders it so it reflects this project immediately.
 
 After creating (skip under `--backlog`), count the root:
 
@@ -151,6 +151,18 @@ If initiative specified:
   - [[03 Projects/[Project Name]]] - [brief description]
   ```
 
+### 6b. Re-render the Strategic Overview
+
+Skip under `--backlog` — the doc isn't in the root, so it isn't on the dashboard.
+
+Otherwise re-render `{VAULT}/01 Now/Strategic Overview.md`, **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. Creating a root doc changes the render's source set, and the dashboard has no other writer until the next `/morning` or `/park`: until one runs it shows every project except the one just created, and that omission cannot be seen from inside the file — a dashboard listing the previous N projects reads as correct.
+
+Here rather than at Step 4: Step 6 edits an initiative hub, which is itself a root doc. Rendering before the last writer of the source set is the failure this step exists to prevent.
+
+**Check:** the new project's wikilink is present, and the rendered wikilink set matches the root listing — compare against Step 5's `ls` output rather than re-deriving it. The header count is not the check; the pass that would omit a project also writes that number. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
+
+Output: `✓ Strategic Overview: re-rendered (N projects)`.
+
 ### 7. Create resources folder (optional)
 
 Ask:
@@ -169,6 +181,7 @@ Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a co
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
 ✓ Registered by location: [03 Projects root (active) / Backlog] — folder is status
 [⚠ Root count now N (cap M) — consider moving [candidate] to Cold — omit when at or under the cap, or under --backlog]
+[✓ Strategic Overview: re-rendered (N projects) — omit under --backlog]
 [✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
 [✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 
