@@ -31,7 +31,8 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
 - **Gated-model silent-None assert** — assert `diarize_model.model` after `DiarizationPipeline`. → `transcribecloud`, `transcribe`
 - **Tag-scan hygiene** — md-glob filter; exclude archive + frozen artefacts. → `longpoles`, `guillotines`, `cornerstones`
-- **Published-transcript-first** — prefer ready-made human-edited transcript over re-running ASR. → `transcribe` Phase 0
+- **Published-transcript-first** — prefer ready-made published transcript over re-running ASR. → `transcribe` Phase 0
+- **Page text outranks transcript body** — human-written show notes win names + speakers. → `_shared-rules.md §15`
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Surface, don't act, on what you can't attribute or verify** — report as finding; never delete or rewrite. → `audit` (deletion discipline), `park` Step 2(b)
 - **Grep with path exclusion** — exclusion via find/rg/pipe, never grep flags. → `park` Step 6, `weekly-hygiene` Step 11
@@ -44,6 +45,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `park` Step 3
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 0, `hibernate`/`awaken` Step 1
 - **Weekday via `date -d`, never internal mapping** — verify weekday+date pairs before writing. → `park` Step 5, `guillotines` Step 3
+- **Geocode with substitution + outlier guards** — exact-match escalation; drop outliers; approximate-street fallback. → `map-day`, `book-stay` Step 4
 - **Link-aware moves: never raw `mv`, batches are fine** — CLI behaviour + verification live in one place, not in each skill. → `_shared-rules.md §24`, `quarterly-hygiene` Step 6, `complete-project` Step 4, `inbox-processor` Step 4
 - **Self-contained Bash blocks** — vars die between tool calls; bind in-block. → `provenance` Step 5, `goodnight` Step 17
 - **Quoted heredoc for literal payloads** — unquoted `<<EOF` expands/executes `$`, backticks in content; quote `<<'EOF'`, printf the parts that should expand. → `_shared-rules.md §5`, `_skill-monitor`
@@ -63,6 +65,8 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Preimage snapshot before hashing a living doc** — a hash without its bytes proves nothing later. → `provenance` Step 5, `goodnight` Step 17
 - **Push-side hub record** — pushed commit's canonical row lives in a hub no grep reaches. → `_shared-rules.md §17`, `park` Step 6, `goodnight` Step 15(a)
 - **Empty CLI output is not zero** — cross-check rows vs total; crash ≠ empty; stop re-invoking. → `weekly-hygiene` Step 11, `quarterly-hygiene` Step 6
+- **Sentinel termination needs a positive end-state check** — failure can forge the sentinel; name the benign case. → `transcribecloud` (frozen log ≠ dead), `ocr` 0d
+- **Confirmatory-only checks pass under both hypotheses** — name the observation that actually differs. → `ocr` (last-frame message identity), `_shared-rules.md §15`
 - **Portability note on GNU-only snippets** — name the BSD/Windows equivalent beside it. → `_shared-rules.md §5`, `weekly-hygiene` Guidelines, `quarterly-hygiene` Step 6
 - **Deferred cross-skill handoff via a drop-box** — writer drops a dated artefact; later skill consumes it. → `provenance` (flags, deleted on processing), `park` Step 2(a) (receipt, time-filtered)
 - **Blanket write-mechanism declaration** — state it once up front, not per step. → `morning`, `goodnight`
