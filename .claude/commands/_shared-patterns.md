@@ -36,6 +36,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
 - **Surface, don't act, on what you can't attribute or verify** — report as finding; never delete or rewrite. → `audit` (deletion discipline), `park` Step 2(b)
 - **Grep with path exclusion** — exclusion via find/rg/pipe, never grep flags. → `park` Step 6, `weekly-hygiene` Step 11
+- **`rg` in runnable blocks, never bare `grep`** — not a drop-in; flags and skip-defaults differ. → `_shared-rules.md §25`
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
 - **Step-0 vault resolution** — `resolve-vault.sh`; abort on error, never guess; substitute `{VAULT}`. → `_shared-rules.md §1`, `park` Step 0
 - **Sync marker on deliberate duplication** — comment names the twin; update both together. → `podcast-digest`, `transcribecloud` Phase 8
