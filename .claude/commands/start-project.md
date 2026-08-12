@@ -139,7 +139,7 @@ After creating (skip under `--backlog`), count the root:
 ls "{VAULT}/03 Projects/"*.md 2>/dev/null | wc -l
 ```
 
-If the count is >5, say so and suggest which existing root project looks most moveable to `03 Projects/Cold/` — the root is the active-attention set, and it only stays legible if it stays small. Note it for the user; don't move anything without their say-so.
+If the count exceeds the **active project cap** — read it from `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, defaulting to 5 if the vault states none — say so and suggest which existing root project looks most moveable to `03 Projects/Cold/` — the root is the active-attention set, and it only stays legible if it stays small. Note it for the user; don't move anything without their say-so.
 
 ### 6. Link from initiative (if applicable)
 
@@ -168,7 +168,7 @@ Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a co
 ```
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
 ✓ Registered by location: [03 Projects root (active) / Backlog] — folder is status
-[⚠ Root count now N (>5) — consider moving [candidate] to Cold — omit when ≤5 or --backlog]
+[⚠ Root count now N (cap M) — consider moving [candidate] to Cold — omit when at or under the cap, or under --backlog]
 [✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
 [✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 

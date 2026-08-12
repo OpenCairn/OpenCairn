@@ -28,7 +28,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Gather:**
    - List root docs: `ls "{VAULT}/03 Projects/"*.md`
    - For each root doc, check for `bucket:` in the frontmatter, a `## Current Objective` heading, and a `## Next Actions` heading — list violations
-   - Root-doc count: flag if >5 (excluding `Cold/` and `Backlog/`)
+   - Root-doc count: flag if it exceeds the **active project cap** — read it from `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, defaulting to 5 if the vault states none (excluding `Cold/` and `Backlog/`)
    - Staleness candidates: flag root docs whose `## Next Actions` are all ticked (no open `- [ ]`), or whose `## Current Objective` reads as completed — candidates for `Cold/` or `/complete-project` (moves are executed in step 2's folder audit)
 
    **Confirm with user:**
@@ -569,7 +569,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Status:** [Clean / N issues found]
 
    ## Project-Doc Health
-   - Root docs: N (flag >5; Cold/: N, Backlog/: N)
+   - Root docs: N against the active project cap M (flag if over; Cold/: N, Backlog/: N)
    - Structure violations (missing bucket / Current Objective / Next Actions): [list or "none"]
    - Staleness candidates (Next Actions all ticked / objective reads completed): [list or "none"]
 
