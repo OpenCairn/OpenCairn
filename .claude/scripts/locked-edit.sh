@@ -158,6 +158,32 @@ set -e
 _unlock
 unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE
 
+# Self-ledger the write. locked-edit.sh bypasses the Write|Edit tools, so the
+# PostToolUse ledger hook (session-ledger.sh) never sees these edits - and the
+# files this script exists for (planning files, hubs) are exactly the ones
+# /park's enumeration and the parboil draft-adoption diff care most about. A
+# missing row there forces park back onto full re-derivation. Same TSV format
+# as the hook, but the agent id is recorded as "?" (unknown): hook input
+# carries an agent_id field, a shell environment does not, and --read already
+# reports "?" honestly - never a positive "main".
+# Fails open: a ledger problem must never turn a landed edit into an error.
+if [ "$RC" -eq 0 ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+    _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
+    _LEDGER_PATH="$TARGET"
+    case "$_LEDGER_PATH" in /*) ;; *) _LEDGER_PATH="$PWD/$_LEDGER_PATH" ;; esac
+    # Never ledger the state files themselves (mirrors the hook's guard).
+    case "$_LEDGER_PATH" in
+        "$_LEDGER_DIR"/*) ;;
+        *)
+            _LEDGER_PATH=${_LEDGER_PATH//$'\t'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\n'/ }
+            { mkdir -p "$_LEDGER_DIR" &&
+              printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-edit" \
+                  "$_LEDGER_PATH" "?" \
+                  >> "$_LEDGER_DIR/$CLAUDE_CODE_SESSION_ID.tsv"; } 2>/dev/null || true
+            ;;
+    esac
+fi
+
 if [ "$RC" -eq 0 ]; then
     echo "Locked edit applied: $TARGET"
 fi
