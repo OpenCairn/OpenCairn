@@ -63,6 +63,8 @@ Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonom
 
 **This Week cap: 30/week binding, 10/day shape** (defaults — tune here; skills treat this section as the SSOT).
 
+**Active project cap: 5** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
+
 **Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
 
 **Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks live as This Week / Tickler items without a dedicated page.
