@@ -61,6 +61,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 7, `goodnight` Step 9, `weekly-review` Step 5a
 - **Gate emits an observable, not an assertion** — nil case cites its evidence. → `park` Step 2(a), `park` Step 7, `oops` Phase 1
 - **Fixed-format required output makes skipping visible** — long-standing instruction, recurring silent skip. → `_shared-rules.md §9`, `_shared-rules.md §19`, `_shared-rules.md §22`, `goodnight` Step 10
+- **One section, one owner; the second writer appends** — a delegated seat's view is frozen at its read. → `park` Step 9, `goodnight` Step 15(c)
 - **Gate a sub-agent on collection, not on despatch mode** — foreground is not yours to control; the completion notification is the only finish signal. → `park` Steps 8-9, `goodnight` Step 15(c), `ocr` capture loop
 - **Verbatim text vs in-place formatting hook** — hook rewrites whole file; append via shell, never re-Edit. → `_shared-rules.md §14`, `archive-transcript`, `park` Step 2(b)
 - **Frozen content excluded by path, not discipline** — put byte-exact copies beyond auto-rewriters' reach. → `_shared-rules.md §14`, `provenance` Step 5
