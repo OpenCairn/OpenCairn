@@ -29,19 +29,31 @@
 # Verify against the harness before trusting this paragraph — it is a volatile claim
 # about one Claude Code version, not durable procedure.
 #
+# Enforcement is NUDGE-ONCE per batch, by design: the marker is deleted at fire
+# time, before the survey happens, so an abandoned blocked turn (interrupt, closed
+# session) loses that batch's survey with no retry. Accepted deliberately in
+# preference to hold-until-outcome re-blocking, which would trade user-visible
+# stop friction for coverage. Read the fired-vs-outcome ratio in the log before
+# revisiting that call.
+#
+# cross-pollination.log field formats vary by era: legacy lines carry three
+# tab-separated fields, current lines four (<ts>, fired|outcome, session=<id>,
+# detail). Consumers must filter on fields 2/3 as the awk below does — never
+# assume a uniform field count across the whole file.
+#
 # Platform: Linux, macOS, Windows (Git Bash). Requires jq.
 
 INPUT=$(cat)
 ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
 SID=$(echo "$INPUT" | jq -r '.session_id // "nosession"')
-MARKER="/tmp/claude-skill-edit-${SID}.marker"
+CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+MARKER="$CONFIG_DIR/.session-state/${SID}.skilledit"
 
 # Allow the stop if we've already re-blocked once, or no skill was edited.
 if [ "$ACTIVE" = "true" ] || [ ! -f "$MARKER" ]; then
   exit 0
 fi
 
-CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 LOG="$CONFIG_DIR/cross-pollination.log"
 
 # Batch check: has THIS session logged a NEW `outcome` since we last fired? If so the

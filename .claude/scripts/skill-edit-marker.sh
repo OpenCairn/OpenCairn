@@ -15,7 +15,12 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 case "$FILE" in
   *.claude/commands/*.md)
     SID=$(echo "$INPUT" | jq -r '.session_id // "nosession"')
-    MARKER="/tmp/claude-skill-edit-${SID}.marker"
+    # The marker lives in .session-state, not a system temp dir: it survives a
+    # reboot with the rest of the session state, and the session-ledger's 14-day
+    # sweep prunes orphans from crashed sessions for free.
+    CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+    STATE_DIR="$CONFIG_DIR/.session-state"
+    MARKER="$STATE_DIR/${SID}.skilledit"
     # The marker carries the count of THIS session's `outcome` log lines at the
     # moment the batch opened. skill-edit-survey.sh fires unless the count has
     # risen since — i.e. unless the model already surveyed this batch.
@@ -25,7 +30,7 @@ case "$FILE" in
     # Capturing it here rather than at fire time means the value is created with
     # the batch itself, so it cannot drift or be lost independently of the marker.
     if [ ! -f "$MARKER" ]; then
-      CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+      mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
       LOG="$CONFIG_DIR/cross-pollination.log"
       awk -F'\t' -v s="session=${SID}" \
         '$2=="outcome" && $3==s {n++} END{print n+0}' "$LOG" 2>/dev/null > "$MARKER" \
