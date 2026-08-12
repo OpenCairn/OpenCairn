@@ -82,7 +82,7 @@ Drive an attached Android device to produce screenshots from its foreground app,
 
 1. **ADB present:** `command -v adb` or stop with install hint.
 2. **Single authorised device:** `adb devices` → expect exactly one line ending in `device`. If `unauthorized`, ask the user to confirm the ADB prompt on the phone. If multiple authorised devices, require `--device=ID` and list candidates.
-3. **Device awake, not dozing:** `adb -s $DEV shell dumpsys power | grep mWakefulness` must report `Awake`. If `Dozing`/`Asleep`, send `KEYCODE_POWER` and re-check. If the phone is locked behind a PIN/biometric, ADB cannot unlock — stop and ask the user to unlock and bring the app to foreground.
+3. **Device awake, not dozing — and kept awake for the whole run:** `adb -s $DEV shell dumpsys power | grep mWakefulness` must report `Awake`. If `Dozing`/`Asleep`, send `KEYCODE_POWER` and re-check. If the phone is locked behind a PIN/biometric, ADB cannot unlock — stop and ask the user to unlock and bring the app to foreground. **Then neutralise the display timeout before capturing anything:** read it with `adb -s $DEV shell settings get system screen_off_timeout` (milliseconds), and if the sweep or any pause within it could exceed that, set `adb -s $DEV shell svc power stayon true` for the duration and restore `svc power stayon false` when the run ends. The swipe stream keeps the device awake *during* an uninterrupted loop, so the timeout bites in the gaps — between the smoke test and the full sweep, or while frames are being inspected. **A display that switches off mid-run does not stop the capture:** `screencap` keeps returning valid, non-empty, all-black PNGs and `input swipe` keeps scrolling the app underneath them, so the thread advances while the capture goes blind. The 0d blank-frame guard catches this, but only after the fact — the setting is what prevents it.
 4. **Foreground app — report, don't adjudicate:** run `adb -s $DEV shell dumpsys window | grep mCurrentFocus`, show the focus string to the user verbatim, and ask them to confirm it's the thread they want scraped. The skill has no expected-package value to test against, and activity names like `LauncherUI` may host the chat view as a sub-window, so a name that looks wrong often isn't — the user's confirmation is the pass/fail criterion. **Don't navigate the app via ADB** — that risks destroying the user's current scroll position. The one exception: if focus reports `NotificationShade` or similar (often from prior keystrokes), send `KEYCODE_BACK` to dismiss and re-check; if that fails to recover, ask the user to fix state manually rather than guessing.
 5. **Screen dimensions:** `adb -s $DEV shell wm size` → parse `<width>x<height>` (e.g. `1080x2410`). Use these to scale swipe coordinates; never hardcode.
 6. **OCR model weights present:** the first easyocr run per language downloads ~100 MB of weights. Trigger it now, before capturing anything — run easyocr once over any small image with the run's `--lang` codes, or run the 0b preview OCR pass (step 4 there), which is mandatory on a first run for this reason. Discovering the download is impossible (offline, no disk, proxy) after an 80-frame capture wastes the whole sweep.
@@ -176,6 +176,28 @@ while [ "$n" -lt "$MAX_ITER" ]; do
     break
   fi
 
+  # BLANK-FRAME GUARD: a display-off frame is a VALID, non-empty, all-black PNG. It passes
+  # the size test above and hashes deterministically, so two in a row satisfy the duplicate-
+  # hash test below and get reported as end-of-thread — a silent truncation that looks clean.
+  # Discriminate on standard deviation, NOT mean brightness: a true-black dark theme has a
+  # low mean (a #111111 page background means ~17) and would false-trip a brightness floor,
+  # but any real UI has spatial variance while a blank frame has none.
+  sd=$(magick "$out" -colorspace Gray -format "%[fx:standard_deviation*255]" info:)
+  # An empty $sd means magick failed or is absent. Without this branch `[ "" -lt 3 ]`
+  # errors with "integer expression expected", the if falls through to the else, and the
+  # guard SILENTLY DOES NOT FIRE — reinstating the exact silent truncation it exists to
+  # prevent. A guard that cannot run is a stop condition, not a pass.
+  if [ -z "$sd" ]; then
+    rm -f "$out"; n=$((n-1))
+    echo "blank-frame guard could not run (magick returned nothing) at iteration $((n+1)) — capture is TRUNCATED, not complete" >&2
+    break
+  fi
+  if [ "${sd%.*}" -lt 3 ]; then
+    rm -f "$out"; n=$((n-1))
+    echo "blank frame (stddev $sd) at iteration $((n+1)) — display off; capture is TRUNCATED, not complete" >&2
+    break
+  fi
+
   # CRITICAL: pipe to pnm:- not png:-.
   # png:- embeds a fresh tIME chunk on every magick invocation, breaking hash determinism
   # on byte-identical input. pnm has no timestamp metadata.
@@ -197,18 +219,27 @@ while [ "$n" -lt "$MAX_ITER" ]; do
   fi
 
   prev_hash="$cur_hash"
+  # Progress heartbeat: a long sweep is otherwise silent for many minutes, which is
+  # indistinguishable from a hang. Emit on stderr so stdout stays clean for callers.
+  [ $(( n % 10 )) -eq 0 ] && echo "  [$n/$MAX_ITER] frames, ${SECONDS}s elapsed" >&2
   adb -s "$DEV" shell input swipe $((width/2)) "$y_high" $((width/2)) "$y_low" "$swipe_duration"
   sleep "$swipe_sleep"
 done
+echo "captured $n frames in ${SECONDS}s" >&2
 ```
 
 Use `exec-out screencap -p` (not `shell screencap`) to avoid CRLF mangling of the PNG byte stream.
 
-**Only the duplicate-hash exit means end-of-thread.** Exiting at `n == MAX_ITER`, or on either failure guard (screencap error / unreadable frame), leaves a truncated capture — say so explicitly and ask the user whether to resume (raise `--max-frames`, or fix the device state, then continue per 0e) before OCRing what looks like, but is not, the full thread.
+**Only the duplicate-hash exit means end-of-thread.** Exiting at `n == MAX_ITER`, or on any failure guard (screencap error / unreadable frame / blank frame), leaves a truncated capture — say so explicitly and ask the user whether to resume (raise `--max-frames`, or fix the device state, then continue per 0e) before OCRing what looks like, but is not, the full thread.
+
+**A duplicate-hash exit at an implausibly low frame count is a failure until proven otherwise.** End-of-thread after a handful of frames, on a thread the user described as long, is the signature of a blank-frame or stuck-app run. Before reporting completion, Read the last retained frame and confirm **the identity of its bottom-most message** — timestamp and content — against the newest traffic the user expects. **Position is not evidence.** A chat viewport always renders some message against the compose bar, mid-thread exactly as at the end, so "a message sits above the compose bar" is confirmatory-only: it is equally true under "reached the end" and under "went blind three frames in", which is precisely the pair being distinguished. Only *which* message it is separates them. The frame count alone cannot distinguish them either.
+
+**One legitimate short run exists — name it before diagnosing a fault.** If the user positioned the thread near its bottom (a catch-up capture of only the newest messages, rather than a whole-thread scrape), a 2–5 frame sweep is the correct result. That case is distinguished by the same Read, on message *identity* at both ends: the last frame's bottom-most message is the newest traffic the user expects, and the first frame's top is the starting point they named. Note the asymmetry — under a blind run the first frame also shows content the user recognises, because they positioned it, so the first-frame half carries no discriminating load by itself; the last-frame identity check is what separates the cases. Asserting either without the Read is how a truncated capture ships as complete.
 
 #### 0e. Resumability and theme drift
 
 - **Resuming after partial failure:** if the loop exits early (USB disconnect, MAX_ITER hit, user interrupt), the next invocation can resume from the current phone position. Load `prev_hash` from the last existing frame's cropped pnm hash and continue numbering from `n+1`. Pre-flight (0a) must still pass before resumption.
+- **After a blank-frame exit, the phone is NOT where the last good frame says it is.** `input swipe` keeps registering with the display off, so every blind iteration still scrolled the app: the true position is ahead of the last retained frame by the number of swipes sent after it, and content in that span was never captured. Do not resume by numbering onward from the last frame — that silently drops the gap. Instead scroll *back* (swipe `y_low` → `y_high`) until a fresh screencap visibly overlaps content already held in the last retained frame, confirm the overlap by Reading it, then resume forward. Overlap is free (dedup removes it); a gap is unrecoverable without a second sweep. Never reason about the size of the gap from the swipe count alone — verify it visually.
 - **Theme drift mid-capture:** OS auto-dark-mode (light↔dark) can flip mid-run on long captures that span sundown/sunrise. Bubble-colour palettes flip with the theme; a single `--bubble-colors` flag fits one theme only. Detect by sampling a known-background pixel (interior of conversation area, offset to avoid bubbles/avatars) on the first and last frames — values in the `#E0–F0` (light) range vs `#10–20` (dark) range indicate a transition. Split affected frames into per-theme subdirs and OCR each with its own `--bubble-colors` flag; or force the OS theme to a fixed value before re-running.
 
 #### 0f. Operator note — rejection doesn't always cancel
@@ -287,9 +318,9 @@ Its output does **not** satisfy the sidecar contract on either axis: it is JSONL
 - **`--output_format json` still doesn't give you a sidecar** — without it the CLI prints Python-repr tuples (single quotes), which isn't valid JSON at all; with it you get JSONL under the wrong keys. Anything a script will parse comes from the wrapper.
 - GPU: don't pass `--gpu` — the default is True with automatic CPU fallback, and `--gpu False` is a no-op (see Prerequisites). Force CPU via the Python wrapper if needed.
 
-**Re-use existing helpers first.** Before writing fresh scripts for batch OCR + chat assembly, check whether the user has ready-to-run implementations on hand. Common locations to probe: `command -v chat-ocr-batch.py` (and `chat-ocr-attribute.py`, `chat-ocr-stitch.py`); a personal scripts directory referenced in the user's CLAUDE.md; `~/.claude/commands/`-adjacent helpers; `~/bin/`. If they exist, prefer running them over re-deriving — they will already be tuned for the messenger / theme combination they were first written against, and re-running is cheaper than re-writing.
+**Re-use existing helpers first.** Before writing fresh scripts for batch OCR + chat assembly, check whether the user has ready-to-run implementations on hand. Common locations to probe: `command -v chat-ocr-batch.py` (and `chat-ocr-attribute.py`, `chat-ocr-stitch.py`); a personal scripts directory referenced in the user's CLAUDE.md; `~/.claude/commands/`-adjacent helpers; `~/bin/`. If they exist, prefer running them over re-deriving — they will already carry tuning for the messenger and theme they were built against, and re-running is cheaper than re-writing. Whether that tuning is hardcoded or detected at runtime varies per helper; the source header is what tells you, so don't assume either.
 
-**This skill's flags do not propagate into helper scripts.** Assume nothing: such helpers are typically configured by *editing module-level constants* (languages, GPU on/off, the me/contact/background RGB triples) and take a single positional source directory — no argparse, so `--help` is swallowed as a path argument and the script may run against an empty glob instead of printing usage. **Read each helper's source header before invoking it**, not `--help`; then either edit the constants to match this run's `--lang` / `--bubble-colors` values, or write fresh per the sketches above. Name new helpers by the same convention so they're discoverable next time.
+**This skill's flags do not propagate into helper scripts.** Assume nothing: such helpers are typically configured by *editing module-level constants* (languages, GPU on/off, the me/contact/background RGB triples) and take a single positional source directory — no argparse, so `--help` is swallowed as a path argument and the script may run against an empty glob instead of printing usage. **Read each helper's source header before invoking it**, not `--help`; then either match its configuration to this run's `--lang` / `--bubble-colors` values — editing the constants where they are hardcoded, or confirming the run's auto-detected choice where the helper reports one — or write fresh per the sketches above. Name new helpers by the same convention so they're discoverable next time.
 
 Build the assembled text:
 
