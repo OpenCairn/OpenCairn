@@ -44,6 +44,9 @@ THRESHOLD="${OPENCAIRN_PARBOIL_TOKENS:-0}"
 INTERVAL="${OPENCAIRN_PARBOIL_INTERVAL_TOKENS:-$THRESHOLD}"
 
 [ "$THRESHOLD" -gt 0 ] 2>/dev/null || exit 0
+# A non-numeric INTERVAL would make the refresh gate's arithmetic test error out,
+# and its `|| exit 0` would then suppress every refresh silently. Fall back.
+case "$INTERVAL" in ''|*[!0-9]*) INTERVAL=$THRESHOLD ;; esac
 command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
@@ -89,7 +92,18 @@ PEAK=$(tail -n 200 "$TRANSCRIPT" 2>/dev/null | jq -r '
   ' 2>/dev/null | sort -n | tail -1)
 [ -n "${PEAK:-}" ] || exit 0
 [ "$PEAK" -ge "$THRESHOLD" ] 2>/dev/null || exit 0
-if [ "$LAST_PEAK" -gt 0 ] && [ "$RETRY" -eq 0 ] 2>/dev/null; then
+COMPACTED=0
+if [ "$LAST_PEAK" -gt 0 ] 2>/dev/null && [ "$PEAK" -lt "$LAST_PEAK" ] 2>/dev/null; then
+    # Compaction detected: peak fell below the recorded high-water mark. Bypass
+    # the interval gate this round — the draft predates the compaction, so if the
+    # ledger grew it should refresh now, and the fire path re-stamps the marker
+    # with the post-compaction peak. Without this, refreshes stay suppressed until
+    # peak exceeds the OLD peak plus the interval, which a compacted session may
+    # never reach again. (No ledger growth exits earlier as usual — an unchanged
+    # draft needs no refresh, however the peak moved.)
+    COMPACTED=1
+fi
+if [ "$LAST_PEAK" -gt 0 ] && [ "$RETRY" -eq 0 ] && [ "$COMPACTED" -eq 0 ] 2>/dev/null; then
     [ "$((PEAK - LAST_PEAK))" -ge "$INTERVAL" ] 2>/dev/null || exit 0
 fi
 

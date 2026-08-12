@@ -16,7 +16,9 @@
 # concurrent session's, and is the whole reason §20 attribution needs care. The
 # ledger records the session id at write time, so attribution is exact rather
 # than inferred. It does NOT replace park-files.sh: writes that bypass the Write
-# and Edit tools (shell redirection, scripts, formatting hooks) are invisible
+# and Edit tools (shell redirection, scripts, formatting hooks, and MCP write
+# tools — whose tool names never match a Write|Edit matcher, so e.g. a notes
+# app's MCP write/patch tools mutate files with no ledger row) are invisible
 # here, so the mtime sweep stays as the backstop for those.
 #
 # Storage: $CLAUDE_CONFIG_DIR/.session-state/<session-id>.tsv
@@ -129,6 +131,11 @@ SID=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null) || exit 0
 [ -n "$SID" ] || exit 0
 TOOL=$(printf '%s' "$INPUT" | jq -r '.tool_name // "?"' 2>/dev/null) || TOOL="?"
 AGENT=$(printf '%s' "$INPUT" | jq -r '.agent_id // "main"' 2>/dev/null) || AGENT="main"
+
+# TSV integrity: a path or agent id containing a literal tab or newline would
+# corrupt row boundaries for --read's fixed-column parse. Flatten to spaces.
+FILE=${FILE//$'\t'/ }; FILE=${FILE//$'\n'/ }
+AGENT=${AGENT//$'\t'/ }; AGENT=${AGENT//$'\n'/ }
 
 # Never ledger our own state files. The parboil draft is written with the Write
 # tool, so without this the draft's own write lands in the ledger: LEDGER NOW is
