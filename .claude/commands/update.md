@@ -66,7 +66,8 @@ The template's task system changed in Aug 2026 (project docs as SSOT; Tasks.md a
 if [ -e "01 Now/Tasks.md" ] || [ -e "01 Now/Works in Progress.md" ]; then echo OLD_FORMAT; else echo FORMAT_OK; fi
 
 # Secondary probe — root project docs carrying **Status:** without bucket: frontmatter
-grep -LZ '^bucket:' "03 Projects/"*.md 2>/dev/null | xargs -r0 grep -l '^\*\*Status:\*\*' | head -3
+# rg, not grep, deliberately (-L → --files-without-match, -Z → --null)
+rg --files-without-match --null '^bucket:' "03 Projects/"*.md 2>/dev/null | xargs -r0 rg -l '^\*\*Status:\*\*' | head -3
 
 # Migration decisions on record — read before judging
 cat "07 System/Migration Record.md" 2>/dev/null
