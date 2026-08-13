@@ -32,7 +32,7 @@ Use this search strategy:
 
 **a) Check obvious locations first:**
 - Relevant hub files in `{VAULT}/07 System/Context - [Domain].md`
-- Active working state in `{VAULT}/01 Now/` (Strategic Overview, This Week, current plans — the most recent thinking)
+- Active working state in `{VAULT}/01 Now/` (This Week, current plans — the most recent thinking)
 - Related project files in `{VAULT}/03 Projects/`
 - Area-owned domain material in `{VAULT}/04 Areas/` — in NIPARAS, reference material lives *inside* the Area it belongs to, so this is the main home of curated domain knowledge
 - Generic/staging resources in `{VAULT}/05 Resources/`

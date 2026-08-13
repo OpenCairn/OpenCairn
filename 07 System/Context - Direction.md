@@ -119,7 +119,7 @@ Track during busy periods, take breaks during downtime. No guilt either way.
 ## Related Files
 
 - [[07 System/Strategic Decision Log]] — rationale for major direction choices
-- [[01 Now/Strategic Overview]] — current tactical execution (rendered view; the `03 Projects/` root docs are the SSOT)
+- the `03 Projects/` root docs — current tactical execution (the SSOT; folder location is status)
 - [[07 System/Claude Corrections Log]] — mistakes and lessons
 - [[07 System/Claude Wins Log]] — what's working
 

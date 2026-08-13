@@ -110,14 +110,6 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    - **Then close out the template's `## Current Objective` block** (older files: `## Current Status`) with a third `locked-edit.sh --replace`: replace its body with one line stating the end state, and bump the co-located `**Last update:**` stamp to today's date (Step 1). Skipped, the file reads a live objective under a COMPLETED header, and every status scanner believes the body.
    - This preserves project history while marking completion
 
-5b. **Re-render the Strategic Overview:**
-
-   Step 4b's move (or delete) changes the `03 Projects/` root, which is the render's source set. Re-render `{VAULT}/01 Now/Strategic Overview.md` **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. Left alone, the dashboard goes on showing the completed project with its objective and next actions until the next `/morning` or `/park` — and a finished project displayed as active is an invitation to work on it.
-
-   Run it unconditionally, the deferred-move branch included: there the doc is still in the root, so the render correctly still lists it — under the closed-out objective Step 5 just wrote, which is the accurate picture.
-
-   **Check:** the rendered wikilink set matches `ls "{VAULT}/03 Projects/"*.md` — the completed project absent where the move ran, present where it was deferred. The header count is not the check; the pass that would get this wrong also writes that number. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
-
 6. **Session record:**
    - The completion lands in the session log at the next `/park` — the lock-safe owner of the session entry. State the outcome plainly in-conversation so park's summary captures it; no separate completion-record structure or hand-off fields are needed.
    - **Do NOT hand-append to the session file with the Edit tool.** Session-file writes must go through the locked session scripts (`_shared-rules.md` §5); a raw append bypasses the flock and can be clobbered by a concurrent `/park` or `/goodnight`.
@@ -129,7 +121,6 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 ✓ Outcome: [Completed successfully / etc.]
 [✓ Project file moved to: [actual destination path] | ✓ Project file deleted (no reference value) | ⚠ Move pending — file marked COMPLETED but still at [path]; intended destination [path]]
 [✓ Link integrity verified (unresolved count unchanged: N) | ⚠ Link integrity UNVERIFIED (check timed out) | ⚠ N new unresolved links — triage before finishing]
-✓ Strategic Overview: re-rendered (N projects)
 
 Project completion complete. Well done.
 ```
@@ -163,7 +154,6 @@ If unsure, ask the user: "Is this project truly complete, or just on hold?"
 ## Integration
 
 - **03 Projects root:** moving the doc out of the root IS the de-registration — the active set stays clean by location
-- **Strategic Overview:** a rendered view of that root, re-rendered at Step 5b so the completed project drops off it immediately
 - **Weekly synthesis:** Can review session archive for completion patterns
 - **Session summaries:** Searchable record of when projects ended
 - **06 Archive:** write-once records only — a project's history lives with its Area, not in Archive

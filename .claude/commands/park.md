@@ -183,22 +183,6 @@ Receive and display the report — don't re-run the audit (the fresh context is 
 
 Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited clean — see [paths]`.
 
-### 9b. Re-render the Strategic Overview
-
-Re-render `{VAULT}/01 Now/Strategic Overview.md` — **unconditionally, every park.** No trigger, no gate.
-
-A gate here is where this step goes wrong. Any trigger derived from *this* session — its Files list, its own edits — is blind to the dominant staleness source: another session editing a root doc while this one ran. That is what staled the dashboard in the first place, and it is invisible to the parking session by construction. An mtime comparison is no better, because a later touch on the dashboard for an unrelated reason resets it and masks the stale source. The render is a deterministic overwrite from six-ish files; paying it every park costs less than one wrong dashboard.
-
-**Here, not at Step 5 (project doc update).** Steps 5, 7 (rule 3), 8 (closure flips) and 9 (audit remediation) all write project docs, so a render at Step 5 omits every edit after it and ships a dashboard that reads as current. Staleness is this file's only failure mode and it is silent: the sources say one thing, the rendered view another, and no downstream reader re-derives it.
-
-**Follow the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here. A second render spec drifts from the first, and the one that drifts is this one, since `/morning` is where the render is actually exercised. Render from a fresh read of every root doc, not from recollection of what this session touched — park knows its own edits, not those another session landed while it ran.
-
-Write tool, full overwrite; `locked-edit.sh` does not apply (§5 governs shared planning files — this one is regenerated, not authored). The overwrite is idempotent from the same sources, so a concurrent park racing this step reproduces the file rather than clobbering content.
-
-**Check:** the project wikilinks in the rendered file must match the `03 Projects/` root exactly — list the root (`ls "{VAULT}/03 Projects"/*.md`) and compare names against the rendered ones. An omitted project is the failure this step exists to prevent and it cannot be seen in the rendered file alone: a dashboard listing five real projects reads as correct whether or not a sixth exists. The header count is not the check — the pass that would drop a project also writes that number.
-
-Output: `✓ Strategic Overview: re-rendered (N projects)`.
-
 ### 10. Skill monitor
 
 Per §8: review this park execution including the audit — an audit catch that a documented step should have made is a skill gap, the highest-signal kind. Log observations per `_skill-monitor.md`, else `✓ Skill monitor: No gaps detected`.
@@ -222,7 +206,6 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Open loops routed: N (This Week: X, Tickler: Y, Project: Z, Whimsy: W)
 ✓ park-verify: PASS
 ✓ Audit: [clean pass | N findings fixed]
-✓ Strategic Overview: [re-rendered (N projects) | no root-doc change]
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
 

@@ -5,11 +5,11 @@ description: One-shot migration of an existing OpenCairn vault to the project-do
 
 # Migrate - Old-Format Vault to the Project-Doc Task System
 
-You are migrating an existing OpenCairn vault from the pre-2026-08 task format (Tasks.md catch-all + Works in Progress dashboard + Status fields) to the current one (project docs as SSOT, folder-location-as-status, rendered Strategic Overview, Whimsy sink). This runs **once per vault**; `/update` refuses old-format vaults and redirects here. A new vault created by `/setup` never needs it.
+You are migrating an existing OpenCairn vault from the pre-2026-08 task format (Tasks.md catch-all + Works in Progress dashboard + Status fields) to the current one (project docs as SSOT, folder-location-as-status, Whimsy sink). This runs **once per vault**; `/update` refuses old-format vaults and redirects here. A new vault created by `/setup` never needs it.
 
 **Old format** (any of these marks a vault as old-format): `01 Now/Tasks.md` exists · `01 Now/Works in Progress.md` exists · `03 Projects/` root docs carry `**Status:**` lines and lack `bucket:` frontmatter.
 
-**Target format:** each `03 Projects/` root doc = `bucket:` YAML frontmatter + `## Current Objective` + `## Next Actions`; root = active, `Cold/` = paused, `Backlog/` = unstarted — folder is the status; `/morning` renders `01 Now/Strategic Overview.md` (read-only view); undated low-priority items live in `04 Areas/Whimsy/_notes.md` (plain lines, no checkboxes); dated items in This Week / Tickler. See `07 System/Vault Organisation Principles.md` → Project Doc Format.
+**Target format:** each `03 Projects/` root doc = `bucket:` YAML frontmatter + `## Current Objective` + `## Next Actions`; root = active, `Cold/` = paused, `Backlog/` = unstarted — folder is the status (no dashboard file; the root listing is the view); undated low-priority items live in `04 Areas/Whimsy/_notes.md` (plain lines, no checkboxes); dated items in This Week / Tickler. See `07 System/Vault Organisation Principles.md` → Project Doc Format.
 
 ## Instructions
 
@@ -58,21 +58,6 @@ In the order above. Mechanics:
 - Component 5's execution: move living docs out of `06 Archive/` with the `obsidian` CLI per the routing taxonomy — propose the full move list for the user's review first, never bulk-move unreviewed.
 - Existence-check every destination before appending — `locked-edit.sh` silently creates missing targets, so a typo'd path mints a stray file.
 
-### 3b. Re-render the Strategic Overview
-
-Run this if components 2, 3 or 4 ran — each writes `03 Projects/` root docs, which are the render's source set. Components 1 and 5 alone leave the root untouched; skip and say so.
-
-Render `{VAULT}/01 Now/Strategic Overview.md` **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. In a migrated vault this is usually a creation rather than a refresh: component 4 deletes `01 Now/Works in Progress.md`, the old format's dashboard, and nothing stands in for it until the user's first `/morning`. That gap is what makes a fresh migration feel like it lost something.
-
-**Check (run it here — Step 4 cannot do it for you):** list the root and compare it against what the render emitted.
-
-```bash
-ls "{VAULT}/03 Projects/"*.md | sed 's|.*/||; s|\.md$||' | sort
-grep -o '\[\[03 Projects/[^]]*\]\]' "{VAULT}/01 Now/Strategic Overview.md" | sed 's|\[\[03 Projects/||; s|\]\]||' | sort
-```
-
-The two lists must be identical; report the comparison as its own line, not folded into a component's status. Step 4's schema loop looks like it covers this and does not — it enumerates root docs and their `bucket:`/heading status but never opens the rendered file, so it returns the same output whether the render ran, ran wrong, or never ran at all. A doc the render had to fail closed on is a separate finding: it is a component-2 retrofit that did not land, and the schema loop's `MISSING` is what evidences it. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
-
 ### 4. Doctor - verify actual state, then report
 
 Check each component's **live state**, not this run's memory of what it did:
@@ -101,5 +86,5 @@ Report one line per component: **live** (verified working) / **broken** (attempt
 ## Integration
 
 **Reads:** `03 Projects/`, `01 Now/Tasks.md`, `01 Now/Works in Progress.md`, Vault Organisation Principles.
-**Writes:** project docs, Tickler, This Week, Whimsy, `01 Now/Strategic Overview.md` (rendered), `07 System/Migration Record.md`; deletes Tasks.md and WIP on consent.
+**Writes:** project docs, Tickler, This Week, Whimsy, `07 System/Migration Record.md`; deletes Tasks.md and WIP on consent.
 **Called by:** `/update` (redirects here on old-format detection).

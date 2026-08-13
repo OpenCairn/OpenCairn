@@ -12,7 +12,7 @@ You are helping the user spin up a new project. This command creates the project
 
 Projects should be explicit from the start. Creating a project properly:
 - Forces clarity on what "done" looks like
-- Makes the commitment visible in the `03 Projects/` root (and in /morning's Strategic Overview render)
+- Makes the commitment visible in the `03 Projects/` root
 - Links to broader context if part of an initiative
 - Creates the session linkage from day one
 
@@ -47,7 +47,7 @@ If project name not provided as parameter, ask:
 Then ask:
 > "What does 'done' look like for this project? (One sentence or a few bullet points)"
 
-Ask which bucket it belongs to (one line — the doc's `bucket:` frontmatter, which /morning's Strategic Overview groups by):
+Ask which bucket it belongs to (one line — the doc's `bucket:` frontmatter, which /morning groups the landscape by):
 > "Which bucket?" (offer the vault's taxonomy — Project Doc Format in `07 System/Vault Organisation Principles.md`)
 
 Ask for deadline/target (optional):
@@ -131,7 +131,7 @@ Leave Session History empty apart from the comment — `/park` is the writer (it
 
 ### 5. Root-cap check
 
-Creating the doc in the `03 Projects/` root IS the registration — folder location is status (root = active, `Cold/` = paused, `Backlog/` = backlog); there is no separate index to update. The Strategic Overview is a rendered view of that root, not a second registry — Step 6b re-renders it so it reflects this project immediately.
+Creating the doc in the `03 Projects/` root IS the registration — folder location is status (root = active, `Cold/` = paused, `Backlog/` = backlog); there is no separate index or dashboard to update.
 
 After creating (skip under `--backlog`), count the root:
 
@@ -151,18 +151,6 @@ If initiative specified:
   - [[03 Projects/[Project Name]]] - [brief description]
   ```
 
-### 6b. Re-render the Strategic Overview
-
-Skip under `--backlog` — the doc isn't in the root, so it isn't on the dashboard.
-
-Otherwise re-render `{VAULT}/01 Now/Strategic Overview.md`, **following the Strategic Overview render step in `morning.md`** — read it and apply it; do not reimplement it here, or the two specs drift. Creating a root doc changes the render's source set, and the dashboard has no other writer until the next `/morning` or `/park`: until one runs it shows every project except the one just created, and that omission cannot be seen from inside the file — a dashboard listing the previous N projects reads as correct.
-
-Here rather than at Step 4: Step 6 edits an initiative hub, which is itself a root doc. Rendering before the last writer of the source set is the failure this step exists to prevent.
-
-**Check:** the new project's wikilink is present, and the rendered wikilink set matches the root listing — re-run `ls "{VAULT}/03 Projects/"*.md` here rather than reusing Step 5's output. Step 5 ran before Step 6, and a concurrent session creating or completing a project in between makes the cached listing disagree with what the render just read, which either false-fails or hides a real difference. The header count is not the check; the pass that would omit a project also writes that number. Write tool, full overwrite (`locked-edit.sh` does not apply — §5 governs shared planning files; this one is regenerated, not authored).
-
-Output: `✓ Strategic Overview: re-rendered (N projects)`.
-
 ### 7. Create resources folder (optional)
 
 Ask:
@@ -181,7 +169,6 @@ Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a co
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
 ✓ Registered by location: [03 Projects root (active) / Backlog] — folder is status
 [⚠ Root count now N (cap M) — consider moving [candidate] to Cold — omit when at or under the cap, or under --backlog]
-[✓ Strategic Overview: re-rendered (N projects) — omit under --backlog]
 [✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
 [✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 
@@ -215,7 +202,7 @@ If unsure whether something is a project or a task: if it needs multiple session
 
 ## Integration
 
-- **03 Projects root:** the doc's folder is its status; /morning's Strategic Overview renders it
+- **03 Projects root:** the doc's folder is its status; /morning reads it into the landscape
 - **Initiatives:** Linked bidirectionally for navigation
 - **Session summaries:** Session History section captures all work
 - **complete-project:** Eventual counterpart to route the doc out of the root when done

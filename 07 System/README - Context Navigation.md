@@ -55,7 +55,7 @@ User asks about photography, health, career, etc.
 User wants to work on a specific project.
 
 1. Read CLAUDE.md
-2. Read `01 Now/Strategic Overview.md` for the current landscape (rendered by `/morning`)
+2. List the `03 Projects/` root for the current landscape (folder location is status; root = active)
 3. Read the project doc in `03 Projects/` — the SSOT for status and next actions
 4. Read linked resource files as needed
 

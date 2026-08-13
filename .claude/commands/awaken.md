@@ -204,14 +204,14 @@ No hibernate snapshot found.
 
 You can:
 1. Run `/pickup` and tell it what you want to resume (it auto-extends search window)
-2. Manually review the 03 Projects root docs + Strategic Overview and recent sessions
+2. Manually review the 03 Projects root docs and recent sessions
 3. Start fresh if the gap is too large
 
 What would you like to do?
 ```
 
 Continuations:
-- **Option 2:** read the `03 Projects/` root docs (plus `01 Now/Strategic Overview.md` if present — note its generated-on date) and the most recent session logs, present them in place of the step 4 summary, then run steps 5-11 against that state (skip the snapshot append in step 8 — write the awaken summary to the current session log instead).
+- **Option 2:** read the `03 Projects/` root docs and the most recent session logs, present them in place of the step 4 summary, then run steps 5-11 against that state (skip the snapshot append in step 8 — write the awaken summary to the current session log instead).
 - **Option 3:** skip the restore; ask for 1-3 priorities for today, route them via step 9, and stop.
 
 **If multiple snapshots exist:**
