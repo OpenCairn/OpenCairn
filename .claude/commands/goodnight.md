@@ -58,7 +58,7 @@ Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 1
 Read and compile:
 - **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
-- **Project states:** Read `{VAULT}/01 Now/Strategic Overview.md` (this morning's rendered dashboard) — or the `03 Projects/` root docs directly if it's missing or stale
+- **Project states:** Read the `03 Projects/` root docs directly (root = active; folder location is status)
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
 
@@ -503,7 +503,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** This Week.md, Claude Sessions (today), Strategic Overview / project docs
+- **Reads from:** This Week.md, Claude Sessions (today), project docs
 - **Creates:** Daily Reports
 - **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Whimsy), Tickler.md (deletes completed items), Project docs (marks complete, Current Objective / Next Actions if needed)
 - **Complements:** `/morning` (start of day), `/park` (end of session), `/afternoon` (mid-day)

@@ -108,7 +108,7 @@ All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), s
 
 | Skill | When | What |
 |---------|------|------|
-| `/morning` | Start of day | Read the landscape (renders the Strategic Overview from the `03 Projects/` docs, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
+| `/morning` | Start of day | Read the landscape (the `03 Projects/` docs, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
 | `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
 | `/goodnight` | End of day | Inventory open loops, set tomorrow's queue, generate daily report, log the session |
 
@@ -140,7 +140,7 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory - what's in flight right now | Strategic Overview (rendered dashboard), This Week (rolling 7-day plan), scratch notes |
+| **01 Now** | Active working memory - what's in flight right now | This Week (rolling 7-day plan), Tickler, scratch notes |
 | **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
 | **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
 | **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |

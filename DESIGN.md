@@ -192,7 +192,7 @@ Level 2: Detail pages       — Projects, areas, specific files. Loaded on deman
 
 The `03 Projects/` root docs are the SSOT for ongoing work — each carries `bucket:` frontmatter, a `## Current Objective`, and `## Next Actions`, and its **folder location is its status** (root = active, `Cold/` = paused, `Backlog/` = unstarted). For any prompt relating to an ongoing project, the relevant project doc is the first file to check.
 
-`/morning` renders those docs into `01 Now/Strategic Overview.md`, a read-only dashboard for scanning the whole landscape at once — regenerated each run, never hand-edited. Read the Overview to find the right project; read the project doc for the truth. From either, Claude follows links to supporting files and session archives as needed.
+To scan the whole landscape at once, list the root and read the docs — there is no rendered dashboard file. (One existed through 2026-08-13; it was removed because a persisted view of live sources goes stale between renders and invites reading over verifying.) From a project doc, Claude follows links to supporting files and session archives as needed.
 
 ---
 

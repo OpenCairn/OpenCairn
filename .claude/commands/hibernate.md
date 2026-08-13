@@ -33,7 +33,7 @@ This is the "big picture" complement to session-level parking.
    - Combined stamp for the snapshot's `**Created:**` field: `YYYY-MM-DD at HH:MMam/pm`
 
 2. **Read comprehensive context:**
-   - `{VAULT}/03 Projects/` root docs - active projects (each doc's `bucket:`, `## Current Objective`, `## Next Actions`); plus `01 Now/Strategic Overview.md` if present (/morning's rendered view — note its generated-on date)
+   - `{VAULT}/03 Projects/` root docs - active projects (each doc's `bucket:`, `## Current Objective`, `## Next Actions`)
    - `{VAULT}/01 Now/This Week.md` - the day-level SSOT for live status (deadlines, deferrals, current position); reconcile against it per step 3
    - Recent session metadata via `"{VAULT}/.claude/scripts/pickup-scan.sh"` (its default window is the same 10 days) — then read only the session blocks relevant to active projects, not 10 days of logs end-to-end. If the script errors (fresh vault, old bash), fall back to reading the most recent 2-3 session logs directly.
    - Last daily report (if exists) - recent progress

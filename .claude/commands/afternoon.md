@@ -19,7 +19,7 @@ This is a quick recalibration, not a full review. 2-5 minutes.
 
 ## Instructions
 
-**Write mechanism — applies to every step below.** Mutations of `This Week.md` and project docs / area hubs go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5) — /afternoon can run alongside parks and other sessions, and lockless edits race. `01 Now/Strategic Overview.md` is read-only here: it is /morning's rendered output, never edited by this skill.
+**Write mechanism — applies to every step below.** Mutations of `This Week.md` and project docs / area hubs go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5) — /afternoon can run alongside parks and other sessions, and lockless edits race.
 
 ### 0. Resolve Vault Path
 
@@ -42,7 +42,7 @@ Note what's left of the day. Only state a number of hours if an end time is give
 
 Read:
 - **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
-- **Strategic Overview:** `{VAULT}/01 Now/Strategic Overview.md` (skip if file doesn't exist; fresh from this morning's /morning render — if its generated-on date isn't today, note it) - what's meant to be priority? Read the relevant `03 Projects/` root doc directly when a project's detail is needed.
+- **Active projects:** list `{VAULT}/03 Projects/*.md` (root only — folder location is status) and read each doc's `## Current Objective` - what's meant to be priority? Read the full root doc when a project's detail is needed.
 - **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
 - **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by /morning; if the day section is empty or missing, report "None set".
 
@@ -65,18 +65,18 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 - [x] Task 1
 - [x] Task 2
 
-**Active projects (from Strategic Overview):**
+**Active projects (from the `03 Projects/` root docs):**
 - [Project] - [current status]
 - [Project] - [current status]
 ```
 
-If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through Claude today"; if Strategic Overview is missing, build the **Active projects** block from the `03 Projects/` root listing, or drop it on a fresh vault.
+If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through Claude today"; on a fresh vault with an empty `03 Projects/` root, drop the **Active projects** block.
 
 ### 4. Drift Check
 
 **Before calling drift — account for off-Claude work channels.** Claude's session log only captures work that ran through Claude. If the user has parallel work streams happening outside Claude (external AI tools, voice drills, paper notebooks, reading, phone calls, meetings, physical practice, time with other people), that work is invisible to the session log and to the vault. Calling drift based on absence from the session log produces false positives that waste the user's time and erode trust. Before interpreting a gap as drift:
 
-1. Check This Week.md (if current, not stale per Step 2) and the Strategic Overview / project docs for any task that plausibly happens off-Claude (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
+1. Check This Week.md (if current, not stale per Step 2) and the project docs for any task that plausibly happens off-Claude (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
 2. If such a task exists and is time-boxed to today, do NOT assume its absence from the session log means it didn't happen. Ask, or present the state neutrally without a drift verdict.
 3. **Rule:** *Absence from Claude's session log is not absence from the day.* The right question is "what did the day look like?" not "what's in the log?"
 
@@ -123,7 +123,7 @@ Consider:
 
 **Most regroups:** No artefact. The recalibration was the point.
 
-**If priorities significantly shifted:** Update the relevant project doc(s) in `03 Projects/` with the new status/priorities (Strategic Overview stays untouched — /morning re-renders it).
+**If priorities significantly shifted:** Update the relevant project doc(s) in `03 Projects/` with the new status/priorities.
 
 **If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged — via `locked-edit.sh --replace` per the write-mechanism note above. Include project/area links on new items (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists. This keeps the week plan current without rebuilding from scratch.
 
@@ -168,7 +168,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** This Week.md, Strategic Overview, project docs, today's Claude Sessions
+- **Reads from:** This Week.md, project docs, today's Claude Sessions
 - **May update:** This Week.md (mark done, add tasks), project docs (if priorities shifted)
 - **Complements:** `/morning` (start of day), `/goodnight` (end of day), `/park` (end of session)
 - **Not a replacement for:** `/park` (regroup doesn't close sessions, just recalibrates)

@@ -10,7 +10,7 @@ This vault uses a seven-folder structure called NIPARAS:
 
 | Folder | Purpose | Examples |
 |--------|---------|----------|
-| **01 Now** | Active working memory, current focus | Strategic Overview (rendered dashboard), This Week (rolling 7-day plan), Working memory scratch |
+| **01 Now** | Active working memory, current focus | This Week (rolling 7-day plan), Tickler, Working memory scratch |
 | **02 Inbox** | Capture point for new stuff | Quick notes, web clippings, ideas |
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
 | **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
@@ -59,7 +59,7 @@ Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
 
 ## Project Doc Format
 
-Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it), a `## Current Objective` (1-2 sentences), and a scannable `## Next Actions`. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. `/morning` renders the root docs into `01 Now/Strategic Overview.md` (read-only dashboard; never hand-edit).
+Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it), a `## Current Objective` (1-2 sentences), and a scannable `## Next Actions`. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. For the active landscape, list the root and read the docs — there is no rendered dashboard (the root listing is the view).
 
 **This Week cap: 30/week binding, 10/day shape** (defaults — tune here; skills treat this section as the SSOT).
 

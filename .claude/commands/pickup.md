@@ -77,7 +77,6 @@ You are helping the user resume previous work with full context.
 
 6. **Read the project-doc root:**
 
-   - Read `{VAULT}/01 Now/Strategic Overview.md` if it exists — /morning's rendered view of the project root. Note its generated-on date; if it predates today, say so and treat the live root listing below as authoritative.
    - List `{VAULT}/03 Projects/*.md` (root only — root = active; folder location is status). For each doc, read its `bucket:` frontmatter and the first line under `## Current Objective`.
    - Count `Cold/` and `Backlog/` docs for the collapsed line — only tiers that exist.
 
@@ -114,7 +113,7 @@ You are helping the user resume previous work with full context.
 - **Speed over completeness.** Load only what's needed, not everything that exists.
 - **No complex interactive menus.** No hide, snooze, pagination, multi-step view toggles. "Show all" is the only expansion permitted.
 - **Session logs are read on demand.** The scan script extracts metadata cheaply for targeted pickup. Only read full session files when the user has selected a specific project or topic.
-- **The project-doc root is the orientation layer** (Strategic Overview is its rendered view). Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; projects are the unit you pick up.
+- **The project-doc root is the orientation layer.** Bare `/pickup` shows what's in flight, not session history. Sessions are implementation details; projects are the unit you pick up.
 - **Folder location is status:** `03 Projects/` root = active, `Cold/` = paused, `Backlog/` = backlog. Check all three when a name doesn't turn up.
 - **Trust your search tools.** Don't over-prescribe search strategies. Use Grep, Glob, and the scan script as appropriate for what the user asked.
 
@@ -122,4 +121,4 @@ You are helping the user resume previous work with full context.
 
 Combined with `/park`, this forms the **park and pickup system**.
 
-**Reads from:** 03 Projects root docs + Strategic Overview (bare mode), Session Logs (via pickup-scan.sh for targeted pickup, direct read for selected topic), Project hubs, Context files
+**Reads from:** 03 Projects root docs (bare mode), Session Logs (via pickup-scan.sh for targeted pickup, direct read for selected topic), Project hubs, Context files
