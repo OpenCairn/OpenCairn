@@ -23,6 +23,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
 - **Parallel cross-model panel despatch** — one seat per model family, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
+- **Seat tiering — judgment floats, verification pins** — judgment/generation seats run the session's model; verification seats may pin to a strong-but-cheaper tier, declared at the despatch site with a reason. → `park` Step 9 (rule: `_shared-rules.md §10`)
 - **Reviewer evidence attestation** — read-list / command / manifest / URL+quote; class outranks votes. → `_shared-rules.md §23`
 - **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
@@ -37,6 +38,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Surface, don't act, on what you can't attribute or verify** — report as finding; never delete or rewrite. → `audit` (deletion discipline), `park` Step 2(b)
 - **Grep with path exclusion** — exclusion via find/rg/pipe, never grep flags. → `park` Step 6, `weekly-hygiene` Step 11
 - **`rg` in runnable blocks, never bare `grep`** — not a drop-in; flags and skip-defaults differ. → `_shared-rules.md §25`
+- **Web-fetch fallback ladder** — free static extractor first; metered scrapers last. → `_shared-rules.md §26`
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
 - **Step-0 vault resolution** — `resolve-vault.sh`; abort on error, never guess; substitute `{VAULT}`. → `_shared-rules.md §1`, `park` Step 0
 - **Sync marker on deliberate duplication** — comment names the twin; update both together. → `podcast-digest`, `transcribecloud` Phase 8
