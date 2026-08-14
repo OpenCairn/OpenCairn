@@ -252,6 +252,8 @@ Ensure day sections exist for today + 6 calendar days ahead (7 total including t
 
 For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (per Tickler SSOT Transfer rules in Section 4).
 
+**This move is gated on the date and nothing else.** Callers carry advisory load thresholds for This Week (`/morning`, `/goodnight`, `/weekly-review`); none of them gate this step. Extending the window into a date is what makes that date's items due, so a section left empty because the window "looks full" is a day section asserting nothing is due while the Tickler still holds the items — the SSOT split this section exists to close. Move them all, then let the caller report the count.
+
 ### Update the heading
 
 Update `# This Week — [start] – [new end] [YYYY]` so the range equals the earliest and latest day-section dates currently in the file.
