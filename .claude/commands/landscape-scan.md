@@ -52,7 +52,7 @@ If error, abort. Set **`COMMANDS_DIR`** = the directory holding this command's s
 
 **If no candidate resolves, abort** and state which paths were tried — every later step reads from `COMMANDS_DIR`, so guessing here corrupts the whole run. If more than one resolves, use the first and record the fact under `## Run diagnostics` in the Step 10 report: the copies should be identical, so a divergence is itself worth surfacing (reconcile with the library's template-sync command if the install has one — the template repo itself ships none). Read `_shared-rules.md` from `COMMANDS_DIR` and apply its rules throughout. All code below uses `{VAULT}` and `COMMANDS_DIR`/`$COMMANDS_DIR` as **placeholders** — substitute the resolved vault path and commands directory; they are not pre-set shell variables.
 
-**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`), the WebSearch tool (the cybersec profile's vendor-advisory discovery), and the Firecrawl MCP for fetch-fallback. These are not portability-guarded — on a non-GNU shell or an install without Firecrawl the affected call fails loudly (a visible error, not a silent wrong answer), at which point the executor substitutes the platform equivalent (e.g. BSD `date -j`, the OS's own package query) or falls back to WebFetch-only. Documented as assumed rather than branched.
+**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`), the WebSearch tool (the cybersec profile's vendor-advisory discovery), and a configured fetch MCP for blocked-page fallback (`_shared-rules.md` §26). These are not portability-guarded — on a non-GNU shell or an install with no fetch MCP the affected call fails loudly (a visible error, not a silent wrong answer), at which point the executor substitutes the platform equivalent (e.g. BSD `date -j`, the OS's own package query) or falls back to WebFetch-only. Documented as assumed rather than branched.
 
 ### 1. Resolve topic and load the profile
 
@@ -130,7 +130,7 @@ If a source is unreachable or a repo has been deleted/moved, note it as "unavail
 Only if digest mode is active. These verification disciplines are domain-agnostic — they apply whatever the topic:
 
 - **Fetch all URLs in parallel.** Don't serialise.
-- **Handle fetch failures gracefully.** If WebFetch returns 403/429/timeout/blocked (common on npm registry, X/Twitter, Cloudflare-protected sites, and some vendor advisories), try `mcp__firecrawl__firecrawl_scrape` as fallback. If both fail, log the URL under "unfetchable" and continue — don't halt the run.
+- **Handle fetch failures gracefully.** If WebFetch returns 403/429/timeout/blocked (common on npm registry, X/Twitter, Cloudflare-protected sites, and some vendor advisories), try a configured fetch MCP as fallback (`_shared-rules.md` §26 — anti-bot-blocked pages are the case that starts at its MCP rung; a credits/quota error counts as unavailable, move on). If all routes fail, log the URL under "unfetchable" and continue — don't halt the run.
 - **Verify suspicious sources before trusting the pitch.** Red flags: engagement-ratio anomalies (many retweets, zero likes → bot amplification); self-promotion by the author without independent endorsement; unverifiable superlatives ("99% accuracy," "permanent fix"); brand-new repo with improbable star counts (astroturfing). For threat profiles, add: unsubstantiated severity claims, vendor marketing dressed as advisory, and "patch available" claims with no CVE or commit to point to.
 - **Fetch the underlying primary source, not just the pitch.** A tweet/blog pointing to a tool → fetch the repo/product page (last commit, issues, licence). A post describing a vulnerability → fetch the CVE record / vendor advisory / commit, and report what's actually confirmed.
 - **Check commit activity on `main`, not just releases.** Stale release ≠ dead; active releases ≠ live `main`. Independent signals — look at both.
@@ -191,7 +191,7 @@ Create `{VAULT}/06 Archive/Landscape Scans/YYYY-Www<suffix>.md`. If that file al
 - [N sources surfaced via the Guidelines category-abstraction rule — NOT in the input pile]
 
 ## Unfetchable
-- [URLs that failed both WebFetch and firecrawl-scrape, with reason; or "None this run."]
+- [URLs that failed WebFetch and every fetch-MCP fallback, with reason; or "None this run."]
 
 ## Run diagnostics
 - [Step 0 multiple commands dirs resolved (which, and that resolution was heuristic); prior scan older than ~2 weeks; no prior scans matched the glob; or "None this run."]
