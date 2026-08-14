@@ -252,13 +252,13 @@ def classify(instruction: str, text: str | None = None, **kw) -> str:
 
 
 def analyze(prompt: str, *, live: bool = False, grokmd: bool = True, **kw) -> str:
-    """Mid-tier analysis: grok-4.3, 1M context. Injects GROK.md by default."""
+    """Mid-tier analysis: the WORKHORSE model. Injects GROK.md by default."""
     return respond(prompt, model=WORKHORSE, live=live, grokmd=grokmd, **kw)
 
 
 def deep(prompt: str, *, effort: str = "xhigh", live: bool = False,
          grokmd: bool = True, **kw) -> str:
-    """Heaviest reasoning: grok-4.5, default effort xhigh. Injects GROK.md."""
+    """Heaviest reasoning: the DEEP model, default effort xhigh. Injects GROK.md."""
     return respond(prompt, model=DEEP, effort=effort, live=live, grokmd=grokmd, **kw)
 
 
