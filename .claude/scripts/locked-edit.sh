@@ -12,6 +12,8 @@
 #   locked-edit.sh <file> --replace       (stdin: OLD <SEP> NEW; OLD must match exactly once)
 #   locked-edit.sh <file> --replace-all   (stdin: OLD <SEP> NEW; replaces every occurrence, >=1)
 #   locked-edit.sh <file> --append        (stdin appended verbatim at end of file)
+#   locked-edit.sh <file> --replace-whole <expected-sha256|MISSING>
+#                                            (stdin: complete replacement file)
 #
 # For --replace/--replace-all, stdin is the old string, then a separator LINE
 # equal to exactly:
@@ -19,7 +21,13 @@
 # then the new string. (A literal separator line must not appear inside content;
 # it won't in normal vault prose.) Matching is LITERAL, never regex.
 #
-# Exit codes: 0 ok · 1 usage/lock error · 2 no match · 3 ambiguous (>1 match under --replace)
+# --replace-whole is a compare-and-swap for generated files whose content may
+# itself contain the separator line. The caller reads a snapshot, supplies its
+# SHA-256 (or MISSING when the target did not exist), and streams the complete
+# replacement on stdin. If another writer changed the target after that read,
+# the hash no longer matches and the write fails safely with exit 2.
+#
+# Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace)
 #
 # Platform: Linux, macOS, Windows (Git Bash). Locking via lib-lock.sh
 # (flock / mkdir fallback); literal string handling via python3.
@@ -32,16 +40,24 @@ source "$(dirname "$0")/lib-session.sh"
 SEP='========OPENCAIRN-LOCKED-EDIT-SEP========'
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <file> --replace|--replace-all|--append" >&2
+    echo "Usage: $0 <file> --replace|--replace-all|--append|--replace-whole [expected-sha256|MISSING]" >&2
     exit 1
 fi
 
 TARGET="$1"
 MODE="$2"
+EXPECTED_SNAPSHOT=""
 
 case "$MODE" in
     --replace|--replace-all|--append) ;;
-    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, or --append)" >&2; exit 1 ;;
+    --replace-whole)
+        if [ $# -ne 3 ]; then
+            echo "--replace-whole requires expected-sha256 or MISSING" >&2
+            exit 1
+        fi
+        EXPECTED_SNAPSHOT="$3"
+        ;;
+    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --append, or --replace-whole)" >&2; exit 1 ;;
 esac
 
 if ! command -v python3 &>/dev/null; then
@@ -70,22 +86,24 @@ export _LE_TARGET="$TARGET"
 export _LE_MODE="$MODE"
 export _LE_SEP="$SEP"
 export _LE_STDIN_FILE="$STDIN_FILE"
+export _LE_EXPECTED_SNAPSHOT="$EXPECTED_SNAPSHOT"
 
 set +e
 python3 - <<'PY'
-import os, sys, tempfile
+import hashlib, os, re, sys, tempfile
 
 target = os.environ["_LE_TARGET"]
 mode   = os.environ["_LE_MODE"]
 sep    = os.environ["_LE_SEP"]
-with open(os.environ["_LE_STDIN_FILE"]) as _f:
-    stdin = _f.read()
+with open(os.environ["_LE_STDIN_FILE"], "rb") as _f:
+    stdin_bytes = _f.read()
 
 def atomic_write(path, data):
     d = os.path.dirname(path) or "."
     fd, tmp = tempfile.mkstemp(dir=d, prefix=".le-", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w") as f:
+        write_mode = "wb" if isinstance(data, bytes) else "w"
+        with os.fdopen(fd, write_mode) as f:
             f.write(data)
         # Preserve the target's existing mode: mkstemp creates the temp file
         # 0600, so without this every locked edit would silently reset the
@@ -99,6 +117,26 @@ def atomic_write(path, data):
         try: os.remove(tmp)
         except OSError: pass
         raise
+
+if mode == "--replace-whole":
+    expected = os.environ["_LE_EXPECTED_SNAPSHOT"]
+    if expected != "MISSING" and not re.fullmatch(r"[0-9a-f]{64}", expected):
+        sys.stderr.write("Invalid expected snapshot for --replace-whole: use a lowercase SHA-256 or MISSING\n")
+        sys.exit(1)
+    if os.path.exists(target):
+        with open(target, "rb") as f:
+            current = f.read()
+        actual = hashlib.sha256(current).hexdigest()
+    else:
+        actual = "MISSING"
+    if actual != expected:
+        sys.stderr.write("Target changed since snapshot read: %s (expected %s, found %s)\n" %
+                         (target, expected, actual))
+        sys.exit(2)
+    atomic_write(target, stdin_bytes)
+    sys.exit(0)
+
+stdin = stdin_bytes.decode()
 
 if mode == "--append":
     existing = ""
@@ -157,7 +195,7 @@ RC=$?
 set -e
 
 _unlock
-unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE
+unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT
 
 # Self-ledger the write. locked-edit.sh bypasses the Write|Edit tools, so the
 # PostToolUse ledger hook (session-ledger.sh) never sees these edits - and the
