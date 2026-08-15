@@ -41,7 +41,7 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 #### 2a. Catch up missed $goodnight
 
-**Read `goodnight.md` (same commands directory as this file) before executing a catch-up.** 2a applies $goodnight's Step 8 report format, Step 9 routing logic, Step 10 collapse format, and Step 15 audit protocol by reference — executing them from this file's paraphrase alone produces catch-up reports that drift from goodnight-produced ones, on the exact archival surface `$weekly-review` parses mechanically.
+**Read `~/.codex/skills/goodnight/SKILL.md` before executing a catch-up.** 2a applies $goodnight's Step 8 report format, Step 9 routing logic, Step 10 collapse format, and Step 15 audit protocol by reference — executing them from this file's paraphrase alone produces catch-up reports that drift from goodnight-produced ones, on the exact archival surface `$weekly-review` parses mechanically.
 
 Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/offline). For each day, in chronological order:
 

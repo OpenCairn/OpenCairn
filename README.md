@@ -204,6 +204,7 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 **Codex CLI (optional):** a rendering of part of the skill library for OpenAI's Codex CLI lives under `codex/` — 13 skills (the day loop, park/pickup, weekly review, project lifecycle, the audit/second-opinion panel, thinking-partner, shop, book-stay, de-ai-ify) plus their shared-rules support files, invoked as `$name` rather than `/name`. To install:
 
 ```bash
+mkdir -p ~/.codex/skills
 cp -r codex/skills/* ~/.codex/skills/
 cat codex/AGENTS.md >> ~/.codex/AGENTS.md   # or cp if you have no AGENTS.md yet
 ```

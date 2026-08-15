@@ -396,10 +396,10 @@ If the commit fails (nothing to commit), that's fine — files are already updat
 
 The repo's `codex/` tree is a distribution copy — Codex CLI reads `~/.codex/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step only if **both** hold; otherwise skip silently:
 
-1. This run accepted at least one `codex/` file in Step 6.
+1. This run accepted or auto-applied (as a new file) at least one `codex/` file in Step 6.
 2. The live install exists: `[ -f "$HOME/.codex/skills/_shared-rules.md" ]` (the OpenCairn support file is the marker — its absence means the user hasn't installed the Codex rendering).
 
-For each accepted `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
+For each accepted or newly added `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
 
 ```bash
 diff -q "codex/skills/<file>" "$HOME/.codex/skills/<file>" 2>/dev/null

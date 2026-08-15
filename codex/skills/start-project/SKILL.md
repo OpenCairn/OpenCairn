@@ -128,7 +128,7 @@ bucket: [bucket from step 2]
 <!-- $park appends session links here -->
 ```
 
-Leave Session History empty apart from the comment — `$park` is the writer (it appends the session link there when it runs — see `park.md` for the exact format, which this file must not restate and let drift). Seeding a link at creation time means fabricating the session number and topic before `$park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `$park` appends only where it exists.
+Leave Session History empty apart from the comment — `$park` is the writer (it appends the session link there when it runs — see `park/SKILL.md` for the exact format, which this file must not restate and let drift). Seeding a link at creation time means fabricating the session number and topic before `$park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `$park` appends only where it exists.
 
 ### 5. Root-cap check
 
