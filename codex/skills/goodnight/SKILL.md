@@ -36,7 +36,14 @@ If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules thr
 ```bash
 date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths and session timestamp
+TODAY="$(date +%F)"
+SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_LOG="$SESSION_DIR/$TODAY.md"
+[ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+printf 'Session log path: %s\n' "$SESSION_LOG"
 ```
+
+**Path invariant:** today's active log is directly under `Session Logs/`, never its `YYYY/` archival subfolder. Use the exact displayed path throughout this run. Shell variables do not persist between tool calls, so re-derive and assert `SESSION_LOG` inside each later session-log call rather than reconstructing it from an archived path.
 
 **Concurrent session check:** Count active Claude instances (excluding this one):
 
@@ -66,7 +73,11 @@ Read and compile:
 **Capture session-file baseline** (load-bearing for Step 14's post-write concurrent-session reconciliation — do NOT rely on remembering this later):
 
 ```bash
-STEP2_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md")
+TODAY="$(date +%F)"
+SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_LOG="$SESSION_DIR/$TODAY.md"
+[ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+STEP2_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_LOG")
 STEP2_LAST_N=$((STEP2_NEXT - 1))
 echo "Step 2 baseline: $STEP2_LAST_N session(s) present (next would be $STEP2_NEXT)"
 ```
@@ -274,7 +285,11 @@ Pre-write probing is superseded: the goodnight session's number is resolved atom
 **Body only — no `## Session N - …` heading.** The script prepends the heading inside the lock. (The script will reject stdin starting with a `## Session N` heading.)
 
 ```bash
-cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "Goodnight: [Brief Topic Summary]" "HH:MMam/pm"
+TODAY="$(date +%F)"
+SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_LOG="$SESSION_DIR/$TODAY.md"
+[ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight: [Brief Topic Summary]" "HH:MMam/pm"
 ### Summary
 [2-3 sentences covering what was reviewed/decided/updated during goodnight]
 
