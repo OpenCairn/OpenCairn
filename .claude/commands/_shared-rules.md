@@ -73,12 +73,13 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/03 Projects/Pro
 ========OPENCAIRN-LOCKED-EDIT-SEP========
 **Last update:** 2026-06-02 - new state
 EOF
-# Other modes: --replace-all (every occurrence), --append (stdin appended at EOF).
-# Exit codes: 0 ok · 1 usage/lock error · 2 no match · 3 ambiguous (>1 match under --replace).
-# Treat 2/3 as a real conflict (a parallel writer changed the region): re-Read the file and
-# recompute, don't loop-retry. Exit 1 with a lock message means another writer holds the lock
-# past the timeout — that is Failure mode B, not a content conflict: report it and stop rather
-# than retrying or falling back to the Edit tool, which is what the lock exists to prevent.
+# Other modes: --replace-all (every occurrence), --append (stdin appended at EOF),
+# --replace-whole <expected-sha256|MISSING> (atomic compare-and-swap from stdin).
+# Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace).
+# For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
+# For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
+# Exit 1 with a lock message means another writer holds the lock past the timeout — that is
+# Failure mode B, not a content conflict: report it and stop rather than bypassing the lock.
 ```
 
 **⛔ After each `locked-edit.sh` call, grep the target for the full padded input form — `^========OPENCAIRN-LOCKED-EDIT-SEP========$` — and not the bare fragment.** The fragment matches any file that merely *documents* the token (several skills and logs do), so it false-positives on exactly the files this library edits most; anchoring on the padded line is what distinguishes residue from prose. Residual false positive, stated so it isn't mistaken for residue: a file carrying the separator inside a fenced code example still matches — this file does, twice. Judge a hit by whether it sits in the region you just wrote, not by the count. A hit means a malformed heredoc left the separator line in the file — remove it under the same lock before continuing. Exit 0 does not rule this out: the script separates on the first occurrence, so a payload with a stray or mis-indented separator can write cleanly and still land the token in the file. The defect is silent and survives into whatever reads the file next.
