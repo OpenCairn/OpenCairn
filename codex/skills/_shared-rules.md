@@ -281,7 +281,7 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...]
   ```
 
-  `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
+  `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion/SKILL.md` Phase 2A.
 
 - **Headless `gemini -p` has no shell tool at all — this is not the `--policy` file's doing.** Verified on gemini 0.40.1 by despatching with *no* `--policy` flag and asking the model to enumerate its own toolset: `update_topic, list_directory, read_file, grep_search, glob, google_web_search, enter_plan_mode, invoke_agent`. `run_shell_command` is absent. So the deny-rule above is belt-and-braces for shell rather than its cause, and **loosening the policy does not buy an executing Gemini seat** — the seat can read, grep and glob, nothing more. Codex is the CLI seat that *can* run commands: `--sandbox read-only` blocks writes, not execution. Two traps: seeing `Tool "run_shell_command" not found` and blaming your own policy (costs a redundant despatch to disprove), and briefing a Gemini seat to "run the tests" — it cannot, so per the pre-flight below the orchestrator runs them and embeds the receipts.
 
