@@ -7,7 +7,7 @@ bulk noise. Produces one markdown file per day in the vault archive.
 
 Sources: ~/.claude/projects/**/*.jsonl (Claude Code) and, when present,
 ~/.codex/sessions/**/*.jsonl (Codex CLI rollouts). Codex sessions are slugged
-`codex-<id8>` and their assistant turns labelled **Codex**; in cwd-scoped mode
+`codex-<id13>` and their assistant turns labelled **Codex**; in cwd-scoped mode
 they are filtered to rollouts whose recorded cwd matches, mirroring the
 per-project scoping of the Claude source. Codex `spawn_agent` payloads are
 encrypted at rest in the rollout — only the task name is exportable.
