@@ -1,0 +1,483 @@
+---
+name: weekly-review
+description: Weekly patterns review - aggregate progress, insights, and alignment
+allow_implicit_invocation: false
+---
+
+# Weekly Review - Patterns Over Time
+
+You are facilitating the user's weekly review. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
+
+## Philosophy
+
+The weekly review creates the crucial link between tactical execution (daily/session level) and strategic direction (monthly/quarterly goals). It's where you catch value drift, spot emerging patterns, and realign effort with priorities. Vault structural maintenance is handled by `$weekly-hygiene` — this command focuses on reflexion and planning.
+
+## Instructions
+
+0. **Resolve Vault Path**
+
+   ```bash
+   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   ```
+
+   If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+
+1. **Check current date and calculate review boundaries** using bash `date` command:
+   - Get current date: `date +"%Y-%m-%d"`
+   - Get ISO week number: `date +"%G-W%V"` (for file naming: YYYY-Wnn.md). `%G` (ISO year), not `%Y` — they differ in the 29 Dec–3 Jan boundary window, and `%Y-W%V` there produces a nonexistent week key that corrupts the latest-file sort.
+   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
+   - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. **The last covered date is the latest of: the dated links AND any "*(no report for [date] …)*" notes in that section** — a review can end on days that produced no daily report (travel/offline days), and taking only the last dated link would make the next review re-cover them. If the review's title date range ends later still, prefer the title's end date and note the discrepancy. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
+   - **Review period ends** at the current date.
+   - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
+   - This command can be run on any day of the week, at any cadence (4-12 days between reviews is normal). Do not assume Sunday-to-Sunday cycles.
+
+2. **Check for Hygiene Report and gather the week's data:**
+
+   **Hygiene report:**
+   - Look for the latest file in `{VAULT}/06 Archive/Claude/Hygiene Reports/` (sorted by filename descending)
+   - If a report exists, parse the week number from its filename (e.g., `2026-W10.md` → W10) and compare to the current ISO week (`date +%G-W%V`):
+     - **Current week:** Read and incorporate — no warning
+     - **Previous week or older:** Warn: "Latest hygiene report is from [week] — vault state may have changed. Consider re-running `$weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
+   - If no reports exist, note this and suggest running `$weekly-hygiene` first (but continue with the review)
+
+   **Week's activity data:**
+   - Read daily reports from `{VAULT}/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
+   - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
+   - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
+   - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
+   - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter plus `## Current Objective` and `## Next Actions`; folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds the **active project cap** (resolve it first: `grep -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent) — flag it and ask which project moves to `Cold/`
+
+   **Schedule-vs-Execution data (Alignment Check input):**
+   - **Cadence gate.** Run `cd "{VAULT}" && git rev-list --count --since="$PERIOD_START 00:00" HEAD` (count over the *actual review period*, so the window and the threshold measure the same span; `rev-list --count` also avoids the `wc -l` missing-final-newline undercount). If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
+   - **Otherwise, for each day in the review period:**
+     - **Post-/morning This Week.md state.** Find the last commit at or before 14:00 vault-local time that day:
+       ```bash
+       cd "{VAULT}" && git rev-list -n 1 --before="YYYY-MM-DD 14:00" HEAD
+       ```
+       Confirm the commit actually falls on the target day (`git show -s --format=%ci $COMMIT`) — `--before` returns the *latest prior* commit, which can be a previous day's. Then `git show $COMMIT:"01 Now/This Week.md"` and parse out that day's section.
+
+       **Locating the day section.** Match `## ` headings by the date they carry, per `_shared-rules.md` §9's heading parse — headings routinely carry leading emoji, an em-dash title and trailing status glyphs (`## ☀️ Thu 23 Jul — [title] ✅`), so match on the day-name + day-of-month token anywhere in the heading and ignore the rest. Never require an exact heading shape, and skip `## ` headings that carry no date (e.g. `## Refs`).
+
+       **Deciding whether the snapshot is post-plan.** A populated `### Morning` subsection is the strongest signal, but it is *not* required — This Week.md does not consistently carry it, and keying on it alone drops fully planned, fully executed days. Treat the snapshot as post-plan if the day section holds any scheduled item bullets (excluding the container headers listed below); use `### Morning` only to prefer one candidate commit over another. If the commit is from an earlier day, or its day section holds no scheduled items, fall back to the first commit *of that day* whose day section does.
+
+       **Distinguish the two null outcomes** — they mean opposite things and the table must not conflate them: no usable commit for that day → `— no snapshot`; a located day section that genuinely holds no scheduled items → `— not planned`.
+     - **Daily report.** Reuse the daily report read above.
+     - **Vault attention profile.** Run:
+       ```bash
+       cd "{VAULT}" && git log --since="YYYY-MM-DD 00:00" --until="YYYY-MM-DD 23:59" --name-only --pretty=format: | sort -u
+       ```
+       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/.Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
+   - **Compute per day:**
+     - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Relationships/[Person]`, not just `04 Areas`).
+     - Executed items, by comparing the daily report's day section against the post-morning state: `- ✓` = checked; `~~strike~~` = dropped; post-morning items absent from the daily report = migrated-out (rolled to a later day before `$goodnight` archived the section); daily-report items absent from the post-morning state = added mid-day. (The daily report carries only plain `- `/`- ✓` bullets — `$goodnight` converts checkboxes on archive and writes no migration suffix, so migrated-out is detectable only by this absence comparison.) Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
+     - Actual attention: aggregate touched files into buckets defined by that week's scheduled-item wikilinks (longest-prefix match); files outside the vocabulary go to a catch-all `(outside scheduled vocabulary)` bucket.
+   - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
+
+   **Sweep for tagged tasks:**
+   - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - Guillotines [GT]: `grep -r "\[GT\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
+   - The trailing `| grep -v` is the correctness backstop, not belt-and-braces: `--exclude-dir` is a silent no-op when `grep` resolves to a drop-in replacement, and without the filter the sweep returns archived items as if live. Never drop it.
+   - Read the matched files and extract the tagged items for review (for [GT], note each hard deadline and whether it's overdue/imminent)
+
+   **Direction (strategic layer):**
+   - Read `{VAULT}/07 System/Context - Direction.md` (if it exists)
+   - Note the current values, strategic plans, and active disciplines for use in the Align section
+   - This is the reference document for "are you working on the right things?"
+
+   **Claude Corrections Log review:**
+   - Read `{VAULT}/07 System/Claude Corrections Log.md`
+   - Identify entries from this week (by date header) under the log's `## Log` tail
+   - **A folded log has two surfaces.** Older history lives above as distilled rule bullets, not as `### ` entries, so before proposing a promotion check whether a rule bullet already covers it — a lesson distilled into a rule is captured, and re-promoting it duplicates the rule into CLAUDE.md
+   - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
+
+3. **Run the weekly review interview:**
+
+Before diving into the lenses below, ask the user once whether they want interactive mode (walk through each lens together) or auto-generate mode (compile answers from data, present for validation). One question upfront — don't re-ask per section.
+
+**Collect - What happened:**
+- "What were the major accomplishments this week?"
+- "Which projects moved forward? Which stalled?"
+- "Time allocation: Where did the bulk of hours go?"
+- If hygiene report exists, reference its scratchpad / tickler / working-memory findings here rather than re-gathering (open loops are not in the hygiene report — they come from the session-log sweep in step 2)
+
+**Reflect - What matters:**
+- "Key insights or learning from this week?"
+- "What patterns emerged? (Good and bad)"
+- "Any surprises - things that were easier or harder than expected?"
+- "What did you overestimate? Underestimate?"
+
+**Align - Priorities check (reference Direction.md if loaded):**
+- "Looking at how you spent time vs your strategic plans - any misalignment?"
+- "What got attention that shouldn't have?"
+- "What didn't get attention that should have?"
+- "Are you working on the right things?" (Check against career and personal strategic plans)
+- "Any disciplines that slipped this week?" (Check against disciplines list)
+- "Anything on the anti-goals list that crept back in?"
+
+**Plan - What's next:**
+- "What's the focus for next week?"
+- "Any course corrections needed?"
+- "Anything to stop doing or delegate?"
+
+4. **Ensure directory exists:**
+   - Check if `{VAULT}/06 Archive/Claude/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Reviews"`
+   - This prevents first-run failures
+
+5. **Generate weekly review:**
+
+Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
+
+**⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already reshuffled This Week.md or a project doc, so any `This Week.md Lnn` carried into this durable review is stale on write. Name items (tasks, project-doc actions, Tickler lines, aged open loops) by title/heading/content.
+
+```markdown
+# Weekly Review — [Date Range]
+
+## Synthesis
+**The week:** [One-line summary of what the week was about and what got done]
+**Honest take:** [Candid 1-2 sentence assessment - alignment, drift, or what the user should hear]
+
+## Session Count
+[Total sessions, daily breakdown table if useful, average per day]
+
+## Major Accomplishments
+[Bullet list of significant progress, completions, milestones]
+
+## Projects Active This Week
+**Advanced:**
+- [[03 Projects/Project A]] - [What moved forward]
+- [[03 Projects/Project B]] - [What moved forward]
+
+**Stalled:**
+- [[03 Projects/Project C]] - [Why stalled, what's blocking]
+
+**Completed:**
+- [[03 Projects/Project D]] - [Outcome achieved]
+
+## Time Allocation
+[High-level breakdown of where hours went]
+- Work/Training: X%
+- Projects: Y%
+- Health/Fitness: Z%
+- etc.
+
+## Key Insights & Patterns
+
+### Wins & What's Working
+[Patterns of success, effective strategies, good decisions]
+
+### Challenges & Friction
+[Recurring problems, inefficiencies, areas needing attention]
+
+### Learning
+[New skills, realisations, mental model updates]
+
+## Alignment Check
+
+### Schedule vs Execution
+*[Populate from Schedule-vs-Execution data gathered in step 2. If the cadence gate failed, render just: "Schedule-vs-Execution reconciliation skipped — vault autocommit cadence below threshold (or no git repo)." Otherwise render the table + profile + divergence list below.]*
+
+| Day | Scheduled | Checked | Added | Migrated |
+|-----|-----------|---------|-------|----------|
+| [Day DD] | N | N | N | N |
+
+*[For a day with no usable snapshot, write `— no snapshot` in the Scheduled cell and leave the rest blank; for a located but empty day section, write `— not planned`. Never render either as `0`.]*
+
+**Folder-attention profile ([period] total, distinct files touched):**
+- [folder at scheduled-vocabulary depth] — N
+- [folder] — N
+- *(outside scheduled vocabulary)* — N
+
+*[If any days flagged by the schema-drift sanity check, append:]*
+⚠ Parser returned zero scheduled items for [day(s)] despite non-zero commits — This Week.md format may have drifted. Spot-check the day section.
+
+*Blind spots:* non-vault work (packing, spoken conversations, reading PDFs) is invisible; deep-work commit sparsity (4h on one file = few commits) under-counts genuine focus.
+
+### Priorities vs Reality
+[Honest assessment: Is effort aligned with stated priorities? The Schedule vs Execution subsection above gives you the mechanical distribution — this subsection is the judgement call on whether that distribution matches what mattered.]
+
+### Value Drift Alerts
+[Any signs of drift toward low-value activities?]
+
+### Aged Open Loops (14+ Days)
+**Stale items requiring action:**
+- Item from Session X (N days old) - Complete, drop, or delegate?
+- Item from Session Y (N days old) - Complete, drop, or delegate?
+
+**Recommendation:** These have lingered for 2+ weeks. Either act or explicitly drop.
+
+### Long Poles [LP], Cornerstones [CS] & Guillotines [GT]
+
+**Long Poles** - Need lead time, can't be rushed:
+- [LP task from file X] - Status/progress this week?
+- [LP task from file Y] - Status/progress this week?
+
+**Cornerstones** - Foundational, other things depend on these:
+- [CS task from file X] - Status/progress this week?
+- [CS task from file Y] - Status/progress this week?
+
+**Guillotines** - Hard deadlines; missing them forecloses the option or causes irreversible loss:
+- [GT task from file X] - Deadline DD Mon YYYY (X days left) - on track? (flag 🔴 overdue / 🟠 ≤30d)
+- [GT task from file Y] - Deadline DD Mon YYYY (X days left) - on track?
+
+**Review:** Are LP items getting attention early enough? Are CS blockers being addressed? Is any GT deadline overdue or imminent? *(For a focused, date-sorted view, run `$guillotines`.)*
+
+### Claude Corrections Log Review
+**New entries this week:**
+- [Date] - [Mistake summary] - Lesson: [key takeaway]
+
+**Promote to active recall?**
+- [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
+
+*Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
+
+### Vault Maintenance
+*Hygiene report from: YYYY-Wnn (current week / stale — re-run recommended / not found)*
+
+[Populated from Hygiene Report if available — see `$weekly-hygiene`]
+
+[Summary of hygiene findings: project-doc health, tier mismatches, tickler items, broken links, etc.]
+
+*If no hygiene report: "No hygiene report available — run `$weekly-hygiene` for vault maintenance."*
+
+### Course Corrections Needed
+[What to adjust for next week]
+
+## What's Next
+
+**Big Rocks (Priority 1):**
+- Most important thing
+- Second priority
+
+**Active Projects:**
+- Project A - [Specific next milestone]
+- Project B - [Specific next milestone]
+
+**Stop/Delegate:**
+[Things to drop or hand off]
+
+## Daily Reports
+[Links to daily reports for drill-down]
+- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Mon
+- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Tue
+- etc.
+```
+
+5a. **⛔ Backstop the review's deadline-bearing items with one dated reminder.**
+
+   The review file is a reflective record, not a task surface — nobody re-reads it, so a course correction naming a deadline dies there, and because writing it down *reads* as acting on it, the next review re-derives the same correction and the item carries indefinitely.
+
+   This step deliberately does **not** route each item to its own dated surface. Doing so needs per-item date resolution, dedup across several files, and conditional writes — more moving parts than a prose step executes reliably, and every part that misfires does so silently. Instead it writes **one** Tickler line pointing back at the review. When that surfaces, `$morning` puts it in front of the user and the existing routers (`$park` Step 7, the day plan) place the individual items with full context. One indirection, one write, almost nothing to get wrong.
+
+   **(a) Scan and list.** Read the review's **Course Corrections Needed** and **What's Next → Big Rocks** sections for items whose text carries a deadline, cut-off, expiry, renewal, or `by` / `before` / `closes <date>` clause. Display them with the date each names. **Trigger-contingent items are not deadline-bearing** — "before the next X runs" has no date to derive; leave them out. If nothing qualifies, emit the nil checkpoint and go to step 6.
+
+   **(b) Pick the reminder date.** Take the **earliest** date found and subtract 3 days of lead time; if that lands today or earlier, use tomorrow. Resolve relative expressions with `date -d` and verify any weekday you write (§7).
+
+   **An item whose deadline you cannot resolve still counts.** If it names an event with no date in its own text ("before the conference"), do **not** go hunting for one and do **not** invent one — leave it out of the earliest-date arithmetic but keep it in the list and in `N`. The pointer model makes this cheap: the reminder's job is to put the user back in front of the review, and an item with a fuzzy deadline needs that more than one with a crisp date, not less.
+
+   **(c) Dedup, then write one line** (§5 — `write-tickler.sh`, never a raw edit). A review re-run in the same ISO week would otherwise add a second line.
+
+   **Use the basename step 5 actually wrote**, collision-guard letter suffix included (`SLUG` below = `YYYY-Wnn` or `YYYY-Wnnb`, …), in **both** the grep and the wikilink. A bare `YYYY-Wnn` is a *prefix* of the suffixed sibling: as a dedup key it matches the earlier review's line and silently suppresses this review's backstop, and as a wikilink it points the reminder at the wrong review. Anchor the grep with the closing `]]` so the match is exact rather than prefix-wise.
+
+   ```bash
+   # 0 → write. Non-zero → a reminder for this review already exists (a re-run of the same
+   # review file); skip the write and report it. Absent Tickler is fine: grep says 0,
+   # write-tickler.sh creates it.
+   grep -cF "Weekly Reviews/SLUG]]" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
+
+   "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" \
+     "- [ ] Weekly review SLUG flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/Claude/Weekly Reviews/SLUG]]"
+   ```
+
+   **This step's disallowed sink is the review file itself** (§18 requires each caller to name its own): a deadline-bearing correction left only in "Course Corrections Needed" or "Big Rocks" is the failure this exists to prevent. One dated pointer discharges the whole set.
+
+   **⛔ CHECKPOINT — display one of:**
+
+   ```
+   ✓ Deadline backstop: N items flagged, reminder set YYYY-MM-DD
+   - "[item]" — [date it names, or "no date in item — listed only"]
+   ```
+
+   ```
+   ✓ Deadline backstop: no course correction or big rock carries a deadline
+   ```
+
+   ```
+   ✓ Deadline backstop: N items flagged, reminder already set YYYY-MM-DD (same-week re-run)
+   ```
+
+   You cannot proceed to step 6 without one of these lines. The item list is the observable — a bare count is reasoning-from-memory.
+
+6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `$weekly-hygiene` for vault maintenance" in that section.
+
+7. **Update project docs** (if needed):
+   - **Write mechanism (F1):** apply these edits through `locked-edit.sh`, never a raw edit (see `_shared-rules.md` §5).
+   - Status changes from the review go to the relevant project doc in `03 Projects/` — update its `## Current Objective` / `## Next Actions`; a pause or resume is a folder move (root ↔ `Cold/`), not a status line
+   - New projects that emerged this week get a doc (via `$start-project`)
+
+8. **Generate Claude Web context summary:**
+
+   Generate a comprehensive context snapshot (~120-150 lines) for the user to import into Claude Web via Settings > Capabilities > Memory > "Import memory from other AI providers" > paste into the "Add to memory" field. This gives Claude Web up-to-date, vault-informed context that merges into its Memory.
+
+   **How Claude Web Memory works:** Claude Web auto-generates a "Memory from your chats" summary nightly from chat history. Imported context merges into this same Memory blob. The nightly regeneration restructures everything into third-person prose with sections like "Work context", "Personal context", "Top of mind", "Brief history". The context file is the user's authoritative, vault-informed self-description — more accurate than what Memory derives from chat patterns alone.
+
+   **Output location:**
+   - Ensure directory: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Context"`
+   - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week, per step 1's `%G-W%V`; unlike the review file, overwriting a same-week context doc is correct — it's a regenerated current-state export, latest wins)
+
+   **Gather context for dynamic sections:**
+   - Read the `03 Projects/` root docs — every active project is a candidate for inclusion, not just "work." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
+   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (same pattern-constrained `LC_ALL=C sort -r` listing as step 1, `head -3`) for trajectory and recent events. The current week's review data is already available from earlier steps.
+   - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because project docs and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a project doc's Next Actions entry, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
+
+   **Read previous context version** to carry forward stable sections:
+   - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/Claude/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
+   - The file has two kinds of sections:
+     - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
+     - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from the project docs): Regenerate fully from the `03 Projects/` root docs, recent weekly reviews, and this week's review data.
+
+   **Stable section verification (anti-confabulation pass).** Carrying-forward propagates whatever was true (or wrong) in the previous version. Errors that entered a stable section once will survive every subsequent week unless explicitly checked. Three rules:
+
+   - **Re-read the source context file at least once a month per stable section** (`07 System/Context - *.md`). Verification metadata lives in a **sibling tracking file at `06 Archive/Claude/Weekly Context/.verification-log.md`** (NOT inside the output doc — the output gets pasted into Claude Web Memory and must stay clean). Schema:
+     ```
+     # Weekly Context Verification Log
+     | Section | Last source-verified (YYYY-MM-DD) | Source file |
+     |---------|-----------------------------------|-------------|
+     | Photography | 2026-05-20 | Context - Photography.md |
+     | Health & Medications | 2026-04-15 | Context - Health.md |
+     ...
+     ```
+     Read this file before generating. For each stable section: if its row is missing OR the date is >30 days old, treat as stale → re-read the source file end-to-end, reconcile divergences, then update the row to today's date. Bootstrap (no log file yet): create it and seed every stable section by reading its source file. Absence is always stale.
+
+   - **Specifically distrust claims about lineage, tradition, methodology, school of thought, or specialist terminology** in stable sections — these are the categories most prone to confabulation. If a stable section names a school/lineage/methodology (e.g. "Dzogchen", "vipassana", "Stoicism", "Effective Altruism"), source-verify on every weekly review regardless of the 30-day timer. First-generation of any such claim requires explicit source-read — no inference from prior conversation, no pattern-match from training data.
+
+   - **No transient state in stable sections — but distinguish instance-status from standing-arrangement.** Stable sections (Photography, Health, Background, etc.) describe **durable** facts: standing arrangements ("primary insurer is X", "GP is at Y clinic"), gear ownership, credentials, relationships, conditions. They do NOT describe **current status of a specific instance**: "claim portal saved, not yet submitted", "awaiting X letter", "expecting reply by Y", "pending approval", "X still outstanding" — these belong in **Active threads** or **Recent Context** where the section regenerates fully each week from current vault state. Test: ask "is this true regardless of what happened in the last 30 days?" If the answer depends on a status that could have flipped within a typical review window, the line is mis-placed — relocate it.
+
+   **Output structure:**
+
+   ~~~
+   Last updated: YYYY-MM-DD
+
+   [1-2 sentence identity/situation summary from CLAUDE.md. Write itinerary/location as a date-anchored timeline, not present-tense — see Staleness rules below.]
+
+   [Active personal context from the project docs that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't all "work" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
+
+   ## Active threads
+   [Top 3-5 from "What's Next" section of this review, plus significant project docs. Include explicit absolute dates / deadlines — never relative ("today", "this week", "tomorrow").]
+
+   ## Recent Context
+   [Key decisions, changes, events from the review period. 2-4 bullets.]
+
+   ## How I Like to Work
+   [Communication preferences from CLAUDE.md. Carry forward from previous version.]
+
+   ## Background
+   [Stable biographical context: citizenship, credentials, practice details, key collaborators, family, housing. Carry forward, update as needed.]
+
+   ## Photography
+   [Gear, websites, aesthetic, editing workflow. Carry forward, update as needed.]
+
+   ## Technical Setup
+   [Devices, OS, NAS, networking, backups, self-hosted services. Carry forward, update as needed. No vault file paths — irrelevant to Claude Web.]
+
+   ## Health & Medications
+   [Current medication stack, fitness approach, relevant conditions. Carry forward, update as needed.]
+
+   ## Interests & Worldview
+   [Core frameworks, influences, political orientation, intellectual interests. Carry forward, update as needed.]
+
+   ## Active Research Interests
+   [Current academic/intellectual pursuits. Refresh from review data.]
+   ~~~
+
+   **Section guidance:**
+   - Not all users will have all sections. Omit any section with no corresponding context file or CLAUDE.md content. The section list above is a superset — match to what the user's vault actually contains.
+   - For stable sections, look for `07 System/Context - *.md` files matching the section topic (e.g., a photography context file for Photography, a health context file for Health & Medications).
+
+   **Constraints:**
+   - ~120-150 lines target. Stable sections should be detailed enough that the user doesn't need to re-explain these domains in web conversations.
+   - Written in third person ("[Name] is...", "He/She prefers...") — Claude Web's Memory system uses third person, and imported content is restructured into the same style. Third person is more predictable and consistent.
+   - Start with `Last updated: YYYY-MM-DD` so staleness is self-evident both in the vault file and after pasting into Claude Web
+   - No wikilinks, callouts, or dataview queries — standard markdown (headers, bullets, bold) is fine
+   - No vault file paths (irrelevant to Claude Web)
+   - Factual and current
+   - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
+   - **Stable sections: carry forward, BUT verify per the Stable section verification rules above** (monthly source re-read, plus distrust lineage/tradition/methodology claims always).
+   - **Dynamic sections: regenerate fully** from this week's review data with recency weighting, reconciling every status fact against This Week.md per the gather-step rule above (the day plan wins over project-doc/session-log/prior-doc surfaces).
+   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and project docs (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
+
+   **Staleness rules (mandatory).** Claude Web Memory persists between conversations and the doc may be re-pasted weeks after generation. The doc must read sensibly N weeks after the `Last updated:` date.
+
+   - **Banned vocabulary anywhere in the body:** `today`, `tonight`, `tomorrow`, `yesterday`, `currently`, `right now`, `now in`, `this week`, `next week`, `as of today`, `upcoming`, `imminent`, `shortly`, `soon`, `in flight`, `at present`, `of late`, `in the next` (e.g. "in the next few days"). Replace with absolute dates or "as of doc date".
+   - **Banned constructions:**
+     - **Day-counters that drift:** "day 5 of 6", "week 2 of retreat", "N nights in"
+     - **In-flight present-tense for transient events:** "departing 17:35", "checking in tonight", "flight lands at"
+     - **Bare day-name + day-of-month without month context:** any "Mon 18", "Sat 16", "Wed 13", "Thu 7" used outside a sentence that already names the month. Even inside a clearly-dated paragraph, prefer "Mon 18 May" — the doc may be re-read 6 months later when no nearby month anchor is in working memory.
+     - **Section titles or headings that are themselves stale-prone:** "What I'm Working On Right Now" → use "Active threads"; any "Now"-anchored heading is banned.
+   - **Required for dated claims:** every fact with a date should be either (a) an absolute date ("Mon 18 May 2026" or "Mon 18 May"), (b) date-bounded ("SLA expires Fri 22 May"), or (c) explicitly anchored ("as of 20 May" / "as of doc date").
+   - **Travel/itinerary framing:** write as a date-anchored timeline ("Trip 2 finished 14 May → leg 1 city 20 May – 2 Jun → leg 2 city 5-19 Jun → home ~20 Jun"), not as present location ("Currently in [city], day 5 of 6"). The reader infers location from the date stamp + timeline.
+   - **Present-tense state about transient things** (location, TZ, weight, med dose if changing, flight, claim/portal status that's days from resolution) must either include "as of doc date" or be reframed to past-tense with an action date ("Insurance claim lodged Thu 7 May" — the wait is implicit; "Medication X on-stack since 1 May 2026" — durable until restated).
+
+   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md`, run a literal Bash grep to verify the banned vocabulary is absent:
+
+   ```bash
+   grep -niE '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md"
+   ```
+
+   Acceptable hits: banned terms inside quoted text (someone else's email phrasing, e.g. a cited email saying "end of next week") that the doc is faithfully citing. Every other hit must be revised. Re-run grep after each revision. Iterate until clean (no hits or only quoted-citation hits remain). Report the final scrub result in the confirmation step (e.g. "Banned-vocab scan: 0 hits" or "Banned-vocab scan: 1 hit, in quoted email citation — acceptable").
+
+   After the grep is clean, re-read the file end-to-end with the test question: "would this read sensibly on [doc date + 4 weeks]?" If any line fails, fix it. The `Last updated:` stamp is a fallback, not a licence to write stale prose.
+
+9. **Display confirmation with pre-paste review gate:**
+
+```
+✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
+✓ Projects reviewed: N active, M completed, P stalled
+✓ Deadline backstop: N items flagged, Tickler reminder set YYYY-MM-DD [OR "no resolvable deadlines"]
+✓ Hygiene report: [Incorporated / Not found — run $weekly-hygiene]
+✓ Claude Web context drafted: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md
+  - Banned-vocab scrub: [N hits / clean; if hits, list location and whether quoted-citation acceptable]
+  - Lineage/methodology claims: [N found; all source-verified against `Context - *.md` / none found]
+  - Sections re-verified this run (>30 days stale or bootstrap): [list]
+  - Verification log updated: 06 Archive/Claude/Weekly Context/.verification-log.md
+✓ What's next: [Top 2-3 priorities]
+
+Weekly review complete.
+
+⚠ BEFORE PASTING into Claude Web Memory: review the context doc end-to-end. The scrubs above are model-self-checks and have a known gloss-risk. Errors caught in past iterations: confabulated lineage attributions, stale insurance/claim status carried forward, sections describing transient state. Two-minute read by the user is the durable backstop.
+
+Recommended: Skim the weekly review itself at the start of next week to set the week's direction.
+```
+
+## Guidelines
+
+- **Always check current date:** First step - run `date` command to calculate accurate week boundaries. Never assume.
+- **Patterns over details:** Look for recurring themes, not exhaustive documentation
+- **Honest alignment check:** This is where you catch yourself working on the wrong things
+- **Forward-looking:** Use insights to improve next week, not just to record past week
+- **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
+- **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
+- **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
+- **This Week load** (resolve the thresholds first: `grep -F '**This Week cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the two values found — the `N/week` window figure and the `N/day` day figure, tuned there to the user's observed completion throughput. The line's key is historically named `cap`; the values are **advisory flags, not limits**. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line that does not yield both values, means state `threshold line unreadable — using defaults 30/week, 10/day` and proceed on those, so a failed read is never mistaken for a vault that states none. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the defaults): count the unchecked items in the forward window of `01 Now/This Week.md` (today + the 6 forward days) and per day, and **report both figures against their thresholds** as a load reading in the review. Route What's Next items into This Week.md on their merits; the count is reported, never used to block a write or to ask which items drop. **This is the review's honest-mirror surface, not a gate** — a window persistently over its figure is the finding worth naming in the synthesis (throughput is below intake, so either the threshold is mistuned or the week is overcommitted), and that observation is worth more than a refusal would have been.
+
+## Frequency
+
+Run whenever the user requests it. Typical cadence is every 4-12 days — there is no fixed day-of-week requirement. The review period adapts to cover whatever time has elapsed since the last review.
+
+## Integration with Other Commands
+
+- **Consumes `$weekly-hygiene`:** Reads the hygiene report for vault maintenance findings — no need to re-gather
+- **Synthesises daily reviews:** Aggregates daily patterns into weekly insights
+- **Informs project planning:** Identifies what needs attention, what to drop
+- **Feeds into monthly/quarterly reviews:** (If the user implements those)
+- **Alignment with philosophy:** Connects tactics to values (see Philosophy & Worldview context)
+
+This creates a **review rhythm** that prevents value drift and ensures high-level course correction.
+
+## Goal Alignment (Optional Enhancement)
+
+If the user starts tracking explicit goals in the vault:
+- Compare weekly effort to goal progress
+- Flag misalignments ("You spent 40% of time on X, but it's not in your top 3 goals")
+- Suggest reallocation or goal updates

@@ -1,10 +1,10 @@
 # Shared Rules
 
-Operational rules referenced by multiple commands. Commands load this file in Step 0 after vault path resolution:
+Operational rules referenced by multiple skills. **Codex CLI port** — the Claude Code original lives at `~/.claude/commands/_shared-rules.md`; until one library retires, a rule change lands in both files. Skills load this file in Step 0 after vault path resolution:
 
-> Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill.
+> Read `_shared-rules.md` from `~/.codex/skills/` and apply its rules throughout this skill.
 
-This prevents rule divergence across every command that loads it (~20 of the library's commands; standalone tools like `/transcribe` and `/ocr` don't). Change a rule once here — all loading commands follow it.
+This prevents rule divergence across every skill that loads it. Change a rule once here — all loading skills follow it.
 
 ---
 
@@ -12,7 +12,7 @@ This prevents rule divergence across every command that loads it (~20 of the lib
 
 After running `resolve-vault.sh`, if it errors: **abort — no vault accessible.** Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.
 
-**Use the resolved path for all file operations.** Code examples in commands use `{VAULT}` as a placeholder — substitute the literal resolved path wherever `{VAULT}` appears before executing. Do NOT rely on a `$VAULT` shell variable persisting across Bash calls — shell state does not persist between calls, so the variable will be empty.
+**Use the resolved path for all file operations.** Code examples in skills use `{VAULT}` as a placeholder — substitute the literal resolved path wherever `{VAULT}` appears before executing. Do NOT rely on a shell variable set in an earlier call persisting — each shell call is a fresh process, so the variable will be empty. `$VAULT_PATH` itself is safe inline: Codex runs commands via `/bin/bash -lc`, which re-reads the profile that exports it.
 
 ---
 
@@ -23,7 +23,7 @@ When a session or task links to a project context:
 - **Finite work (in flight)** → link to `03 Projects/[name].md` (or `03 Projects/Backlog/[name].md`)
 - **Ongoing area work** → link to `04 Areas/[path]/[name].md`
 - **Shipped one-shot work** (published blog post, completed migration, resolved bug, anything finite that's now done with no ongoing tracking need) → link to an *existing* area hub that naturally groups related work. **Do not create a project file retroactively.** The "finite work → project file" rule above is calibrated for in-flight finite work where a project file earns its cost by hosting the task queue; once the work ships, the task queue is empty and a retroactive project file is noise. Example: a published post on your blog links to `[[04 Areas/Blog/Blog]]`, not a newly-created post-specific project file.
-- **Operational/meta work with no natural project or area home** (e.g. /morning, /goodnight, general sysadmin, security hygiene, vault maintenance) → `Project: None (operational <scope>)` — e.g. `None (operational /morning)`, `None (operational tech-infra)`. Don't reach for a loosely-related project to fill the slot; `None` is the correct answer.
+- **Operational/meta work with no natural project or area home** (e.g. $morning, $goodnight, general sysadmin, security hygiene, vault maintenance) → `Project: None (operational <scope>)` — e.g. `None (operational $morning)`, `None (operational tech-infra)`. Don't reach for a loosely-related project to fill the slot; `None` is the correct answer.
 - **Never link to:** Resources, Archive, or 07 System files (these are references and meta, not project/area homes).
 - **No canonical home and work is still in flight?** Create a project or area file. Small one-off items may simply live in This Week or the Tickler with no home doc.
 - **Working in Resources?** That's a signal it should graduate to an Area
@@ -56,18 +56,18 @@ When migrating Tickler items:
 
 ## 5. File Locking Mandate
 
-**Use `flock` via dedicated scripts, NOT the Edit tool.** The Edit tool has no file locking — if two Claude instances edit the same file simultaneously, one write silently overwrites the other.
+**Use `flock` via dedicated scripts, NOT lockless edits.** Codex's patch/editor mechanism and ad-hoc shell writes (`sed -i`, `>` redirection, `tee`) have no file locking — if two agent sessions edit the same file simultaneously, one write silently overwrites the other. This vault runs concurrent sessions, across two harnesses (Claude Code and Codex): the canonical lock is the only thing serialising them.
 
-**Why dedicated scripts instead of inline flock:** Claude Code's permission system saves the entire bash command as a permission pattern in `settings.local.json`. Multi-kilobyte session summaries inside flock commands bloat the settings file. The scripts (`write-session.sh`, `add-forward-link.sh`, `write-tickler.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`) receive content via stdin or arguments — the permission system only stores the short script invocation, not the payload.
+**Why dedicated scripts instead of inline flock:** the scripts (`write-session.sh`, `add-forward-link.sh`, `write-tickler.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`) receive content via stdin or arguments, lock the target's canonical lock path, and write atomically. An inline flock reimplementation locks a different path and coordinates with nothing (see Failure mode B below).
 
-### Planning-file writes go through `locked-edit.sh` (NOT the Edit tool)
+### Planning-file writes go through `locked-edit.sh` (NOT apply_patch or raw writes)
 
-**Every mutation of a shared planning file — `01 Now/This Week.md`, `01 Now/Tickler.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`, not the Edit tool.** These files are written by `/park`, `/goodnight`, `/morning`, `/weekly-hygiene`, `/weekly-review`, `/start-project`, and `/complete-project`; any two running concurrently (e.g. a scheduled `/goodnight` while you `/park`) would silently clobber each other through the lockless Edit tool. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
+**Every mutation of a shared planning file — `01 Now/This Week.md`, `01 Now/Tickler.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`.** These files are written by $park, $goodnight, $morning, $weekly-hygiene, $weekly-review, $start-project, and $complete-project — from either harness; any two running concurrently (e.g. a scheduled $goodnight while you $park) would silently clobber each other through a lockless edit. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
 
-**Creation is not mutation — a first write uses `Write`, not the lock.** The rule above governs *editing existing content*: the hazard it prevents is a lost read-modify-write cycle, and a file that does not yet exist has no content to lose. (`locked-edit.sh` *can* create a missing target — that capability is real, it is simply not the reason to reach for it.) The genuine risk when creating is two sessions racing to create the *same* file, and the lock does not address that: it would serialise both writes and report success twice. That is a name-collision check's job, owned by the creating skill's own conflict step, which must test both the file path **and** any index/dashboard heading the new file claims. A skill whose Step-N creates a project or area doc should say so explicitly rather than leaving the mechanism unstated, since an unstated mechanism reads as an oversight against this section.
+**Creation is not mutation — a first write uses a direct write, not the lock.** The rule above governs *editing existing content*: the hazard it prevents is a lost read-modify-write cycle, and a file that does not yet exist has no content to lose. (`locked-edit.sh` *can* create a missing target — that capability is real, it is simply not the reason to reach for it.) The genuine risk when creating is two sessions racing to create the *same* file, and the lock does not address that: it would serialise both writes and report success twice. That is a name-collision check's job, owned by the creating skill's own conflict step, which must test both the file path **and** any index/dashboard heading the new file claims. A skill whose Step-N creates a project or area doc should say so explicitly rather than leaving the mechanism unstated, since an unstated mechanism reads as an oversight against this section.
 
 ```bash
-# Replace a unique block (old_string must match exactly once, like the Edit tool):
+# Replace a unique block (old_string must match exactly once):
 cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/03 Projects/Project Name.md" --replace
 **Last update:** 2026-06-01 - old state
 ========OPENCAIRN-LOCKED-EDIT-SEP========
@@ -78,7 +78,7 @@ EOF
 # Treat 2/3 as a real conflict (a parallel writer changed the region): re-Read the file and
 # recompute, don't loop-retry. Exit 1 with a lock message means another writer holds the lock
 # past the timeout — that is Failure mode B, not a content conflict: report it and stop rather
-# than retrying or falling back to the Edit tool, which is what the lock exists to prevent.
+# than retrying or falling back to a direct edit, which is what the lock exists to prevent.
 ```
 
 **⛔ After each `locked-edit.sh` call, grep the target for the full padded input form — `^========OPENCAIRN-LOCKED-EDIT-SEP========$` — and not the bare fragment.** The fragment matches any file that merely *documents* the token (several skills and logs do), so it false-positives on exactly the files this library edits most; anchoring on the padded line is what distinguishes residue from prose. Residual false positive, stated so it isn't mistaken for residue: a file carrying the separator inside a fenced code example still matches — this file does, twice. Judge a hit by whether it sits in the region you just wrote, not by the count. A hit means a malformed heredoc left the separator line in the file — remove it under the same lock before continuing. Exit 0 does not rule this out: the script separates on the first occurrence, so a payload with a stray or mis-indented separator can write cleanly and still land the token in the file. The defect is silent and survives into whatever reads the file next.
@@ -101,19 +101,18 @@ Three distinct failure modes can trip up file edits during a skill's execution. 
 
 > **Portability note:** the diagnostic commands below (`fuser`, `/proc/<PID>/wchan`, `pkill`, GNU `stat -c`) are Linux-specific. On macOS/Windows Git Bash, identify hung script processes with `ps -ef | grep <script-name>` and kill by PID; skip the `/proc` checks.
 
-#### Failure mode A: Edit tool refuses with "modified since read"
+#### Failure mode A: an editor-tool patch fails because the file changed underneath it
 
-Symptom: `Edit` tool returns "File has been modified since read, either by the user or by a linter." even after a fresh `Read`.
+Symptom: a patch/edit against a shared file fails to apply because the file's content no longer matches what was just read.
 
 Likely causes (in decreasing probability):
-1. A PostToolUse hook (e.g. britfix) fired on a prior write and advanced mtime between this Read and Edit
-2. A parallel Claude session is editing the same file
-3. Syncthing bidirectional sync with the NAS mirror advanced mtime
-4. An Obsidian background process touched the file
+1. A parallel agent session (either harness) is editing the same file
+2. Syncthing bidirectional sync with the NAS mirror rewrote the file
+3. An Obsidian background process touched the file
 
-**Diagnostic:** `stat -c '%y' "$file"` immediately before the Read and immediately before the Edit. If mtime advances between them with no intervening write from this session, an external process is touching the file.
+**Diagnostic:** `stat -c '%y' "$file"` immediately before the read and immediately before the edit. If mtime advances between them with no intervening write from this session, an external process is touching the file.
 
-**Remediation:** Don't loop-retry the Edit tool. Use `locked-edit.sh` (see Section 5) — for planning/hub files this is the primary path anyway, not just a fallback:
+**Remediation:** Don't loop-retry the edit. Use `locked-edit.sh` (see Section 5) — for planning/hub files this is the primary path anyway, not just a fallback:
 
 ```bash
 cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "/absolute/path/to/file.md" --replace
@@ -123,13 +122,13 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "/absolute/path/to/file.
 EOF
 ```
 
-This skips the Edit tool's mtime freshness check entirely and performs an atomic read-modify-write under the file's canonical lock. It supersedes the old inline `fcntl.flock` snippet for this purpose: that snippet (a) is Unix-only — `fcntl` does not exist on Windows Git Bash, which the script suite supports — and (b) locked the target file directly rather than the canonical `.lock` sibling, so it didn't coordinate with the dedicated scripts. `locked-edit.sh` fixes both.
+This performs an atomic read-modify-write under the file's canonical lock, immune to the file having moved on since your read — the literal match either finds the region or fails loudly (exit 2/3).
 
 #### Failure mode B: Session-management script times out on its lock
 
 Symptom: `write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, or `add-forward-link.sh` exits with code 1 and "Lock timeout after 10s / Failed to acquire lock."
 
-Likely cause: **a prior invocation of the same script is still running and holds the flock.** This happens when the Bash tool backgrounded an earlier invocation and the script got stuck — most commonly, scripts fed via heredoc (`cat <<EOF | script.sh ... EOF`) can block forever in `read` from their stdin pipe if the Bash tool backgrounded the shell before the pipe writer finished. The script is blocked in `anon_pipe_read` on fd 0, still holding fd 9 on the `.lock` file.
+Likely cause: **a prior invocation of the same script is still running and holds the flock.** This happens when the harness backgrounded an earlier invocation and the script got stuck — most commonly, scripts fed via heredoc (`cat <<EOF | script.sh ... EOF`) can block forever in `read` from their stdin pipe if the harness backgrounded the shell before the pipe writer finished. The script is blocked in `anon_pipe_read` on fd 0, still holding fd 9 on the `.lock` file.
 
 **Diagnostic — find the hung process, don't work around it:**
 ```bash
@@ -154,27 +153,19 @@ After killing, the lock releases and subsequent script invocations work normally
 
 **Why Python+flock is only a partial fallback here.** The scripts lock a *separate* `.lock` sibling file (e.g. `06 Archive/Claude/Session Logs/.lock`), while Python+flock locks the *target* session log file directly. These are two different inodes, two different locks — they do not coordinate at all. Python "works" not because it's stronger than the shell `flock(1)` command (both use `flock(2)` under the hood), but because it's locking a different file entirely and therefore doesn't contend with the hung script. This means:
 
-- **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another Claude session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
+- **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another agent session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
 - **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
 - **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. This Week/Tickler/project-doc/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
 
-#### Failure mode C: Bash tool backgrounds a command that finishes normally
+#### Failure mode C: command killed by the harness timeout or blocked by the sandbox
 
-Symptom: A simple command (`ls`, `stat`, `wc -l`, `mount`, etc.) returns "Command running in background with ID: bXXXX" instead of returning its output inline. The command may have actually completed — check the task output file before assuming it's hung.
+Symptom: a script dies abruptly with partial or no output, or fails with a permission error it would not produce in a plain terminal.
 
-Likely cause: The Bash tool's harness has heuristics for backgrounding commands that it considers long-running. These heuristics sometimes fire on commands that complete in milliseconds, especially during sessions with many rapid tool calls.
+Likely causes: the harness kills commands that exceed its execution timeout; under `workspace-write` sandboxing, writes outside the workspace roots (and most network access) are denied. [Exact timeout and denial behaviour unverified — verify against a real long-running script before leaning on this subsection.]
 
-**Diagnostic:**
-```bash
-# Retrieve output from the task file (path is in the tool result)
-cat /tmp/claude-XXXX/.../tasks/bXXXX.output
-# Check if the command's process still exists
-ps -p <PID from backgrounding message> 2>&1
-```
+**Diagnostic:** re-run the failing command alone with a generous window; if it is a sandbox denial, the error names the blocked operation.
 
-**Remediation:** If the output file has the expected content, the command finished successfully — just use it. If the process is still alive after many seconds and the output is empty, it may be stuck; inspect and kill per Failure mode B.
-
-**Prevention:** For simple diagnostics, prefer small focused commands and read the output promptly. Avoid chaining many commands with `;` or `&&` in one Bash tool call — each chain element can trigger backgrounding heuristics.
+**Remediation:** for a timeout, re-run and let it complete; for a sandbox denial, confirm the target path sits inside the workspace (launch Codex from `$HOME` — or any directory containing the vault — so the vault is covered) rather than working around the sandbox. A script killed mid-`locked-edit.sh` cannot half-write the target (the write is atomic via `os.replace`), and the lock releases with the dying process (flock is fd-scoped; the mkdir fallback's stale-lock recovery clears the rest) — so recovery is simply re-running the edit.
 
 #### Section-targeted append patterns (when scripts are unavailable)
 
@@ -214,15 +205,15 @@ Session links now live in project docs' `## Session History`; no dashboard cap a
 
 ## 8. Skill Monitor
 
-When executing any slash command, also follow the instructions in `_skill-monitor.md` (same commands directory as this file). Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and log it per `_skill-monitor.md` at the end. Do not propose edits in-session; the log is processed weekly by `/weekly-hygiene`.
+When executing any slash command, also follow the instructions in `_skill-monitor.md` (same directory as this file; if it has not been ported to Codex yet, log observations directly to `07 System/Skill Monitor Log.md` in the vault, matching its existing entry format). Watch for gaps in the command's logic. If you improvise a step that isn't documented, if a mistake could have been caught by a better checklist item, or if a documented step turns out unnecessary — note it and log it per `_skill-monitor.md` at the end. Do not propose edits in-session; the log is processed weekly by `$weekly-hygiene`.
 
 ---
 
 ## 9. This Week.md Rolling Window Maintenance
 
-This procedure keeps the rolling 7-day window current. It runs during `/morning` (step 6) and `/goodnight` (step 11). If This Week.md doesn't exist, skip entirely.
+This procedure keeps the rolling 7-day window current. It runs during `$morning` (step 6) and `$goodnight` (step 11). If This Week.md doesn't exist, skip entirely.
 
-**Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, not the Edit tool (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections. `--append` adds at EOF, so it is valid for new day sections **only when the file has no trailing non-day content**; if a `---` / `## Refs` / other trailing section exists, use `--replace` on the trailing boundary block instead (per the placement rule below).
+**Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, never apply_patch or a raw write (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections. `--append` adds at EOF, so it is valid for new day sections **only when the file has no trailing non-day content**; if a `---` / `## Refs` / other trailing section exists, use `--replace` on the trailing boundary block instead (per the placement rule below).
 
 ### Trim old day sections
 
@@ -235,7 +226,7 @@ Delete any day sections whose date is more than 3 calendar days before today. Pa
    BODY=$(awk -v z=0 'f && /^## /{exit} index($z, "## HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/This Week.md")
    printf '%s\n' "$BODY" | grep -nE '^[[:space:]]*-[[:space:]]*\[ \]'
    ```
-   Route every match forward before removing the section — into today's section (or the relevant future day / Tickler, per the caller's routing rules), preserving existing project/area links. **Only after the sweep**, delete the heading and all content until the next `## ` heading. Normally `/goodnight` has already routed undone items nightly, so eligible sections are clean and the grep returns nothing — but across a multi-day gap where `/goodnight` never ran (travel, offline), a trimmed day can still hold live `- [ ]` tasks, and deleting without the sweep silently drops them. Completed (`[x]`) items need no sweep — they're archived in the Daily Report.
+   Route every match forward before removing the section — into today's section (or the relevant future day / Tickler, per the caller's routing rules), preserving existing project/area links. **Only after the sweep**, delete the heading and all content until the next `## ` heading. Normally `$goodnight` has already routed undone items nightly, so eligible sections are clean and the grep returns nothing — but across a multi-day gap where `$goodnight` never ran (travel, offline), a trimmed day can still hold live `- [ ]` tasks, and deleting without the sweep silently drops them. Completed (`[x]`) items need no sweep — they're archived in the Daily Report.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 
 ### Extend the window
@@ -252,7 +243,7 @@ Ensure day sections exist for today + 6 calendar days ahead (7 total including t
 
 For each newly created day section, convert to YYYY-MM-DD format and check Tickler.md for a matching `## YYYY-MM-DD` date header. Move any unchecked items from that Tickler section into the new day section and delete from Tickler (per Tickler SSOT Transfer rules in Section 4).
 
-**This move is gated on the date and nothing else.** Callers carry advisory load thresholds for This Week (`/morning`, `/goodnight`, `/weekly-review`); none of them gate this step. Extending the window into a date is what makes that date's items due, so a section left empty because the window "looks full" is a day section asserting nothing is due while the Tickler still holds the items — the SSOT split this section exists to close. Move them all, then let the caller report the count.
+**This move is gated on the date and nothing else.** Callers carry advisory load thresholds for This Week (`$morning`, `$goodnight`, `$weekly-review`); none of them gate this step. Extending the window into a date is what makes that date's items due, so a section left empty because the window "looks full" is a day section asserting nothing is due while the Tickler still holds the items — the SSOT split this section exists to close. Move them all, then let the caller report the count.
 
 ### Update the heading
 
@@ -270,20 +261,24 @@ If the title and the first/last day sections disagree, the window edit is incomp
 
 ## 10. Invoking Gemini & Codex (CLI sandbox, vision, panel despatch)
 
-Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonical read-only despatch block — the **single source of truth** for these commands; `/audit` and `/second-opinion` point here rather than carrying their own copies.
+Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonical read-only despatch block — the **single source of truth** for these commands; `$audit` and `$second-opinion` point here rather than carrying their own copies.
 
 - **Gemini file reads are sandboxed to the workspace = the cwd it was launched from** (plus its project temp dir `~/.gemini/tmp/<hash>`) — NOT the home directory. Verified 2026-06-11 on gemini 0.40.1: launched from `~`, a read of `/tmp/<file>` fails "Path not in workspace"; launched from `/tmp`, a read under `~` fails the same way. Three remedies: launch from the target's root; pass `--include-directories <root>` (verified to extend the workspace); or **pipe text via stdin** — `cat <file> | gemini -p "..."` — so the sandbox never applies to the brief itself. Headless gemini also **hard-refuses to start in an untrusted directory** ("not running in a trusted directory") — when despatching from outside your trusted set, set `GEMINI_CLI_TRUST_WORKSPACE=true` or pass `--skip-trust`.
 - **Vision/OCR via the CLI is unreliable** — it may not pass an image as a true vision input and frequently refuses outright ("I cannot perform OCR for handwriting"). For any image task, **bypass the CLI and call the REST API** (`generativelanguage.googleapis.com/.../generateContent`) with inline base64 and `GEMINI_API_KEY` (set in env and `~/.gemini/.env`). Python stdlib `urllib` is enough — no SDK install.
 - **Keep Gemini read-only with a `--policy` file, not `--approval-mode plan`** — `plan` blocks `run_shell_command` but still exposes the `replace`/`write_file` edit tools, so a skill that briefs Gemini to propose changes can have them written straight into the target. Verified on gemini 0.40.x: a deny-rule policy strips the named tools from the model entirely (it reports them "not found") while reads stay intact — a hard guarantee. The policy file needs **no `.toml` extension** (verified 0.40.1), so create it with portable `mktemp` — GNU-only `--suffix` breaks BSD/macOS. **Don't** put the file in `~/.gemini/policies/` (auto-loaded for *every* invocation → would make all gemini sessions read-only); use an explicit temp path. After a panel run, check whether the reviewer **attempted** an edit: if it did, it must have reported the tool "not found"/unavailable — an edit that *succeeded* means the policy didn't load; treat the run as contaminated. A clean review with no edit attempt produces no such report (the tools are only reported missing when called) — for that case, and on the no-`--policy` fallback, the `git status`/snapshot backstop is the verification.
-- **Canonical read-only panel despatch block.** The Claude seat is the Agent tool with the brief contents verbatim as its prompt; the CLI seats run via Bash with `timeout: 300000` passed as the **Bash-tool argument** on each call (it is not a shell flag — the default 120s kills reviewers mid-review):
+- **Canonical read-only panel despatch block.** Under Codex, the harness-native seat is a fresh `codex exec --sandbox read-only` despatch with the brief contents verbatim on stdin — ⚠ when Codex is the primary harness, that seat shares the primary's model and is **not an independent voice**: announce the reduced independence in the synthesis, and swap in the Claude seat when Claude Code is available — working form in the block below, verified: the read-only set holds under an active write attempt (no write path in the seat's toolset, and a spawned sub-agent inherits the restriction), and `--output-format json` yields `.session_id` (capture for Mode B) and `.result` (the review text). Panel reviews run 2–5 minutes; the CLI seats run via the shell, so confirm the harness's command timeout does not kill them mid-review before the first real despatch [unverified under Codex — measure, then record the mechanism here]:
 
   ```bash
   RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
   printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
-  # Each CLI call below: pass timeout 300000 as the Bash TOOL argument (not a shell flag)
+  # Each CLI call below runs 2-5 min: make sure the harness's command timeout allows it (see the bullet above)
   cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
   cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -C <root> -
-  ~/.claude/scripts/xai_client.py --panel-review <brief> --source <target> [--source <target> ...]
+  # Claude seat, when Claude Code is available (jq: .session_id for Mode B resume, .result = the review):
+  cat <brief> | claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
+  # Mode B round 2 (re-pass the flags; the resumed session keeps its prior context):
+  # cat <round2> | claude -p --resume <session_id> --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
+  "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...]
   ```
 
   `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion.md` Phase 2A.
@@ -299,25 +294,25 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
 - **The Grok seat is an API seat, not a CLI seat — it reads nothing.** `xai_client.py` posts to xAI's Responses API over stdlib `urllib`; it has no filesystem access, so the target must be passed with `--source` and is inlined into the prompt as a delimited appendix. Three consequences that the other two seats don't have:
   - **Manifest in place of a read-list.** The wrapper appends each source as `path | bytes | sha256` and instructs the seat to reproduce that manifest verbatim and quote what it relied on. That manifest is this seat's evidence standard — the attestation rule (**§23**) is satisfied by the manifest, not waived. §23 carries the enforcement test; note it requires manifest **and** quoted passages, so supplying only one fails.
   - **Size cap, fail-closed.** `MAX_INLINE_BYTES` (400 KB, ~100k tokens — kept under xAI's >200k-token tier where the per-token rate doubles). Over the cap the wrapper raises and the seat is **dropped with the reduced panel announced**; it never silently truncates, because a truncated appendix produces confident findings about text the seat never saw.
-  - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when `XAI_API_KEY` is set, 1 otherwise. Probe *before* despatch — an unset key must degrade to a three-seat panel up front, not fail mid-run. Note the key must be in the environment the Bash tool actually runs in; a key exported only in `~/.bashrc` will not reach a non-interactive shell (same trap as `second-opinion.md` Phase 2A step 5).
+  - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when `XAI_API_KEY` is set, 1 otherwise. Probe *before* despatch — an unset key must degrade to a three-seat panel up front, not fail mid-run. Note the key must be in the environment shell commands actually run in — Codex invokes `/bin/bash -lc`, which reads the profile, so profile-exported keys reach it; keys set only in another harness's env files do not.
 
   The wrapper sets `store: false` (xAI otherwise retains responses server-side for 30 days) and never enables live search on a review call. `store: false` forecloses `previous_response_id` threading, which is why the Grok seat has no true resume — round 2 replays prior context. **xAI does not train on API inputs or outputs by default** — its API security FAQ states it "never trains on your API inputs or outputs without your explicit permission," so training is opt-in, not opt-out. The "improve the model" toggle is the *consumer* Grok control, not a developer-API setting; there is nothing to switch off. What does apply: API requests and responses are retained 30 days, encrypted at rest, for abuse auditing. `store: false` governs stateful threading, not that audit window. Zero Data Retention eliminates it but is team-level and disables the stateful Responses API, Files, Collections, Batch, and per-key logging — don't enable it for this.
 
-- **Seat tiering (Claude seats).** Judgment and generation seats — anything whose errors propagate invisibly or whose output *is* the deliverable — run on the despatching session's model; do not downgrade them. Verification and mechanical seats — audits of work the session already did, bounded-failure checks whose misses are caught downstream — may pin to a strong-but-cheaper tier via the Agent tool's `model` argument (e.g. `model: opus`). A pin is declared at the despatch site in the despatching skill, with its reason stated, and never sits below the Opus tier without an explicit per-skill justification. **A pin is a floor, not a discount:** it only reduces spend when the despatching session is running something more expensive, is a no-op when the parent is already at the pinned tier, and *raises* cost against a cheaper parent. Justify a pin by the capability the seat needs, not by an assumed saving. This tiering governs Claude Agent-tool seats only; the CLI/API seats' models resolve per the bullet below.
+- **Seat tiering (harness-native seats).** Judgement and generation seats — anything whose errors propagate invisibly or whose output *is* the deliverable — run on the despatching session's model; do not downgrade them. Verification and mechanical seats — audits of work the session already did, bounded-failure checks whose misses are caught downstream — may pin to a strong-but-cheaper tier (under Codex: `-m <model>` / `-c model_reasoning_effort=...` on the despatch call). A pin is declared at the despatch site in the despatching skill, with its reason stated, and never sits below a frontier tier without an explicit per-skill justification. **A pin is a floor, not a discount:** it only reduces spend when the despatching session is running something more expensive, is a no-op when the parent is already at the pinned tier, and *raises* cost against a cheaper parent. Justify a pin by the capability the seat needs, not by an assumed saving. This tiering governs harness-native seats only; the CLI/API seats' models resolve per the bullet below.
 
-- **Seat model resolution (for currency checks).** Each seat resolves its model a different way, and the answer lives in config or a live probe, never in memory: the **Claude seat** floats with the despatching session's model by default; seats pinned under the seat-tiering rule above declare `model:` at their despatch site — resolve pins by grepping the command files (`rg -n "model: (opus|sonnet|haiku)" <commands dir>`); the **Gemini seat** reads `model.name` in `~/.gemini/settings.json`; the **Codex seat** reads the `model` key in `~/.codex/config.toml`, falling back to the CLI's built-in default when unset — probe the resolved default live (a minimal `codex exec` call prints `model:` in its preamble) and record the CLI version, since an unpinned seat is only as current as its last CLI update; the **Grok seat**'s models are the constants at the top of `xai_client.py`, checked against the provider's models endpoint (`GET https://api.x.ai/v1/models`, `XAI_API_KEY` in the Bash tool's environment). Consumed by `/quarterly-hygiene`'s model-currency step; update here, not there, when a CLI moves its config.
+- **Seat model resolution (for currency checks).** Each seat resolves its model a different way, and the answer lives in config or a live probe, never in memory: the **harness-native seat** floats with the `model` key in `~/.codex/config.toml` (and the session's `-m` override) — a minimal `codex exec` call prints `model:` in its preamble to confirm; seats pinned under the seat-tiering rule above declare their pin at the despatch site — resolve pins by grepping the skill files; the **Gemini seat** reads `model.name` in `~/.gemini/settings.json`; the **Claude seat** (when despatched via `claude -p`) resolves per that CLI's own config and default — probe live rather than assuming, and record the CLI version, since an unpinned seat is only as current as its last CLI update; the **Grok seat**'s models are the constants at the top of `xai_client.py`, checked against the provider's models endpoint (`GET https://api.x.ai/v1/models`, `XAI_API_KEY` in the shell environment). Consumed by `$quarterly-hygiene`'s model-currency step; update here, not there, when a CLI moves its config.
 
 ---
 
 ## 11. Scratchpad Work-Product Protection
 
-Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed to be cleared regularly, not durable homes. `/reply` drafts persisted there are at-risk work product until the user confirms lifecycle completion.
+Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed to be cleared regularly, not durable homes. `$reply` drafts persisted there are at-risk work product until the user confirms lifecycle completion.
 
-**Draft identification.** `/reply` draft sections are identified by a heading line starting with `**Reply to ` and ending with `:**`. Example: `**Reply to Sarah (WhatsApp — dinner plans):**`.
+**Draft identification.** `$reply` draft sections are identified by a heading line starting with `**Reply to ` and ending with `:**`. Example: `**Reply to Sarah (WhatsApp — dinner plans):**`.
 
 **Section boundary.** A draft section starts at the heading line, includes all content through the trailing `> Context:` / `> Note:` blockquote, and ends before the next line matching the same heading pattern, the next `#`-heading, or EOF.
 
-**Cleanup ownership.** `/reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `/park` Step 4 and `/weekly-hygiene` Step 5 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
+**Cleanup ownership.** `$reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `$park` Step 4 and `$weekly-hygiene` Step 5 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
 
 **Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
 
@@ -363,7 +358,7 @@ Link the **file** and name the session in plain text after it:
 [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N)
 ```
 
-Applies to every session-log reference a skill writes — continuation links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `/pickup` reads.
+Applies to every session-log reference a skill writes — continuation links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `$pickup` reads.
 
 Heading anchors remain correct for **stable** docs (project hubs, guides, reference notes) where the heading is hand-written and durable.
 
@@ -372,34 +367,20 @@ Heading anchors remain correct for **stable** docs (project hubs, guides, refere
 
 ## 14. Verbatim External Text vs In-Place Formatting Hooks
 
-When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — a `PostToolUse` formatting hook will silently corrupt it. Some vaults run such a hook (a spelling normaliser) that fires on every `Write`/`Edit` to a `.md` file and rewrites the file **in place** (e.g. de-Americanising a US speaker's quotes: `color`→`colour`, `analyze`→`analyse`); if one is configured, the rule below is mandatory whenever exact wording matters. The existing word-level ignore files cannot help — you can't enumerate every foreign-spelled word a speaker might use.
+When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — an automatic in-place formatting hook can silently corrupt it. The Claude Code side of this vault runs such a hook (a spelling normaliser that fires on that harness's editor-tool writes to `.md` files and de-Americanises text in place, e.g. `color`→`colour`); **no equivalent hook is currently wired into Codex**, so a write from Codex cannot fire it — but the files a Codex skill writes remain reachable by the other harness, and if a Codex hook replacement lands (Codex hooks are beta), this section binds again in full. The word-level ignore files cannot help either way — you can't enumerate every foreign-spelled word a speaker might use.
 
-**The hook fires on `Write`/`Edit`, not on a shell write (`cat`/`printf`).** That asymmetry is the lever.
+**Rules that stay live under Codex:**
 
-**Two defences (use both for belt-and-braces):**
-
-1. **Hook-safe append.** Write only your *own* prose (frontmatter + synthesis header) with the editor tool, then append the verbatim body via the shell:
-   ```bash
-   printf '\n' >> "$dest"      # guarantee a newline boundary
-   cat "$body_file" >> "$dest" # bypasses the PostToolUse hook
-   ```
-   Then **never `Write`/`Edit` that note again** — any later edit re-fires the hook on the whole file, body included.
-
-2. **Path-level exclude.** If the hook supports it, exclude the verbatim-output folder once so fidelity holds regardless of write method (if the hook reads an `exclude_paths` allowlist from a `config.local.json`-style file, add the verbatim-output folder there). This is the robust default; the append trick is the portable fallback for vaults without an exclude.
-
-**Precondition for the append trick:** it only holds if the hook's matcher is `Write|Edit` and does **not** intercept shell writes. Verify the matcher before relying on it; if a hook matches `Bash`/shell writes, the append silently corrupts the body with no error — fall back to the path-exclude.
-
-**Collateral edits.** Adding wikilinks/back-references to *other* notes (a dossier, a hub) after creating verbatim content also fires the hook on those notes. Short edits to already-normalised hub prose are safe; but if the target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
-
-**Inline identifiers.** For a stray foreign-spelled token in otherwise-normalised prose (a product name, a US institution, a code symbol), wrap it in an inline code span (backticks) — the markdown strategy preserves code spans. Use this for one-off tokens, not whole bodies.
-
-⛔ **Bare URLs are rewritten too, and this one does not announce itself.** A normaliser matches inside a URL's path segments like any other text, so a link can be silently altered into one that 404s — which reads to a later reader as a *fabricated citation* rather than a formatting artefact. That makes it the highest-consequence case in this section and the one most likely to reach a research or reference note, where citations are the point. Two rules: wrap bare URLs in the same inline code span you'd use for any other protected token, and **verify after the write, not before** — the hook fires on every `Write`/`Edit`, so a link that was correct when composed can be wrong on disk. Checkable: after writing any note carrying citations, extract its URLs (`grep -o 'https\?://[^ )`]*' <file>`) and confirm each still matches the source. Which constructs a given normaliser leaves alone is an implementation detail that changes with its version — establish it empirically once (write a control file containing a known-rewritable token in each construct, then re-read it) and record the result in your project's own reference doc rather than assuming it here. The same applies to verbatim quotations in prose: backticks render them as code, so paraphrase the clause or exclude the whole doc by path instead.
+1. **Never let a hooked harness re-edit a verbatim note.** Write the synthesis header however you like, but the verbatim body is appended via the shell (`printf '\n' >> "$dest"; cat "$body_file" >> "$dest"`) and the note is never rewritten wholesale afterwards — any full-file rewrite by a hooked harness re-fires that harness's hook on the whole body.
+2. **Path-level exclude is the robust defence.** If a formatting hook reads an exclude list (`exclude_paths` in a `config.local.json`-style file), the verbatim-output folder belongs on it — that holds regardless of which harness writes, and it is the only defence that survives collateral edits (adding wikilinks to a note that itself holds verbatim quotes).
+3. **Inline identifiers and bare URLs.** In normalised prose, wrap stray foreign-spelled tokens and every bare URL in an inline code span (backticks) — a normaliser matches inside a URL's path segments, silently turning a correct citation into a 404 that reads to a later reader as fabricated. After writing any note carrying citations, extract its URLs (`grep -o 'https\?://[^ )`]*' <file>`) and confirm each still matches the source — verify after the write, not before.
+4. **A hook's actual matcher is established empirically, never assumed.** Before relying on any bypass (shell append vs editor write), write a control file containing a known-rewritable token via each write route, re-read it, and record the result in the project's own reference doc.
 
 ---
 
 ## 15. Published-Transcript Extraction (fetch a verbatim body to a file)
 
-The canonical procedure for pulling an **already-published** transcript (a podcast/show page, Substack, an official transcript page) off the web as a clean verbatim markdown body **in a file, never through context**. Single source of truth: `/archive-transcript` (its core job) and the published-transcript fast-path in `/transcribe` (Phase 0), `/transcribecloud` (Phase 1.5), and `/podcast-digest` (Tier 1a) all use this — point here rather than re-describing extraction in the skill. Each caller keeps its own *whether-to-use-it* framing (the cost/fidelity choice, dedup, the header it writes); this section owns only the fetch-and-extract mechanism. (Validated against Ghost sites and the Complex Systems `c-content` template; `curl`+`bs4`+`pandoc` beats reader APIs such as jina, which manufacture phantom pagination on static pages.)
+The canonical procedure for pulling an **already-published** transcript (a podcast/show page, Substack, an official transcript page) off the web as a clean verbatim markdown body **in a file, never through context**. Single source of truth: `$archive-transcript` (its core job) and the published-transcript fast-path in `$transcribe` (Phase 0), `$transcribecloud` (Phase 1.5), and `$podcast-digest` (Tier 1a) all use this — point here rather than re-describing extraction in the skill. Each caller keeps its own *whether-to-use-it* framing (the cost/fidelity choice, dedup, the header it writes); this section owns only the fetch-and-extract mechanism. (Validated against Ghost sites and the Complex Systems `c-content` template; `curl`+`bs4`+`pandoc` beats reader APIs such as jina, which manufacture phantom pagination on static pages.)
 
 **Prereqs** — confirm before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe:
 ```bash
@@ -508,13 +489,13 @@ if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no h
 
 ⚠️ The word/leak gate above tests a fixed tag set, so inline tags outside it survive into `$BODY` — which matters here in a way it doesn't for verbatim appending, because a surviving tag run buries the divergence mid-line inside multi-thousand-character prose. Pipe through `sed -E 's/<[^>]+>//g'` when resolving identity, and count what actually survived — `grep -coE '<[a-z][^>]*>' "$BODY"` — since the gate itself can only ever report on the tags it enumerates. A non-zero count is the reason to widen that set for the next run.
 
-**Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`/transcribe` locally, `/transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
+**Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`$transcribe` locally, `$transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
 
 ---
 
 ## 16. Out-of-Band Evidence in Reviewer Briefs
 
-Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, and any non-template skill that despatches a brief (e.g. a private review skill of your own). Those skills point here and carry no copy to drift.
+Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `$park`'s audit sub-agent, `$audit`'s panel seats, `$second-opinion`'s reviewers, and any non-template skill that despatches a brief (e.g. a private review skill of your own). Those skills point here and carry no copy to drift.
 
 **The rule.** Where the work product's claims rest on material the reviewer cannot reach from the artefact itself — web fetches, emails, API results, tool output, the user's pasted text — embed that material in the brief, verbatim, under a heading that marks it established: `## Out-of-band evidence (treat as given — do NOT flag as fabricated)`.
 
@@ -546,7 +527,7 @@ A short count means the brief is incomplete, not the work wrong.
 ### Scope, size, and the seats
 
 - **"Relevant text" means the passages the claims rest on** — not whole documents. Quote the load-bearing passage; cap each source at roughly 500 words.
-- **Mind the transport.** `/audit` and `/second-opinion` pipe the brief into CLI seats with differing context windows, under a requirement that the payload be identical across seats. An uncapped dump can silently truncate in one seat — reproducing the partial-evidence false positives this rule exists to prevent, now invisibly. If the evidence exceeds the budget, attach it as a file path all seats can read (§10's `--include-directories` / `-C`) rather than inlining it.
+- **Mind the transport.** `$audit` and `$second-opinion` pipe the brief into CLI seats with differing context windows, under a requirement that the payload be identical across seats. An uncapped dump can silently truncate in one seat — reproducing the partial-evidence false positives this rule exists to prevent, now invisibly. If the evidence exceeds the budget, attach it as a file path all seats can read (§10's `--include-directories` / `-C`) rather than inlining it.
 - **Conflicting sources:** where two disagree and the work picked one, say which won and why — otherwise the reviewer re-litigates a settled question.
 
 ### A never-opened citation is closed by opening it, not by declaring it
@@ -561,13 +542,13 @@ This is also a bar on the work product, not only on the brief: an artefact shoul
 
 ### When a source is unrecoverable
 
-If a source's text has left context (a long session, a `/compact` — and the first thing lost is the earliest fetch, which this rule identifies as disproportionately the originating source), **re-fetch it**. If it cannot be recovered, say so in the brief under the same heading — `<source> — text unavailable; do NOT flag claims traced to it as fabricated` — and **still count it in N**. Never paraphrase it from memory (that manufactures the fabricated-quote failure), and never drop it silently (that is the original failure, reproduced).
+If a source's text has left context (a long session, a context compaction — and the first thing lost is the earliest fetch, which this rule identifies as disproportionately the originating source), **re-fetch it**. If it cannot be recovered, say so in the brief under the same heading — `<source> — text unavailable; do NOT flag claims traced to it as fabricated` — and **still count it in N**. Never paraphrase it from memory (that manufactures the fabricated-quote failure), and never drop it silently (that is the original failure, reproduced).
 
 ---
 
 ## 17. Push-Side Hub Record (commits are their own identifier class)
 
-Canonical rule for every skill that runs a reference-graph / propagation pass after a session that pushed code — `/park` Step 6, `/goodnight` Step 15(a). Those skills point here and carry no copy to drift.
+Canonical rule for every skill that runs a reference-graph / propagation pass after a session that pushed code — `$park` Step 6, `$goodnight` Step 15(a). Those skills point here and carry no copy to drift.
 
 **The rule.** Every commit hash a session records is its own identifier. For each one, grep the vault for that repository's hub and confirm three things:
 
@@ -577,7 +558,7 @@ Canonical rule for every skill that runs a reference-graph / propagation pass af
 
 **Why the ordinary per-identifier pass misses it.** A pushed commit is a world-state change with no textual footprint in the vault. Nothing in the session's file edits contains the hash, so no content grep reaches the hub — and the hub is frequently a file the session never opened. The propagation pass therefore returns a clean, *fully earned* hit-list while the project's own commit-level record silently misses an entry. This is the inverse of the usual failure: not a stale value left behind, but a **new** record never written, in a document whose stated job is to hold it.
 
-**Scope.** Applies to any repository with a hub in the vault, whether or not the session edited vault files for it. It applies equally when the commit was pushed by a skill's own bookkeeping (a skill-file fix committed during `/park` is still a push, and its hub row is still owed) — the rule is about the push, not about who initiated it.
+**Scope.** Applies to any repository with a hub in the vault, whether or not the session edited vault files for it. It applies equally when the commit was pushed by a skill's own bookkeeping (a skill-file fix committed during `$park` is still a push, and its hub row is still owed) — the rule is about the push, not about who initiated it.
 
 **Checkable:** for each hash, one grep must return the repo's hub, and that hub must carry a row citing the pushing session. A propagation report that enumerates no commits on a session that pushed one has not run this check.
 
@@ -585,13 +566,13 @@ Canonical rule for every skill that runs a reference-graph / propagation pass af
 
 ## 18. Deadline Tokens Force a Dated Surface
 
-Canonical rule for every skill that routes open items to a destination — `/park` Step 7, `/goodnight` Step 9. Those skills point here and carry no copy to drift.
+Canonical rule for every skill that routes open items to a destination — `$park` Step 7, `$goodnight` Step 9. Those skills point here and carry no copy to drift.
 
 **The rule.** If an item's text contains a deadline, cut-off, expiry, renewal, or window-close token, its route MUST terminate in a **dated surface**: a specific day section when the date falls inside the rolling window, otherwise the Tickler (via `write-tickler.sh`).
 
 **An undated destination does not discharge such an item**, however canonical that destination is. A project doc, an area hub, an undated notes list — each records *what* to do and never *when it stops being possible*. The undated branch of a routing table exists for items with genuinely no date; a deadline token means the item has one **even when it isn't written as a calendar date**. Derive it (`date -d`), don't route past it.
 
-**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `/park` Step 7 the disallowed sinks are the project doc and Whimsy; for `/goodnight` Step 9 it is `→ Whimsy`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
+**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `$park` Step 7 the disallowed sinks are the project doc and Whimsy; for `$goodnight` Step 9 it is `→ Whimsy`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
 
 **Checkable:** any routed item whose text carries a deadline token must land under a dated heading, and the routing summary must name that dated target.
 
@@ -599,7 +580,7 @@ Canonical rule for every skill that routes open items to a destination — `/par
 
 ## 19. Value Provenance Check (SOURCE)
 
-Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `/park` Step 2(c) (the SOURCE check of its quality gate), `/goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
+Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `$park` Step 2(c) (the SOURCE check of its quality gate), `$goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
 
 - Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
 - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
@@ -619,7 +600,7 @@ Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *sup
 
 ## 20. Session-Boundary Attribution (the file list is the boundary, not the commit window)
 
-Canonical rule for every skill that delegates an audit over "the files this session touched" — `/park` Step 9, `/goodnight` Step 15(c). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
+Canonical rule for every skill that delegates an audit over "the files this session touched" — `$park` Step 9, `$goodnight` Step 15(c). Those skills point here and carry no copy to drift; each supplies its own embedded file list.
 
 **The rule.** The vault's `.git` is an **auto-save** repo: commits are time-window snapshots, not session boundaries, and concurrent sessions write to the same vault. A file appearing in the same commit as a session's bookkeeping is therefore **not** evidence that session produced it.
 
@@ -641,7 +622,7 @@ The read-side sibling is `_shared-patterns.md`'s *Auto-save git is not pre-state
 
 ## 21. Concurrent-Safe Git Staging (never stage broadly)
 
-Canonical rule for every skill that commits to a git repository, and for ad-hoc commits made during a session. Applies wherever more than one Claude session may touch the same working tree.
+Canonical rule for every skill that commits to a git repository, and for ad-hoc commits made during a session. Applies wherever more than one agent session may touch the same working tree.
 
 **The rule.** Stage by explicit path. Never `git add -A`, `git add -u`, or a directory-wide `git add <dir>/`. Commit with `git commit --only -- <paths>`, which commits precisely the named paths regardless of what else sits in the index.
 
@@ -771,7 +752,7 @@ Canonical rule for every skill that puts a search command inside a runnable bloc
 Canonical fetch order for any skill that needs a web page's content from a known URL. Ordered so the free, exact-bytes route comes first and credit-metered scrapers last — a metered scraper as the default rung burns quota on pages plain `curl` handles, and its quota exhaustion then breaks every skill that leads with it.
 
 1. **§15 static extractor** (`curl` + `bs4` + `pandoc`) — first rung for any article/transcript-shaped page. Free, and it leaves the exact source bytes on disk, which quote-fidelity checks require. Its word-count gate is the self-diagnosis: a body far short of the visible article means a JS-rendered page — climb to rung 2 rather than iterating selectors indefinitely.
-2. **Configured fetch MCPs** — whichever reader/scraper servers the install has (reader APIs, scrapers with JS rendering or anti-bot proxies). ⛔ **A credits/quota/plan-limit error is unavailability, not failure:** move down the ladder without retrying, stalling the run, or asking the user to top up mid-task. Reader APIs can manufacture phantom pagination on static pages (§15) — that is why this is rung 2, not 1. Anti-bot-blocked pages (403/429/Cloudflare) are the one case to *start* here: rung 1's plain `curl` is refused identically.
-3. **WebFetch** — last rung. It answers a prompt through a summarising model rather than returning the page, so it serves metadata and gist but never verbatim quotation; a skill with a fidelity requirement that ends up here records the gap instead of quoting.
+2. **Configured fetch MCPs** — whichever reader/scraper servers are registered with the harness (check `codex mcp list`). ⛔ **A credits/quota/plan-limit error is unavailability, not failure:** move down the ladder without retrying, stalling the run, or asking the user to top up mid-task. Reader APIs can manufacture phantom pagination on static pages (§15) — that is why this is rung 2, not 1. Anti-bot-blocked pages (403/429/Cloudflare) are the one case to *start* here: rung 1's plain `curl` is refused identically.
+3. **Harness-native web tooling** — last rung. Codex's `web_search` tool serves search-shaped needs and gist; it never returns a verbatim page body, so a skill with a fidelity requirement that ends up here records the gap instead of quoting.
 
-Search-shaped needs (no known URL) are a different tool class — the WebSearch tool or a configured search MCP — with the same quota-is-unavailability rule for metered ones. Where a skill records provenance for the fetched body, name the rung that produced it.
+Search-shaped needs (no known URL) are a different tool class — the harness's web-search tool or a configured search MCP — with the same quota-is-unavailability rule for metered ones. Where a skill records provenance for the fetched body, name the rung that produced it.

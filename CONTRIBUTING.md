@@ -7,17 +7,21 @@
 **Architecture:** Two copies of commands/scripts, synced bidirectionally by `/sync-template`:
 
 ```
-Template repo (~/repos/OpenCairn/)  <-->  Personal (~/.claude/commands/, ~/.claude/scripts/)
+Template repo (~/repos/OpenCairn/)
+   .claude/   <-->  Personal (~/.claude/commands/, ~/.claude/scripts/)
+   codex/     <-->  Personal (~/.codex/AGENTS.md, ~/.codex/skills/)
                     |
                  GitHub
 ```
 
-`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts.
+`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts. The Codex rendering syncs through the same run via its own lane.
+
+The two trees are deliberately asymmetric: `.claude/` is a **live load path** — Claude Code reads `.claude/commands/` and executes `.claude/scripts/` in place when the repo is cloned as a vault, and the plugin manifest points at it — whereas `codex/` is a **distribution tree** that users copy out to `~/.codex/` (Codex CLI has no per-project skills convention). Don't rename `.claude/` for symmetry; the path is load-bearing.
 
 ### Edit → Test → Sync → Push
 
-1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth)
-2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` for testing
+1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth); Codex renderings likewise in `~/repos/OpenCairn/codex/`
+2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` (and `~/.codex/`) for testing
 3. `/sync-template` handles the personal info check, commit, and push
 
 ### Personal-Only Commands
