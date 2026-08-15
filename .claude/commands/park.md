@@ -19,6 +19,18 @@ Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual caus
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 
+Derive and display today's session-log path mechanically:
+
+```bash
+TODAY="$(date +%F)"
+SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_LOG="$SESSION_DIR/$TODAY.md"
+[ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+printf 'Session log path: %s\n' "$SESSION_LOG"
+```
+
+**Path invariant:** a new entry for today goes directly in `Session Logs/YYYY-MM-DD.md`, never `Session Logs/YYYY/YYYY-MM-DD.md`. Year subfolders contain archived logs; an archived path loaded by `/pickup` must not be carried into this park. Shell variables do not persist between tool calls, so re-derive and assert `SESSION_LOG` inside every later call that writes or edits today's log, or use the exact path printed above. Step 1 may still update an existing archived session at its existing path when genuinely merging into that old session.
+
 **Parboil draft.** A mid-session snapshot may already hold this park's expensive half — session narrative, identifier enumeration, open-loop list — derived while the context was still cheap:
 
 ```bash
@@ -89,7 +101,11 @@ Output: `✓ Quality check: N files checked, no issues` or `🔧 Quality check: 
 **Write it:**
 
 ```bash
-cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "TOPIC" "HH:MMam/pm"
+TODAY="$(date +%F)"
+SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_LOG="$SESSION_DIR/$TODAY.md"
+[ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "TOPIC" "HH:MMam/pm"
 [body — NO `## Session N` heading; the script assigns N inside the file lock and rejects a supplied heading]
 EOF
 ```
