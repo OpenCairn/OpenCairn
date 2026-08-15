@@ -514,7 +514,7 @@ if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no h
 
 ## 16. Out-of-Band Evidence in Reviewer Briefs
 
-Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, and any non-template skill that despatches a brief (e.g. a personal `/security-audit`). Those skills point here and carry no copy to drift.
+Canonical rule for every skill that despatches a brief to a reviewer that cannot see this session — `/park`'s audit sub-agent, `/audit`'s panel seats, `/second-opinion`'s reviewers, and any non-template skill that despatches a brief (e.g. a private review skill of your own). Those skills point here and carry no copy to drift.
 
 **The rule.** Where the work product's claims rest on material the reviewer cannot reach from the artefact itself — web fetches, emails, API results, tool output, the user's pasted text — embed that material in the brief, verbatim, under a heading that marks it established: `## Out-of-band evidence (treat as given — do NOT flag as fabricated)`.
 

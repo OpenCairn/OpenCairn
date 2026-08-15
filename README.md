@@ -62,6 +62,8 @@ Zero reconstruction. Instant flow.
 
 **Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
+**Using OpenAI Codex CLI?** A subset of the skill library ships as a Codex rendering under `codex/` — same skills, rewritten for Codex primitives (`$name` invocation, `SKILL.md` format, CLI-despatched panel seats). Install steps are in [Quick Start](#quick-start).
+
 ---
 
 ## Who This Is For
@@ -199,6 +201,15 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops` and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
+**Codex CLI (optional):** a rendering of part of the skill library for OpenAI's Codex CLI lives under `codex/` — 13 skills (the day loop, park/pickup, weekly review, project lifecycle, the audit/second-opinion panel, thinking-partner, shop, book-stay, de-ai-ify) plus their shared-rules support files, invoked as `$name` rather than `/name`. To install:
+
+```bash
+cp -r codex/skills/* ~/.codex/skills/
+cat codex/AGENTS.md >> ~/.codex/AGENTS.md   # or cp if you have no AGENTS.md yet
+```
+
+The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. The renderings assume the full repo alongside them — a few cross-references (e.g. to `setup`, `weekly-hygiene`, and `~/.claude/` state paths) point at the Claude Code side, so a Codex-only install works but those references stay Claude-side.
+
 ---
 
 ## All Skills
@@ -207,6 +218,8 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
 > **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+>
+> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `audit`, `book-stay`, `complete-project`, `de-ai-ify`, `goodnight`, `morning`, `park`, `pickup`, `second-opinion`, `shop`, `start-project`, `thinking-partner`, `weekly-review`.
 
 **Daily rhythm:**
 
