@@ -4,7 +4,8 @@
 # Two modes:
 #   (hook)  PostToolUse on Write|Edit - reads the hook JSON on stdin and appends
 #           one TSV line per file-mutating tool call. Emits nothing to Claude.
-#   --read  prints THIS session's ledger (keyed on $CLAUDE_CODE_SESSION_ID).
+#   --read  prints THIS session's ledger (keyed on the harness session id
+#           resolved by lib-session.sh - Claude Code, Codex, or override).
 #
 # Usage:
 #   session-ledger.sh                 # hook mode (stdin = hook JSON)
@@ -42,6 +43,8 @@ set -uo pipefail
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 STATE_DIR="$CONFIG_DIR/.session-state"
 
+source "$(dirname "$0")/lib-session.sh"
+
 # --- read mode ---------------------------------------------------------------
 if [ "${1:-}" = "--read" ]; then
     set -e
@@ -51,9 +54,10 @@ if [ "${1:-}" = "--read" ]; then
         [ $# -ge 2 ] || { echo "Usage: $0 --read [-m MINUTES]" >&2; exit 1; }
         MIN="$2"; shift 2
     fi
-    SID="${CLAUDE_CODE_SESSION_ID:-}"
+    SID="$(_session_id)"
     if [ -z "$SID" ]; then
-        echo "ERROR: CLAUDE_CODE_SESSION_ID unset - cannot identify this session's ledger." >&2
+        echo "ERROR: no session id - CLAUDE_CODE_SESSION_ID, CODEX_THREAD_ID and" >&2
+        echo "       OPENCAIRN_SESSION_ID all unset; cannot identify this session's ledger." >&2
         echo "       Fall back to park-files.sh for enumeration." >&2
         exit 1
     fi

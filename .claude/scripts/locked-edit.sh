@@ -27,6 +27,7 @@
 set -euo pipefail
 
 source "$(dirname "$0")/lib-lock.sh"
+source "$(dirname "$0")/lib-session.sh"
 
 SEP='========OPENCAIRN-LOCKED-EDIT-SEP========'
 
@@ -166,8 +167,12 @@ unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE
 # as the hook, but the agent id is recorded as "?" (unknown): hook input
 # carries an agent_id field, a shell environment does not, and --read already
 # reports "?" honestly - never a positive "main".
+# The session id is harness-neutral (lib-session.sh): under a harness with no
+# Write|Edit hook at all (Codex), this self-ledger is the ledger - its rules
+# route every vault write through this script, so coverage holds.
 # Fails open: a ledger problem must never turn a landed edit into an error.
-if [ "$RC" -eq 0 ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+_LE_SID="$(_session_id)"
+if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
     _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
     _LEDGER_PATH="$TARGET"
     case "$_LEDGER_PATH" in /*) ;; *) _LEDGER_PATH="$PWD/$_LEDGER_PATH" ;; esac
@@ -176,10 +181,14 @@ if [ "$RC" -eq 0 ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
         "$_LEDGER_DIR"/*) ;;
         *)
             _LEDGER_PATH=${_LEDGER_PATH//$'\t'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\n'/ }
+            # First write of a session prunes stale ledgers (mirrors the hook's
+            # sweep - under a hookless harness this is the only place it runs).
             { mkdir -p "$_LEDGER_DIR" &&
+              { [ -f "$_LEDGER_DIR/$_LE_SID.tsv" ] ||
+                find "$_LEDGER_DIR" -maxdepth 1 -type f -mtime +14 -delete 2>/dev/null || true; } &&
               printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-edit" \
                   "$_LEDGER_PATH" "?" \
-                  >> "$_LEDGER_DIR/$CLAUDE_CODE_SESSION_ID.tsv"; } 2>/dev/null || true
+                  >> "$_LEDGER_DIR/$_LE_SID.tsv"; } 2>/dev/null || true
             ;;
     esac
 fi
