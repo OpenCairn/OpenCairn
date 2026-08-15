@@ -19,9 +19,11 @@ Options:
     --days N    Export sessions modified in the last N days (default: 7)
 """
 
+import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -290,11 +292,10 @@ SESSION_HDR = re.compile(r'^### (\S+) \((\d{2}:\d{2}|unknown)\)\s*\n')
 SEPARATOR = "\n---\n\n"
 
 
-def parse_exported(md_path):
-    """Split an already-exported transcript file into {(slug, start): body}.
+def parse_exported_text(text):
+    """Split exported transcript text into {(slug, start): body}.
 
-    Inverse of format_session() + the day-file writer. Returns {} if the file is
-    missing or unreadable — an unreadable file must not block a fresh write.
+    Inverse of format_session() + the day-file writer.
 
     Anchored on the `\\n---\\n\\n` separator the writer emits between sessions,
     NOT on header lines alone. Transcript bodies routinely quote header-shaped
@@ -308,10 +309,6 @@ def parse_exported(md_path):
     across a parent/child session split, so two genuinely distinct sessions can
     share one — keying on slug silently collapses them and drops a session.
     """
-    try:
-        text = md_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return {}
     out = {}
     last = None
     for chunk in text.split(SEPARATOR):
@@ -328,12 +325,78 @@ def parse_exported(md_path):
     return out
 
 
+def read_exported_snapshot(md_path):
+    """Read one exact day-file snapshot as (parsed sessions, CAS token).
+
+    Parsing and hashing the same byte read matters: hashing a second read could
+    approve an overwrite based on stale parsed content if another exporter wrote
+    between the two reads. Errors other than a missing target fail closed.
+    """
+    try:
+        raw = md_path.read_bytes()
+    except FileNotFoundError:
+        return {}, "MISSING"
+    text = raw.decode("utf-8", errors="replace")
+    return parse_exported_text(text), hashlib.sha256(raw).hexdigest()
+
+
+def render_day_file(date_str, merged):
+    """Render one canonical day file from a merged session mapping."""
+    content = f"# Session Transcripts — {date_str}\n\n"
+    content += "Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files.\n\n---\n\n"
+    for (slug, start_time), body in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        content += f"### {slug} ({start_time})\n{body}\n---\n\n"
+    return content
+
+
+def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
+    """Merge and atomically replace one day file under its canonical lock.
+
+    locked-edit's whole-file mode compares the snapshot hash while holding the
+    lock. Exit 2 means a concurrent exporter won after our read, so re-read,
+    re-merge, and retry instead of clobbering its sessions.
+    """
+    incoming_keys = {(slug, start_time) for start_time, slug, _body in sessions}
+
+    for attempt in range(attempts):
+        merged, expected = read_exported_snapshot(output_file)
+        on_disk_keys = set(merged)
+
+        for start_time, slug, body in sessions:
+            key = (slug, start_time)
+            if key not in merged or len(body) > len(merged[key]):
+                merged[key] = body
+
+        content = render_day_file(date_str, merged).encode("utf-8")
+        result = subprocess.run(
+            ["bash", str(locked_edit), str(output_file), "--replace-whole", expected],
+            input=content,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if result.returncode == 0:
+            return len(on_disk_keys - incoming_keys)
+        if result.returncode == 2 and attempt + 1 < attempts:
+            continue
+
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        if not detail:
+            detail = f"locked-edit.sh exited {result.returncode}"
+        raise RuntimeError(f"could not install {output_file}: {detail}")
+
+    raise RuntimeError(f"could not install {output_file}: concurrent updates did not settle")
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: export-session-transcripts.py <vault_path> [--days N] [--all-projects] [--fallback-any-project]", file=sys.stderr)
         sys.exit(1)
 
     vault_path = Path(sys.argv[1])
+    locked_edit = Path(__file__).with_name("locked-edit.sh")
+    if not locked_edit.is_file():
+        print(f"Error: locking wrapper not found beside exporter: {locked_edit}", file=sys.stderr)
+        sys.exit(1)
     days = 7
     if "--days" in sys.argv:
         idx = sys.argv.index("--days")
@@ -366,7 +429,6 @@ def main():
     # they are also version-controlled is a per-vault .gitignore decision — do not
     # assume git is available as a recovery path; the merge below is the guarantee.
     output_dir = vault_path / "06 Archive" / "Claude" / ".Session Transcripts"
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     cutoff = datetime.now() - timedelta(days=days)
     cutoff_ts = cutoff.timestamp()
@@ -463,26 +525,13 @@ def main():
     carried_total = 0
     for date_str, sessions in sorted(sessions_by_date.items()):
         output_file = output_dir / f"{date_str}.md"
-
-        merged = parse_exported(output_file)
-        on_disk_keys = set(merged)
-
-        incoming_keys = set()
-        for start_time, slug, body in sessions:
-            key = (slug, start_time)
-            incoming_keys.add(key)
-            if key not in merged or len(body) > len(merged[key]):
-                merged[key] = body
-
-        # Sessions this run could not see, preserved only because we merged.
-        carried_total += len(on_disk_keys - incoming_keys)
-
-        content = f"# Session Transcripts — {date_str}\n\n"
-        content += f"Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files.\n\n---\n\n"
-        for (slug, start_time), body in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
-            content += f"### {slug} ({start_time})\n{body}\n---\n\n"
-
-        output_file.write_text(content)
+        try:
+            # Count carry-forwards from the snapshot that actually won the
+            # compare-and-swap, not from a stale failed attempt.
+            carried_total += write_day_locked(output_file, date_str, sessions, locked_edit)
+        except (OSError, RuntimeError) as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
         files_written += 1
 
     # Summary to stdout for the hygiene report
