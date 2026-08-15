@@ -14,7 +14,7 @@
 #                               harness that exports no session id of its own
 #   2. CLAUDE_CODE_SESSION_ID - Claude Code (set in every Bash tool call)
 #   3. CODEX_THREAD_ID        - Codex CLI (exported into its shell commands;
-#                               verified codex-cli 0.145.0)
+#                               verified codex-cli 0.147.0)
 #
 # Why CLAUDE_CODE_SESSION_ID outranks CODEX_THREAD_ID: a Codex seat despatched
 # from inside a Claude Code session inherits the parent's CLAUDE_CODE_SESSION_ID
