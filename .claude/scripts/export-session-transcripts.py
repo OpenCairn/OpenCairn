@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Export Claude Code session JSONL files to readable markdown transcripts.
+"""Export Claude Code and Codex CLI session JSONL files to readable markdown transcripts.
 
 Extracts user messages and assistant text/tool-input content from JSONL session
 files. Skips tool results (file contents, grep output, web scrapes) which are
 bulk noise. Produces one markdown file per day in the vault archive.
+
+Sources: ~/.claude/projects/**/*.jsonl (Claude Code) and, when present,
+~/.codex/sessions/**/*.jsonl (Codex CLI rollouts). Codex sessions are slugged
+`codex-<id8>` and their assistant turns labelled **Codex**; in cwd-scoped mode
+they are filtered to rollouts whose recorded cwd matches, mirroring the
+per-project scoping of the Claude source. Codex `spawn_agent` payloads are
+encrypted at rest in the rollout — only the task name is exportable.
 
 Usage:
     export-session-transcripts.py <vault_path> [--days N]
@@ -107,6 +114,99 @@ def extract_tool_inputs(content):
     return inputs
 
 
+def codex_session_files():
+    """Codex CLI rollout files, or [] when Codex isn't installed/used."""
+    codex_dir = Path.home() / ".codex" / "sessions"
+    if not codex_dir.is_dir():
+        return []
+    return sorted(codex_dir.rglob("rollout-*.jsonl"), key=lambda p: p.stat().st_mtime)
+
+
+def codex_meta(jsonl_path):
+    """(session_id, cwd) from a rollout's session_meta line, or (None, None)."""
+    try:
+        with open(jsonl_path) as f:
+            for line in f:
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if data.get("type") == "session_meta":
+                    p = data.get("payload", {})
+                    return p.get("session_id") or p.get("id"), p.get("cwd")
+                break  # session_meta is the first line; don't scan the file
+    except (OSError, IOError):
+        pass
+    return None, None
+
+
+def _codex_block_text(content):
+    """Join text out of a Codex message content list (input_text/output_text/text)."""
+    if isinstance(content, str):
+        return content
+    texts = []
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and isinstance(block.get("text"), str):
+                texts.append(block["text"])
+    return "\n".join(texts)
+
+
+def parse_codex_session(jsonl_path):
+    """Parse a Codex rollout into (role, text, ts) tuples.
+
+    user turns come from event_msg/user_message (the clean prompt — the
+    response_item user/developer messages carry injected wrappers and
+    environment context). Assistant text comes from response_item messages;
+    tool calls (exec / apply_patch / collaboration.*) are rendered truncated,
+    matching the Claude source's Write/Edit/Agent treatment. Tool outputs,
+    reasoning, and token/world-state bookkeeping are skipped as bulk noise.
+    """
+    messages = []
+    try:
+        with open(jsonl_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts = data.get("timestamp", "")
+                dtype = data.get("type")
+                payload = data.get("payload", {}) or {}
+                ptype = payload.get("type")
+
+                if dtype == "event_msg" and ptype == "user_message":
+                    text = payload.get("message")
+                    if isinstance(text, str) and text.strip():
+                        messages.append(("user", text.strip(), ts))
+                elif dtype == "response_item" and ptype == "message":
+                    if payload.get("role") != "assistant":
+                        continue
+                    text = _codex_block_text(payload.get("content"))
+                    if text.strip():
+                        messages.append(("codex", text.strip(), ts))
+                elif dtype == "response_item" and ptype in ("function_call", "custom_tool_call"):
+                    name = payload.get("name", "?")
+                    args = payload.get("arguments") or payload.get("input") or ""
+                    if not isinstance(args, str):
+                        args = json.dumps(args)
+                    if name == "spawn_agent":
+                        # message payload is encrypted at rest — render the task name only
+                        m = re.search(r'"task_name"\s*:\s*"([^"]*)"', args)
+                        rendered = f"[spawn_agent: {m.group(1) if m else '?'}]"
+                    else:
+                        if len(args) > 2000:
+                            args = args[:2000] + f"\n[... {len(args)} chars total]"
+                        rendered = f"[{name}]\n{args}"
+                    messages.append(("codex", rendered, ts))
+    except (OSError, IOError) as e:
+        print(f"Warning: Could not read {jsonl_path}: {e}", file=sys.stderr)
+    return messages
+
+
 def parse_session(jsonl_path):
     """Parse a JSONL session file into a list of (role, text) tuples."""
     messages = []
@@ -180,10 +280,8 @@ def format_session(messages, slug, session_start):
             except (ValueError, AttributeError):
                 pass
 
-        if role == "user":
-            lines.append(f"**User{time_str}:**\n{text}\n")
-        else:
-            lines.append(f"**Claude{time_str}:**\n{text}\n")
+        label = {"user": "User", "codex": "Codex"}.get(role, "Claude")
+        lines.append(f"**{label}{time_str}:**\n{text}\n")
 
     return "\n".join(lines)
 
@@ -313,6 +411,44 @@ def main():
             sessions_by_date[date_str].append((start_time, slug, body))
             exported += 1
 
+    # Codex CLI rollouts — same mtime window; cwd-scoped unless --all-projects,
+    # mirroring the Claude source's per-project scoping.
+    codex_exported = 0
+    for jsonl_path in codex_session_files():
+        if jsonl_path.stat().st_mtime < cutoff_ts:
+            continue
+        sid, sess_cwd = codex_meta(jsonl_path)
+        if not all_projects and sess_cwd != os.getcwd():
+            continue
+        mtime = datetime.fromtimestamp(jsonl_path.stat().st_mtime)
+        date_str = mtime.strftime("%Y-%m-%d")
+
+        messages = parse_codex_session(jsonl_path)
+        if not messages:
+            skipped += 1
+            continue
+
+        # Slug from the FILENAME's uuid, not session_meta: a spawned sub-agent's
+        # rollout records the PARENT's session_id in its meta, so meta-based
+        # slugs collapse parent and sub-agent into one key and can silently
+        # merge their transcripts. The filename uuid is unique per rollout.
+        # 13 chars spans uuidv7's time prefix + next group: ids minted seconds
+        # apart (a parent and its spawned sub-agent) share the first 8 chars.
+        slug = f"codex-{jsonl_path.stem[-36:][:13]}"
+        first_ts = messages[0][2]
+        try:
+            dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+            start_time = dt.strftime("%H:%M")
+        except (ValueError, AttributeError):
+            start_time = "unknown"
+
+        formatted = format_session(messages, slug, start_time)
+        if formatted:
+            body = formatted.split("\n", 1)[1] if "\n" in formatted else ""
+            sessions_by_date[date_str].append((start_time, slug, body))
+            codex_exported += 1
+    exported += codex_exported
+
     # Write one file per date — MERGE, never replace.
     #
     # The JSONL source is auto-deleted after 30 days, so a day file is often the
@@ -342,7 +478,7 @@ def main():
         carried_total += len(on_disk_keys - incoming_keys)
 
         content = f"# Session Transcripts — {date_str}\n\n"
-        content += f"Auto-exported from `~/.claude/projects/` JSONL files.\n\n---\n\n"
+        content += f"Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files.\n\n---\n\n"
         for (slug, start_time), body in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
             content += f"### {slug} ({start_time})\n{body}\n---\n\n"
 
@@ -350,7 +486,7 @@ def main():
         files_written += 1
 
     # Summary to stdout for the hygiene report
-    print(f"Sessions exported: {exported}")
+    print(f"Sessions exported: {exported} ({codex_exported} Codex)")
     print(f"Sessions skipped (empty): {skipped}")
     print(f"Transcript files written: {files_written}")
     if carried_total:
