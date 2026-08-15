@@ -91,10 +91,10 @@ EOF
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/Claude/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
-| `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A single planning/hub file's read-modify-write | locked-edit.sh, write-tickler.sh |
+| `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A single target file's atomic mutation | locked-edit.sh (planning edits and generated whole-file CAS), write-tickler.sh |
 | (retired 2026-06-12) `07 System/.provenance-lock` | — | AI Provenance Log writes now use `locked-edit.sh`'s canonical per-file lock, like every planning file (B9) |
 
-**Lock ordering:** Planning-file locks — including the AI Provenance Log's canonical lock — are held only for the duration of one `locked-edit.sh` write (auto-released on script exit), so they never overlap with the session lock. Never wrap multiple lock acquisitions in one another.
+**Lock ordering:** Canonical per-file locks — including the AI Provenance Log's lock — are held only for the duration of one `locked-edit.sh` write (auto-released on script exit), so they never overlap with the session lock. Never wrap multiple lock acquisitions in one another.
 
 ### Failure modes for in-place file edits
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Locked, atomic edit of a planning file (WIP / This Week / Tickler / project hub).
+# Locked, atomic edit of a target file (planning docs or generated exports).
 #
 # The Edit tool does a lockless read-modify-write, so two concurrent /park or
 # /goodnight runs silently clobber each other's edits to shared planning files.
@@ -111,7 +111,11 @@ def atomic_write(path, data):
         try:
             os.chmod(tmp, os.stat(path).st_mode & 0o7777)
         except FileNotFoundError:
-            pass
+            # Match an ordinary file creation instead of installing mkstemp's
+            # private 0600 mode when --replace-whole creates a new target.
+            current_umask = os.umask(0)
+            os.umask(current_umask)
+            os.chmod(tmp, 0o666 & ~current_umask)
         os.replace(tmp, path)   # atomic within the same filesystem
     except BaseException:
         try: os.remove(tmp)
