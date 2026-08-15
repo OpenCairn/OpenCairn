@@ -9,19 +9,20 @@
 ```
 Template repo (~/repos/OpenCairn/)
    .claude/   <-->  Personal (~/.claude/commands/, ~/.claude/scripts/)
-   codex/     <-->  Personal (~/.codex/AGENTS.md, ~/.codex/skills/)
+   codex/skills/  <-->  Personal (~/.codex/skills/)
+   codex/AGENTS.md  -->  Personal install bootstrap only (never reverse-synced)
                     |
                  GitHub
 ```
 
-`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts. The Codex rendering syncs through the same run via its own lane.
+`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts. Codex skills sync through the same run via their own lane. The repository's generic `codex/AGENTS.md` is an install bootstrap, not a reverse-sync source; a live `~/.codex/AGENTS.md` may contain private local instructions and must never be propagated into the repository.
 
 The two trees are deliberately asymmetric: `.claude/` is a **live load path** — Claude Code reads `.claude/commands/` and executes `.claude/scripts/` in place when the repo is cloned as a vault, and the plugin manifest points at it — whereas `codex/` is a **distribution tree** that users copy out to `~/.codex/` (Codex CLI has no per-project skills convention). Don't rename `.claude/` for symmetry; the path is load-bearing.
 
 ### Edit → Test → Sync → Push
 
-1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth); Codex renderings likewise in `~/repos/OpenCairn/codex/`
-2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` (and `~/.codex/`) for testing
+1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth); edit Codex skills in `~/repos/OpenCairn/codex/skills/`
+2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` and `~/.codex/skills/` for testing; review generic `codex/AGENTS.md` changes manually
 3. `/sync-template` handles the personal info check, commit, and push
 
 ### Personal-Only Commands
