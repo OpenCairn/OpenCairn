@@ -6,7 +6,7 @@ argument-hint: "[--dry-run] [--force] [--tag VERSION]"
 
 # Update - OpenCairn Template Sync
 
-You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts) — vault content and CLAUDE.md are never touched.
+You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts, and the `codex/` rendering) — vault content and CLAUDE.md are never touched.
 
 **Two modes.** By default `/update` tracks the template's main branch (latest, possibly unreleased). Pass `--tag VERSION` to instead pin to a specific signed release and verify its tag signature before applying anything — the supply-chain-cautious path. The two modes differ only in *what* you compare against (Step 3b/3c); the per-file review and apply (Steps 4–6) are identical.
 
@@ -16,6 +16,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 |----------|------|--------|
 | Commands | `.claude/commands/` (whole tree, including subdirectories) | Per-file review (accept/skip) |
 | Scripts | `.claude/scripts/` (whole tree, any extension) | Per-file review (accept/skip) |
+| Codex rendering | `codex/` (AGENTS.md + skills tree) | Per-file review (accept/skip); accepted skills offered to the live `~/.codex/` install (Step 6b) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
@@ -250,7 +251,7 @@ Compare the user's **actual files on disc** (not committed state) against the te
 
 ```bash
 # Compare working tree against template (catches uncommitted local changes too)
-git diff --stat $REF -- .claude/commands/ .claude/scripts/
+git diff --stat $REF -- .claude/commands/ .claude/scripts/ codex/
 ```
 
 If no differences:
@@ -265,18 +266,18 @@ Categorise what changed by comparing the working tree against the template:
 
 ```bash
 # Files that differ between working tree and template
-git diff $REF --name-only -- .claude/commands/ .claude/scripts/
+git diff $REF --name-only -- .claude/commands/ .claude/scripts/ codex/
 ```
 
 Detect files that exist locally but NOT in the template (may be deprecated or user-created), and files in the template but not locally (new commands/scripts). Run this as one block — `comm` needs `LC_ALL=C sort` on both sides, or it aborts with "not in sorted order" under a UTF-8 locale, and both inventories must cover the **whole tree** (subdirectories and any extension), not a top-level glob:
 ```bash
 # Local command/script files: tracked + untracked-but-not-ignored, across both trees
-LOCAL_FILES=$( { git ls-files -- .claude/commands/ .claude/scripts/;
-                 git ls-files --others --exclude-standard -- .claude/commands/ .claude/scripts/; } \
+LOCAL_FILES=$( { git ls-files -- .claude/commands/ .claude/scripts/ codex/;
+                 git ls-files --others --exclude-standard -- .claude/commands/ .claude/scripts/ codex/; } \
                | LC_ALL=C sort -u)
 
 # Template command/script files
-TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort)
+TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort)
 
 # Files in local but not in template
 REMOVED_CANDIDATES=$(comm -23 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
@@ -322,17 +323,17 @@ and an **accepted-files list**: the paths you actually check out during this ste
 
 **If `--force` was specified**, skip per-file review — accept all files and apply them in bulk (use the bulk checkout approach):
 ```bash
-git checkout $REF -- .claude/commands/ .claude/scripts/
+git checkout $REF -- .claude/commands/ .claude/scripts/ codex/
 ```
-The accepted-files list for the commit is then the template's file list (`git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/`). Then skip ahead to the commit step below.
+The accepted-files list for the commit is then the template's file list (`git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/`). Then skip ahead to the commit step below.
 
 **Otherwise, iterate over each changed file:**
 
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \
-  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort) \
-  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ | LC_ALL=C sort)
+  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort) \
+  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort)
 ```
 (`LC_ALL=C` on both sides is required — `comm` aborts with "not in sorted order" against a UTF-8 collation.)
 
@@ -390,6 +391,32 @@ No updates applied — all files skipped.
 ```
 
 If the commit fails (nothing to commit), that's fine — files are already updated in the working tree.
+
+### Step 6b: Offer Accepted Codex Files to the Live `~/.codex/` Install
+
+The repo's `codex/` tree is a distribution copy — Codex CLI reads `~/.codex/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step only if **both** hold; otherwise skip silently:
+
+1. This run accepted at least one `codex/` file in Step 6.
+2. The live install exists: `[ -f "$HOME/.codex/skills/_shared-rules.md" ]` (the OpenCairn support file is the marker — its absence means the user hasn't installed the Codex rendering).
+
+For each accepted `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
+
+```bash
+diff -q "codex/skills/<file>" "$HOME/.codex/skills/<file>" 2>/dev/null
+```
+
+- **Identical** → nothing to do.
+- **Missing or differing** → show `diff -u "$HOME/.codex/skills/<file>" "codex/skills/<file>"` (a difference may be the user's own customisation, not just staleness) and ask "Copy to `~/.codex/skills/`? (y/n)". On accept: `mkdir -p` the parent, then copy. On skip: note it for the summary.
+
+**`codex/AGENTS.md` is never auto-copied.** The install instructions *append* it to any existing `~/.codex/AGENTS.md`, so the live file may legitimately carry the user's own content on top. If the repo copy changed this run and differs from the live file, display instead:
+
+```
+ℹ codex/AGENTS.md changed in this update. Your ~/.codex/AGENTS.md may contain your
+  own additions, so it was not touched. Review and merge manually:
+    diff ~/.codex/AGENTS.md codex/AGENTS.md
+```
+
+These copies live **outside the git tree** — there is no VCS to recover an overwrite from. That is why every differing file shows its diff before copying, and why `--force` does **not** extend here: `--force` bulk-applies the in-repo checkout only; the outward copy always reviews per file.
 
 ### Step 7: Post-Update Checks
 
@@ -491,6 +518,7 @@ git rev-parse --short $REF
   Accepted: N files (park.md, pickup.md, morning.md)
   Skipped:  M files (audit.md)
   New:      K files (weekly.md)
+  Codex:    J files copied to ~/.codex/skills/ (omit this line if Step 6b didn't run)
   Your CLAUDE.md and vault content were not touched.
 
   📋 Release notes: https://github.com/OpenCairn/OpenCairn/releases
@@ -525,7 +553,7 @@ Error: [specific error message]
 
 ## Guidelines
 
-- **Safe by design:** Only `.claude/commands/` and `.claude/scripts/` are ever modified. All other files are outside the checkout path.
+- **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to `~/.codex/` (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch `~/.codex/AGENTS.md`.
 - **Per-file review:** Each changed file is shown with its diff before applying. Users can skip files they've customised locally, preventing template regressions. `--force` bypasses review and accepts all.
 - **Custom commands are preserved:** Only files that exist in the template are updated. User-created custom commands are never modified or deleted.
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.

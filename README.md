@@ -188,7 +188,7 @@ cc   # or: cd ~/Files && claude
 
 If using Obsidian, open it and select `~/Files` as your vault folder.
 
-**Staying current:** Run `/update` periodically to pull the latest skills and scripts from the template repo. Your CLAUDE.md and vault content are never touched - only infrastructure files update.
+**Staying current:** Run `/update` periodically to pull the latest skills and scripts from the template repo (including the Codex rendering — it offers accepted `codex/` files to an existing `~/.codex/` install). Your CLAUDE.md and vault content are never touched - only infrastructure files update.
 
 **Signed releases:** Release tags from `v0.7.13` onward are SSH-signed annotated tags. If you pin to a release rather than tracking `main`, you can verify a tag's signature with `git verify-tag <tag>` after adding the maintainer's signing key to your `gpg.ssh.allowedSignersFile`. Earlier tags (`v0.7.12` and before) are lightweight and won't verify.
 
