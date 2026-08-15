@@ -23,7 +23,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
 - **Parallel cross-model panel despatch** — one seat per model family, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
-- **Seat tiering — judgment floats, verification pins** — judgment/generation seats run the session's model; verification seats may pin to a strong-but-cheaper tier, declared at the despatch site with a reason. → `park` Step 9 (rule: `_shared-rules.md §10`)
+- **Seat tiering — judgement floats, verification may pin** — session model default; optional strong floor with reason. → `_shared-rules.md §10`
 - **Reviewer evidence attestation** — read-list / command / manifest / URL+quote; class outranks votes. → `_shared-rules.md §23`
 - **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`

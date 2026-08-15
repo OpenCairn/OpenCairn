@@ -45,6 +45,8 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/offline). For each day, in chronological order:
 
+**Catch-up path invariant:** each of these recent days still writes directly to `Session Logs/YYYY-MM-DD.md`, not `Session Logs/YYYY/YYYY-MM-DD.md`. Derive the path from the loop's day value and assert its parent inside the write call; never reuse a year-subfolder path found while reading older history.
+
 1. Check if a daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
 2. Check if a session log exists: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
 3. If no session log or no sessions → skip silently (nothing to close out).
@@ -64,7 +66,12 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel $park or $goodnight invocations):
 
       ```bash
-      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md" --auto-number "Goodnight catch-up via $morning" "HH:MMam/pm"
+      CATCHUP_DAY="YYYY-MM-DD"  # replace with this loop iteration's actual day
+      case "$CATCHUP_DAY" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "ERROR: unsubstituted/invalid catch-up day: $CATCHUP_DAY" >&2; exit 1 ;; esac
+      SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+      SESSION_LOG="$SESSION_DIR/$CATCHUP_DAY.md"
+      [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: catch-up log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
+      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight catch-up via $morning" "HH:MMam/pm"
       ### Summary
       [Brief summary of what was generated/routed]
 
