@@ -94,13 +94,16 @@ fi
 BLOCK=$(awk -v n="$N" '$0 ~ "^## Session " n " " {p=1; next} p && /^## Session /{exit} p' "$LOG")
 
 # --- sections ----------------------------------------------------------------
-if ! printf '%s\n' "$BLOCK" | grep -q '^### Summary'; then
+# Feed the captured block directly. With `pipefail`, `printf | grep -q` reports
+# failure when grep finds an early match and closes a block larger than the pipe
+# buffer, because printf then exits on SIGPIPE.
+if ! grep -q '^### Summary' <<< "$BLOCK"; then
     fail sections "Session $N has no '### Summary'"
 else
     pass sections "Summary present"
 fi
 for SEC in "### Files Created" "### Files Updated"; do
-    if ! printf '%s\n' "$BLOCK" | grep -q "^$SEC"; then
+    if ! grep -q "^$SEC" <<< "$BLOCK"; then
         fail sections "Session $N has no '$SEC' (backfill contract)"
     else
         pass sections "${SEC#\#\#\# } present"
@@ -132,8 +135,11 @@ for t in "${SEP_TARGETS[@]}"; do
     # documents the post-locked-edit grep; locked-edit.sh defines it). Same
     # carve-out the lint check below makes, and for the same reason: a file that
     # documents a marker is not a file that leaked one. locked-edit.sh only ever
-    # writes planning files, so nothing under .claude/ can carry a real leak.
-    case "$t" in */.claude/*) continue ;; esac
+    # writes planning files, so harness instruction/skill/command surfaces cannot
+    # carry a real leak.
+    case "$t" in
+        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
+    esac
     # Match the leaked ARTEFACT, not the token. What locked-edit.sh can strand in
     # a file is its padded stdin delimiter alone on a line; a vault doc that
     # merely names the token in prose (this repo's own monitor log does, in the
@@ -154,7 +160,9 @@ LINT_HITS=""
 for t in "${TOUCHED[@]:-}"; do
     [ -n "$t" ] && [ -f "$t" ] || continue
     case "$t" in *.md) ;; *) continue ;; esac
-    case "$t" in */.claude/*) continue ;; esac        # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
+    case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
+        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
+    esac
     case "$t" in "$VAULT"/*) ;; *) continue ;; esac   # lint vault content files only
     # A real joined list is "textrun- [ ] next item". Two preceding characters are
     # never that: a backtick (prose quoting `- [ ]`, common in corrections entries

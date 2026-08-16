@@ -1,0 +1,6 @@
+interface:
+  display_name: "Regroup"
+  short_description: "Recalibrate the rest of the day"
+  default_prompt: "Use $regroup to check drift and reprioritise the rest of today."
+policy:
+  allow_implicit_invocation: false

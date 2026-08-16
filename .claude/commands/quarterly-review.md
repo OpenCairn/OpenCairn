@@ -34,9 +34,9 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    - **Read the previous quarterly review:** `ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null | sort -r | head -1`. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. Skip any file for the quarter under review (a mid-quarter first run leaves one) and take the newest older-quarter file. If none exists, note it and continue.
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
-   - Read weekly reviews from `06 Archive/Claude/Weekly Reviews/` for the quarter. **Boundary selection:** include any weekly review whose covered date range (from its `## Daily Reports` section) intersects the quarter; label partial-quarter reviews in the output. **Extraction guidance:** for each review, extract the Synthesis section, Projects Active, Time Allocation, Key Insights & Patterns, Alignment Check findings, and Course Corrections. Skip session counts, daily report links, and vault maintenance details (those are in the hygiene report).
+   - Read weekly reviews from `06 Archive/OpenCairn/Weekly Reviews/` for the quarter. **Boundary selection:** include any weekly review whose covered date range (from its `## Daily Reports` section) intersects the quarter; label partial-quarter reviews in the output. **Extraction guidance:** for each review, extract the Synthesis section, Projects Active, Time Allocation, Key Insights & Patterns, Alignment Check findings, and Course Corrections. Skip session counts, daily report links, and vault maintenance details (those are in the hygiene report).
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
-   - **Consume the quarterly-hygiene report:** find the latest in `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/` (filename descending).
+   - **Consume the quarterly-hygiene report:** find the latest in `{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports/` (filename descending).
      - **Current quarter:** read it — its findings populate the Vault Health section of the output. Do not re-scan context files, CRM, or run structural queries; that work is done.
      - **Older quarter:** warn — "Latest quarterly-hygiene report is [quarter] — structural findings may be stale. Recommend re-running `/quarterly-hygiene`." Still fold its findings into Vault Health, labelled stale in the source line. Continue with the strategic review.
      - **Absent:** warn — "No quarterly-hygiene report — vault structural findings will be missing from this review. Recommend running `/quarterly-hygiene` first." Vault Health gets the not-found line. Continue with the strategic review.
@@ -156,7 +156,7 @@ Projects to explicitly abandon rather than let linger:
 - [Thing to drop]
 
 ## Weekly Reviews This Quarter
-- [[06 Archive/Claude/Weekly Reviews/YYYY-Wnn]] — Week N
+- [[06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn]] — Week N
 - ...
 ```
 

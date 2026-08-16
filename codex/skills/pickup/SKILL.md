@@ -1,8 +1,6 @@
 ---
 name: pickup
 description: Resume previous work — pass a topic, keyword, or file path to jump straight in
-argument-hint: "[topic, keyword, or file path — optional; bare $pickup shows active projects]"
-allow_implicit_invocation: false
 ---
 
 # Pickup - Session Pickup
@@ -42,14 +40,14 @@ You are helping the user resume previous work with full context.
 
    - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Cold/`, `03 Projects/Backlog/`) and area files as needed.
 
-   - **Follow CLAUDE.md's context routing table** for domain-specific context files. If the vault-root CLAUDE.md is absent or has no routing table, follow the user's explicit target link and load its project/area hub plus directly related context notes.
+   - **Follow the active AGENTS.md context-routing table** for domain-specific context files. If the governing AGENTS.md is absent or has no routing table, follow the user's explicit target link and load its project/area hub plus directly related context notes.
 
    Use judgement about what's relevant. Don't over-load — read what the user needs to get back into the work.
 
 5. **Load and present:**
 
    From whatever you found, read:
-   - The most recent matching session section — the scan script's DATE column (e.g. `2026-03-30`) maps to `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`, or `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` if that date has been archived into a year subfolder (logs >90 days old; `pickup-scan.sh` finds them via `-maxdepth 2`). SESSION_NUM tells you which `## Session N` block to read. Go straight there; don't re-search. The year-subfolder form is an archival **read** path only: if `$park` or `$goodnight` follows, today's new entry still goes directly in `Session Logs/YYYY-MM-DD.md`; never carry this loaded path forward as the write target.
+   - The most recent matching session section — the scan script's DATE column (e.g. `2026-03-30`) maps to `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`, or `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY/YYYY-MM-DD.md` if that date has been archived into a year subfolder (logs >90 days old; `pickup-scan.sh` finds them via `-maxdepth 2`). SESSION_NUM tells you which `## Session N` block to read. Go straight there; don't re-search. The year-subfolder form is an archival **read** path only: if `$park` or `$goodnight` follows, today's new entry still goes directly in `Session Logs/YYYY-MM-DD.md`; never carry this loaded path forward as the write target.
    - The project hub file if one exists
    - Relevant context files per the routing rule above
 
@@ -104,7 +102,7 @@ You are helping the user resume previous work with full context.
 
 8. **Wait for user response:**
 
-   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/Claude/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per the routing rule above. Present as in Step 5.
+   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/OpenCairn/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per the routing rule above. Present as in Step 5.
    - **"show all"** → Redisplay including `Cold/` and `Backlog/` docs (grouped under their tier headings)
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally

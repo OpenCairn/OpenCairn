@@ -1,8 +1,6 @@
 ---
 name: start-project
 description: Spin up a new project - create the project doc in 03 Projects, link to initiative
-argument-hint: "[Project Name] [--initiative=Name] [--backlog]"
-allow_implicit_invocation: false
 ---
 
 # Start Project - New Project Initialisation
@@ -207,5 +205,4 @@ If unsure whether something is a project or a task: if it needs multiple session
 - **Initiatives:** Linked bidirectionally for navigation
 - **Session summaries:** Session History section captures all work
 - **complete-project:** Eventual counterpart to route the doc out of the root when done
-
 

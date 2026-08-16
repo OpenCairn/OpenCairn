@@ -1,0 +1,6 @@
+interface:
+  display_name: "Reply"
+  short_description: "Draft a voice-matched reply with context"
+  default_prompt: "Use $reply to draft a voice-matched response to this message."
+policy:
+  allow_implicit_invocation: false

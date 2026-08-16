@@ -1,7 +1,6 @@
 ---
 name: book-stay
 description: Choose and book a hotel (or stay) — quiz preferences, generate shortlist, verify rates, hand off booking, fan out references across the vault.
-allow_implicit_invocation: false
 ---
 
 # Book Stay
@@ -33,7 +32,7 @@ If the output is the literal `NO_VAULT`, no vault is configured — don't abort;
 - **Don't re-research what's already in the vault — refine instead.**
 - **Stale check:** if the existing doc has a SUPERSEDED banner or is >1 month old, treat it as historical context only. If the user has flagged a context shift since the doc was written (e.g. "we used to be planning A but now it's B"), explicitly re-open rather than refining.
 - **Compute booking lead time** (`check-in date − today`; run `date` for today — never assume it). Warn the user if it's <7 days: most chain-hotel package discounts require 7-21 days advance booking, so the realistic discount ceiling at short lead time is ~5-10% via a loyalty member rate, not the 18-25% a package can reach. **But distinguish chain-loyalty packages (lead-time-gated) from OTA promo discounts (not).** OTA promotions ("intro offer", "mobile exclusive") and individual property opening-discounts often apply at any lead time — don't tell the user to expect zero discounts last-minute. Set expectations on chain packages specifically.
-- **Establish the user's home currency** (locale in CLAUDE.md, or ask once in plain conversation before the quiz — the frame call is already at the 4-question cap) — all totals present in it.
+- **Establish the user's home currency** (locale in AGENTS.md, or ask once in plain conversation before the quiz — the frame call is already at the 4-question cap) — all totals present in it.
 - **An event or conference "partner rate" is not automatically a discount.** When the stay is tied to an event that supplies a negotiated rate sheet, price it against open-market rates for the same dates *before* treating it as a saving — a negotiated rate can sit at or above market, and the sheet typically quotes no rack rate to compare against. Check the sheet for the three things most often missing: a **validity window**, a **booking code and deadline**, and whether the rate covers nights **outside** the event dates. Establish early whether the event has one partner property or several, since that decides whether a cheaper negotiated rate exists at all — and if it has only one, say so plainly, because it means the shortlist runs on open-market pricing and there is nothing further to chase.
 - **Surface prior decisions** from the loaded context. For each upcoming quiz question, check the existing accommodation doc for an answer. If found, state it as the working assumption ("the prior doc recommended X — do you want to change this?") rather than re-asking from scratch.
 
@@ -164,7 +163,7 @@ User pastes confirmation # back; agent captures it.
   3. **Relocated-anchor coverage:** if this booking moved a section/doc (e.g. consolidated a sub-trip's notes into a new file), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction — a narrow pattern drops semantic-variant pointers like "the trip doc".
 - Superseded shortlists: add this banner at the top of the old doc/section rather than deleting — `> ⚠️ SUPERSEDED — active doc: [[<new doc>]]` — and keep the research below it.
 
-**Edit safety:** Shared planning files in the fan-out (`This Week.md`, project hubs) go through `locked-edit.sh`, never a raw edit — see `_shared-rules.md` §5. For all edits (either mechanism): the Claude Code side's formatting hooks may rewrite these files between your read and your edit. Use *minimal-context* old-strings (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
+**Edit safety:** Shared planning files in the fan-out (`This Week.md`, project hubs) go through `locked-edit.sh`, never a raw edit — see `_shared-rules.md` §5. For all edits (either mechanism): the shared vault's formatting hooks may rewrite these files between your read and your edit. Use *minimal-context* old-strings (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
 
 ## Heuristics summary (the load-bearing ones)
 

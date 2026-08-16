@@ -1,0 +1,6 @@
+interface:
+  display_name: "Inbox Processor"
+  short_description: "Route inbox captures into the vault"
+  default_prompt: "Use $inbox-processor to organise and route these inbox captures."
+policy:
+  allow_implicit_invocation: false

@@ -42,8 +42,8 @@ For each item, determine the appropriate home using NIPARAS logic:
 - **Is this system documentation?** → `07 System/`
 
 **Additional routing rules:**
-- Session notes → `06 Archive/Claude/Session Logs/`
-- Daily reflections (user-authored) → `06 Archive/Daily Reviews/` (create if missing; deliberately distinct from `06 Archive/Claude/Daily Reports/`, which is /goodnight's machine-generated day index — never file user prose there)
+- Session notes → `06 Archive/OpenCairn/Session Logs/`
+- Daily reflections (user-authored) → `06 Archive/Daily Reviews/` (create if missing; deliberately distinct from `06 Archive/OpenCairn/Daily Reports/`, which is /goodnight's machine-generated day index — never file user prose there)
 - Blog drafts → the blog's own project or area folder (its drafts/content directory if it's a static site)
 - Screenshots/images → Keep with related topic (never separate by filetype!)
 - Meeting notes → Usually `04 Areas/` or linked project

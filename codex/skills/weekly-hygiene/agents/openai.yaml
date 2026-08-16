@@ -1,0 +1,6 @@
+interface:
+  display_name: "Weekly Hygiene"
+  short_description: "Run structural maintenance across the vault"
+  default_prompt: "Use $weekly-hygiene to run structural maintenance across the vault."
+policy:
+  allow_implicit_invocation: false

@@ -10,11 +10,11 @@
 #
 # Examples:
 #   # Same-day link:
-#   add-forward-link.sh "06 Archive/Claude/Session Logs/2025-03-15.md" 5 6 "API Refactor"
+#   add-forward-link.sh "06 Archive/OpenCairn/Session Logs/2025-03-15.md" 5 6 "API Refactor"
 #   # Cross-day link (prev session on Mar 15, new session on Mar 16):
-#   add-forward-link.sh "06 Archive/Claude/Session Logs/2025-03-15.md" 5 1 "Morning Check-in" "2025-03-16.md"
+#   add-forward-link.sh "06 Archive/OpenCairn/Session Logs/2025-03-15.md" 5 1 "Morning Check-in" "2025-03-16.md"
 #   # Continued-in link (Session 3 continues work from Session 1):
-#   add-forward-link.sh --continued-in "06 Archive/Claude/Session Logs/2025-03-15.md" 1 3 "API Refactor Part 2"
+#   add-forward-link.sh --continued-in "06 Archive/OpenCairn/Session Logs/2025-03-15.md" 1 3 "API Refactor Part 2"
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
 
@@ -60,9 +60,9 @@ else
     DATE_PART="$(basename "$SESSION_FILE" .md)"
 fi
 if [ "$LINK_TYPE" = "continued" ]; then
-    NEW_SESSION_LINK="**Continued in:** [[06 Archive/Claude/Session Logs/${DATE_PART}]] (Session ${NEW_NUM} - ${NEW_TOPIC})"
+    NEW_SESSION_LINK="**Continued in:** [[06 Archive/OpenCairn/Session Logs/${DATE_PART}]] (Session ${NEW_NUM} - ${NEW_TOPIC})"
 else
-    NEW_SESSION_LINK="**Next session:** [[06 Archive/Claude/Session Logs/${DATE_PART}]] (Session ${NEW_NUM} - ${NEW_TOPIC})"
+    NEW_SESSION_LINK="**Next session:** [[06 Archive/OpenCairn/Session Logs/${DATE_PART}]] (Session ${NEW_NUM} - ${NEW_TOPIC})"
 fi
 
 # Acquire lock

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Guillotines"
+  short_description: "Surface and sort hard-deadline tasks"
+  default_prompt: "Use $guillotines to find and sort hard-deadline tasks."
+policy:
+  allow_implicit_invocation: false

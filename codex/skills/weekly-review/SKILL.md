@@ -1,7 +1,6 @@
 ---
 name: weekly-review
 description: Weekly patterns review - aggregate progress, insights, and alignment
-allow_implicit_invocation: false
 ---
 
 # Weekly Review - Patterns Over Time
@@ -25,7 +24,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%G-W%V"` (for file naming: YYYY-Wnn.md). `%G` (ISO year), not `%Y` — they differ in the 29 Dec–3 Jan boundary window, and `%Y-W%V` there produces a nonexistent week key that corrupts the latest-file sort.
-   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/Claude/Weekly Reviews/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
+   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Reviews/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
    - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. **The last covered date is the latest of: the dated links AND any "*(no report for [date] …)*" notes in that section** — a review can end on days that produced no daily report (travel/offline days), and taking only the last dated link would make the next review re-cover them. If the review's title date range ends later still, prefer the title's end date and note the discrepancy. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
    - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
@@ -34,16 +33,16 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 2. **Check for Hygiene Report and gather the week's data:**
 
    **Hygiene report:**
-   - Look for the latest file in `{VAULT}/06 Archive/Claude/Hygiene Reports/` (sorted by filename descending)
+   - Look for the latest file in `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/` (sorted by filename descending)
    - If a report exists, parse the week number from its filename (e.g., `2026-W10.md` → W10) and compare to the current ISO week (`date +%G-W%V`):
      - **Current week:** Read and incorporate — no warning
      - **Previous week or older:** Warn: "Latest hygiene report is from [week] — vault state may have changed. Consider re-running `$weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
    - If no reports exist, note this and suggest running `$weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
-   - Read daily reports from `{VAULT}/06 Archive/Claude/Daily Reports/` for dates from `PERIOD_START` to current date
+   - Read daily reports from `{VAULT}/06 Archive/OpenCairn/Daily Reports/` for dates from `PERIOD_START` to current date
    - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
-   - Read session summaries from `{VAULT}/06 Archive/Claude/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
+   - Read session summaries from `{VAULT}/06 Archive/OpenCairn/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
    - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
    - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter plus `## Current Objective` and `## Next Actions`; folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds the **active project cap** (resolve it first: `grep -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent) — flag it and ask which project moves to `Cold/`
 
@@ -66,7 +65,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
        ```bash
        cd "{VAULT}" && git log --since="YYYY-MM-DD 00:00" --until="YYYY-MM-DD 23:59" --name-only --pretty=format: | sort -u
        ```
-       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/Claude/Daily Reports/*`, `06 Archive/Claude/Session Logs/*`, `06 Archive/Claude/.Session Transcripts/*`, `06 Archive/Claude/Weekly Context/*`, `06 Archive/Claude/Weekly Reviews/*`, `06 Archive/Claude/Hygiene Reports/*`, `.obsidian/*`.
+       Exclude infrastructure paths: `01 Now/This Week.md`, `06 Archive/OpenCairn/Daily Reports/*`, `06 Archive/OpenCairn/Session Logs/*`, `06 Archive/OpenCairn/.Session Transcripts/*`, `06 Archive/OpenCairn/Weekly Context/*`, `06 Archive/OpenCairn/Weekly Reviews/*`, `06 Archive/OpenCairn/Hygiene Reports/*`, `.obsidian/*`.
    - **Compute per day:**
      - Scheduled items: count + folder distribution from This Week.md post-morning state, grouping by wikilink-target folder at its native depth (e.g. `04 Areas/Relationships/[Person]`, not just `04 Areas`).
      - Executed items, by comparing the daily report's day section against the post-morning state: `- ✓` = checked; `~~strike~~` = dropped; post-morning items absent from the daily report = migrated-out (rolled to a later day before `$goodnight` archived the section); daily-report items absent from the post-morning state = added mid-day. (The daily report carries only plain `- `/`- ✓` bullets — `$goodnight` converts checkboxes on archive and writes no migration suffix, so migrated-out is detectable only by this absence comparison.) Skip container headers (`- Flexible between…`, `- Pick one, cycle, or timebox`, `- Admin batch`).
@@ -88,8 +87,8 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    **Claude Corrections Log review:**
    - Read `{VAULT}/07 System/Claude Corrections Log.md`
    - Identify entries from this week (by date header) under the log's `## Log` tail
-   - **A folded log has two surfaces.** Older history lives above as distilled rule bullets, not as `### ` entries, so before proposing a promotion check whether a rule bullet already covers it — a lesson distilled into a rule is captured, and re-promoting it duplicates the rule into CLAUDE.md
-   - Flag any lessons that should be promoted to CLAUDE.md or `~/.claude/projects/*/memory/MEMORY.md` for active recall
+   - **A folded log has two surfaces.** Older history lives above as distilled rule bullets, not as `### ` entries, so before proposing a promotion check whether a rule bullet already covers it — a lesson distilled into a rule is captured, and re-promoting it duplicates the rule into active harness guidance
+   - Flag any lessons that should be promoted to the active AGENTS.md guidance, the Claude-side `CLAUDE.md`, or Claude Code's `~/.claude/projects/*/memory/MEMORY.md` for active recall; name the harness scope explicitly
 
 3. **Run the weekly review interview:**
 
@@ -121,13 +120,13 @@ Before diving into the lenses below, ask the user once whether they want interac
 - "Anything to stop doing or delegate?"
 
 4. **Ensure directory exists:**
-   - Check if `{VAULT}/06 Archive/Claude/Weekly Reviews/` directory exists
-   - If not, create it: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Reviews"`
+   - Check if `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/` directory exists
+   - If not, create it: `mkdir -p "{VAULT}/06 Archive/OpenCairn/Weekly Reviews"`
    - This prevents first-run failures
 
 5. **Generate weekly review:**
 
-Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
+Create a file at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
 
 **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already reshuffled This Week.md or a project doc, so any `This Week.md Lnn` carried into this durable review is stale on write. Name items (tasks, project-doc actions, Tickler lines, aged open loops) by title/heading/content.
 
@@ -228,7 +227,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 - [Date] - [Mistake summary] - Lesson: [key takeaway]
 
 **Promote to active recall?**
-- [Entry] → Add to CLAUDE.md or MEMORY.md? (Y/N, reason)
+- [Entry] → Add to AGENTS.md, Claude-side guidance/memory, both, or neither? (Y/N, reason)
 
 *Corrections Log is write-only unless promoted. Review weekly to catch patterns worth internalising.*
 
@@ -259,8 +258,8 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 
 ## Daily Reports
 [Links to daily reports for drill-down]
-- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Mon
-- [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] - Tue
+- [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] - Mon
+- [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] - Tue
 - etc.
 ```
 
@@ -287,7 +286,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    grep -cF "Weekly Reviews/SLUG]]" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
 
    "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" \
-     "- [ ] Weekly review SLUG flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/Claude/Weekly Reviews/SLUG]]"
+     "- [ ] Weekly review SLUG flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/OpenCairn/Weekly Reviews/SLUG]]"
    ```
 
    **This step's disallowed sink is the review file itself** (§18 requires each caller to name its own): a deadline-bearing correction left only in "Course Corrections Needed" or "Big Rocks" is the failure this exists to prevent. One dated pointer discharges the whole set.
@@ -323,23 +322,23 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    **How Claude Web Memory works:** Claude Web auto-generates a "Memory from your chats" summary nightly from chat history. Imported context merges into this same Memory blob. The nightly regeneration restructures everything into third-person prose with sections like "Work context", "Personal context", "Top of mind", "Brief history". The context file is the user's authoritative, vault-informed self-description — more accurate than what Memory derives from chat patterns alone.
 
    **Output location:**
-   - Ensure directory: `mkdir -p "{VAULT}/06 Archive/Claude/Weekly Context"`
-   - Write output to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md` (using the current ISO week, per step 1's `%G-W%V`; unlike the review file, overwriting a same-week context doc is correct — it's a regenerated current-state export, latest wins)
+   - Ensure directory: `mkdir -p "{VAULT}/06 Archive/OpenCairn/Weekly Context"`
+   - Write output to `{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md` (using the current ISO week, per step 1's `%G-W%V`; unlike the review file, overwriting a same-week context doc is correct — it's a regenerated current-state export, latest wins)
 
    **Gather context for dynamic sections:**
    - Read the `03 Projects/` root docs — every active project is a candidate for inclusion, not just "work." Relationships, health threads, ongoing evaluations, and personal decisions that are actively shaping behaviour belong in the context file if they'd change how Claude Web responds.
-   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/Claude/Weekly Reviews/` (same pattern-constrained `LC_ALL=C sort -r` listing as step 1, `head -3`) for trajectory and recent events. The current week's review data is already available from earlier steps.
+   - Read the 2-3 most recent weekly reviews from `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/` (same pattern-constrained `LC_ALL=C sort -r` listing as step 1, `head -3`) for trajectory and recent events. The current week's review data is already available from earlier steps.
    - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because project docs and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a project doc's Next Actions entry, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
 
    **Read previous context version** to carry forward stable sections:
-   - Find the latest file in `{VAULT}/06 Archive/Claude/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/Claude/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
+   - Find the latest file in `{VAULT}/06 Archive/OpenCairn/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
    - The file has two kinds of sections:
      - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
      - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from the project docs): Regenerate fully from the `03 Projects/` root docs, recent weekly reviews, and this week's review data.
 
    **Stable section verification (anti-confabulation pass).** Carrying-forward propagates whatever was true (or wrong) in the previous version. Errors that entered a stable section once will survive every subsequent week unless explicitly checked. Three rules:
 
-   - **Re-read the source context file at least once a month per stable section** (`07 System/Context - *.md`). Verification metadata lives in a **sibling tracking file at `06 Archive/Claude/Weekly Context/.verification-log.md`** (NOT inside the output doc — the output gets pasted into Claude Web Memory and must stay clean). Schema:
+   - **Re-read the source context file at least once a month per stable section** (`07 System/Context - *.md`). Verification metadata lives in a **sibling tracking file at `06 Archive/OpenCairn/Weekly Context/.verification-log.md`** (NOT inside the output doc — the output gets pasted into Claude Web Memory and must stay clean). Schema:
      ```
      # Weekly Context Verification Log
      | Section | Last source-verified (YYYY-MM-DD) | Source file |
@@ -359,7 +358,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    ~~~
    Last updated: YYYY-MM-DD
 
-   [1-2 sentence identity/situation summary from CLAUDE.md. Write itinerary/location as a date-anchored timeline, not present-tense — see Staleness rules below.]
+   [1-2 sentence identity/situation summary from the active AGENTS.md guidance. Write itinerary/location as a date-anchored timeline, not present-tense — see Staleness rules below.]
 
    [Active personal context from the project docs that shapes behaviour and decision-making — relationships being evaluated, major life transitions, ongoing personal threads. These aren't all "work" but they change how Claude Web should respond. Include enough detail that Claude Web can give informed advice without asking for backstory. Omit if nothing active.]
 
@@ -370,7 +369,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    [Key decisions, changes, events from the review period. 2-4 bullets.]
 
    ## How I Like to Work
-   [Communication preferences from CLAUDE.md. Carry forward from previous version.]
+   [Communication preferences from the active AGENTS.md guidance. Carry forward from previous version.]
 
    ## Background
    [Stable biographical context: citizenship, credentials, practice details, key collaborators, family, housing. Carry forward, update as needed.]
@@ -392,7 +391,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    ~~~
 
    **Section guidance:**
-   - Not all users will have all sections. Omit any section with no corresponding context file or CLAUDE.md content. The section list above is a superset — match to what the user's vault actually contains.
+   - Not all users will have all sections. Omit any section with no corresponding context file or AGENTS.md content. The section list above is a superset — match to what the user's vault actually contains.
    - For stable sections, look for `07 System/Context - *.md` files matching the section topic (e.g., a photography context file for Photography, a health context file for Health & Medications).
 
    **Constraints:**
@@ -405,7 +404,7 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - **Magic phrase test:** Every line should change how Claude Web responds. If removing a line wouldn't change behaviour, cut it. 120 lines of load-bearing content is valuable; 120 lines with filler is worse than 60 tight lines.
    - **Stable sections: carry forward, BUT verify per the Stable section verification rules above** (monthly source re-read, plus distrust lineage/tradition/methodology claims always).
    - **Dynamic sections: regenerate fully** from this week's review data with recency weighting, reconciling every status fact against This Week.md per the gather-step rule above (the day plan wins over project-doc/session-log/prior-doc surfaces).
-   - **First-use bootstrap:** If no previous version exists, generate stable sections from CLAUDE.md and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and project docs (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
+   - **First-use bootstrap:** If no previous version exists, generate stable sections from the active AGENTS.md guidance and `07 System/Context - *.md` files that match the section topics. Dynamic sections will be generated from the current review data and project docs (gathered above). The first generation will require reading these files; subsequent weeks carry forward (with verification).
 
    **Staleness rules (mandatory).** Claude Web Memory persists between conversations and the doc may be re-pasted weeks after generation. The doc must read sensibly N weeks after the `Last updated:` date.
 
@@ -419,10 +418,10 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
    - **Travel/itinerary framing:** write as a date-anchored timeline ("Trip 2 finished 14 May → leg 1 city 20 May – 2 Jun → leg 2 city 5-19 Jun → home ~20 Jun"), not as present location ("Currently in [city], day 5 of 6"). The reader infers location from the date stamp + timeline.
    - **Present-tense state about transient things** (location, TZ, weight, med dose if changing, flight, claim/portal status that's days from resolution) must either include "as of doc date" or be reframed to past-tense with an action date ("Insurance claim lodged Thu 7 May" — the wait is implicit; "Medication X on-stack since 1 May 2026" — durable until restated).
 
-   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md`, run a literal Bash grep to verify the banned vocabulary is absent:
+   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md`, run a literal Bash grep to verify the banned vocabulary is absent:
 
    ```bash
-   grep -niE '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/Claude/Weekly Context/YYYY-Wnn.md"
+   grep -niE '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md"
    ```
 
    Acceptable hits: banned terms inside quoted text (someone else's email phrasing, e.g. a cited email saying "end of next week") that the doc is faithfully citing. Every other hit must be revised. Re-run grep after each revision. Iterate until clean (no hits or only quoted-citation hits remain). Report the final scrub result in the confirmation step (e.g. "Banned-vocab scan: 0 hits" or "Banned-vocab scan: 1 hit, in quoted email citation — acceptable").
@@ -432,15 +431,15 @@ Create a file at `{VAULT}/06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md` (using t
 9. **Display confirmation with pre-paste review gate:**
 
 ```
-✓ Weekly review saved to: 06 Archive/Claude/Weekly Reviews/YYYY-Wnn.md
+✓ Weekly review saved to: 06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Deadline backstop: N items flagged, Tickler reminder set YYYY-MM-DD [OR "no resolvable deadlines"]
 ✓ Hygiene report: [Incorporated / Not found — run $weekly-hygiene]
-✓ Claude Web context drafted: 06 Archive/Claude/Weekly Context/YYYY-Wnn.md
+✓ Claude Web context drafted: 06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md
   - Banned-vocab scrub: [N hits / clean; if hits, list location and whether quoted-citation acceptable]
   - Lineage/methodology claims: [N found; all source-verified against `Context - *.md` / none found]
   - Sections re-verified this run (>30 days stale or bootstrap): [list]
-  - Verification log updated: 06 Archive/Claude/Weekly Context/.verification-log.md
+  - Verification log updated: 06 Archive/OpenCairn/Weekly Context/.verification-log.md
 ✓ What's next: [Top 2-3 priorities]
 
 Weekly review complete.

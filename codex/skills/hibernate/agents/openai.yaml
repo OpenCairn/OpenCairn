@@ -1,0 +1,6 @@
+interface:
+  display_name: "Hibernate"
+  short_description: "Save context before an extended break"
+  default_prompt: "Use $hibernate to save context before an extended break."
+policy:
+  allow_implicit_invocation: false

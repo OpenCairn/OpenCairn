@@ -23,7 +23,7 @@ Find patterns, themes, and connections across files related to a topic.
 1. **Search broadly** - Use the Grep tool to find files matching the topic:
    - Search with multiple keyword variations (synonyms, related terms)
    - a) **Scope:** grep all of `{VAULT}`, not a folder list — a vault holds top-level folders beyond the usual structure, and the topic may live in one of them
-   - b) **Priority:** weight `01 Now/`, `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/`, `07 System/` hub files, and `06 Archive/Claude/Session Logs/` first — the archive is where evolution-over-time evidence lives. Note any of these that don't exist in this vault, and any other top-level folder that produced hits you didn't read
+   - b) **Priority:** weight `01 Now/`, `02 Inbox/`, `03 Projects/`, `04 Areas/`, `05 Resources/`, `07 System/` hub files, and `06 Archive/OpenCairn/Session Logs/` first — the archive is where evolution-over-time evidence lives. Note any of these that don't exist in this vault, and any other top-level folder that produced hits you didn't read
    - Drop hits inside frozen or generated artefacts — provenance snapshots and similar byte-frozen copies that quote historical text verbatim (e.g. `07 System/.Provenance/`). Session logs are primary evidence here and stay in scope
    - Collapse duplicates before counting recurrence: identical content or the same basename in two locations is one occurrence, not two
    - If an Obsidian MCP search tool is available, use it for richer results (tool names vary by server — check what's registered)

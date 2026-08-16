@@ -5,8 +5,9 @@ Owns key loading, model choice, reasoning effort, live search, the no-tool guard
 retry/backoff, and cost/latency logging. Import from here so no Grok plumbing is
 duplicated. Stdlib only (urllib) — no pip installs, matching ~/.claude/scripts/ convention.
 
-Key: XAI_API_KEY in the process environment. Nothing else is read, and the key is
-never logged or printed. Endpoint: POST https://api.x.ai/v1/responses
+Key: XAI_API_KEY in the process environment, falling back to
+~/.claude/settings.json env.XAI_API_KEY so Claude Code and Codex share one
+credential. The key is never logged or printed. Endpoint: POST https://api.x.ai/v1/responses
 
 Usage:
   xai_client.py "prompt"                          smoke test (fast model)
@@ -19,7 +20,7 @@ Options:
   --source FILE         a file to inline (repeatable). Total capped at MAX_INLINE_BYTES.
   --dry-run             print the outbound payload (key redacted) and exit; no request
   --effort LEVEL        minimal|low|medium|high|xhigh (default xhigh for panel review)
-  --probe               exit 0 if XAI_API_KEY is set, 1 otherwise; prints a one-line status
+  --probe               exit 0 if XAI_API_KEY resolves, 1 otherwise; prints source/status
 
 Import:
   from xai_client import deep, analyze, classify
@@ -85,12 +86,35 @@ def _load_grokmd() -> str:
     return _grokmd_cache
 
 
-def _load_key() -> str:
+def _resolve_key() -> tuple[str | None, str | None]:
     key = os.environ.get("XAI_API_KEY")
+    if key:
+        return key, "process environment"
+
+    settings_path = os.path.expanduser("~/.claude/settings.json")
+    try:
+        with open(settings_path, encoding="utf-8") as fh:
+            settings = json.load(fh)
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None, None
+
+    if not isinstance(settings, dict):
+        return None, None
+    env = settings.get("env")
+    if not isinstance(env, dict):
+        return None, None
+    key = env.get("XAI_API_KEY")
+    if not isinstance(key, str) or not key:
+        return None, None
+    return key, "~/.claude/settings.json"
+
+
+def _load_key() -> str:
+    key, _ = _resolve_key()
     if not key:
         sys.exit(
-            "XAI_API_KEY unset. Export it in the environment the caller actually runs in "
-            "— a key exported only in ~/.bashrc will NOT reach a non-interactive shell."
+            "XAI_API_KEY unavailable. Set it in the process environment or in "
+            "~/.claude/settings.json under env.XAI_API_KEY."
         )
     return key
 
@@ -326,15 +350,15 @@ def _main(argv: list[str]) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     if "--probe" in argv:
-        if os.environ.get("XAI_API_KEY"):
-            print("grok seat: available")
+        key, source = _resolve_key()
+        if key:
+            print(f"grok seat: available ({source})")
             return 0
         # Prereq-verification pattern (per _shared-patterns.md → transcribe): a failed probe
         # emits the specific remediation, not just the diagnosis.
-        print("grok seat: unavailable (XAI_API_KEY unset)\n"
-              "  setup: create a key at console.x.ai and load credits (no free tier), then export\n"
-              "         XAI_API_KEY where a NON-INTERACTIVE shell sees it — ~/.bashrc commonly\n"
-              "         exits early for those and won't work.\n"
+        print("grok seat: unavailable (XAI_API_KEY unresolved)\n"
+              "  setup: create a key at console.x.ai and load credits (no free tier), then set\n"
+              "         XAI_API_KEY in the process environment or ~/.claude/settings.json env.\n"
               "  note:  xAI does not train on API data without explicit opt-in; requests are kept\n"
               "         30 days for abuse auditing. No console toggle to change.")
         return 1

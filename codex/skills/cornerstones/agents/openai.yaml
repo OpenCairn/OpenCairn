@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cornerstones"
+  short_description: "Surface foundational tasks across the vault"
+  default_prompt: "Use $cornerstones to surface foundational tasks in the vault."
+policy:
+  allow_implicit_invocation: false

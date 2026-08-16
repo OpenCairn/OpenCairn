@@ -1,0 +1,81 @@
+---
+name: longpoles
+description: Surface all [LP] (longpole) tagged items across the vault — critical-path items that block other work
+---
+
+
+# Longpoles - Critical Path Scanner
+
+You are scanning the vault for items tagged with `[LP]` — longpole items that sit on the critical path and block other work. The goal is a quick, actionable view of what's blocking progress.
+
+## Instructions
+
+### 0. Resolve the Vault Path
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+```
+
+If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path.
+
+### 1. Scan the Vault
+
+Use `rg` through the shell to find all `[LP]` references across `{VAULT}`:
+
+- Search pattern: `\[LP\]`
+- Search path: `{VAULT}`
+- Restrict to Markdown with `--glob '*.md'` — notes are Markdown; without the filter the scan can hit scripts, JSON, or binary sidecars on vaults whose ignore rules don't already limit matches
+- Use `-C 1` (1 line of context) so the user can see what surrounds each tag
+- Exclude `06 Archive/` with an `rg` glob exclusion — archived items aren't actionable
+- Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/.Provenance/`). A checkbox copied into a frozen snapshot is not a live task
+
+### 2. Group by File
+
+**Group results by file.** For each file containing longpole items:
+   - Show the file path (relative to vault root for readability)
+   - Derive the group heading from the file's name or its parent project/area folder — whichever reads as the natural short label; don't open files just to name the heading
+   - Show each `[LP]` item with its surrounding context
+   - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status. If it has no checkbox — a plain bullet, a tagged heading, a line of prose — it has **no status**: mirror the source marker as it appears and don't invent a checkbox
+
+### 3. Present Summary
+
+Run `date +%Y-%m-%d` for the Scanned date — never infer it.
+
+```markdown
+## Longpoles
+
+**N items across M files** | Scanned: YYYY-MM-DD
+
+### [Project or Area Name] — `relative/path/to/file.md`
+- [ ] [LP] Item description (with context)
+- [x] [LP] Completed item *(done — consider removing tag)*
+
+### [Another File] — `relative/path/to/other.md`
+- [ ] [LP] Another blocking item
+- [LP] Untracked item with no completion marker
+
+---
+
+### Summary
+- **Open:** X items still blocking
+- **Done:** Y items completed (can be cleaned up)
+- **No status:** Z items with no completion marker (not counted as open or done)
+- **Hottest file:** [file with most open longpoles, or "none" if no items are open]
+```
+
+If no `[LP]` items found, report that clearly:
+   ```
+   No [LP] items found in the vault. Nothing on the critical path — or nothing tagged yet.
+   ```
+
+## Guidelines
+
+- **Speed over comprehensiveness.** This is a quick scan, not deep analysis. Present what's there; don't try to infer dependencies.
+- **Flag completed longpoles.** An `[LP]` on a checked-off item (`- [x]`) is stale — nudge the user to clean it up.
+- **Lead time, not deadlines.** `[LP]` is for long-lead-time items. A task whose risk is a hard drop-dead date belongs in `[GT]` / `$guillotines` instead — an item can carry both.
+- **Don't modify anything.** This is read-only. Never edit files during a longpole scan.
+- **Relative paths for display.** Show paths relative to vault root so the output is scannable.
+
+## Skill Monitor
+
+As you execute this skill, follow `~/.codex/skills/_skill-monitor.md`: watch for gaps, and log observations at the end per that file.

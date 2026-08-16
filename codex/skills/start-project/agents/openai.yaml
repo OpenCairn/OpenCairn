@@ -1,0 +1,6 @@
+interface:
+  display_name: "Start Project"
+  short_description: "Create and register a new vault project"
+  default_prompt: "Use $start-project to create and register this project."
+policy:
+  allow_implicit_invocation: false

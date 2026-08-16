@@ -1,7 +1,6 @@
 ---
 name: thinking-partner
 description: Explore ideas through questions before solutioning - thinking mode not writing mode
-allow_implicit_invocation: false
 ---
 
 # Thinking Partner - Exploration Through Questions

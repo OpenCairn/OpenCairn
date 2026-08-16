@@ -62,7 +62,7 @@ Zero reconstruction. Instant flow.
 
 **Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
 
-**Using OpenAI Codex CLI?** A subset of the skill library ships as a Codex rendering under `codex/` — same skills, rewritten for Codex primitives (`$name` invocation, `SKILL.md` format, CLI-despatched panel seats). Install steps are in [Quick Start](#quick-start).
+**Using OpenAI Codex CLI?** An expanded rendering of the skill library ships under `codex/` — the same workflows, rewritten for Codex primitives (`$name` invocation, `SKILL.md` format, CLI-despatched panel seats). Install steps are in [Quick Start](#quick-start).
 
 ---
 
@@ -147,7 +147,7 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 | **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
 | **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
 | **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
-| **06 Archive** | Immutable write-once records (logs, reports, snapshots) | Session logs, daily/weekly reports, scans |
+| **06 Archive** | Immutable write-once records (logs, reports, snapshots) | OpenCairn session logs, daily/weekly reports, scans |
 | **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, Direction (strategic plans), decision/corrections/wins logs |
 
 **Areas vs Resources (differs from standard PARA):** NIPARAS uses Areas and Resources differently to Tiago Forte's original PARA. Here, **Areas** are domains you actively maintain, each containing its own nested reference material and Archive subfolders. **Resources** is a staging ground for generic stuff that doesn't belong to an Area yet. When something accumulates enough mass, it graduates to an Area. The key shift is that reference material lives *inside* the Area it belongs to, rather than in a separate top-level folder.
@@ -201,7 +201,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops` and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
-**Codex CLI (optional):** a rendering of part of the skill library for OpenAI's Codex CLI lives under `codex/` — 13 skills (the day loop, park/pickup, weekly review, project lifecycle, the audit/second-opinion panel, thinking-partner, shop, book-stay, de-ai-ify) plus their shared-rules support files, invoked as `$name` rather than `/name`. To install:
+**Codex CLI (optional):** an expanded rendering of the skill library for OpenAI's Codex CLI lives under `codex/` — 28 skills covering the day/session loops, extended breaks, project lifecycle, structural hygiene, deadline scanners, provenance, research/reply workflows, and the cross-model review panel. They include Codex metadata plus three shared support files and are invoked as `$name` rather than `/name`. To install:
 
 ```bash
 mkdir -p ~/.codex/skills
@@ -209,7 +209,9 @@ cp -r codex/skills/* ~/.codex/skills/
 cat codex/AGENTS.md >> ~/.codex/AGENTS.md   # or cp if you have no AGENTS.md yet
 ```
 
-The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. The renderings assume the full repo alongside them — a few cross-references (e.g. to `setup`, `weekly-hygiene`, and `~/.claude/` state paths) point at the Claude Code side, so a Codex-only install works but those references stay Claude-side.
+The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. Shared runtime scripts remain under `.claude/scripts/` because both harnesses use them; Claude Code memory/internal-file maintenance in `$weekly-hygiene` is conditional and is skipped when that state is absent.
+
+**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Before using these workflows against an older vault, rename that folder inside Obsidian so path-qualified wikilinks heal, then run `rg -F '06 Archive/Claude' "$VAULT_PATH"` and update any remaining plain-text locators through `.claude/scripts/locked-edit.sh`. Do not rewrite byte-exact files under `07 System/.Provenance/`.
 
 ---
 
@@ -220,7 +222,7 @@ The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$
 
 > **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 >
-> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `audit`, `book-stay`, `complete-project`, `de-ai-ify`, `goodnight`, `morning`, `park`, `pickup`, `second-opinion`, `shop`, `start-project`, `thinking-partner`, `weekly-review`.
+> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `afternoon`, `audit`, `awaken`, `book-stay`, `checkpoint`, `complete-project`, `cornerstones`, `de-ai-ify`, `goodnight`, `guillotines`, `hibernate`, `inbox-processor`, `longpoles`, `morning`, `park`, `pickup`, `provenance`, `regroup`, `reply`, `research-assistant`, `second-opinion`, `shop`, `shutdown`, `start-project`, `thinking-partner`, `verify-provenance`, `weekly-hygiene`, `weekly-review`.
 
 **Daily rhythm:**
 

@@ -1,7 +1,6 @@
 ---
 name: de-ai-ify
 description: Remove AI writing patterns and restore the user's authentic voice
-allow_implicit_invocation: false
 ---
 
 # De-AI-ify - Voice Restoration
@@ -22,7 +21,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
    ```
 
-   If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; the Claude Code-side `/setup` skill documents how to set it per-OS). Read `_shared-rules.md` from `~/.codex/skills/` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition documented in the README's Quick Start). Read `_shared-rules.md` from `~/.codex/skills/` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 1. **Analyse the text:**
    - **Establish medium and register first.** Map the medium (blog post, email, IM, vault note, document) and the relationship to the reader onto the matching register section of the voice profile — that section, not the profile as a whole, governs the rewrite. If the medium or register is genuinely ambiguous from the text and the surrounding context, ask once before rewriting. When this skill is invoked by another command, the register passed at invocation wins.
@@ -179,6 +178,6 @@ Use de-AI-ify:
 - **After content generation:** If Claude writes a draft, run de-AI-ify before the user publishes
 - **Before blog publishing:** Final voice check on posts
 - **With $thinking-partner:** Generate ideas in thinking mode, then de-AI-ify the write-up
-- **With $reply:** `$reply` invokes `$de-ai-ify` via the Skill tool after drafting, with invocation constraints defined in `reply.md` step 4 — that file owns the contract (marker preservation, register handling, step 5/6 deferral); follow the constraints as passed at invocation rather than this summary. The before/after presentation still applies. `$de-ai-ify` can also be used standalone on any text outside of `$reply`.
+- **With $reply:** `$reply` reads this skill and applies it after drafting, with invocation constraints defined in `~/.codex/skills/reply/SKILL.md` step 4 — that file owns the contract (marker preservation, register handling, step 5/6 deferral); follow those constraints rather than this summary. The before/after presentation still applies. `$de-ai-ify` can also be used standalone on any text outside of `$reply`.
 
 This ensures **the user's authentic voice in all published work**.

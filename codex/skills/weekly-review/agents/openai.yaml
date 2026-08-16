@@ -1,0 +1,6 @@
+interface:
+  display_name: "Weekly Review"
+  short_description: "Review weekly patterns and realign priorities"
+  default_prompt: "Use $weekly-review to review this week and realign priorities."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Goodnight"
+  short_description: "Close the day and route unfinished work"
+  default_prompt: "Use $goodnight to close out today and route unfinished work."
+policy:
+  allow_implicit_invocation: false

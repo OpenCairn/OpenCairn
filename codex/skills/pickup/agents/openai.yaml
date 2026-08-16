@@ -1,0 +1,6 @@
+interface:
+  display_name: "Pickup"
+  short_description: "Resume prior work with the right context"
+  default_prompt: "Use $pickup to resume this work with the right context."
+policy:
+  allow_implicit_invocation: false

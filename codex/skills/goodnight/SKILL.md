@@ -1,7 +1,6 @@
 ---
 name: goodnight
 description: End-of-day close-out - accountability, route undone items, daily report
-allow_implicit_invocation: false
 ---
 
 # Goodnight - End-of-Day Status Report
@@ -37,7 +36,7 @@ If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules thr
 date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths and session timestamp
 TODAY="$(date +%F)"
-SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
 printf 'Session log path: %s\n' "$SESSION_LOG"
@@ -45,18 +44,21 @@ printf 'Session log path: %s\n' "$SESSION_LOG"
 
 **Path invariant:** today's active log is directly under `Session Logs/`, never its `YYYY/` archival subfolder. Use the exact displayed path throughout this run. Shell variables do not persist between tool calls, so re-derive and assert `SESSION_LOG` inside each later session-log call rather than reconstructing it from an archived path.
 
-**Concurrent session check:** Count active Claude instances (excluding this one):
+**Concurrent session check:** Count active Claude Code instances plus other Codex instances (excluding this Codex process):
 
 ```bash
 command -v pgrep >/dev/null || exit 0
-OTHER_CLAUDE=$(( $(pgrep -c -x claude) - 1 ))
-echo "Other active Claude sessions: $OTHER_CLAUDE"
+ACTIVE_CLAUDE=$(pgrep -c -x claude || true)
+ACTIVE_CODEX=$(pgrep -c -x codex || true)
+OTHER_AGENTS=$(( ACTIVE_CLAUDE + ACTIVE_CODEX - 1 ))
+[ "$OTHER_AGENTS" -lt 0 ] && OTHER_AGENTS=0
+echo "Other active agent sessions: $OTHER_AGENTS"
 ```
 
-If `pgrep` is unavailable (e.g. Git Bash on Windows), skip this check silently. If `OTHER_CLAUDE > 0`, display a non-blocking notice and proceed:
+If `pgrep` is unavailable (e.g. Git Bash on Windows), skip this check silently. If `OTHER_AGENTS > 0`, display a non-blocking notice and proceed:
 
 ```
-ℹ N other active Claude session(s). Concurrent writes are safe (locked per _shared-rules.md §5), and sessions parked after this point are caught by Step 14's post-write reconciliation. Parking them first keeps the daily report most coherent — say so now if you'd rather do that.
+ℹ N other active agent session(s). Concurrent writes are safe (locked per _shared-rules.md §5), and sessions parked after this point are caught by Step 14's post-write reconciliation. Parking them first keeps the daily report most coherent — say so now if you'd rather do that.
 ```
 
 Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 14) exists precisely so goodnight can proceed safely. Pause only if the user actually interjects.
@@ -65,7 +67,7 @@ Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 1
 
 Read and compile:
 - **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
-- **Today's sessions:** Check `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` for today's date
+- **Today's sessions:** Check `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` for today's date
 - **Project states:** Read the `03 Projects/` root docs directly (root = active; folder location is status)
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
@@ -74,7 +76,7 @@ Read and compile:
 
 ```bash
 TODAY="$(date +%F)"
-SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
 STEP2_NEXT=$("{VAULT}/.claude/scripts/next-session-number.sh" "$SESSION_LOG")
@@ -91,7 +93,7 @@ echo "Step 2 baseline: $STEP2_LAST_N session(s) present (next would be $STEP2_NE
 **This step happens BEFORE presenting the status report.** The goal is to update your working model with reality before presenting outdated information.
 
 Ask:
-> "Before I show today's report, let me check: did you complete anything outside Claude today? Any tasks from earlier sessions that are now done?"
+> "Before I show today's report, let me check: did you complete anything outside parked agent sessions today? Any tasks from earlier sessions that are now done?"
 
 Wait for response.
 
@@ -152,7 +154,7 @@ Ask:
 > "Anything else not captured? New blockers, decisions made, or items to add?"
 
 - If yes: add to inventory. Don't add to session files — captures route as follows:
-  - Off-Claude activity (wander/exercise/social/admin/errands) → daily report's `## Outside-Claude` section
+  - Activity outside parked agent sessions (wander/exercise/social/admin/errands) → daily report's `## Outside-Agent` section
   - New blockers → daily report's `## Blockers` section
   - New decisions / actionable items → relevant SSOT (This Week.md day section, project file, or Tickler) — NOT the daily report (the daily report is archival; SSOT files surface in `$morning` and `$pickup`)
 - If no: proceed
@@ -165,7 +167,7 @@ Output: `✓ No stranded work product` or `🔧 Migrated N item(s): [paths]`.
 
 ### 8. Generate Daily Report
 
-Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`.
+Create file at `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`.
 
 **Include the goodnight session itself as the last numbered entry in the Sessions list.** The goodnight session log entry is written later (Step 14), but the Daily Report is the user-facing day index and should enumerate every session — including the goodnight close-out itself. Plan the topic/outcome line at Step 8 to match the entry you'll write at Step 14 so the two stay in sync. The reorder constraint (Step 8 before Step 14) is non-negotiable because Step 14's `### Files Created` references the Daily Report path — the Daily Report must exist on disk first.
 
@@ -182,7 +184,7 @@ Create file at `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`.
 ...
 N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 14 session entry]
 
-## Outside-Claude
+## Outside-Agent
 - [Off-Claude activity surfaced in Step 3 (pre-verification debrief) or Step 7 (additional captures) — wander/exercise/social/admin/errands done outside the assistant. Useful end-of-day signal that wouldn't otherwise be recorded anywhere. Omit section entirely if nothing to record.]
 
 ## Blockers
@@ -190,13 +192,13 @@ N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 
 
 ---
 *Links:*
-- Sessions: [[06 Archive/Claude/Session Logs/YYYY-MM-DD]]
-- Previous: [[06 Archive/Claude/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
+- Sessions: [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]]
+- Previous: [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
 ```
 
 Ensure directory exists first:
 ```bash
-mkdir -p "{VAULT}/06 Archive/Claude/Daily Reports"
+mkdir -p "{VAULT}/06 Archive/OpenCairn/Daily Reports"
 ```
 
 ### 9. Route undone items from past day sections
@@ -227,7 +229,7 @@ After all undone items have been routed, collapse today's section — and any ea
 
 ```markdown
 ## [emoji] [Day] [Date] — [Theme] ✅
-[One sentence: what happened, what didn't, key outcome.] [[06 Archive/Claude/Daily Reports/YYYY-MM-DD|Full report]]
+[One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
 
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
@@ -238,12 +240,12 @@ After all undone items have been routed, collapse today's section — and any ea
 # the day section no longer holds the items that were carried forward.
 # Bound the block on `## Sessions`, NOT on a bare `^## ` — the block legitimately contains the
 # copied `## [Day] [DD] [Mon]` heading, which closes a naive bound immediately and silently yields 0.
-REPORT="{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md"
+REPORT="{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md"
 awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- /'  "$REPORT" | wc -l   # M — total planned
 awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- ✓/' "$REPORT" | wc -l   # N — closed
 # Sessions — the close-out entry is not appended until Step 14, so this counts the day's work
 # sessions, which is what the heading means. The daily report's Sessions list carries one more.
-grep -c '^## Session ' "{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md"
+grep -c '^## Session ' "{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md"
 ```
 
 Then phrase by the result:
@@ -286,7 +288,7 @@ Pre-write probing is superseded: the goodnight session's number is resolved atom
 
 ```bash
 TODAY="$(date +%F)"
-SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
 cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight: [Brief Topic Summary]" "HH:MMam/pm"
@@ -345,7 +347,7 @@ $goodnight's distinctive Layer 3 substrate (use as a checklist when enumerating)
 - Day-section collapses in Step 10 (verbose section → one-liner; the outbound `[[…|Full report]]` link must resolve to a real file)
 - New day sections added by rolling-window maintenance in Step 11
 - Project-doc Current Objective / Next Actions changes from Step 14a (especially propagation-from-debrief edits)
-- NEW: today's daily report file at `06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
+- NEW: today's daily report file at `06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
 - NEW: the goodnight session entry itself at Session N in today's session log
 
 ```
@@ -383,9 +385,9 @@ If mismatch, regenerate the prompt from the enumeration block, not from memory.
 The prompt must be **self-contained** — the sub-agent has zero $goodnight context. Include verbatim:
 
 - **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
-- **Session log path**: `<vault>/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
+- **Session log path**: `<vault>/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
 - **Session id** (this session's, from `echo $CODEX_THREAD_ID`, resolved before despatch): instruct the sub-agent to prefix every `locked-edit.sh` call with `env OPENCAIRN_SESSION_ID=<id>` so its edits ledger under this session
-- **Daily report path**: `<vault>/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
+- **Daily report path**: `<vault>/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
 - **File list** — every file $goodnight touched, embedded as a newline-separated list inline in the prompt. Build it from two sources, not from memory (typed-from-memory lists silently drop entries): (1) verbatim from Session N's `### Files Created` and `### Files Updated` sections as written at Step 14, plus (2) the named post-Step-14 edits — any Step 14a project-doc writes and any daily-report patches from Step 14's reconciliation. Display the count before despatch:
   ```
   File list: C from Session N + P post-Step-14 → F files in brief ✓
@@ -447,7 +449,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 
 **Re-export unconditionally, even if $park already exported today.** The script regenerates the whole day file in <1 second, and Step 17 hashes the transcript as *final* — a skip-if-exists here would OTS-stamp a file missing everything since the last park, unconditionally including this goodnight conversation itself.
 
-Output goes to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message.
+Output goes to `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`. Report the count in the close message.
 
 ### 17. Process Provenance Flags
 
@@ -477,10 +479,10 @@ If no flags exist, skip silently. See `$provenance` for flag file format and ful
 ### 18. Close
 
 ```
-✓ Report saved: 06 Archive/Claude/Daily Reports/YYYY-MM-DD.md
-✓ Session logged: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md (Session N)
+✓ Report saved: 06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md
+✓ Session logged: 06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md (Session N)
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
-✓ Transcripts exported: N sessions → 06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md
+✓ Transcripts exported: N sessions → 06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md
 ✓ Provenance: N files hashed [OR "no flags"]
 Goodnight.
 ```
@@ -522,9 +524,9 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** This Week.md, Claude Sessions (today), project docs
+- **Reads from:** This Week.md, today's agent session log, project docs
 - **Creates:** Daily Reports
-- **Updates:** Claude Sessions (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Whimsy), Tickler.md (deletes completed items), Project docs (marks complete, Current Objective / Next Actions if needed)
+- **Updates:** agent session log (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, rolls undone items to future days/Whimsy), Tickler.md (deletes completed items), Project docs (marks complete, Current Objective / Next Actions if needed)
 - **Complements:** `$morning` (start of day), `$park` (end of session), `$afternoon` (mid-day)
 - **Auto-runs:** `$audit` on the just-completed goodnight (Step 15) — same protocol as `$park`'s Step 9
-- **Replaces:** `$daily-review` (deprecated)
+- **Replaces:** the deprecated daily-review workflow

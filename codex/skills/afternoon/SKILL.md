@@ -1,0 +1,175 @@
+---
+name: afternoon
+description: Mid-day recalibration - zoom out, check drift, reprioritise remaining time
+---
+
+
+# Afternoon - Mid-Day Recalibration
+
+You are running the user's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
+
+## Philosophy
+
+The regroup addresses a specific failure mode: **productive drift**. You've been working, but maybe:
+- Went down a rabbit hole that felt productive but wasn't priority
+- Context-switched into reactive mode (emails, messages, small tasks)
+- Lost track of what you set out to do this morning
+- Energy shifted and the original plan no longer fits
+
+This is a quick recalibration, not a full review. 2-5 minutes.
+
+## Instructions
+
+**Write mechanism — applies to every step below.** Mutations of `This Week.md` and project docs / area hubs go through `locked-edit.sh`, never a raw edit (see `_shared-rules.md` §5) — $afternoon can run alongside parks and other sessions, and lockless edits race.
+
+### 0. Resolve Vault Path
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+```
+
+If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+
+### 1. Check current date/time
+
+```bash
+date +"%A, %d %b %Y — %H:%M %Z"  # full date, time, and timezone
+date +"%Y-%m-%d"                   # for file paths if needed
+```
+
+Note what's left of the day. Only state a number of hours if an end time is given — by the user, or by the last scheduled item in today's day section (Step 2). Don't invent a workday end; with no end time, describe it qualitatively ("rest of the afternoon", "an evening left") or ask in one line when it changes the advice.
+
+### 2. Quick Status Check (auto)
+
+Read:
+- **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run $morning to refresh or ignore."
+- **Active projects:** list `{VAULT}/03 Projects/*.md` (root only — folder location is status) and read each doc's `## Current Objective` - what's meant to be priority? Read the full root doc when a project's detail is needed.
+- **Today's sessions:** `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
+- **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by $morning; if the day section is empty or missing, report "None set".
+
+### 3. Present Current State
+
+Display concisely. If This Week.md exists and is current, use today's day section (with its timeline) as the primary view:
+
+```
+## Regroup — [HH:MM TZ] — [Day], [DD] [Mon] [YYYY]
+
+**Time remaining:** [~N hours, if an end time is known — otherwise qualitative, per Step 1]
+
+**Morning's intention:** [Derived per Step 2, or "None set"]
+
+**This Week.md — today's timeline:** (if This Week.md current)
+- [x] [Completed items from timeline]
+- ▶ [Upcoming items still on timeline]
+
+**Done so far:** (from parked agent sessions only — work outside agent sessions is not visible here; may overlap with This Week.md)
+- [x] Task 1
+- [x] Task 2
+
+**Active projects (from the `03 Projects/` root docs):**
+- [Project] - [current status]
+- [Project] - [current status]
+```
+
+If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through an agent today"; on a fresh vault with an empty `03 Projects/` root, drop the **Active projects** block.
+
+### 4. Drift Check
+
+**Before calling drift — account for work outside parked agent sessions.** The session log only captures work that an agent has parked. If the user has parallel work streams happening elsewhere (other AI tools, voice drills, paper notebooks, reading, phone calls, meetings, physical practice, time with other people), that work is invisible to the session log and may be invisible to the vault. Calling drift based on absence from the session log produces false positives that waste the user's time and erode trust. Before interpreting a gap as drift:
+
+1. Check This Week.md (if current, not stale per Step 2) and the project docs for any task that plausibly happens outside agent sessions (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
+2. If such a task exists and is time-boxed to today, do NOT assume its absence from the session log means it didn't happen. Ask, or present the state neutrally without a drift verdict.
+3. **Rule:** *Absence from the agent session log is not absence from the day.* The right question is "what did the day look like?" not "what's in the log?"
+
+Only after accounting for likely work outside agent sessions should you ask:
+
+> "How's the day going? On track, drifted, or intentionally pivoted?"
+
+**If on track:** Quick affirmation, ask if priorities still make sense for remaining time.
+
+**If drifted:** No judgement. Ask:
+> "What pulled you away?"
+
+Once you've heard it, prompt the distinction:
+> "Genuinely more important, or just more urgent/interesting?"
+
+Help distinguish:
+- **Legitimate pivot:** Something genuinely more important came up - update priorities
+- **Productive drift:** Felt productive but wasn't the priority - acknowledge and redirect
+- **Reactive mode:** Got pulled into small tasks/communications - help batch or defer
+
+**If intentionally pivoted:** Note the new priority, update the relevant project doc if needed.
+
+### 5. Reprioritise Remaining Time
+
+Ask:
+> "Given what's left today, what's the best use of your remaining time?"
+
+Help structure:
+
+```
+**Remaining priorities:**
+1. [Top priority] - [why now]
+2. [Secondary] - [if time]
+3. [Defer to tomorrow] - [can wait]
+```
+
+Consider:
+- Energy levels (afternoon slump = different task types)
+- Time-sensitive items
+- Momentum (sometimes continuing what you're in is right)
+- Diminishing returns (sometimes stopping is right)
+
+### 6. Output (minimal)
+
+**Most regroups:** No artefact. The recalibration was the point.
+
+**If priorities significantly shifted:** Update the relevant project doc(s) in `03 Projects/` with the new status/priorities.
+
+**If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged — via `locked-edit.sh --replace` per the write-mechanism note above. Include project/area links on new items (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists. This keeps the week plan current without rebuilding from scratch.
+
+**If actionable decisions made:** Route them to the SSOT they belong to (the project doc's Current Objective / Next Actions, or a This Week.md day section) — not the session log. Session logs are written by $park and $goodnight; a decision reaches the log when the owning session parks. If anything was written, show a one-line receipt: `✓ [item] → [file]`.
+
+### 7. Close
+
+Quick and direct:
+
+```
+✓ Recalibrated
+✓ Priority: [Top item for remaining time]
+
+Go.
+```
+
+Or if it was a "you're on track" regroup:
+
+```
+You're on track. Keep going.
+```
+
+## Guidelines
+
+- **Quick:** 2-5 minutes. This isn't a full review.
+- **No guilt:** Drift happens. The point is catching it, not beating yourself up.
+- **Energy-aware:** Afternoon brain is different from morning brain - adjust expectations
+- **Permission to stop:** Sometimes the right answer is "you've done enough today"
+- **Flexible timing:** Despite the name, use whenever you feel scattered - 10am, 2pm, 6pm
+- **Never use park-language:** Do not say "Parked. Pick up when ready." or similar $park closings. Even if user casually says "park this", use "Recalibrated" or "Keep going" - this is NOT a session-ending command and using park-language implies $park was run when it wasn't.
+
+## Triggers
+
+This command should trigger when the user says:
+- "regroup"
+- "recalibrate"
+- "where was I"
+- "what should I be doing"
+- "am I on track"
+- "afternoon check"
+- "midday check"
+
+## Integration
+
+- **Reads from:** This Week.md, project docs, today's agent session log
+- **May update:** This Week.md (mark done, add tasks), project docs (if priorities shifted)
+- **Complements:** `$morning` (start of day), `$goodnight` (end of day), `$park` (end of session)
+- **Not a replacement for:** `$park` (regroup doesn't close sessions, just recalibrates)

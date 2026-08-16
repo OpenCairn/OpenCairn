@@ -25,7 +25,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - **Boundary rule:** if today falls in the first 2 weeks of a quarter, ask the user once whether this run covers the just-ended quarter or the current one — a quarterly pass run 2 Jul almost always covers Q2. Use the answer for the report filename and every "current quarter" comparison. (`/quarterly-review` carries the same rule; keep the two runs on the same quarter.)
 
 2. **Consume the latest weekly-hygiene report (do NOT re-run its checks):**
-   - Find the latest file in `{VAULT}/06 Archive/Claude/Hygiene Reports/` (filename descending).
+   - Find the latest file in `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/` (filename descending).
    - Compare its ISO week to the current week (`date +%G-W%V`; last week is `date -d "7 days ago" +%G-W%V` — compare the strings, don't reason about week-53 year-boundary cases yourself):
      - **Current or last week:** read and carry its unresolved structural findings into this quarterly report's "Carried from weekly-hygiene" section. Mapping: `Vault Consistency` → broken links / orphans / dead-ends; `Projects Folder` → tier mismatches; `Actions Routed` → unresolved routed items. Counts-only metrics (`Vault Structural Metrics`) are not carried — snapshots, not open work.
      - **Older than last week, or absent:** warn — "Latest weekly-hygiene report is [week / none] — vault structural state may be stale. Recommend running `/weekly-hygiene` before this pass." If a stale report exists, still carry its findings per the same mapping, labelled stale in the report's source line. Continue regardless; this command's own deep checks run independently and never require a fresh weekly run.
@@ -36,7 +36,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    `/weekly-hygiene` step 12 scans only *temporal* markers (dates, "currently", "soon"). This is the heavier pass that catches durable facts which never trip a temporal scan and so silently rot for years:
    - Read each `{VAULT}/07 System/Context - *.md` file end-to-end.
    - Check durable claims for drift: job title / role, location, hardware specs and model numbers, active subscriptions, default tools and workflows, named collaborators/clinics. **Evidence source:** skim the weekly reviews inside the evidence window (Synthesis + Projects Active sections) for events that contradict a claim; for claims not covered there, present to the user as a "still true?" check rather than asserting drift — this skill gathers no other activity data, and `/quarterly-review`'s full gather runs after it.
-   - **Evidence window** — the run cadence is not the calendar quarter (mid-quarter and standalone runs are expected), so anchoring on the quarter start leaves reviews between the last pass and the boundary permanently unread. Window start = the `**Generated:**` date in the latest `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/*.md` (filename descending; take the date from that content header, never from mtime — `_shared-rules.md` §22), falling back to the quarter start when no prior report exists. Window end = today. State the window in the report so the next run's start is unambiguous.
+   - **Evidence window** — the run cadence is not the calendar quarter (mid-quarter and standalone runs are expected), so anchoring on the quarter start leaves reviews between the last pass and the boundary permanently unread. Window start = the `**Generated:**` date in the latest `{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports/*.md` (filename descending; take the date from that content header, never from mtime — `_shared-rules.md` §22), falling back to the quarter start when no prior report exists. Window end = today. State the window in the report so the next run's start is unambiguous.
    - **Guardrail (inherited from weekly-hygiene 13):** edit a context file ONLY with user-provided replacement text. Never rewrite, rephrase, or infer an update autonomously — these are high-trust prose documents; wrong corrections are worse than stale content. Present each flagged claim, ask, then edit only what the user supplies.
 
 4. **CRM stale-entry review.** (if `{VAULT}/07 System/CRM/` exists)
@@ -57,7 +57,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - **Identify candidates, partitioned by collision** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat log whose destination year folder already holds that basename is a **duplicate**, not a move candidate — partition it out here so every downstream step (dry-run, drag set, report) sees the same two sets. Written without bare dollar-digit awk fields — the slash-command loader substitutes `$0`–`$9` as argument placeholders and would mangle them before the executor sees the snippet; ISO date names make plain string comparison correct:
      ```bash
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
-     LOGS="{VAULT}/06 Archive/Claude/Session Logs"
+     LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
      ls -1 "$LOGS" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
        [ "${f%.md}" \< "$CUTOFF" ] || continue
        y=${f%%-*}
@@ -70,8 +70,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      ```bash
      pgrep -f '[o]bsidian' >/dev/null || echo "ABORT: Obsidian is not running — the CLI drives the running app"
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
-     LOGS="{VAULT}/06 Archive/Claude/Session Logs"
-     REL="06 Archive/Claude/Session Logs"   # vault-relative form the CLI expects
+     LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
+     REL="06 Archive/OpenCairn/Session Logs"   # vault-relative form the CLI expects
      ls -1 "$LOGS" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
        [ "${f%.md}" \< "$CUTOFF" ] || continue
        y=${f%%-*}
@@ -111,9 +111,9 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
 9. **Write the quarterly hygiene report:**
    ```bash
-   mkdir -p "{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports"
+   mkdir -p "{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports"
    ```
-   Write to `{VAULT}/06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md`:
+   Write to `{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports/YYYY-QN.md`:
 
    **⛔ Cite report items by stable identifier, not line number** — see `_shared-rules.md` §13. Reference any project-doc / `Tickler.md` item by title/heading/content, never by line number; structural maintenance this run shifts line numbers, so an `Lnn` reference is stale on write.
 
@@ -161,7 +161,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
    ## Actions Taken / Routed
    - [Confirmed edits applied this run]
-   - [Unresolved items the user didn't engage with → the relevant project/area doc, else Tickler +7d, back-linked: `[description] → [[06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
+   - [Unresolved items the user didn't engage with → the relevant project/area doc, else Tickler +7d, back-linked: `[description] → [[06 Archive/OpenCairn/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
    - [Flywheel proposals stay in this report as pending user decisions — they are not routed]
    ```
 
@@ -170,7 +170,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
 11. **Display confirmation:**
    ```
-   ✓ Quarterly hygiene report: 06 Archive/Claude/Quarterly Hygiene Reports/YYYY-QN.md
+   ✓ Quarterly hygiene report: 06 Archive/OpenCairn/Quarterly Hygiene Reports/YYYY-QN.md
    ✓ Weekly-hygiene report: [carried / carried (stale — re-run recommended) / not found]
    ✓ Context files re-read: N, M durable-drift flags
    ✓ CRM stale entries: N flagged
