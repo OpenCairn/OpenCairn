@@ -27,7 +27,8 @@ class ParkReviewTests(unittest.TestCase):
         second = "/vault/history two.md"
         output = (
             f"FAIL lint: {first} 12: 3+ blank lines; "
-            f"{second} joined-list: 8: prose- [ ] item; \n"
+            "9: continued historical evidence\n"
+            f"10: more evidence; {second} joined-list: 8: prose- [ ] item; \n"
             "RESULT: FAIL (1 fail, 0 review)\n"
         )
 

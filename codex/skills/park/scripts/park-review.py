@@ -509,21 +509,32 @@ def accepted_inherited_lint(
     """Validate the one park-verifier failure class the skill permits accepting."""
     if not accepted_paths:
         return False, []
-    fail_lines = [line for line in output.splitlines() if line.startswith("FAIL ")]
-    review_lines = [line for line in output.splitlines() if line.startswith("REVIEW ")]
-    result_lines = [line for line in output.splitlines() if line.startswith("RESULT: ")]
+    lines = output.splitlines()
+    fail_indexes = [index for index, line in enumerate(lines) if line.startswith("FAIL ")]
+    review_lines = [line for line in lines if line.startswith("REVIEW ")]
+    result_lines = [line for line in lines if line.startswith("RESULT: ")]
     if (
-        len(fail_lines) != 1
-        or not fail_lines[0].startswith("FAIL lint: ")
+        len(fail_indexes) != 1
+        or not lines[fail_indexes[0]].startswith("FAIL lint: ")
         or review_lines
         or result_lines != ["RESULT: FAIL (1 fail, 0 review)"]
     ):
         return False, []
 
-    payload = fail_lines[0].removeprefix("FAIL lint: ")
+    start = fail_indexes[0]
+    end = next(
+        (
+            index
+            for index in range(start + 1, len(lines))
+            if lines[index].startswith(("PASS ", "FAIL ", "REVIEW ", "RESULT: "))
+        ),
+        len(lines),
+    )
+    payload = "\n".join(lines[start:end]).removeprefix("FAIL lint: ")
     lint_paths = re.findall(
         r"(?:^|; )(/.*?)(?= joined-list: | \d+: 3\+ blank lines(?:;|$))",
         payload,
+        flags=re.DOTALL,
     )
     allowed = {str(Path(path).expanduser().resolve()) for path in accepted_paths}
     found = {str(Path(path).resolve()) for path in lint_paths}
