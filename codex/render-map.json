@@ -91,17 +91,41 @@
       "source_sha256": "c7d039835496e75810ad01d1955cf89d324b88104c140a0abd619ee617f5855c",
       "render_sha256": "1177536b49d9f618aa3b6ee45d98e4008fb49afaf76adec598d9c3a6ee8f714f"
     },
+    "landscape-scan": {
+      "source": ".claude/commands/landscape-scan.md",
+      "render": "codex/skills/landscape-scan/SKILL.md",
+      "source_sha256": "20daa853fb894b0a409f302f75984f2ea1fa5a32ed0cb8c3164892dcd1aa0010",
+      "render_sha256": "30c04b7b582e96cc4cdbbffc6426dcde527d761317fc3aaafd4bb57131a47990"
+    },
     "longpoles": {
       "source": ".claude/commands/longpoles.md",
       "render": "codex/skills/longpoles/SKILL.md",
       "source_sha256": "adf4f25cbe1da431008d745d438ab63924858fdced5c26dcc7ffc1e3f4fd2c87",
       "render_sha256": "1b01027e511adf996ac28fb9e3085b24262ac4a307a58fa721280ff2ec0d917f"
     },
+    "map-day": {
+      "source": ".claude/commands/map-day.md",
+      "render": "codex/skills/map-day/SKILL.md",
+      "source_sha256": "3a90d35dd17b3ab8155079bb0beb430f56576191e95ef8ff3a269d06b6af6f86",
+      "render_sha256": "b96e7af54c93ef233edc35fe63da385fbe1d5afddbc63fa9466237d1fd0f47ad"
+    },
     "morning": {
       "source": ".claude/commands/morning.md",
       "render": "codex/skills/morning/SKILL.md",
       "source_sha256": "e8758335d18473a0bd7eeb0f8311e232723b9a3c5fc0b3da2b8f1d06c7feccfe",
       "render_sha256": "1b43f3e237929d9b8e0dc4517ae3d9d47201461e2ad7960e2ee6a7694f29aed5"
+    },
+    "ocr": {
+      "source": ".claude/commands/ocr.md",
+      "render": "codex/skills/ocr/SKILL.md",
+      "source_sha256": "98d1fbce97c08464f5dd68266890a6de1ed8b35b2a00780149fa80ff69a811db",
+      "render_sha256": "858347e18a4f4a5bed3a3179141847393d769cdda933249a87f53f9fe9a5a690"
+    },
+    "oops": {
+      "source": ".claude/commands/oops.md",
+      "render": "codex/skills/oops/SKILL.md",
+      "source_sha256": "21089d55c2a40e7096569e6293b9c08dff20af033f1a59dd094d554fc6501aed",
+      "render_sha256": "778b854e7240580125304398b5d5b4f3c83ae2012db78ebd65d7c648031c17c2"
     },
     "park": {
       "source": ".claude/commands/park.md",
@@ -115,11 +139,29 @@
       "source_sha256": "03fb9ad701e233bb8156a362e1218d4f9d480879beeba04e5914f1ce1d15e672",
       "render_sha256": "2c09552af8eb616139e2a269e914e357e21220576eadf7f60f36bc89d1ec8caa"
     },
+    "podcast-digest": {
+      "source": ".claude/commands/podcast-digest.md",
+      "render": "codex/skills/podcast-digest/SKILL.md",
+      "source_sha256": "714a3812e6891a00eb60cd81c6d9fc49ec62d26eec91658563ab830e024d9c0f",
+      "render_sha256": "0ac3ff7d4bc17bbf99506a50564c754bc566a66877bfe625893fb300354dc03e"
+    },
     "provenance": {
       "source": ".claude/commands/provenance.md",
       "render": "codex/skills/provenance/SKILL.md",
       "source_sha256": "05e228f4fd3beddaf14f15d3bb534fa2cfec43447f51fcf4585f1c27999a30ae",
       "render_sha256": "3aded93c0ec5b853e76f81c0a212ea689e618009e3037c1d6c50d6eb00ebf1a0"
+    },
+    "quarterly-hygiene": {
+      "source": ".claude/commands/quarterly-hygiene.md",
+      "render": "codex/skills/quarterly-hygiene/SKILL.md",
+      "source_sha256": "2139d263fb14166bfab01eb8362f85655b6bc142ee6b008a96f67ca4e876ed9a",
+      "render_sha256": "f07b4bb51a551efd94e99b0ef5d5b56b54b57d1e3c20113e3eac2eb8e99157b4"
+    },
+    "quarterly-review": {
+      "source": ".claude/commands/quarterly-review.md",
+      "render": "codex/skills/quarterly-review/SKILL.md",
+      "source_sha256": "87cad2a1f5b9d2841975eab332b4b716c7005c70661523b091d3b02764a12b17",
+      "render_sha256": "b134090c8cb5c3f14e50c69ee0f4cbc4570959a71067112666f8d62ae9a6e1f6"
     },
     "regroup": {
       "source": ".claude/commands/regroup.md",

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Quarterly Review"
+  short_description: "Run a strategic quarterly direction review"
+  default_prompt: "Use $quarterly-review to run the strategic quarterly review."
+policy:
+  allow_implicit_invocation: false

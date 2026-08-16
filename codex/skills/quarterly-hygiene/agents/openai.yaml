@@ -1,0 +1,6 @@
+interface:
+  display_name: "Quarterly Hygiene"
+  short_description: "Run deep quarterly vault maintenance"
+  default_prompt: "Use $quarterly-hygiene to run the quarterly deep-maintenance pass."
+policy:
+  allow_implicit_invocation: false
