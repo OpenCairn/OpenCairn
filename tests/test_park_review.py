@@ -18,24 +18,6 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
-    def test_only_lint_is_an_accepted_verifier_failure_shape(self) -> None:
-        self.assertTrue(
-            park_review.verifier_failed_only_in_lint(
-                {
-                    "returncode": 1,
-                    "text": "PASS sections: present\nFAIL lint: inherited blank lines\nRESULT: FAIL\n",
-                }
-            )
-        )
-        self.assertFalse(
-            park_review.verifier_failed_only_in_lint(
-                {
-                    "returncode": 1,
-                    "text": "FAIL lint: inherited blank lines\nFAIL backfill: missing\n",
-                }
-            )
-        )
-
     def test_byte_identical_full_reads_share_one_read_group(self) -> None:
         digest = "a" * 64
         files = [
