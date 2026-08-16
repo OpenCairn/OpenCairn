@@ -239,7 +239,7 @@ Generate the brief from the post-backfill session log, raw session ledger, locke
 python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --number N
 ```
 
-The command prints the §16 evidence count and the review-mode counts, and writes `review-brief.md` under this session's `.session-state` directory. It fails closed if a propagation/verifier receipt is absent or a mechanical receipt no longer matches the live file. Pass that generated file's contents verbatim as the brief below; do not reconstruct or embellish it from the transcript.
+The command prints the §16 evidence count and the review-mode counts, writes `review-brief.md`, and captures each full-read semantic file as immutable digest-addressed bytes under this session's `.session-state` directory. It fails closed if a propagation/verifier receipt is absent or a mechanical receipt no longer matches the live file. Pass that generated file's contents verbatim as the brief below; do not reconstruct or embellish it from the transcript.
 
 Despatch exactly one reviewer with this shape (replace `yyyymmdd` and `n` with the current date and assigned session number; both substitutions use digits only):
 
@@ -255,13 +255,13 @@ Resolve the task name against `collaboration.list_agents` before spawning. On a 
 
 Omit both `model` and `reasoning_effort`: the reviewer must inherit the active park seat's model and reasoning effort exactly. Do not resolve, copy or hard-code their current names or values; omission keeps the match intact when the user changes either setting. `fork_turns: "none"` keeps the context fresh and does not change that inheritance. The propagation seat's anti-downgrade clause in Step 6 is unaffected.
 
-The generated brief is delta-aware: new/semantic files are full-read once; mechanical-only files are reviewed from exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread when their SHA-256 is unchanged. It embeds the one-pass Layers 1–5 checklist, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
+The generated brief is delta-aware: new/semantic files are full-read once from the immutable snapshot path, never the moving live path; mechanical-only files are reviewed from exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread when their SHA-256 is unchanged. Attestations bind the snapshot hash to each original path. The brief embeds the one-pass Layers 1–5 checklist, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
 
 Collect with `collaboration.wait_agent` in intervals no longer than 60 seconds until the report arrives. Do not infer completion from elapsed time or another proxy, and do not re-despatch merely because the seat is still running. If the same seat has explicitly said its review work is complete but remains running through repeated no-progress waits, send one report-only message. If it still does not yield, interrupt that seat and use `collaboration.followup_task` on the same task name with a no-tools, report-only instruction to return its existing evidence. Do not spawn a fresh audit before this same-seat recovery.
 
 For a completed report, re-run `session-ledger.sh --read` and reconcile any row attributed to the reviewer against the read-only contract. An unexpected reviewer write is not cured by a clean final file: inspect the target for lost concurrent content, replay any warranted vault delta through `locked-edit.sh`, and add the path to attribution/backfill. Then sanity-check each finding in the live file. The main seat may remediate confirmed, attributable findings in one fix round using the normal locked write mechanics, backfill any newly touched paths, re-read the changed portions and rerun the relevant deterministic check. Do not send the reviewer back for another pass; route anything needing external verification or a broader design decision as an open loop.
 
-On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "<resolved task name>" --from-brief`. The helper refuses a receipt unless the report says clean, attests every current full-read SHA-256, and the files still match the brief. This receipt may replace a redundant full read in a later park. Do not create a clean receipt after findings/remediation without a new independent full read.
+On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "<resolved task name>" --from-brief`. The helper refuses a receipt unless the report says clean and attests every snapshot SHA-256 against its original path. It then checks the live originals: unchanged files remain eligible for later audit reuse; a changed file is accepted only when post-snapshot locked-edit receipts form a complete hash chain and every session-owned locator remains intact. Traceable disjoint edits therefore do not invalidate this park, but that file's snapshot receipt is not reused as a clean audit of its newer live bytes. An untraceable change or missing owned locator fails closed as possible overlap. Do not create a clean receipt after findings/remediation without a new independent full read.
 
 Output: `✓ Audit: bounded clean pass` or `🔧 Audit: N findings fixed — see [paths]`.
 
@@ -291,5 +291,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
 
-Parked. Pick up when ready: `codex` then `$pickup`
+Parked.
+
+[Roughly 50 words summarising the preceding session.]
 ```
