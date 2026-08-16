@@ -16,6 +16,7 @@
 #
 # Platform: Linux, macOS, Windows (Git Bash).
 # Uses flock where available, mkdir-based fallback otherwise.
+# Migration recovery compatibility: archive-bundle-v3.
 
 # Canonical lock path for a target file. EVERY writer of a given file must lock
 # the SAME path or mutual exclusion silently fails — so all scripts derive the

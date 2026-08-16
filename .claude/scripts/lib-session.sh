@@ -23,6 +23,7 @@
 # writes ledger under the parent's session id.
 #
 # Platform: Linux, macOS, Windows (Git Bash).
+# Migration recovery compatibility: archive-bundle-v3.
 
 _session_id() {
     printf '%s' "${OPENCAIRN_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-${CODEX_THREAD_ID:-}}}"

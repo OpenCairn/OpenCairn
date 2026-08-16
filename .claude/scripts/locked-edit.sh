@@ -37,6 +37,7 @@
 #
 # Platform: Linux, macOS, Windows (Git Bash). Locking via lib-lock.sh
 # (flock / mkdir fallback); literal string handling via python3.
+# Migration recovery compatibility: archive-bundle-v3.
 
 set -euo pipefail
 
@@ -137,6 +138,20 @@ def receipt_text(value, limit=65536):
         return value, False
     return value[:limit], True
 
+def lint_fingerprint(text):
+    """Return counts for every occurrence of the park verifier's lint classes."""
+    joined_count = sum(1 for _ in re.finditer(r"[^\s=`]- \[[ x]\]", text))
+    blank_run_count = 0
+    blanks = 0
+    for line in text.splitlines():
+        if line.strip():
+            blanks = 0
+        else:
+            blanks += 1
+            if blanks == 3:
+                blank_run_count += 1
+    return [f"joined-list-count:{joined_count}", f"blank-run-count:{blank_run_count}"]
+
 def write_receipt(before, after, old_text=None, new_text=None, occurrences=None):
     """Write evidence before the target mutation; failure is deliberately non-fatal."""
     try:
@@ -210,6 +225,8 @@ def write_receipt(before, after, old_text=None, new_text=None, occurrences=None)
             "mode": mode,
             "pre_sha256": hashlib.sha256(before_bytes).hexdigest() if os.path.exists(target) else "MISSING",
             "post_sha256": hashlib.sha256(after_bytes).hexdigest(),
+            "pre_lint": lint_fingerprint(before_text),
+            "post_lint": lint_fingerprint(after_text),
             "old_text": old_value,
             "new_text": new_value,
             "old_text_truncated": old_truncated,

@@ -255,8 +255,7 @@ def target_check(raw: str, vault: Path) -> dict:
 
 def lint_errors(text: str) -> list[str]:
     errors: list[str] = []
-    match = JOINED_LIST_RE.search(text)
-    if match:
+    for match in JOINED_LIST_RE.finditer(text):
         line = text.count("\n", 0, match.start()) + 1
         errors.append(f"joined list item at line {line}")
     blanks = 0
@@ -267,7 +266,6 @@ def lint_errors(text: str) -> list[str]:
             blanks += 1
             if blanks == 3:
                 errors.append(f"3+ consecutive blank lines at line {number}")
-                break
     return errors
 
 
@@ -343,12 +341,24 @@ def verify_mechanical(
                 f"receipt hash chain is discontinuous before {receipt['_receipt_path']}"
             )
         previous_post = receipt.get("post_sha256")
+        if allow_inherited_lint:
+            lint_proof = receipt_lint_proof(receipt)
+            if lint_proof == "missing":
+                failures.append(
+                    f"receipt lacks pre/post lint fingerprints: {receipt['_receipt_path']}"
+                )
+            elif lint_proof == "introduced":
+                failures.append(
+                    f"mechanical edit introduced lint: {receipt['_receipt_path']}"
+                )
         receipt_summaries.append(
             {
                 "path": receipt["_receipt_path"],
                 "mode": mode,
                 "pre_sha256": receipt.get("pre_sha256"),
                 "post_sha256": receipt.get("post_sha256"),
+                "pre_lint": receipt.get("pre_lint"),
+                "post_lint": receipt.get("post_lint"),
                 "changed_ranges": receipt.get("changed_ranges", []),
                 "ranges_truncated": receipt.get("ranges_truncated", False),
                 "unified_diff": receipt.get("unified_diff", ""),
@@ -406,6 +416,15 @@ def verify_mechanical(
         "accepted_inherited_lint": lint if allow_inherited_lint else [],
         "receipts": receipt_summaries,
     }
+
+
+def receipt_lint_proof(receipt: dict) -> str:
+    """Classify whether a locked edit proves its post-edit lint was inherited."""
+    pre_lint = receipt.get("pre_lint")
+    post_lint = receipt.get("post_lint")
+    if not isinstance(pre_lint, list) or not isinstance(post_lint, list):
+        return "missing"
+    return "preserved" if post_lint == pre_lint else "introduced"
 
 
 def cmd_classify(args: argparse.Namespace) -> int:

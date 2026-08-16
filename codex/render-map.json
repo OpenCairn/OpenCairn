@@ -106,8 +106,8 @@
     "migrate": {
       "source": ".claude/commands/migrate.md",
       "render": "codex/skills/migrate/SKILL.md",
-      "source_sha256": "ce35f08a20ae17c96f8cbfc1e5996f4bbabeedd0acd5af9729e48ad56979e510",
-      "render_sha256": "b30c0f576294d39542ba77e682d7cbbe24197371ee94225e921c0879a4334539"
+      "source_sha256": "df4efe315cab05b822ed625c14439b05cd4daf99b79e889cc046f0180ceaa767",
+      "render_sha256": "92843c0ea80f4736da923accbcbaf9544784502dd5e9365054fec52623146d31"
     },
     "map-day": {
       "source": ".claude/commands/map-day.md",
@@ -136,8 +136,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "3078bb3abb816d23b6640740974245b6560b0e7f84b4876595acf95cb15ffb63",
-      "render_sha256": "0f75ca7ab04ceba3c71be10fcb6954b8cbc72fa8631484782260645084e64296"
+      "source_sha256": "6f8ce0715188e78e2f101d332cc1bdbfe17954b00c497b76ae96ebad7563b259",
+      "render_sha256": "c8198f867cc6746c79dca8181191ea35b1cccde61695695864ad37141dc72868"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
@@ -220,8 +220,8 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "321bbfcac184a5c826b2425036d57df3a87ad01bce98c2293b111c4e508aa74d",
-      "render_sha256": "94eccbd4406999d4e27676eb6ca239e5b1e9ffd61b62471b78a6a6c0353762f1"
+      "source_sha256": "bbfebf159065259d3786c1709ceafd02ec3e25503ce94722bf41a827c6e71917",
+      "render_sha256": "28be100b34b542573131fd3a44270415d23b3e4a26e85ab3c6ef997ee3532720"
     },
     "verify-provenance": {
       "source": ".claude/commands/verify-provenance.md",
