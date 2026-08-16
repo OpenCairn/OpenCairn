@@ -15,6 +15,8 @@ MANIFEST_PATH = PurePosixPath("codex/render-map.json")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 NAME_RE = re.compile(r"^_?[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 ENTRY_FIELDS = {"source", "render", "source_sha256", "render_sha256"}
+FRONTMATTER_FIELD_RE = re.compile(r"^([A-Za-z0-9_-]+):[ \t]*(.*)$")
+UNSUPPORTED_SCALAR_PREFIXES = ("[", "{", "|", ">", "&", "*", "!")
 
 
 def parse_args() -> argparse.Namespace:
@@ -91,21 +93,73 @@ def expected_paths(name: str) -> tuple[str, str]:
     return source, f"codex/skills/{name}/SKILL.md"
 
 
-def read_frontmatter(path: Path) -> dict[str, str]:
+def read_frontmatter(path: Path) -> tuple[dict[str, str], list[str]]:
     lines = path.read_text(encoding="utf-8").splitlines()
     if not lines or lines[0] != "---":
-        return {}
+        return {}, ["missing YAML frontmatter"]
     try:
         end = lines.index("---", 1)
     except ValueError:
-        return {}
+        return {}, ["unterminated YAML frontmatter"]
 
     fields: dict[str, str] = {}
-    for line in lines[1:end]:
-        match = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", line)
-        if match:
-            fields[match.group(1)] = match.group(2).strip().strip("\"'")
-    return fields
+    errors: list[str] = []
+    for line_number, line in enumerate(lines[1:end], start=2):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+
+        match = FRONTMATTER_FIELD_RE.fullmatch(line)
+        if not match:
+            errors.append(
+                f"frontmatter line {line_number}: expected an unindented key: scalar field"
+            )
+            continue
+
+        key, raw_value = match.groups()
+        if key in fields:
+            errors.append(f"frontmatter line {line_number}: duplicate field {key!r}")
+            continue
+
+        value = raw_value.strip()
+        if value.startswith(UNSUPPORTED_SCALAR_PREFIXES):
+            errors.append(
+                f"frontmatter line {line_number}: structured or block YAML is unsupported"
+            )
+            continue
+
+        if value.startswith('"'):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                errors.append(
+                    f"frontmatter line {line_number}: invalid double-quoted scalar"
+                )
+                continue
+            if not isinstance(parsed, str):
+                errors.append(f"frontmatter line {line_number}: expected a string scalar")
+                continue
+            value = parsed
+        elif value.startswith("'"):
+            if len(value) < 2 or not value.endswith("'"):
+                errors.append(
+                    f"frontmatter line {line_number}: unterminated single-quoted scalar"
+                )
+                continue
+            interior = value[1:-1]
+            if "'" in interior.replace("''", ""):
+                errors.append(
+                    f"frontmatter line {line_number}: invalid single-quoted scalar"
+                )
+                continue
+            value = interior.replace("''", "'")
+        elif re.search(r":\s", value) or value.startswith(("- ", "? ")):
+            errors.append(
+                f"frontmatter line {line_number}: nested YAML is unsupported"
+            )
+            continue
+
+        fields[key] = value
+    return fields, errors
 
 
 def actual_renderings(root: Path) -> tuple[dict[str, str], list[str]]:
@@ -196,10 +250,10 @@ def validate_structure(root: Path, data: dict) -> tuple[list[str], dict[str, tup
                 errors.append(f"{label}.{field}: expected a lowercase SHA-256 hash")
 
         if not name.startswith("_"):
-            frontmatter = read_frontmatter(render)
-            if not frontmatter:
-                errors.append(f"{render_key}: missing or unterminated YAML frontmatter")
-            else:
+            frontmatter, frontmatter_errors = read_frontmatter(render)
+            for error in frontmatter_errors:
+                errors.append(f"{render_key}: {error}")
+            if not frontmatter_errors:
                 if frontmatter.get("name") != name:
                     errors.append(
                         f"{render_key}: frontmatter name {frontmatter.get('name')!r} must match {name!r}"
