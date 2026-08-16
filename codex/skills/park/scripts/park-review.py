@@ -179,6 +179,25 @@ def lint_errors(text: str) -> list[str]:
     return errors
 
 
+def report_terminal_state(report: str) -> str | None:
+    """Return one unambiguous terminal state from the review report."""
+    states: list[str] = []
+    for line in report.splitlines():
+        normalised = line.strip()
+        normalised = re.sub(r"^[-*]\s+", "", normalised)
+        normalised = normalised.replace("**", "").replace("`", "")
+        match = re.fullmatch(
+            r"terminal state\s*[:\u2014-]\s*(clean|findings|incomplete)[.!]?",
+            normalised,
+            re.IGNORECASE,
+        )
+        if match:
+            states.append(match.group(1).casefold())
+    if len(states) != 1:
+        return None
+    return states[0]
+
+
 def verify_mechanical(
     target: Path,
     vault: Path,
@@ -203,6 +222,9 @@ def verify_mechanical(
             continue
         if receipt.get("old_text_truncated") or receipt.get("new_text_truncated"):
             failures.append(f"truncated replacement payload: {receipt['_receipt_path']}")
+            continue
+        if receipt.get("ranges_truncated"):
+            failures.append(f"truncated changed ranges: {receipt['_receipt_path']}")
             continue
         old_text = receipt.get("old_text")
         new_text = receipt.get("new_text")
@@ -234,6 +256,7 @@ def verify_mechanical(
                 "pre_sha256": receipt.get("pre_sha256"),
                 "post_sha256": receipt.get("post_sha256"),
                 "changed_ranges": receipt.get("changed_ranges", []),
+                "ranges_truncated": receipt.get("ranges_truncated", False),
                 "unified_diff": receipt.get("unified_diff", ""),
                 "diff_truncated": receipt.get("diff_truncated", False),
             }
@@ -821,8 +844,10 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     report = sys.stdin.read()
     if not report.strip():
         die("audit receipt requires the review report on stdin")
-    if not re.search(r"\bclean\b", report, re.IGNORECASE):
-        die("audit report does not contain a clean terminal state")
+    terminal_state = report_terminal_state(report)
+    if terminal_state != "clean":
+        detail = terminal_state or "missing or ambiguous"
+        die(f"audit report terminal state is not clean ({detail})")
     files: list[dict] = []
     if args.from_brief:
         manifest = load_json(root / "review-brief-manifest.json", None)
@@ -844,6 +869,8 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         current = sha256(path)
         if current != item["sha256"]:
             die(f"file changed after review brief: {path}")
+        if str(path) not in report:
+            die(f"review report does not attest file path: {path}")
         if current.casefold() not in report.casefold():
             die(f"review report does not attest current SHA-256 for {path}: {current}")
     receipt = {
