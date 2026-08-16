@@ -1062,6 +1062,11 @@ def cmd_build(args: argparse.Namespace) -> int:
                 classification.get("replacements", []),
                 classification.get("targets", []),
                 receipt_root,
+                allow_inherited_lint=bool(
+                    classification.get("verification", {}).get(
+                        "accepted_inherited_lint"
+                    )
+                ),
             )
             if not verification["ok"]:
                 die(
