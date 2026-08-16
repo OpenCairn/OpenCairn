@@ -215,6 +215,7 @@ def load_locked_receipts(root: Path, target: Path) -> list[dict]:
         if canonical_path(str(item.get("target", ""))) != target:
             continue
         item["_receipt_path"] = str(path)
+        item["_receipt_root"] = str(root.resolve())
         receipts.append(item)
     receipts.sort(key=lambda item: (item.get("captured_at", ""), item["_receipt_path"]))
     return receipts
@@ -1259,7 +1260,7 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 
 def cmd_record_audit(args: argparse.Namespace) -> int:
-    _, root, _, audit_root = state_paths(args.session_id)
+    _, root, receipt_root, audit_root = state_paths(args.session_id)
     vault = canonical_path(args.vault) if args.vault else None
     report = sys.stdin.read()
     if not report.strip():
@@ -1324,6 +1325,11 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             )
             if chain is None:
                 die(f"untraceable live change after review snapshot: {path}")
+            if any(
+                entry.get("_receipt_root") == str(receipt_root.resolve())
+                for entry in chain
+            ):
+                die(f"audited session changed file after review snapshot; rebuild brief: {path}")
             locators = item.get("owned_locators", [])
             if not item.get("owned_locators_complete", True):
                 die(f"incomplete session-owned content evidence: {path}")
@@ -1349,7 +1355,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         receipt = {
             "schema": 2,
             "captured_at": now(),
-            "status": "clean",
+            "status": "pending",
             "reviewer": args.reviewer,
             "files": reusable,
             "reviewed_files": files,
@@ -1373,6 +1379,9 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             )
             atomic_json(path, receipt)
             die(receipt["invalidation_reason"])
+        receipt["status"] = "clean"
+        receipt["completed_at"] = now()
+        atomic_json(path, receipt)
     print(
         f"Audit receipt: {path} ({len(files)} snapshot-reviewed file(s); "
         f"{len(reusable)} live-reusable)"

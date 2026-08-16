@@ -131,7 +131,7 @@
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
       "source_sha256": "b5bea9390e15b0a13ee043d7b0637ba6e117b2192b549ff55a30e08a8f20bafb",
-      "render_sha256": "38c8445c1d51b6b219155be8d03d1780bb96efc3e71718ebcc13643db596a162"
+      "render_sha256": "9a8675bdabd7aa46adf48505c4f3572c0a4d94b4fa7bdceebdb477f5a7f2afde"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
