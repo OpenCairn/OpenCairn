@@ -15,3 +15,5 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate acknowledged renderings
         run: python3 .github/scripts/validate_codex_renderings.py --check
+      - name: Test rendering validator failure modes
+        run: python3 .github/scripts/test_validate_codex_renderings.py
