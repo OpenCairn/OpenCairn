@@ -465,6 +465,75 @@ class ParkReviewTests(unittest.TestCase):
 
             self.assertIn("overlapped session-owned content", str(caught.exception))
 
+    def test_current_session_post_snapshot_edits_require_new_review(self) -> None:
+        for mode, before, after, payload in (
+            (
+                "--append",
+                "owned session line\n",
+                "owned session line\nlate session line\n",
+                {"new_text": "late session line\n"},
+            ),
+            (
+                "--replace",
+                "owned session line\nunrelated old\n",
+                "owned session line\nunrelated new\n",
+                {"old_text": "unrelated old", "new_text": "unrelated new"},
+            ),
+        ):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                config = base / "config"
+                state = config / ".session-state"
+                root = state / "session.park-review"
+                target = base / "target.md"
+                target.write_text(before, encoding="utf-8")
+                digest, snapshot = park_review.write_snapshot(root, target.read_bytes())
+                park_review.atomic_json(
+                    root / "review-brief-manifest.json",
+                    {
+                        "built_at": "2026-08-16T00:00:00+00:00",
+                        "full_read": [
+                            {
+                                "path": str(target),
+                                "sha256": digest,
+                                "snapshot_path": str(snapshot),
+                                "owned_locators": ["owned session line"],
+                            }
+                        ],
+                    },
+                )
+                target.write_text(after, encoding="utf-8")
+                own_receipts = state / "session.locked-edit-receipts"
+                own_receipts.mkdir(parents=True)
+                park_review.atomic_json(
+                    own_receipts / "receipt.json",
+                    {
+                        "captured_at": "2026-08-16T00:01:00+00:00",
+                        "target": str(target),
+                        "mode": mode,
+                        "pre_sha256": digest,
+                        "post_sha256": park_review.sha256(target),
+                        **payload,
+                    },
+                )
+                report = f"ATTEST {digest} {target}\nTerminal state: clean\n"
+                args = SimpleNamespace(
+                    session_id="session",
+                    vault=None,
+                    from_brief=True,
+                    file=None,
+                    reviewer="fixture",
+                )
+
+                with mock.patch.dict(
+                    os.environ, {"CLAUDE_CONFIG_DIR": str(config)}
+                ), mock.patch("sys.stdin", io.StringIO(report)), self.assertRaises(
+                    SystemExit
+                ) as caught:
+                    park_review.cmd_record_audit(args)
+
+                self.assertIn("rebuild brief", str(caught.exception))
+
     def test_unreceipted_live_edit_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
@@ -543,13 +612,13 @@ class ParkReviewTests(unittest.TestCase):
             real_atomic_json = park_review.atomic_json
             changed = False
 
-            def mutate_after_clean_receipt(path: Path, data: object) -> None:
+            def mutate_after_pending_receipt(path: Path, data: object) -> None:
                 nonlocal changed
                 real_atomic_json(path, data)
                 if (
                     not changed
                     and isinstance(data, dict)
-                    and data.get("status") == "clean"
+                    and data.get("status") == "pending"
                     and path.parent.name == ".park-audit-receipts"
                 ):
                     changed = True
@@ -558,7 +627,7 @@ class ParkReviewTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(config)}), mock.patch(
                 "sys.stdin", io.StringIO(report)
             ), mock.patch.object(
-                park_review, "atomic_json", side_effect=mutate_after_clean_receipt
+                park_review, "atomic_json", side_effect=mutate_after_pending_receipt
             ), self.assertRaises(SystemExit) as caught:
                 park_review.cmd_record_audit(args)
 
@@ -567,6 +636,63 @@ class ParkReviewTests(unittest.TestCase):
             self.assertEqual(len(receipts), 1)
             recorded = json.loads(receipts[0].read_text(encoding="utf-8"))
             self.assertEqual(recorded["status"], "invalidated")
+
+    def test_interruption_after_pending_receipt_never_publishes_clean(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config = base / "config"
+            state = config / ".session-state"
+            root = state / "session.park-review"
+            target = base / "target.md"
+            target.write_text("reviewed\n", encoding="utf-8")
+            digest, snapshot = park_review.write_snapshot(root, target.read_bytes())
+            park_review.atomic_json(
+                root / "review-brief-manifest.json",
+                {
+                    "built_at": "2026-08-16T00:00:00+00:00",
+                    "full_read": [
+                        {
+                            "path": str(target),
+                            "sha256": digest,
+                            "snapshot_path": str(snapshot),
+                            "owned_locators": ["reviewed"],
+                        }
+                    ],
+                },
+            )
+            report = f"ATTEST {digest} {target}\nTerminal state: clean\n"
+            args = SimpleNamespace(
+                session_id="session",
+                vault=None,
+                from_brief=True,
+                file=None,
+                reviewer="fixture",
+            )
+            real_atomic_json = park_review.atomic_json
+
+            def interrupt_after_pending(path: Path, data: object) -> None:
+                real_atomic_json(path, data)
+                if (
+                    isinstance(data, dict)
+                    and data.get("status") == "pending"
+                    and path.parent.name == ".park-audit-receipts"
+                ):
+                    raise RuntimeError("simulated interruption")
+
+            with mock.patch.dict(
+                os.environ, {"CLAUDE_CONFIG_DIR": str(config)}
+            ), mock.patch("sys.stdin", io.StringIO(report)), mock.patch.object(
+                park_review, "atomic_json", side_effect=interrupt_after_pending
+            ), self.assertRaisesRegex(RuntimeError, "simulated interruption"):
+                park_review.cmd_record_audit(args)
+
+            receipts = list((state / ".park-audit-receipts").glob("*.json"))
+            self.assertEqual(len(receipts), 1)
+            recorded = json.loads(receipts[0].read_text(encoding="utf-8"))
+            self.assertEqual(recorded["status"], "pending")
+            self.assertEqual(
+                park_review.current_audit_receipts(state / ".park-audit-receipts"), []
+            )
 
 
 if __name__ == "__main__":
