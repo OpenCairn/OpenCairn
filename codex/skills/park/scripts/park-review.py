@@ -20,6 +20,7 @@ SEP_RE = re.compile(
     r"^[ \t]*={4,}OPENCAIRN-LOCKED-EDIT-SEP={4,}[ \t]*$", re.MULTILINE
 )
 JOINED_LIST_RE = re.compile(r"[^\s=`]- \[[ x]\]")
+ATTEST_RE = re.compile(r"^ATTEST ([0-9a-fA-F]{64}) (/.+)$", re.MULTILINE)
 AUDIT_TABLE = """| Seat can reach | Required attestation |
 |---|---|
 | The filesystem | The list of files it read |
@@ -467,16 +468,44 @@ def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
     return "\n".join(block_lines), sections
 
 
-def parse_file_lines(text: str) -> list[str]:
+def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]:
     paths: list[str] = []
     for line in text.splitlines():
         value = line.strip()
         if not value.startswith("- "):
             continue
         value = value[2:]
-        if " - " in value:
-            value = value.split(" - ", 1)[0]
-        if value and value.casefold() != "none":
+        if not value or value.casefold() == "none":
+            continue
+        if value.startswith("`"):
+            end = value.find("`", 1)
+            if end < 0 or (value[end + 1 :] and not value[end + 1 :].startswith(" - ")):
+                die(f"malformed backticked Files-list path: {line}")
+            paths.append(value[1:end])
+            continue
+
+        # Descriptions use the same " - " token that ordinary filenames may
+        # contain. Prefer the longest prefix that is a real/classified path;
+        # first-split truncates names such as "Context - Technical Infrastructure.md".
+        split_points = [match.start() for match in re.finditer(r" - ", value)]
+        candidates = [value] + [value[:index] for index in reversed(split_points)]
+        matched = next(
+            (
+                candidate
+                for candidate in candidates
+                if f"external::{candidate}" in classifications
+                or str(canonical_path(candidate, vault)) in classifications
+                or canonical_path(candidate, vault).exists()
+            ),
+            None,
+        )
+        if matched is not None:
+            paths.append(matched)
+        elif split_points:
+            # Backwards-compatible fallback for deleted paths, which no longer
+            # exist and may predate explicit classification.
+            paths.append(value[: split_points[-1]])
+        else:
             paths.append(value)
     return paths
 
@@ -495,24 +524,79 @@ def load_captures(root: Path) -> list[dict]:
     return records
 
 
-def matching_audit_receipt(audit_root: Path, path: Path, digest: str) -> dict | None:
-    matches: list[dict] = []
+def current_audit_receipts(audit_root: Path) -> list[dict]:
+    current: list[dict] = []
     if not audit_root.is_dir():
-        return None
+        return current
     for receipt_path in audit_root.glob("*.json"):
         item = load_json(receipt_path, None)
         if not isinstance(item, dict) or item.get("status") != "clean":
             continue
-        for file_item in item.get("files", []):
+        files = item.get("files")
+        if not isinstance(files, list) or not files:
+            continue
+        seen: set[Path] = set()
+        valid = True
+        for file_item in files:
+            raw_path = file_item.get("path") if isinstance(file_item, dict) else None
+            digest = file_item.get("sha256") if isinstance(file_item, dict) else None
             if (
-                canonical_path(str(file_item.get("path", ""))) == path
-                and file_item.get("sha256") == digest
+                not isinstance(raw_path, str)
+                or not Path(raw_path).is_absolute()
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-fA-F]{64}", digest)
             ):
-                copy = dict(item)
-                copy["_path"] = str(receipt_path)
-                matches.append(copy)
+                valid = False
                 break
+            path = canonical_path(raw_path)
+            if path in seen or not path.is_file() or sha256(path) != digest.casefold():
+                valid = False
+                break
+            seen.add(path)
+        if valid:
+            copy = dict(item)
+            copy["_path"] = str(receipt_path)
+            current.append(copy)
+    return current
+
+
+def matching_audit_receipt(
+    receipts: list[dict], path: Path, digest: str
+) -> dict | None:
+    matches = [
+        item
+        for item in receipts
+        if any(
+            canonical_path(str(file_item.get("path", ""))) == path
+            and str(file_item.get("sha256", "")).casefold() == digest.casefold()
+            for file_item in item.get("files", [])
+        )
+    ]
     return max(matches, key=lambda item: item.get("captured_at", ""), default=None)
+
+
+def validate_report_attestations(report: str, files: list[dict]) -> None:
+    attestations: dict[str, str] = {}
+    for match in ATTEST_RE.finditer(report):
+        digest, raw_path = match.groups()
+        path = str(canonical_path(raw_path))
+        if path in attestations:
+            die(f"duplicate audit attestation for {path}")
+        attestations[path] = digest.casefold()
+
+    expected = {str(canonical_path(item["path"])): item["sha256"].casefold() for item in files}
+    missing = sorted(set(expected) - set(attestations))
+    unexpected = sorted(set(attestations) - set(expected))
+    if missing:
+        die("review report lacks paired attestation(s): " + ", ".join(missing))
+    if unexpected:
+        die("review report contains unexpected attestation(s): " + ", ".join(unexpected))
+    for path, digest in expected.items():
+        if attestations[path] != digest:
+            die(
+                f"review report attests wrong SHA-256 for {path}: "
+                f"{attestations[path]} (expected {digest})"
+            )
 
 
 def fenced(text: str, language: str = "text") -> str:
@@ -527,13 +611,19 @@ def cmd_build(args: argparse.Namespace) -> int:
     vault = canonical_path(args.vault)
     log = canonical_path(args.session_log, vault)
     block, sections = extract_session(log, args.number)
-    created_raw = parse_file_lines(sections.get("Files Created", ""))
-    updated_raw = parse_file_lines(sections.get("Files Updated", ""))
-    deleted_raw = parse_file_lines(sections.get("Files Deleted", ""))
     manifest_path = root / "files.json"
     classifications = load_json(manifest_path, {})
     if not isinstance(classifications, dict):
         die(f"invalid file manifest: {manifest_path}")
+    created_raw = parse_file_lines(
+        sections.get("Files Created", ""), vault, classifications
+    )
+    updated_raw = parse_file_lines(
+        sections.get("Files Updated", ""), vault, classifications
+    )
+    deleted_raw = parse_file_lines(
+        sections.get("Files Deleted", ""), vault, classifications
+    )
 
     created = {canonical_path(path, vault) for path in created_raw}
     local_paths: list[Path] = []
@@ -555,6 +645,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     mechanical: list[dict] = []
     reused: list[dict] = []
     warnings: list[str] = []
+    current_audits = current_audit_receipts(audit_root)
     for path in local_paths:
         if not path.is_file():
             die(f"attributed local file is missing: {path}")
@@ -565,7 +656,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                 {"path": str(path), "sha256": digest, "reason": "created this session"}
             )
             continue
-        prior = matching_audit_receipt(audit_root, path, digest)
+        prior = matching_audit_receipt(current_audits, path, digest)
         if prior:
             reused.append(
                 {
@@ -785,6 +876,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "- Read every file under **Full-read semantic files** exactly once, each in its own tool call. "
             "If one truncates, continue only from its first unread line. Return the SHA-256 printed by "
             "your command beside every full-read file.",
+            "- For every full-read file, include exactly one machine-readable attestation line in the "
+            "final report: `ATTEST <sha256> <absolute-path>`. Do not wrap either field in backticks.",
             "- Do not reread files backed by a matching clean audit receipt.",
             "- For mechanical-only files, review only the embedded locked-edit receipts, exact checks, "
             "and changed spans. Do not open or full-read those files.",
@@ -805,7 +898,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "",
             "Return: scope and coverage; findings tagged Layer 1–5 with exact file/line evidence and a "
             "concrete fix, or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
-            "outputs; coverage gaps. Finish with exactly one line: `Terminal state: clean`, "
+            "outputs; coverage gaps; and the required `ATTEST` line for every full-read file. Finish with "
+            "exactly one line: `Terminal state: clean`, "
             "`Terminal state: findings`, or `Terminal state: incomplete`.",
         ]
     )
@@ -871,10 +965,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         current = sha256(path)
         if current != item["sha256"]:
             die(f"file changed after review brief: {path}")
-        if str(path) not in report:
-            die(f"review report does not attest file path: {path}")
-        if current.casefold() not in report.casefold():
-            die(f"review report does not attest current SHA-256 for {path}: {current}")
+    validate_report_attestations(report, files)
     receipt = {
         "schema": 1,
         "captured_at": now(),
