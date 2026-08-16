@@ -606,6 +606,28 @@ def fenced(text: str, language: str = "text") -> str:
     return f"{fence}{language}\n{text.rstrip()}\n{fence}"
 
 
+def group_full_reads(files: list[dict]) -> list[dict]:
+    """Group byte-identical semantic files while retaining every original path."""
+    groups: dict[str, dict] = {}
+    order: list[str] = []
+    for item in files:
+        digest = item["sha256"]
+        if digest not in groups:
+            order.append(digest)
+            groups[digest] = {
+                "sha256": digest,
+                "read_path": item["path"],
+                "paths": [],
+                "reasons": [],
+            }
+        group = groups[digest]
+        group["paths"].append(item["path"])
+        reason = item.get("reason", "meaning-bearing change")
+        if reason not in group["reasons"]:
+            group["reasons"].append(reason)
+    return [groups[digest] for digest in order]
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     sid, root, receipt_root, audit_root = state_paths(args.session_id)
     vault = canonical_path(args.vault)
@@ -721,6 +743,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     )
     ledger = ledger_path.read_text(encoding="utf-8") if ledger_path.exists() else "NOTE: no ledger"
 
+    read_groups = group_full_reads(full_read)
     lines = [
         "# Park close-out review brief",
         "",
@@ -742,9 +765,16 @@ def cmd_build(args: argparse.Namespace) -> int:
         "### Full-read semantic files",
         "",
     ]
-    if full_read:
-        for item in full_read:
-            lines.append(f"- `{item['path']}` — `{item['sha256']}` — {item['reason']}")
+    if read_groups:
+        for group in read_groups:
+            reasons = "; ".join(group["reasons"])
+            lines.append(
+                f"- Read once: `{group['read_path']}` — `{group['sha256']}` — {reasons}"
+            )
+            if len(group["paths"]) > 1:
+                lines.append("  - Byte-identical original paths covered by this read:")
+                for path in group["paths"]:
+                    lines.append(f"    - `{path}`")
     else:
         lines.append("None")
 
@@ -873,11 +903,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             "## Scope and method",
             "",
             "- Review the embedded Session N block; do not open the full session log.",
-            "- Read every file under **Full-read semantic files** exactly once, each in its own tool call. "
-            "If one truncates, continue only from its first unread line. Return the SHA-256 printed by "
-            "your command beside every full-read file.",
-            "- For every full-read file, include exactly one machine-readable attestation line in the "
-            "final report: `ATTEST <sha256> <absolute-path>`. Do not wrap either field in backticks.",
+            "- Each `Read once` row under **Full-read semantic files** is one byte-identity group. "
+            "Read only that row's path, in its own tool call. If it truncates, continue only from its "
+            "first unread line. Return the SHA-256 printed by your command.",
+            "- Include exactly one machine-readable attestation line for every original path represented "
+            "by those groups: `ATTEST <sha256> <absolute-path>`. Byte-identical aliases are attested but "
+            "not reread. Do not wrap either field in backticks and do not leave trailing whitespace.",
             "- Do not reread files backed by a matching clean audit receipt.",
             "- For mechanical-only files, review only the embedded locked-edit receipts, exact checks, "
             "and changed spans. Do not open or full-read those files.",
@@ -926,7 +957,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         f"Out-of-band evidence: sources drawn on {len(sources)} → excerpts embedded {len(sources)}"
     )
     print(
-        f"Review modes: full-read {len(full_read)} | mechanical {len(mechanical)} | "
+        f"Review modes: full-read {len(full_read)} path(s) in {len(read_groups)} read(s) | mechanical {len(mechanical)} | "
         f"receipt-reuse {len(reused)} | non-local {len(external_files)} | deleted {len(deleted_raw)}"
     )
     for warning in warnings:

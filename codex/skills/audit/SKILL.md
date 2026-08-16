@@ -94,6 +94,7 @@ The implementation doesn't exist in isolation. What surrounds it matters.
 - For processes: who are the actors, what are their incentives, where does friction live
 - For config: what reads this, what else touches these settings, what's the failure mode
 - For docs/prompts/specs: who executes them, with what tools, at what point — and which environment facts they assert that could drift or differ across machines
+- Treat tool/version observations embedded in a dated brief as gate-time measurements. Re-probe when the current value matters; report drift only where a durable claim or decision still depends on the old value.
 
 #### Layer 3: What existing state needs to migrate or integrate?
 
@@ -103,7 +104,7 @@ Change always meets existing reality. What's already there?
 - Are there consumers/dependents that expect the current interface/format/behaviour?
 - Is there data, state, or configuration that needs to carry forward?
 - For plans/processes: what habits, expectations, or workflows does this disrupt?
-- For content edits (docs, notes, config values): grep **case-insensitively (`-i`)** for changed identifiers across the wider repository, then apply `_shared-rules.md` §12 in full — grep-target selection (changed value vs decision anchor), hit triage (stale cross-reference / live locator / historical record / different context; ambiguous → report, don't edit), bare-anchor sweeps for content that moved out of a document, and when to prefer structural queries over text grep all live there. Stale cross-references are the most common Layer 3 miss in non-code edits.
+- For content edits (docs, notes, config values): grep **case-insensitively (`-i`)** for changed identifiers across the wider repository, then apply `_shared-rules.md` §12 in full — grep-target selection (changed value vs decision anchor), hit triage (stale cross-reference / current-state confirmation / live locator / historical record / different context; ambiguous → report, don't edit), bare-anchor sweeps for content that moved out of a document, and when to prefer structural queries over text grep all live there. Stale cross-references are the most common Layer 3 miss in non-code edits.
 
 #### Layer 4: Is the implementation correct?
 
@@ -124,6 +125,7 @@ Theory vs. reality. Can you verify it runs?
 - For processes: simulate the first real execution the same way — who does what, in what order, with what inputs? Where does someone get stuck or confused?
 - For config: validate syntax, check that referenced paths/services exist
 - For docs/prompts/specs: trace one concrete execution of the document's instructions — where does the executor stall, guess, or improvise past the letter of the text? Executor friction is evidence; cheaply testable claims (cited sections, flags, paths) get tested
+- For recursive artefact sets: enumerate recursively and return a positive-control count plus an expected member from the same run. A zero-result check with no positive control establishes nothing about the set.
 
 ### Phase 3: Report Findings
 

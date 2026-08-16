@@ -199,9 +199,11 @@ done
 
 # --- backfill coverage -------------------------------------------------------
 FILES_SECTIONS=$(printf '%s\n' "$BLOCK" | awk '/^### Files (Created|Updated|Deleted)/{f=1;next} /^### /{f=0} f')
-# Non-vault paths reduce to a 3-directory suffix (".claude/commands/x.md"). Mirror
-# pairs (personal + repo copy of the same file) still collapse to one needle, so
-# count occurrences: a needle shared by K touched paths must appear >= K times.
+# Home paths keep a short alternate suffix for human-written Files rows. Other
+# absolute paths stay absolute: reconstructing a three-component suffix turns a
+# root-level path such as /tmp/file into the nonexistent //tmp/file.
+# Mirror pairs can still collapse to one needle, so count occurrences: a needle
+# shared by K touched paths must appear >= K times.
 declare -A NEEDLE_WANT=()
 declare -A NEEDLE_ALT=()
 NEEDLE_ORDER=()
@@ -216,7 +218,7 @@ for t in "${TOUCHED[@]:-}"; do
         # which no sane log entry contains - it is written "~/.config/x.json". Prefer
         # the ~-form and keep the suffix as an alternate for logs using the long form.
         "$HOME"/*)  needle="~/${t#"$HOME"/}"; alt="$suffix" ;;
-        *)          needle="$suffix"; alt="" ;;
+        *)          needle="$t"; alt="" ;;
     esac
     [ -n "${NEEDLE_WANT[$needle]:-}" ] || NEEDLE_ORDER+=("$needle")
     NEEDLE_WANT[$needle]=$(( ${NEEDLE_WANT[$needle]:-0} + 1 ))
@@ -256,6 +258,9 @@ mapfile -t LOGGED < <(printf '%s\n' "$FILES_SECTIONS" \
 UNCOVERED=""
 for lp in "${LOGGED[@]:-}"; do
     [ -n "$lp" ] || continue
+    case "$lp" in [Nn][Oo][Nn][Ee]) continue ;; esac
+    lp_abs="$(norm_path "$lp")"
+    [ "$lp_abs" = "$LOG" ] && continue   # the log may list itself; it is checked separately
     # Compare on a canonical form. A $HOME path yields a "~/..." needle while the
     # log may well spell it "/home/<user>/..." — neither is a substring of the
     # other, so a raw comparison reports a path as uncovered that WAS passed.

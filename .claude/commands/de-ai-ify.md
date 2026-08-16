@@ -60,9 +60,19 @@ Read `{VAULT}/07 System/Context - Voice & Writing Style.md` — concrete before/
 - ✅ Match their tone, hedging style, and register
 - ✅ Active voice, outcome-focused
 
+**Semantic-preservation gate:** compare before and after for subjects, categories, thresholds, coverage claims, qualifiers, frontmatter, links, and citations. Each element must remain exact unless the user explicitly asked to change it. Compression may shorten delivery; it may not widen, narrow, merge, or drop factual scope.
+
+**How-to straightness:** in a guide or instructional post, every non-procedural sentence must supply a requested premise, a necessary safety constraint, or an execution-relevant explanation. Cut origin story and commentary that do none of those jobs.
+
 4. **Rewrite the text:**
 
-Present two versions. If either text contains its own fenced code block, wrap it in a fence at least one backtick longer than the longest fence inside it (four or more backticks) so the nesting survives:
+Choose the mode from the user's request:
+
+- **Chat text (default):** present the two versions below. If either contains its own fenced code block, wrap it in a fence at least one backtick longer than the longest fence inside it (four or more backticks) so the nesting survives.
+- **Single file in place:** the file's current content is authority. If a last assistant-authored version is available, diff it against the current file first and treat every intervening user edit as protected; never reverse one unless the user explicitly asks, and surface an overlapping proposed reversal before writing. For a vault file, record its current SHA-256, install the complete rewrite with `locked-edit.sh --replace-whole <sha256>`, then re-read the rendered artefact and rerun the semantic-preservation gate. Return a file link and the key changes, not duplicated Original/Rewritten blocks.
+- **Explicit batch:** enumerate the exact source files, snapshot their originals outside the published tree, and process the full batch without per-item approval. Preserve frontmatter, links, citations, factual scope, and intervening user edits as above. After all rewrites validate, create one consolidated `De-AI-ification Diffs.md` in the batch's common parent; if that path already exists, ask before replacing it. Return the changed-file list and the comparison link.
+
+Chat-mode format:
 
 **Original:**
 ````

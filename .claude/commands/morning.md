@@ -49,7 +49,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 1. Check if a daily report exists: `{VAULT}/06 Archive/Claude/Daily Reports/YYYY-MM-DD.md`
 2. Check if a session log exists: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
 3. If no session log or no sessions → skip silently (nothing to close out).
-4. **Skip the day only if it is closed out on both surfaces** — the daily report exists **and** the session log carries a close-out entry (`^## Session [0-9]+ - Goodnight:` or `Goodnight catch-up via /morning`). The report is written at 2a.b but the session entry, audit and provenance come at 2a.e/g/h, so a report-only test marks an interrupted catch-up permanently closed and nothing downstream repairs it — 2b skips days with no close-out session, and only provenance has its own net.
+4. **Skip the day only if it is closed out on both surfaces** — the daily report exists **and** the session log carries a close-out entry (`^## Session [0-9]+ - Goodnight:`, `Goodnight catch-up via /morning`, or `Goodnight catch-up via $morning`). Accept both catch-up invocation forms so pre-port days are not repeated. The report is written at 2a.b but the session entry, audit and provenance come at 2a.e/g/h, so a report-only test marks an interrupted catch-up permanently closed and nothing downstream repairs it — 2b skips days with no close-out session, and only provenance has its own net.
 5. Otherwise → **/goodnight was missed, or a previous catch-up did not finish.** Run a lightweight catch-up, skipping any sub-step whose artefact is already present and complete (do not duplicate an existing daily report — verify and extend it instead):
 
    a. Read the day's session log and its day section in This Week.md. **Also sweep for stranded Claude-internal work product from that day** — `/park` Step 4's third check, day-scoped, since a day reaching catch-up is by definition a day no park or goodnight closed out. Bound the window with two explicit dates (`+1 day` inside `-newermt` is not portable; derive the upper bound with `date -d "<day> +1 day" +%F`):
@@ -113,7 +113,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 For each day that now has a daily report (whether from /goodnight or 2a), check for late sessions:
 
 1. Read the day's session log.
-2. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic). Also match `Goodnight catch-up via /morning` for catch-up sessions from 2a.
+2. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic). Also match both `Goodnight catch-up via /morning` and `Goodnight catch-up via $morning` for catch-up sessions.
 3. If no goodnight session found → skip.
 4. Extract the goodnight session number. Check if any sessions exist with a higher number.
 5. If no post-goodnight sessions → skip silently.
@@ -132,6 +132,8 @@ For each day that now has a daily report (whether from /goodnight or 2a), check 
      ```
 
 ### 3. Surface the Landscape (auto, ~1 min)
+
+**Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules.md` Section 9 now, before the load count, Tickler migration, or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
 
 **Pending Whimsy batch veto (first item of the output, if 2a ran):** if step 2a buffered Whimsy candidates, present them here as the **first** line of the landscape output — `→ Whimsy (someday, no obligation): item · item · …` — before the weather and everything below. Write to Whimsy only after the user's response; unvetoed items go, vetoes reroute (Tickler / project doc) or delete. If 2a ran no catch-up, or the buffer is empty, skip this silently.
 
@@ -196,7 +198,7 @@ Read and present:
   ```
   **⛔ State the elapsed days explicitly in your response** before drawing any staleness conclusion — "last run <date>, N days ago" is the checkable output; a bare "current" / "overdue" verdict with no number on the page means the check was done from impression, not evidence. If the header carries no usable date, say so and skip the flag rather than falling back to mtime.
 
-  Flag if weekly review is >10 days old or quarterly review is >100 days old. Show each overdue review individually — don't mention reviews that are current. If a review directory is empty or missing, skip that review type entirely (don't flag a cadence the user hasn't started).
+  Flag if weekly review is >10 days old or quarterly review is >100 days old. Show each overdue review individually — don't mention reviews that are current. Before treating an empty or missing review directory as an unstarted cadence, search live planning and area docs for that review command/name. A hit that actually states a recurring schedule makes the absent output overdue; a mere mention does not. With no scheduled cadence, skip the review type.
 
 Present concisely:
 ```
@@ -280,13 +282,7 @@ For every item the user mentioned:
 
 ### 6. Maintain This Week.md window
 
-This step runs every morning regardless of whether the user wants a timeline for today. It keeps the rolling window current.
-
-If This Week.md doesn't exist, skip this step (step 7 will offer to create it if needed).
-
-Run the This Week.md Rolling Window Maintenance procedure (see `_shared-rules.md` Section 9). This trims old sections, extends the window to today+6, and populates new days from Tickler.
-
-**Additional morning-specific behaviour:** Step 3 (landscape surfacing) handles Tickler migration for *existing* day sections. The rolling window procedure here only covers *newly created* day sections. Apply the same link handling as Step 3: preserve project/area links, replace session-log-only links, add links to bare items per the item linking convention (see `_shared-rules.md` Section 3).
+Step 3 already ran rolling-window maintenance before presenting the landscape. Re-run it here only if Step 5 wrote or changed dated items in Tickler or This Week.md; otherwise verify that the today+6 section still exists and make no second mutation. If This Week.md does not exist, skip this step (Step 7 will offer to create it).
 
 ### 7. Update today's timeline (optional)
 

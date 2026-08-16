@@ -6,6 +6,8 @@ At the end of the run, **log observations — do not propose skill edits in-sess
 
 - **Something observed:** append one block to `{VAULT}/07 System/Skill Monitor Log.md` via the locked append (never a bare `>>`, never the Edit tool — concurrent sessions interleave otherwise). If no vault path is resolved this session, run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` yourself first and substitute the resolved path below — this file may be loaded by skills that never read `_shared-rules.md`.
 
+  **Duplicate preflight:** before appending, search the whole monitor with `rg -n -i -F` for the observation's distinctive mechanism (target script/step plus the failing behaviour). Same mechanism and same evidence → do not append. An independent run that materially strengthens the evidence → append one concise recurrence bullet naming the prior date and only what the new run adds.
+
 ```bash
 { printf '## %s — /<skill>\n' "$(date +%F)"; cat <<'EOF'
 - [gap observed]: [specific suggested edit]

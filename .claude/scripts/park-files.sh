@@ -7,8 +7,9 @@
 #
 # Prints tab-separated candidate lines, one per file, grouped by tag:
 #   [receipt]    sync-receipt entries inside the window (UTC-ISO ts, path, description)
-#   [config]     files under $CLAUDE_CONFIG_DIR/{commands,scripts} + top-level *.log
-#                modified inside the window
+#   [config]     files under $CLAUDE_CONFIG_DIR/{commands,scripts}, personal
+#                $CODEX_HOME/skills, selected user-runtime roots, and top-level
+#                Claude *.log files modified inside the window
 #   [repo]       git status --short per named repo
 #   [transient]  vault transient-surface *.md modified inside the window
 #                (01 Now, 02 Inbox - never a find from the vault root: .git crawl)
@@ -34,6 +35,7 @@ if [ "${1:-}" = "-m" ]; then
 fi
 
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+CODEX_CONFIG_DIR="${CODEX_HOME:-$HOME/.codex}"
 CUTOFF=$(date -u -d "$MIN minutes ago" +%FT%TZ 2>/dev/null \
     || date -u -v-"${MIN}"M +%FT%TZ 2>/dev/null \
     || python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(minutes=$MIN)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
@@ -50,6 +52,18 @@ find "$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" \
     | sed 's/^/[config]\t/' || true
 find "$CONFIG_DIR" -maxdepth 1 -name '*.log' -type f -mmin -"$MIN" 2>/dev/null \
     | sed 's/^/[config]\t/' || true
+find "$CODEX_CONFIG_DIR/skills" \
+        \( -name .git -o -name __pycache__ -o -name .system -o -name .tmp \) -prune -o \
+        -type f -mmin -"$MIN" -print 2>/dev/null \
+    | sed 's/^/[config]\t/' || true
+find "$HOME/.local/libexec" "$HOME/.config/systemd/user" \
+        \( -name .git -o -name __pycache__ \) -prune -o \
+        \( -type f -o -type l \) -mmin -"$MIN" -print 2>/dev/null \
+    | sed 's/^/[config]\t/' || true
+if [ -e "$HOME/.config/kwinoutputconfig.json" ]; then
+    find "$HOME/.config/kwinoutputconfig.json" -mmin -"$MIN" -print 2>/dev/null \
+        | sed 's/^/[config]\t/' || true
+fi
 
 # 3. Working tree of every named repo.
 for repo in "$@"; do
