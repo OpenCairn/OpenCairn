@@ -56,7 +56,7 @@ Don't assume a destination — infer the article's domain, propose a home that f
 
 Before writing the file, check whether this paper has already been archived. (If a DOI is already known before the Phase 3 ask, run the DOI check first so a duplicate and the destination resolve in one user interaction, not two.)
 
-1. **Check the DOI** (if available) **vault-wide** — a DOI is a unique string, so a match anywhere means it's already archived. Use the **Grep tool** (rg-backed); **never an unbounded `rg --no-ignore` or an unfiltered `grep -r` over the vault** — those read content across the untracked mass (see `_shared-rules.md` §25 on grep-vs-rg in executable blocks). A unique-string check is a safe whole-vault sweep.
+1. **Check the DOI (if available) and the canonical source URL — as fixed strings, vault-wide.** Both are unique strings, so a match anywhere means it's already archived; the URL check catches a retitled/renamed note that step 2's keyword check would miss (same dedupe mechanism as `archive-transcript`). Use the **Grep tool** (rg-backed); **never an unbounded `rg --no-ignore` or an unfiltered `grep -r` over the vault** — those read content across the untracked mass (see `_shared-rules.md` §25 on grep-vs-rg in executable blocks). A unique-string check is a safe whole-vault sweep.
 2. **Check distinctive title keywords** (2-3 unique terms) scoped to the proposed destination + any Phase-3 cluster (keywords are noisier than a DOI); widen vault-wide only if needed.
 3. **If a match is found**, report it to the user and ask whether to update the existing note or skip. Do not create a duplicate.
 
@@ -111,9 +111,9 @@ Procedure: shortlist the entities worth linking (conditions, procedures, drugs, 
 obsidian file file="<term>" 2>/dev/null | grep -q '^path' && echo EXISTS || echo "no hit"
 ```
 
-The per-term lookup is its own liveness test — Obsidian must be running for the CLI to answer, and a dead CLI reads as "no hit" for every term, which is the safe direction. Don't add a separate health probe first: the subcommands that report vault-level state return empty output intermittently even on a healthy system, so an empty result there means "unknown", never "down".
+The per-term lookup is its own liveness test — a dead or absent CLI reads as "no hit" for every term, and that failure direction is safe (a missed link, never a dead one), so no separate health probe is needed.
 
-Match is **exact, not fuzzy** — a partial name returns not-found, so there are no false positives. Note the discriminator is the `^path` line, **not** the exit code: `obsidian file` exits 0 even on "Error: File … not found", so `&&` on `$?` alone silently passes every term (`_shared-rules.md` §24 covers the CLI's exit-status unreliability).
+Match is **exact, not fuzzy** — a partial name returns not-found, so there are no false positives. The discriminator is the `^path` line, **never** the exit code: per `_shared-rules.md` §24 the CLI's exit status is unreliable in both directions, so `&&` on `$?` alone can silently pass every term. Current per-subcommand behaviour is §24's territory, not this skill's — if the lookup misbehaves, check there.
 
 A hit → link it, using the exact filename the command echoes back (alias with `|` if the prose needs different wording). No hit → **leave the term as plain text**. If the CLI is down, don't guess — either use a filename-scoped search route (Grep tool on names, not contents), or ship the note with plain text. If the shortlist yields no hits, the note ships with no wikilinks; that is a normal outcome, not a failure.
 
