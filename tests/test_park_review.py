@@ -8,6 +8,7 @@ import io
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -22,6 +23,81 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_locked_edit_receipt_records_pre_and_post_lint(self) -> None:
+        locked_edit = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "target.md"
+            target.write_text("clean\n", encoding="utf-8")
+            env = dict(
+                os.environ,
+                CLAUDE_CONFIG_DIR=str(root / "config"),
+                CLAUDE_CODE_SESSION_ID="lint-fixture",
+            )
+            subprocess.run(
+                [str(locked_edit), str(target), "--replace"],
+                input=(
+                    "clean\n"
+                    "========OPENCAIRN-LOCKED-EDIT-SEP========\n"
+                    "prose- [ ] item\n"
+                ),
+                text=True,
+                check=True,
+                capture_output=True,
+                env=env,
+            )
+            receipts = list(
+                (root / "config/.session-state/lint-fixture.locked-edit-receipts").glob(
+                    "receipt.*"
+                )
+            )
+            self.assertEqual(len(receipts), 1)
+            receipt = json.loads(receipts[0].read_text(encoding="utf-8"))
+            self.assertEqual(
+                receipt["pre_lint"],
+                ["joined-list-count:0", "blank-run-count:0"],
+            )
+            self.assertEqual(
+                receipt["post_lint"],
+                ["joined-list-count:1", "blank-run-count:0"],
+            )
+            self.assertEqual(park_review.receipt_lint_proof(receipt), "introduced")
+
+    def test_inherited_lint_requires_receipt_level_preimage_proof(self) -> None:
+        self.assertEqual(
+            park_review.receipt_lint_proof(
+                {"pre_lint": ["blank-run:12"], "post_lint": ["blank-run:12"]}
+            ),
+            "preserved",
+        )
+        self.assertEqual(
+            park_review.receipt_lint_proof(
+                {"pre_lint": [], "post_lint": ["joined-list:8"]}
+            ),
+            "introduced",
+        )
+        self.assertEqual(park_review.receipt_lint_proof({}), "missing")
+
+    def test_lint_proof_detects_second_issue_of_same_class(self) -> None:
+        self.assertEqual(
+            park_review.receipt_lint_proof(
+                {
+                    "pre_lint": ["joined-list-count:1", "blank-run-count:0"],
+                    "post_lint": ["joined-list-count:2", "blank-run-count:0"],
+                }
+            ),
+            "introduced",
+        )
+
+    def test_lint_proof_ignores_line_shifts_when_counts_are_unchanged(self) -> None:
+        fingerprint = ["joined-list-count:1", "blank-run-count:1"]
+        self.assertEqual(
+            park_review.receipt_lint_proof(
+                {"pre_lint": fingerprint, "post_lint": list(fingerprint)}
+            ),
+            "preserved",
+        )
+
     def test_only_mechanical_receipts_can_preapprove_inherited_lint(self) -> None:
         manifest = {
             "/vault/approved.md": {

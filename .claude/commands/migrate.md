@@ -5,7 +5,11 @@ description: Run pending versioned OpenCairn vault migrations and the legacy pro
 
 # Migrate - OpenCairn Vault Migrations
 
+Compatibility marker: `archive-bundle-v3`.
+
 Run required vault migrations without letting infrastructure updates silently outrun the vault layout. Versioned migrations are live-state checked and resumable; the older task-system conversion remains component-wise and consent-gated.
+
+When `/update` handed off to this procedure, return to the suspended update immediately after migration verification. A directly invoked migration may finish normally; a subsequent `/update` is safe and idempotent.
 
 ## 0. Resolve and load rules
 
@@ -23,9 +27,15 @@ Require these helpers before continuing:
 test -x "{VAULT}/.claude/scripts/check-archive-layout.sh"
 test -x "{VAULT}/.claude/scripts/archive-namespace-migration.py"
 test -x "{VAULT}/.claude/scripts/locked-edit.sh"
+test -r "{VAULT}/.claude/scripts/lib-lock.sh"
+test -r "{VAULT}/.claude/scripts/lib-session.sh"
+command -v python3
+command -v rg
 ```
 
-If one is absent, stop: the installed migration bundle is incomplete. A full-clone user should rerun `/update` and accept the new scripts plus `migrate.md`; a Codex user should reinstall the paired `update` and `migrate` skills from the same OpenCairn checkout. Do not improvise the migration from partial instructions.
+If one is absent, stop: the installed migration bundle is incomplete. A full-clone user should rerun `/update` and accept the nine-file `archive-bundle-v3` recovery set; a Codex user should also accept the paired live `update` and `migrate` adapters from that checkout. Do not improvise the migration from partial instructions.
+
+Before any versioned archive migration, run the pre-2026-08 task-format probes in §2. If any outstanding component remains, execute §2 first. After its Doctor report, re-run the same probes. If a required component remains `later` or its live check fails, stop. Otherwise print `✓ Task-system migration complete — continuing to the archive namespace migration` and return directly to §1 in this same invocation. This preserves the supported order for both intact v0.8.0 users and partial updates recovered by the current bundle without making them invoke migration twice: task-system revamp first, archive namespace second.
 
 ## 1. Versioned migrations
 
@@ -55,6 +65,8 @@ python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" inspect "{VAULT
 
 The state vector includes both directory paths, actionable old-path files, excluded immutable/transcript hits, and the transaction-journal phase. Trust live state over a stale `complete` row.
 
+If `journal_phase` is `invalid`, report `journal_error` and the journal path. The gate and mutating subcommands deliberately fail closed on an invalid journal. Ask the user to inspect and remove or quarantine that single journal in their file manager, then rerun `/migrate`; never delete it silently or treat it as absent without approval.
+
 #### `empty-clean`
 
 This is a fresh vault with neither archive tree nor actionable legacy locator. Record the verified no-op:
@@ -67,7 +79,9 @@ Proceed to §2.
 
 #### `new-only`, `new-with-legacy-locators`, or gate state `pending-verification`
 
-This can be a completed manual rename or an interrupted migration. Never infer completion from the directory name. Run the remaining phases idempotently:
+This is normally an interrupted journal-backed migration. Never infer completion from the directory name. If `journal_phase` is absent and the layout is `new-only`, treat it as an already-compatible/fresh layout: record the verified no-op with `record complete` and proceed to Doctor. If the journal is absent and the layout is `new-with-legacy-locators`, run `rewrite`, confirm the layout becomes `new-only`, record `complete`, and proceed to Doctor. Do not manufacture a pre-move journal after the fact.
+
+When a valid journal exists, run the remaining phases idempotently:
 
 ```bash
 python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
@@ -102,7 +116,7 @@ This is the normal migration path.
    python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
    ```
 
-   The engine replaces literal `06 Archive/Claude/` locators across common text, config, script and web artefacts, one file at a time through `locked-edit.sh --replace-all`; binary files are ignored. It excludes `07 System/.Provenance/`, `.Session Transcripts/` under either archive namespace, lock files, and the Migration Record. Excluded hits remain reported; they are not silently treated as actionable.
+   The engine replaces literal forward- and backslash `06 Archive/Claude` locators, including an exact archive-root value with no trailing separator, across the declared text/config/script/web formats plus extensionless files, one file at a time through `locked-edit.sh --replace-all`; binary/media files are ignored. It excludes `07 System/.Provenance/`, `07 System/.OpenCairn Migration/`, `.Session Transcripts/` under the Claude/OpenCairn archive namespaces, lock files, and the Migration Record. `inspect` reports this actionable scan surface separately from excluded immutable hits; it is not a universal binary-file claim.
 
 6. Let Obsidian's index settle. Re-run the same reliable unresolved-link route used for the baseline. The count must not increase, and no moved archive target may be unresolved. Then finish:
 
@@ -112,7 +126,7 @@ This is the normal migration path.
 
    If the structural link check or `finish` fails, record `blocked` and stop. Do not mark completion from this run's memory.
 
-#### `legacy-symlink-alias` or `legacy-symlink-unsafe`
+#### `legacy-symlink-alias`, `legacy-symlink-unsafe`, or `new-symlink-unsafe`
 
 A legacy symlink is not a second archive tree and must never enter per-member reconciliation. Run:
 
@@ -123,6 +137,12 @@ python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" split-plan "{VA
 The report identifies the link target and whether it resolves to the new archive. Do not traverse the old path, move a member through it, or delete a supposed duplicate through it: that would mutate the target tree. Record `blocked` and stop.
 
 For `legacy-symlink-alias`, explain that only the compatibility link itself must eventually be removed, after all pre-rename agent sessions have exited. Ask the user to remove that single alias in their file manager, explicitly distinguishing it from the `OpenCairn` target, then rerun `/migrate`. For `legacy-symlink-unsafe`, report the literal link target and ask the user to resolve or remove the link; do not guess its intent.
+
+For `new-symlink-unsafe`, report the literal target and stop. The active OpenCairn archive root must be a real directory inside the resolved vault; do not traverse or rewrite through the link.
+
+#### `empty-with-legacy-locators`
+
+No archive tree exists, but live files still carry legacy locators. Run `rewrite`, confirm the layout becomes `empty-clean`, record `complete`, and proceed. There is no folder inventory to migrate.
 
 #### `split`
 
@@ -140,11 +160,11 @@ The report separates old-only, new-only, byte-identical, and conflicting relativ
 - identical collisions: propose deletion of the old duplicate only after the user approves the destructive action;
 - differing collisions: show a content diff and ask which version or merge to retain, one collision at a time.
 
-Use the §24 maintenance window and verification for every approved structural batch. When the old tree is empty, remove it only with explicit approval, then run `rewrite` and `finish`. Until then, all archive-backed workflows remain blocked.
+Use the §24 maintenance window and verification for every approved structural batch. When the old tree is empty, remove it only with explicit approval, then run `rewrite`. If the split originated from a valid in-progress journal, run `finish`; otherwise confirm `new-only`, record `complete`, and proceed. Until then, all archive-backed workflows remain blocked.
 
 ## 2. Legacy project-doc task migration
 
-After the versioned migration is complete, inspect the pre-2026-08 task marks:
+Inspect the pre-2026-08 task marks before the versioned migration as directed by §0, or skip this section when those marks and any recorded `later` decisions are absent:
 
 - `01 Now/Tasks.md` exists;
 - `01 Now/Works in Progress.md` exists;

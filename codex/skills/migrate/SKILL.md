@@ -5,6 +5,8 @@ description: Run pending versioned OpenCairn vault migrations and the legacy pro
 
 # Migrate OpenCairn
 
+Compatibility marker: `archive-bundle-v3`.
+
 Use the canonical migrator stored in the OpenCairn checkout. This Codex skill is the native harness adapter and deliberately stays paired with the Claude-source procedure.
 
 ## Procedure
@@ -20,9 +22,9 @@ Use the canonical migrator stored in the OpenCairn checkout. This Codex skill is
 2. Read these files **in full before acting**:
 
    - `{VAULT}/.claude/commands/migrate.md`
-   - `~/.codex/skills/_shared-rules.md`
+   - `${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md`
 
-   Stop if either is absent. Required deterministic helpers remain under `{VAULT}/.claude/scripts/`; a skills-only Codex install without the checkout cannot execute the migration.
+   Require the canonical migrate command to contain `archive-bundle-v3`; stop if either file is absent or the command is stale. Required deterministic helpers remain under `{VAULT}/.claude/scripts/`; a skills-only Codex install without the checkout cannot execute the migration.
 
 3. Execute the canonical migration procedure exactly, with these harness translations only:
 
@@ -30,6 +32,6 @@ Use the canonical migrator stored in the OpenCairn checkout. This Codex skill is
    - `/update` means `$update`.
    - `_shared-rules.md` in the source command means the installed Codex support file already read above.
    - Use Codex commentary for progress and concise plain-text questions for sync confirmation, split-archive collision decisions, or destructive approvals.
-   - Read `~/.codex/skills/_skill-monitor.md` for the final monitor step.
+   - Read `${CODEX_HOME:-$HOME/.codex}/skills/_skill-monitor.md` for the final monitor step.
 
 4. Preserve the migration invariants: live state outranks the ledger; only verified `complete` unblocks workflows; vault prose writes use `locked-edit.sh`; linked structural moves follow shared-rules §24; raw `mv` is forbidden; split archives never auto-merge; immutable provenance files must retain their recorded hashes.

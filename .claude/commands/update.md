@@ -8,6 +8,8 @@ argument-hint: "[--dry-run] [--force] [--tag VERSION]"
 
 You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts, and the `codex/` rendering) — vault content and CLAUDE.md are never touched.
 
+**Universal user route:** run `/update`; if it asks for `/migrate`, complete that migration and run `/update` again. Both commands are idempotent. The current updater performs the migration handoff and resumes automatically where the installed version permits; v0.8.0 must still make its first explicit handoff because it predates this bridge.
+
 **Two modes.** By default `/update` tracks the template's main branch (latest, possibly unreleased). Pass `--tag VERSION` to instead pin to a specific signed release and verify its tag signature before applying anything — the supply-chain-cautious path. The two modes differ only in *what* you compare against (Step 3b/3c); the per-file review and apply (Steps 4–6) are identical.
 
 ## What Gets Updated
@@ -16,7 +18,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 |----------|------|--------|
 | Commands | `.claude/commands/` (whole tree, including subdirectories) | Per-file review (accept/skip) |
 | Scripts | `.claude/scripts/` (whole tree, any extension) | Per-file review (accept/skip) |
-| Codex rendering | `codex/` (AGENTS.md + skills tree) | Per-file review (accept/skip); accepted skills offered to the live `~/.codex/` install (Step 6b) |
+| Codex rendering | `codex/` (AGENTS.md + skills tree) | Per-file review (accept/skip); accepted skills offered to the resolved live Codex install (Step 6b) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
 | Settings | `.claude/settings*` | **Never touched** |
@@ -32,6 +34,18 @@ Each Bash call runs in a fresh shell, so a variable assigned in one fenced block
 Where a block assigns a variable and consumes it, keep the assignment and its consumers in that **same** block. Where a value is needed in a later step, write the resolved literal (e.g. `origin/main`, `refs/tags/v1.2.3`) into the command you run.
 
 ## Instructions
+
+### Step 0: Bind the update to the resolved vault checkout
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+cd "$VAULT_PATH"
+test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$(pwd -P)"
+```
+
+Abort if resolution, `cd`, or the exact-root check fails. Every relative path and git command below is scoped to this checkout; never run the updater against the caller's previous working directory.
+
+Because the `cd` above does not persist into a later Bash call, prepend `cd "$VAULT_PATH" || exit 1` to every subsequent fenced Bash block in the same call that executes that block. Treat any block that omits this runtime prefix as notation, not as permission to run it in the caller's directory.
 
 ### Step 1: Verify Git Repository
 
@@ -62,6 +76,8 @@ If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline 
 
 The template's task system changed in Aug 2026 (project docs as SSOT; Tasks.md and Works in Progress removed). Updating an old-format vault would ship skills that ignore surfaces the vault still relies on. Check:
 
+This check deliberately precedes the archive recovery bundle. The supported upgrade sequence is two-stage: pre-revamp users first run the task-system `/migrate` already installed with v0.8.0, then rerun `/update`; post-revamp users pass this check and proceed directly to the journalled `06 Archive/Claude` → `06 Archive/OpenCairn` migration. Do not replace the installed task migrator before it has carried a pre-revamp vault through that first stage.
+
 ```bash
 # Primary marks — either file alone is enough
 if [ -e "01 Now/Tasks.md" ] || [ -e "01 Now/Works in Progress.md" ]; then echo OLD_FORMAT; else echo FORMAT_OK; fi
@@ -76,7 +92,12 @@ cat "07 System/Migration Record.md" 2>/dev/null
 
 If the secondary probe returns any file, print `SCHEMA_DRIFT` and treat it as `OLD_FORMAT`.
 
-If `OLD_FORMAT` — and the Migration Record doesn't record those components as `never` — abort:
+If `OLD_FORMAT` — and the Migration Record doesn't record those components as `never` — inspect the installed `.claude/commands/migrate.md` before deciding the route:
+
+- If it does not contain `archive-bundle-v3`, abort normally: this is the intact v0.8.0 path, so the user must run that installed task migrator before any current recovery files replace it.
+- If it contains `archive-bundle-v3`, the task migrator has already been replaced during a partial update. Under `--dry-run`, report the required task/archive migration and stop without invoking it. Otherwise remember `PRE_REVAMP_HANDOFF` and continue through fetch, signature checks, and Step 3d selected-ref validation. Step 3d repairs an incomplete local bundle if needed, then invokes the current migrator only after proving the requested update target is also v3-compatible.
+
+Normal abort text:
 ```
 ✗ This vault uses the pre-2026-08 task format (Tasks.md / Works in Progress present,
   or project docs carry **Status:** without bucket: frontmatter).
@@ -247,35 +268,55 @@ If the user chooses **n**, abort. If **y**, continue with a warning banner prepe
 
 ### Step 3d: Recover the Migration Bundle, Then Gate
 
-Fetching and signature verification are read-only and may run against an old vault. The only infrastructure allowed to apply before the gate is this backwards-compatible recovery bundle:
+Fetching and signature verification are read-only and may run against an old vault. The only infrastructure allowed to apply before the gate is this backwards-compatible `archive-bundle-v3` recovery bundle:
 
 ```text
 .claude/commands/update.md
 .claude/commands/migrate.md
 .claude/scripts/check-archive-layout.sh
 .claude/scripts/archive-namespace-migration.py
+.claude/scripts/locked-edit.sh
+.claude/scripts/lib-lock.sh
+.claude/scripts/lib-session.sh
+codex/skills/update/SKILL.md
+codex/skills/migrate/SKILL.md
 ```
 
-This exception repairs a partial first transition: the old per-file updater may have accepted the new updater while skipping one of its paired helpers. It must not strand `/update` permanently.
+This exception repairs a partial first transition: the old per-file updater may have accepted the new updater while skipping one of its paired helpers or Codex adapters. It must not strand `/update` permanently.
 
-Resolve the vault, then test the installed bundle:
+Before trusting either the local bundle or an update/downgrade target, require the selected `$REF` to contain all nine exact paths and the `archive-bundle-v3` marker in every one. Run `git ls-tree -r --name-only $REF -- <the-nine-literal-paths>` and `git grep -l 'archive-bundle-v3' $REF -- <the-nine-literal-paths>`; each must identify all nine paths. Abort before migration or apply if either check fails. This validation is unconditional, including when the installed bundle is already complete and when `--tag` selects an older release. Increment the bundle revision whenever a future closure change is not backwards-compatible.
+
+Then test the installed bundle:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
-test -x "$VAULT_PATH/.claude/scripts/check-archive-layout.sh"
-test -x "$VAULT_PATH/.claude/scripts/archive-namespace-migration.py"
-rg -q 'archive-namespace-opencairn-v1' ".claude/commands/migrate.md"
+for file in \
+  .claude/commands/update.md \
+  .claude/commands/migrate.md \
+  .claude/scripts/check-archive-layout.sh \
+  .claude/scripts/archive-namespace-migration.py \
+  .claude/scripts/locked-edit.sh \
+  .claude/scripts/lib-lock.sh \
+  .claude/scripts/lib-session.sh \
+  codex/skills/update/SKILL.md \
+  codex/skills/migrate/SKILL.md; do
+  rg -q 'archive-bundle-v3' "$file" || exit 1
+done
+test -x .claude/scripts/check-archive-layout.sh
+test -x .claude/scripts/archive-namespace-migration.py
 ```
 
-Treat any failed line as an incomplete or mixed-version bundle. In particular, helper presence alone is insufficient: an old task-only `migrate.md` would leave the user blocked with no capable recovery command. If the bundle is incomplete:
+Treat any failed line as an incomplete or mixed-version bundle. The shared marker mechanically binds the nine files to one compatible recovery protocol; helper presence alone is insufficient. This full write-engine closure is required for both pre-revamp installations (which lack `lib-session.sh`) and post-revamp mixed bundles. If the bundle is incomplete:
 
-1. Verify all four bundle paths exist in the already fetched and signature-checked `$REF` using `git ls-tree -r --name-only $REF -- <the-four-literal-paths>`. Require four exact lines; otherwise abort because the selected ref predates the recovery bundle.
-2. Show `git diff $REF -- <the-four-literal-paths>` as one atomic review. If `--dry-run` was passed, report that this recovery bundle is required and stop without writing.
-3. Unless `--force` was explicit, ask once: `Install the four-file OpenCairn migration recovery bundle? (y/n)`. A refusal aborts without changing any file. Do not offer independent accept/skip choices inside this paired bundle.
-4. Record the pre-bootstrap `HEAD`, then apply exactly the four literal paths together with `git checkout $REF -- <the-four-literal-paths>`. Do not touch any other file. Assert both helpers are executable and all four working-tree files now match `$REF`.
-5. Commit only those four paths with `git commit --only -m "Install OpenCairn migration recovery bundle ($(git rev-parse --short $REF))" -- <the-four-literal-paths>`. If the commit fails, report whether the four files are nevertheless present and matching; never claim the recovery commit landed without checking it.
+1. Show `git diff $REF -- <the-nine-literal-paths>` as one atomic review. If `--dry-run` was passed, report that this recovery bundle is required and stop without writing.
+2. Unless `--force` was explicit, ask once: `Install the nine-file OpenCairn migration recovery bundle? (y/n)`. A refusal aborts without changing any file. Do not offer independent accept/skip choices inside this paired bundle.
+3. Record the pre-bootstrap `HEAD`, then apply exactly the nine literal paths together with `git checkout $REF -- <the-nine-literal-paths>`. Do not touch any other file. Assert the executable helpers remain executable, every path contains `archive-bundle-v3`, and all nine working-tree files now match `$REF`.
+4. Commit only those nine paths with `git commit --only -m "Install OpenCairn migration recovery bundle ($(git rev-parse --short $REF))" -- <the-nine-literal-paths>`. If the commit fails, report whether the nine files are nevertheless present and matching; never claim the recovery commit landed without checking it.
 
-If recovery was declined or could not be verified, stop with the exact four paths above. This is the manual recovery surface; do not merely tell the user to rerun the same blocked updater.
+If recovery was declined or could not be verified, stop with the exact nine paths above. This is the manual recovery surface; do not merely tell the user to rerun the same blocked updater.
+
+Before the vault gate, recover the live Codex adapters when a Codex install exists. Resolve the live root as `${CODEX_HOME:-$HOME/.codex}`. For each of `update/SKILL.md` and `migrate/SKILL.md`, compare the repository file with the live counterpart and show a unified diff when missing or different. Under `--dry-run`, report the required copies but do not write them. Otherwise ask before copying; `--force` does not bypass this outward-copy review. If the user declines `migrate/SKILL.md`, the gate may still block and must report that exact missing live recovery path rather than telling them to invoke an unavailable `$migrate`.
+
+If Step 1c set `PRE_REVAMP_HANDOFF`, read the verified/recovered `.claude/commands/migrate.md` in full and execute it now. The migrator performs the legacy task-system migration first and, once its live re-check passes, continues directly into the archive namespace migration. When it completes, re-run the archive gate below and resume this update. If the user defers a blocking component or migration verification fails, stop without entering ordinary update apply.
 
 With the complete local bundle present, run:
 
@@ -286,11 +327,11 @@ With the complete local bundle present, run:
 Interpret `ARCHIVE_LAYOUT` from the helper output:
 
 - `new-only` or `empty-clean` → proceed.
-- `old-only`, `new-with-legacy-locators`, `empty-with-legacy-locators`, or `pending-verification` → abort before Step 4:
+- `old-only`, `new-with-legacy-locators`, `empty-with-legacy-locators`, or `pending-verification` → before Step 4, transition directly into the current `.claude/commands/migrate.md` procedure. Under `--dry-run`, report the required migration and stop without writing. Otherwise read the migrator in full, execute it, then rerun this gate. Resume Step 4 only when the gate reports `new-only` or `empty-clean`:
 
 ```
-✗ A required OpenCairn vault migration is pending.
-  Run /migrate, then rerun /update.
+→ A required OpenCairn vault migration is pending.
+  Continuing through /migrate now; /update will resume after verification.
 ```
 
 - `split` → abort before Step 4:
@@ -300,10 +341,14 @@ Interpret `ARCHIVE_LAYOUT` from the helper output:
   Run /migrate for explicit split-archive reconciliation; /update will not merge them.
 ```
 
-- `legacy-symlink-alias` or `legacy-symlink-unsafe` → abort before Step 4. `/migrate` must inspect the link without traversing it.
+- `legacy-symlink-alias`, `legacy-symlink-unsafe`, or `new-symlink-unsafe` → abort before Step 4. `/migrate` must inspect the link without traversing it.
 - `indeterminate` or any unknown/malformed output → abort. A failed locator search or unreadable migration journal is never evidence that the vault is compatible.
 
-Do not infer completion from `07 System/Migration Record.md`; the live helper output is the gate. For an otherwise clean layout, an absent journal is a fresh-install state and a `complete` journal passes; any other journal phase yields `pending-verification`. Recovery modifies only the four infrastructure files above, never vault content, so `/update`'s infrastructure-only contract remains intact.
+Do not infer completion from `07 System/Migration Record.md`; the live helper output is the gate. For an otherwise clean layout, an absent journal is a fresh-install state and a `complete` journal passes; any other journal phase yields `pending-verification`. Recovery modifies only the nine infrastructure files above plus any separately approved live Codex adapter copies, never vault content, so `/update`'s infrastructure-only contract remains intact.
+
+#### Temporary migration-bridge retirement
+
+The Step 1c mixed-state route and Step 3d nine-file recovery closure are temporary compatibility infrastructure. Review them on **2026-11-16**. The date is a maintainer review trigger, never an automatic user-facing expiry: retire the bridge only in a release that explicitly advances OpenCairn's minimum supported update source beyond v0.8.0 and the pre-archive-namespace revisions. That release must retain a documented manual recovery path for older clones. Until those support conditions are met, keep the bridge and its regression tests intact.
 
 ### Step 4: Compare Working Tree Against Template
 
@@ -319,7 +364,7 @@ If no differences:
 ✓ Already up to date. Commands and scripts match the latest template.
 ```
 
-If the live Codex install marker exists (`[ -f "$HOME/.codex/skills/_shared-rules.md" ]`), do **not** stop: skip repository apply/commit and continue to Step 6b with every file under `codex/skills/` as the live-sync candidate set. This is the bootstrap and drift-recovery path for a Codex user whose checkout is current but `~/.codex/skills/` is stale. Otherwise stop here.
+If the live Codex install marker exists (`[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`), do **not** stop: skip repository apply/commit and continue to Step 6b with every file under `codex/skills/` as the live-sync candidate set. This is the bootstrap and drift-recovery path for a Codex user whose checkout is current but the live skills are stale. Otherwise stop here.
 
 ### Step 5: Preview Changes
 
@@ -453,23 +498,23 @@ No updates applied — all files skipped.
 
 If the commit fails (nothing to commit), that's fine — files are already updated in the working tree.
 
-### Step 6b: Offer Accepted Codex Files to the Live `~/.codex/` Install
+### Step 6b: Offer Accepted Codex Files to the Live Codex Install
 
-The repo's `codex/` tree is a distribution copy — Codex CLI reads `~/.codex/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step when the live marker exists and either candidate condition holds:
+The repo's `codex/` tree is a distribution copy — Codex CLI reads `${CODEX_HOME:-$HOME/.codex}/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step when the live marker exists and either candidate condition holds:
 
 1. This run accepted or auto-applied at least one `codex/skills/` file in Step 6. Candidate set = those accepted/new skill files.
 2. Step 4 found the repository already current and continued for live drift recovery. Candidate set = every file under `codex/skills/`.
 
-The marker is `[ -f "$HOME/.codex/skills/_shared-rules.md" ]`; its absence means the user has not installed the Codex rendering, so skip silently.
+The marker is `[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`; its absence means the user has not installed the Codex rendering, so skip silently.
 
-For each candidate `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
+For each candidate `codex/skills/` file, compare the live counterpart at `${CODEX_HOME:-$HOME/.codex}/skills/<same relative path>`:
 
 ```bash
-diff -q "codex/skills/<file>" "$HOME/.codex/skills/<file>" 2>/dev/null
+diff -q "codex/skills/<file>" "${CODEX_HOME:-$HOME/.codex}/skills/<file>" 2>/dev/null
 ```
 
 - **Identical** → nothing to do.
-- **Missing or differing** → show `diff -u "$HOME/.codex/skills/<file>" "codex/skills/<file>"` (a difference may be the user's own customisation, not just staleness) and ask "Copy to `~/.codex/skills/`? (y/n)". On accept: `mkdir -p` the parent, then copy. On skip: note it for the summary.
+- **Missing or differing** → show `diff -u "${CODEX_HOME:-$HOME/.codex}/skills/<file>" "codex/skills/<file>"` (a difference may be the user's own customisation, not just staleness) and ask before copying to the resolved Codex root. On accept: `mkdir -p` the parent, then copy. On skip: note it for the summary.
 
 **`codex/AGENTS.md` is never auto-copied.** The install instructions *append* it to any existing `~/.codex/AGENTS.md`, so the live file may legitimately carry the user's own content on top. If the repo copy changed this run and differs from the live file, display instead:
 
@@ -581,7 +626,7 @@ git rev-parse --short $REF
   Accepted: N files (park.md, pickup.md, morning.md)
   Skipped:  M files (audit.md)
   New:      K files (weekly.md)
-  Codex:    J files copied to ~/.codex/skills/ (omit this line if Step 6b didn't run)
+  Codex:    J files copied to the resolved live skills root (omit this line if Step 6b didn't run)
   Your CLAUDE.md and vault content were not touched.
 
   📋 Release notes: https://github.com/OpenCairn/OpenCairn/releases
@@ -616,7 +661,7 @@ Error: [specific error message]
 
 ## Guidelines
 
-- **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to `~/.codex/` (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch `~/.codex/AGENTS.md`.
+- **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to the resolved Codex home (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch its `AGENTS.md`.
 - **Per-file review:** Each changed file is shown with its diff before applying. Users can skip files they've customised locally, preventing template regressions. `--force` bypasses review and accepts all.
 - **Custom commands are preserved:** Only files that exist in the template are updated. User-created custom commands are never modified or deleted.
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.

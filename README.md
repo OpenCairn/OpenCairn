@@ -158,7 +158,7 @@ NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (P
 
 ## Quick Start
 
-**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended), Python 3 (optional — only the session-transcript export uses it). For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
+**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended), Python 3, and [ripgrep](https://github.com/BurntSushi/ripgrep). Python and ripgrep are required by vault locking, migration, and compatibility checks. For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
 
 ```bash
 git clone https://github.com/OpenCairn/OpenCairn.git ~/Files
@@ -188,7 +188,7 @@ cc   # or: cd ~/Files && claude
 
 If using Obsidian, open it and select `~/Files` as your vault folder.
 
-**Staying current:** Run `/update` in Claude Code or `$update` in Codex periodically to pull the latest skills and scripts from the template repo. Both review repository changes and then offer differing accepted Codex files to an existing `~/.codex/` install. Your CLAUDE.md and vault content are never touched; required vault migrations run separately through `/migrate` or `$migrate`.
+**Staying current:** Run `/update` in Claude Code or `$update` in Codex periodically to pull the latest skills and scripts from the template repo. If it asks for `/migrate` or `$migrate`, complete that migration and run the updater again; both operations are idempotent. Current updaters hand off to migration and resume automatically where possible, while v0.8.0 must make its first explicit handoff because it predates the bridge. Both lanes review repository changes and then offer differing accepted Codex files to the live `${CODEX_HOME:-$HOME/.codex}` install. Your CLAUDE.md and vault content are not changed by the update itself.
 
 **Signed releases:** Release tags from `v0.7.13` onward are SSH-signed annotated tags. If you pin to a release rather than tracking `main`, you can verify a tag's signature with `git verify-tag <tag>` after adding the maintainer's signing key to your `gpg.ssh.allowedSignersFile`. Earlier tags (`v0.7.12` and before) are lightweight and won't verify.
 
@@ -204,16 +204,17 @@ This installs the **skills only**. Most assume the NIPARAS folder structure and 
 **Codex CLI (optional):** an expanded rendering of the skill library for OpenAI's Codex CLI lives under `codex/` — 30 skills covering the day/session loops, extended breaks, project lifecycle, structural hygiene, deadline scanners, provenance, migrations/updating, research/reply workflows, and the cross-model review panel. They include Codex metadata plus three shared support files and are invoked as `$name` rather than `/name`. To install:
 
 ```bash
-mkdir -p ~/.codex/skills
-cp -r codex/skills/* ~/.codex/skills/
-cat codex/AGENTS.md >> ~/.codex/AGENTS.md   # or cp if you have no AGENTS.md yet
+CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
+mkdir -p "$CODEX_ROOT/skills"
+cp -r codex/skills/* "$CODEX_ROOT/skills/"
+cat codex/AGENTS.md >> "$CODEX_ROOT/AGENTS.md"   # or cp if you have no AGENTS.md yet
 ```
 
 The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. Shared runtime scripts remain under `.claude/scripts/` because both harnesses use them; Claude Code memory/internal-file maintenance in `$weekly-hygiene` is conditional and is skipped when that state is absent.
 
-Existing Codex installs created before `$update` shipped need one bootstrap copy after updating their checkout: copy `codex/skills/update/` and `codex/skills/migrate/` into `~/.codex/skills/`, start a fresh Codex session, then run `$update`. The native updater can thereafter maintain the full live skill tree without overwriting differing local customisations silently.
+Existing Codex installs created before `$update` shipped need one bootstrap copy after updating their checkout: copy `codex/skills/update/` and `codex/skills/migrate/` into `${CODEX_HOME:-$HOME/.codex}/skills/`, start a fresh Codex session, then run `$update`. The native updater can thereafter maintain the full live skill tree without overwriting differing local customisations silently.
 
-**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Updated archive-backed workflows stop deterministically before writing against an unmigrated or split vault. Run `/migrate` or `$migrate`: it journals the source inventory, requires a link-aware rename inside Obsidian, repairs remaining live locators through locked writes, preserves immutable provenance files, and records completion only after live verification.
+**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Updated archive-backed workflows stop deterministically before writing against an unmigrated or split vault. The updater hands off to `/migrate` or `$migrate` when required; the migrator journals the source inventory, requires a link-aware rename inside Obsidian, repairs remaining live locators through locked writes, preserves immutable provenance files, and records completion only after live verification.
 
 ---
 

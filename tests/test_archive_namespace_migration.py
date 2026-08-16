@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -74,13 +75,39 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         script.write_text('archive="06 Archive/Claude/Session Logs"\n')
         unrelated = self.vault / "04 Areas/Scripts/older-layout.sh"
         unrelated.write_text('archive="06 Archive/Claude Sessions"\n')
+        extensionless = self.vault / "04 Areas/Scripts/archive-config"
+        extensionless.write_text('archive="06 Archive/Claude/Session Logs"\n')
+        hidden_extensionless = self.vault / "04 Areas/Scripts/.archive-root"
+        hidden_extensionless.write_text('06 Archive/Claude\n')
+        exact_root = self.vault / "04 Areas/Scripts/root.conf"
+        exact_root.write_text('archive="06 Archive/Claude"\n')
+        parenthesised_root = self.vault / "04 Areas/Scripts/parenthesised.conf"
+        parenthesised_root.write_text('(see 06 Archive/Claude)\n')
+        eof_root = self.vault / "04 Areas/Scripts/eof.conf"
+        eof_root.write_text('archive_root=06 Archive/Claude')
+        binary_extensionless = self.vault / "04 Areas/Scripts/archive-binary"
+        binary_extensionless.write_bytes(b"06 Archive/Claude\x00binary")
+        windows = self.vault / "04 Areas/Scripts/archive.ini"
+        windows.write_text('archive="06 Archive\\Claude\\Session Logs"\n')
+        backup = self.vault / "04 Areas/Scripts/archive.md.bak.123"
+        backup.write_text('archive="06 Archive/Claude/Session Logs"\n')
 
         state = self.inspect()
         self.assertEqual(
             state["actionable_legacy_files"],
-            ["03 Projects/Map.canvas", "04 Areas/Scripts/archive.sh"],
+            [
+                "03 Projects/Map.canvas",
+                "04 Areas/Scripts/.archive-root",
+                "04 Areas/Scripts/archive-config",
+                "04 Areas/Scripts/archive.ini",
+                "04 Areas/Scripts/archive.md.bak.123",
+                "04 Areas/Scripts/archive.sh",
+                "04 Areas/Scripts/eof.conf",
+                "04 Areas/Scripts/parenthesised.conf",
+                "04 Areas/Scripts/root.conf",
+            ],
         )
-        self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "2")
+        self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "9")
 
         subprocess.run(
             [str(MIGRATE), "rewrite", str(self.vault)],
@@ -88,7 +115,42 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertIn("06 Archive/OpenCairn/Session Logs", script.read_text())
+        self.assertIn("06 Archive/OpenCairn/Session Logs", extensionless.read_text())
+        self.assertEqual(hidden_extensionless.read_text(), "06 Archive/OpenCairn\n")
+        self.assertIn('archive="06 Archive/OpenCairn"', exact_root.read_text())
+        self.assertEqual(parenthesised_root.read_text(), "(see 06 Archive/OpenCairn)\n")
+        self.assertEqual(eof_root.read_text(), "archive_root=06 Archive/OpenCairn")
+        self.assertIn("06 Archive\\OpenCairn\\Session Logs", windows.read_text())
+        self.assertIn("06 Archive/OpenCairn/Session Logs", backup.read_text())
         self.assertIn("06 Archive/Claude Sessions", unrelated.read_text())
+        self.assertEqual(binary_extensionless.read_bytes(), b"06 Archive/Claude\x00binary")
+
+    def test_non_utf8_extensionless_locator_is_consistently_reported(self):
+        (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
+        target = self.vault / "03 Projects/legacy-config"
+        target.write_bytes(b"\xff\narchive=06 Archive/Claude")
+
+        self.assertEqual(
+            self.inspect()["actionable_legacy_files"],
+            ["03 Projects/legacy-config"],
+        )
+        self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "1")
+        result = subprocess.run(
+            [str(MIGRATE), "rewrite", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("non-UTF-8 text", result.stderr)
+
+    def test_empty_layout_with_legacy_locator_can_be_rewritten(self):
+        note = self.vault / "03 Projects/Example.md"
+        note.write_text("[[06 Archive/Claude/Session Logs/2026-01-01]]\n")
+
+        self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "empty-with-legacy-locators")
+        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
+        self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "empty-clean")
 
     def test_locator_search_error_fails_closed(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
@@ -116,6 +178,20 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertEqual(enforce.returncode, 24)
         self.assertIn("legacy-locator search failed", enforce.stderr)
+
+    def test_migrator_reports_missing_ripgrep_without_traceback(self):
+        empty_path = self.vault / "empty-path"
+        empty_path.mkdir()
+        result = subprocess.run(
+            [sys.executable, str(MIGRATE), "inspect", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+            env=dict(os.environ, PATH=str(empty_path)),
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("requires ripgrep", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_rewrite_is_idempotent_and_preserves_immutable_files(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
@@ -206,6 +282,10 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
+        self.assertNotIn(
+            "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json",
+            self.inspect()["actionable_legacy_files"],
+        )
         subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
         subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
         self.assertEqual((new / ".Session Transcripts/2026-01-01.md").read_text(), original)
@@ -321,6 +401,67 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         new.rmdir()
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "pending-verification")
 
+    def test_completed_migration_allows_later_archive_growth(self):
+        old = self.vault / "06 Archive/Claude"
+        old.mkdir(parents=True)
+        (old / "existing.md").write_text("existing\n")
+        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        new = self.vault / "06 Archive/OpenCairn"
+        old.rename(new)
+        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        (new / "later.md").write_text("later\n")
+
+        subprocess.run([str(MIGRATE), "verify", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+
+    def test_completed_journal_immutable_mutation_blocks_live_gate(self):
+        old = self.vault / "06 Archive/Claude"
+        transcript = old / ".Session Transcripts/raw.txt"
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text("immutable\n")
+        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        new = self.vault / "06 Archive/OpenCairn"
+        old.rename(new)
+        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        (new / ".Session Transcripts/raw.txt").write_text("changed\n")
+
+        result = subprocess.run(
+            [str(CHECK), "--enforce", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 24)
+        self.assertIn("ARCHIVE_LAYOUT=indeterminate", result.stdout)
+        self.assertIn("immutable file changed", result.stderr)
+
+    def test_completed_journal_requires_open_cairn_root(self):
+        old = self.vault / "06 Archive/Claude"
+        old.mkdir(parents=True)
+        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        new = self.vault / "06 Archive/OpenCairn"
+        old.rename(new)
+        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        new.rmdir()
+
+        verify = subprocess.run(
+            [str(MIGRATE), "verify", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertNotEqual(verify.returncode, 0)
+        self.assertIn("unsafe live layout: empty-clean", verify.stdout)
+        enforce = subprocess.run(
+            [str(CHECK), "--enforce", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(enforce.returncode, 24)
+        self.assertIn("ARCHIVE_LAYOUT=indeterminate", enforce.stdout)
+        self.assertIn("OpenCairn is missing", enforce.stderr)
+
     def test_structurally_invalid_journals_fail_closed(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
         journal_path = self.vault / "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
@@ -355,6 +496,27 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 "source_members": [],
                 "immutable_sha256": {"example.md": "not-a-hash"},
             },
+            "absolute member path": {
+                "schema": 1,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": ["/etc/passwd"],
+                "immutable_sha256": {},
+            },
+            "escaping immutable path": {
+                "schema": 1,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": [],
+                "immutable_sha256": {"../outside": "a" * 64},
+            },
+            "immutable path outside protected namespace": {
+                "schema": 1,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": [],
+                "immutable_sha256": {"03 Projects/Example.md": "a" * 64},
+            },
         }
         for label, journal in cases.items():
             with self.subTest(label=label):
@@ -362,6 +524,9 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 state = self.check_state()
                 self.assertEqual(state["ARCHIVE_LAYOUT"], "indeterminate")
                 self.assertEqual(state["MIGRATION_JOURNAL_PHASE"], "invalid")
+                inspection = self.inspect()
+                self.assertEqual(inspection["journal_phase"], "invalid")
+                self.assertTrue(inspection["journal_error"])
                 enforce = subprocess.run(
                     [str(CHECK), "--enforce", str(self.vault)],
                     text=True,
@@ -408,6 +573,31 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(report["kind"], "legacy-symlink-alias")
         self.assertFalse(report["member_reconciliation_permitted"])
         self.assertNotIn("identical", report)
+
+    def test_symlinked_new_root_fails_closed(self):
+        outside = self.vault / "outside"
+        outside.mkdir()
+        new = self.vault / "06 Archive/OpenCairn"
+        new.parent.mkdir()
+        new.symlink_to(outside, target_is_directory=True)
+
+        self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-symlink-unsafe")
+        enforce = subprocess.run(
+            [str(CHECK), "--enforce", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(enforce.returncode, 23)
+        self.assertIn("active archive root must remain inside the vault", enforce.stderr)
+        plan = subprocess.run(
+            [str(MIGRATE), "split-plan", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(plan.returncode, 2)
+        self.assertEqual(json.loads(plan.stdout)["kind"], "new-symlink-unsafe")
 
     def test_split_plan_binds_collisions_to_hashes(self):
         old = self.vault / "06 Archive/Claude"
@@ -457,14 +647,63 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def test_update_gate_precedes_apply(self):
         text = (REPO / ".claude/commands/update.md").read_text()
         self.assertLess(
+            text.index("### Step 1c: Old-Format Vault Check"),
+            text.index("### Step 3d: Recover the Migration Bundle, Then Gate"),
+        )
+        self.assertLess(
             text.index("### Step 3d: Recover the Migration Bundle, Then Gate"),
             text.index("### Step 4: Compare Working Tree Against Template"),
         )
         self.assertIn('check-archive-layout.sh" --status', text)
         self.assertIn("Do not offer independent accept/skip choices", text)
-        self.assertIn("git checkout $REF -- <the-four-literal-paths>", text)
-        self.assertIn("rg -q 'archive-namespace-opencairn-v1'", text)
-        self.assertIn("old task-only `migrate.md`", text)
+        self.assertIn("git checkout $REF -- <the-nine-literal-paths>", text)
+        self.assertIn("archive-bundle-v3", text)
+        self.assertIn("pre-revamp installations", text)
+        self.assertIn("two-stage", text)
+        self.assertIn("**Universal user route:** run `/update`", text)
+        self.assertIn("Both commands are idempotent", text)
+        self.assertIn("task-system `/migrate` already installed with v0.8.0", text)
+        self.assertIn("PRE_REVAMP_HANDOFF", text)
+        self.assertIn("only after proving the requested update target", text)
+        self.assertIn("Under `--dry-run`, report the required task/archive migration", text)
+        self.assertIn("Step 3d repairs an incomplete local bundle", text)
+        self.assertIn("Continuing through /migrate now", text)
+        self.assertIn("/update will resume after verification", text)
+        self.assertIn("Review them on **2026-11-16**", text)
+        self.assertIn("never an automatic user-facing expiry", text)
+        self.assertIn("minimum supported update source beyond v0.8.0", text)
+        self.assertIn("validation is unconditional", text)
+        self.assertIn("`--tag` selects an older release", text)
+        self.assertIn("Under `--dry-run`, report the required copies but do not write them", text)
+        self.assertIn('prepend `cd "$VAULT_PATH" || exit 1`', text)
+        self.assertIn("${CODEX_HOME:-$HOME/.codex}", text)
+        self.assertIn('cd "$VAULT_PATH"', text)
+
+        bundle = [
+            ".claude/commands/update.md",
+            ".claude/commands/migrate.md",
+            ".claude/scripts/check-archive-layout.sh",
+            ".claude/scripts/archive-namespace-migration.py",
+            ".claude/scripts/locked-edit.sh",
+            ".claude/scripts/lib-lock.sh",
+            ".claude/scripts/lib-session.sh",
+            "codex/skills/update/SKILL.md",
+            "codex/skills/migrate/SKILL.md",
+        ]
+        for relative in bundle:
+            self.assertIn("archive-bundle-v3", (REPO / relative).read_text(), relative)
+
+        migrate_text = (REPO / ".claude/commands/migrate.md").read_text()
+        self.assertIn("task-system revamp first, archive namespace second", migrate_text)
+        self.assertIn("return directly to §1 in this same invocation", migrate_text)
+        self.assertIn("journal is absent and the layout is `new-with-legacy-locators`", migrate_text)
+        self.assertIn("otherwise confirm `new-only`, record `complete`", migrate_text)
+
+        codex_update = (REPO / "codex/skills/update/SKILL.md").read_text()
+        codex_migrate = (REPO / "codex/skills/migrate/SKILL.md").read_text()
+        self.assertIn("Require it to contain `archive-bundle-v3`", codex_update)
+        self.assertIn("only pre-gate writes", codex_update)
+        self.assertIn("canonical migrate command to contain `archive-bundle-v3`", codex_migrate)
 
 
 if __name__ == "__main__":

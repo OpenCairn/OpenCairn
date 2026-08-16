@@ -7,7 +7,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
@@ -17,6 +17,27 @@ OLD_TOKEN = "06 Archive/Claude"
 NEW_TOKEN = "06 Archive/OpenCairn"
 OLD_LOCATOR = f"{OLD_TOKEN}/"
 NEW_LOCATOR = f"{NEW_TOKEN}/"
+OLD_WINDOWS_TOKEN = OLD_TOKEN.replace("/", "\\")
+NEW_WINDOWS_TOKEN = NEW_TOKEN.replace("/", "\\")
+OLD_WINDOWS_LOCATOR = f"{OLD_WINDOWS_TOKEN}\\"
+NEW_WINDOWS_LOCATOR = f"{NEW_WINDOWS_TOKEN}\\"
+BARE_DELIMITERS = ('"', "'", "]", ")", "}", ">", ",", ";", ":")
+LOCATOR_REPLACEMENTS = (
+    (OLD_LOCATOR, NEW_LOCATOR),
+    (OLD_WINDOWS_LOCATOR, NEW_WINDOWS_LOCATOR),
+    *((OLD_TOKEN + delimiter, NEW_TOKEN + delimiter) for delimiter in BARE_DELIMITERS),
+    *((OLD_WINDOWS_TOKEN + delimiter, NEW_WINDOWS_TOKEN + delimiter) for delimiter in BARE_DELIMITERS),
+    (OLD_TOKEN + "\n", NEW_TOKEN + "\n"),
+    ("\n" + OLD_TOKEN, "\n" + NEW_TOKEN),
+    (OLD_WINDOWS_TOKEN + "\n", NEW_WINDOWS_TOKEN + "\n"),
+    ("\n" + OLD_WINDOWS_TOKEN, "\n" + NEW_WINDOWS_TOKEN),
+)
+LOCATOR_PATTERN = re.compile(
+    rf"(?:{re.escape(OLD_TOKEN)}(?=/|$|[\"'\]\)\}}>,;:])|"
+    rf"{re.escape(OLD_WINDOWS_TOKEN)}(?=\\|$|[\"'\]\)\}}>,;:]))",
+    flags=re.MULTILINE,
+)
+ARCHIVE_BUNDLE_VERSION = 3  # archive-bundle-v3
 ROOT_NAMES = (
     "01 Now",
     "02 Inbox",
@@ -28,6 +49,9 @@ ROOT_NAMES = (
 )
 TEXT_GLOBS = (
     "*.md",
+    "*.md.*",
+    "*.bak",
+    "*.backup",
     "*.canvas",
     "*.sh",
     "*.py",
@@ -37,10 +61,17 @@ TEXT_GLOBS = (
     "*.yml",
     "*.txt",
     "*.csv",
+    "*.tsv",
     "*.tex",
     "*.html",
     "*.css",
     "*.js",
+    "*.ini",
+    "*.conf",
+    "*.xml",
+    "*.org",
+    "*.svg",
+    "*.ipynb",
 )
 SEP = "========OPENCAIRN-LOCKED-EDIT-SEP========"
 MIGRATION_ID = "archive-namespace-opencairn-v1"
@@ -52,6 +83,8 @@ JOURNAL_PHASES = {"in-progress", "complete"}
 def excluded(relative: Path) -> bool:
     parts = relative.parts
     if relative == Path("07 System/Migration Record.md"):
+        return True
+    if len(parts) >= 3 and parts[:2] == ("07 System", ".OpenCairn Migration"):
         return True
     if len(parts) >= 3 and parts[:2] == ("07 System", ".Provenance"):
         return True
@@ -74,19 +107,25 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
         "-l",
         "--hidden",
         "--no-ignore",
-        "-F",
-        OLD_LOCATOR,
+        "-P",
+        "-e",
+        rf"{re.escape(OLD_TOKEN)}(?=/|$|[\"'\]\)\}}>,;:])",
+        "-e",
+        rf"{re.escape(OLD_WINDOWS_TOKEN)}(?=\\|$|[\"'\]\)\}}>,;:])",
         *roots,
     ]
     for pattern in TEXT_GLOBS:
         command.extend(("-g", pattern))
-    completed = subprocess.run(
-        command,
-        cwd=vault,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=vault,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("legacy-locator search requires ripgrep (rg)") from exc
     if completed.returncode not in (0, 1):
         raise RuntimeError(completed.stderr.strip() or "legacy-locator search failed")
     matches: list[Path] = []
@@ -101,7 +140,31 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
             continue
         if path.is_file():
             matches.append(path)
-    return sorted(set(matches), key=lambda path: str(path.relative_to(vault)))
+    for root_name in roots:
+        for path in (vault / root_name).rglob("*"):
+            if not path.is_file() or path.suffix or path.name.endswith(".lock"):
+                continue
+            try:
+                relative = path.resolve().relative_to(vault)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"extensionless locator search escaped the vault: {path}"
+                ) from exc
+            if excluded(relative) != immutable:
+                continue
+            data = path.read_bytes()
+            if b"\0" in data:
+                continue
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError:
+                # Locator tokens are ASCII. Latin-1 preserves every byte so the
+                # helper and rg-based gate agree that this file is actionable;
+                # rewrite then reports the encoding problem explicitly.
+                text = data.decode("latin-1")
+            if LOCATOR_PATTERN.search(text):
+                matches.append(path)
+    return sorted(set(matches), key=lambda path: path.relative_to(vault).as_posix())
 
 
 def protected_immutable_files(vault: Path) -> list[Path]:
@@ -114,17 +177,30 @@ def protected_immutable_files(vault: Path) -> list[Path]:
     for root in roots:
         if not root.is_dir():
             continue
-        files.update(
-            path
-            for path in root.rglob("*")
-            if path.is_file() and not path.name.endswith(".lock")
-        )
-    return sorted(files, key=lambda path: str(path.relative_to(vault)))
+        try:
+            root.resolve().relative_to(vault.resolve())
+        except ValueError as exc:
+            raise RuntimeError(
+                f"protected immutable root resolves outside the vault: {root}"
+            ) from exc
+        for path in root.rglob("*"):
+            if not path.is_file() or path.name.endswith(".lock"):
+                continue
+            try:
+                path.resolve().relative_to(vault.resolve())
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"protected immutable file resolves outside the vault: {path}"
+                ) from exc
+            files.add(path)
+    return sorted(files, key=lambda path: path.relative_to(vault).as_posix())
 
 
 def layout(vault: Path, actionable_count: int) -> str:
     old_path = vault / OLD_TOKEN
     new_path = vault / NEW_TOKEN
+    if new_path.is_symlink():
+        return "new-symlink-unsafe"
     if old_path.is_symlink():
         try:
             if new_path.is_dir() and old_path.samefile(new_path):
@@ -147,23 +223,29 @@ def inspect(vault: Path) -> dict[str, object]:
     actionable = matching_files(vault, immutable=False)
     immutable_hits = matching_files(vault, immutable=True)
     protected = protected_immutable_files(vault)
-    journal = load_journal(vault)
+    journal_error: str | None = None
+    try:
+        journal = load_journal(vault)
+    except RuntimeError as exc:
+        journal = None
+        journal_error = str(exc)
     return {
         "schema": 1,
         "migration": MIGRATION_ID,
         "layout": layout(vault, len(actionable)),
         "old_directory": str(vault / OLD_TOKEN),
         "new_directory": str(vault / NEW_TOKEN),
-        "actionable_legacy_files": [str(path.relative_to(vault)) for path in actionable],
+        "actionable_legacy_files": [path.relative_to(vault).as_posix() for path in actionable],
         "immutable_legacy_files": [
-            str(path.relative_to(vault)) for path in immutable_hits
+            path.relative_to(vault).as_posix() for path in immutable_hits
         ],
         "protected_immutable_file_count": len(protected),
         "immutable_sha256": {
-            str(path.relative_to(vault)): hashlib.sha256(path.read_bytes()).hexdigest()
+            path.relative_to(vault).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in protected
         },
-        "journal_phase": journal.get("phase") if journal else None,
+        "journal_phase": "invalid" if journal_error else journal.get("phase") if journal else None,
+        "journal_error": journal_error,
     }
 
 
@@ -198,7 +280,7 @@ def archive_members(root: Path) -> list[str]:
     if not root.is_dir():
         return []
     return sorted(
-        str(path.relative_to(root))
+        path.relative_to(root).as_posix()
         for path in root.rglob("*")
         if path.is_file() and not path.name.endswith(".lock")
     )
@@ -211,6 +293,17 @@ def post_move_path(relative: Path) -> Path:
     return relative
 
 
+def validated_relative_path(value: object, *, field: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"migration journal {field} must contain non-empty paths")
+    path = PurePosixPath(value)
+    if path.is_absolute() or path.as_posix() != value or ".." in path.parts:
+        raise RuntimeError(
+            f"migration journal {field} contains an unsafe or non-normalised path: {value}"
+        )
+    return value
+
+
 def validate_journal(journal: object) -> dict[str, object]:
     if not isinstance(journal, dict):
         raise RuntimeError("migration journal must be a JSON object")
@@ -221,16 +314,31 @@ def validate_journal(journal: object) -> dict[str, object]:
     if journal.get("phase") not in JOURNAL_PHASES:
         raise RuntimeError("migration journal has an invalid phase")
     members = journal.get("source_members")
-    if not isinstance(members, list) or not all(isinstance(item, str) for item in members):
+    if not isinstance(members, list):
         raise RuntimeError("migration journal source_members must be a list of strings")
+    validated_members = [
+        validated_relative_path(item, field="source_members") for item in members
+    ]
+    if len(set(validated_members)) != len(validated_members):
+        raise RuntimeError("migration journal source_members contains duplicate paths")
     immutable = journal.get("immutable_sha256")
-    if not isinstance(immutable, dict) or not all(
-        isinstance(path, str)
-        and isinstance(digest, str)
-        and re.fullmatch(r"[0-9a-f]{64}", digest)
-        for path, digest in immutable.items()
-    ):
+    if not isinstance(immutable, dict):
         raise RuntimeError("migration journal immutable_sha256 must map paths to SHA-256 hashes")
+    allowed_immutable_prefixes = (
+        "07 System/.Provenance/",
+        f"{OLD_TOKEN}/.Session Transcripts/",
+        f"{NEW_TOKEN}/.Session Transcripts/",
+    )
+    for path, digest in immutable.items():
+        safe_path = validated_relative_path(path, field="immutable_sha256")
+        if not safe_path.startswith(allowed_immutable_prefixes):
+            raise RuntimeError(
+                f"migration journal immutable_sha256 path is outside protected namespaces: {path}"
+            )
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise RuntimeError(
+                "migration journal immutable_sha256 must map paths to SHA-256 hashes"
+            )
     return journal
 
 
@@ -319,6 +427,7 @@ def rewrite(vault: Path) -> int:
         "new-only",
         "new-with-legacy-locators",
         "empty-clean",
+        "empty-with-legacy-locators",
     }:
         print(
             f"rewrite refused while layout is {state['layout']}; complete or reconcile the folder move first",
@@ -329,43 +438,122 @@ def rewrite(vault: Path) -> int:
     if not edit_script.is_file():
         print(f"locked editor missing: {edit_script}", file=sys.stderr)
         return 2
-    payload = f"{OLD_LOCATOR}\n{SEP}\n{NEW_LOCATOR}"
     changed: list[str] = []
     for relative in state["actionable_legacy_files"]:
         target = vault / str(relative)
-        completed = subprocess.run(
-            [str(edit_script), str(target), "--replace-all"],
-            input=payload,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            sys.stderr.write(completed.stderr)
-            print(f"locked rewrite failed: {relative}", file=sys.stderr)
-            return completed.returncode or 1
-        changed.append(str(relative))
+        try:
+            text = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            print(f"legacy locator is in non-UTF-8 text: {relative}", file=sys.stderr)
+            return 2
+        original_text = text
+        if text in {OLD_TOKEN, OLD_WINDOWS_TOKEN}:
+            exact_new = NEW_TOKEN if text == OLD_TOKEN else NEW_WINDOWS_TOKEN
+            payload = f"{text}\n{SEP}\n{exact_new}"
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if completed.returncode != 0:
+                sys.stderr.write(completed.stderr)
+                print(f"locked rewrite failed: {relative}", file=sys.stderr)
+                return completed.returncode or 1
+            text = exact_new
+        for old, new in LOCATOR_REPLACEMENTS:
+            if old not in text:
+                continue
+            payload = f"{old}\n{SEP}\n{new}"
+            if new.endswith("\n"):
+                payload += "\n"
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if completed.returncode != 0:
+                sys.stderr.write(completed.stderr)
+                print(f"locked rewrite failed: {relative}", file=sys.stderr)
+                return completed.returncode or 1
+            text = text.replace(old, new)
+        for old, new in ((OLD_TOKEN, NEW_TOKEN), (OLD_WINDOWS_TOKEN, NEW_WINDOWS_TOKEN)):
+            if not text.endswith(old):
+                continue
+            line_start = text.rfind("\n") + 1
+            old_line = text[line_start:]
+            new_line = old_line[: -len(old)] + new
+            payload = f"{old_line}\n{SEP}\n{new_line}"
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if completed.returncode != 0:
+                sys.stderr.write(completed.stderr)
+                print(f"locked EOF rewrite failed: {relative}", file=sys.stderr)
+                return completed.returncode or 1
+            text = text.replace(old_line, new_line)
+        if LOCATOR_PATTERN.search(text):
+            print(
+                f"legacy locator remains after deterministic rewrite: {relative}",
+                file=sys.stderr,
+            )
+            return 2
+        if text != original_text:
+            changed.append(str(relative))
     print(json.dumps({"changed": changed, "count": len(changed)}, indent=2))
     return 0
+
+
+def immutable_verification_errors(vault: Path, journal: dict | None) -> list[str]:
+    errors: list[str] = []
+    if not journal:
+        return errors
+    for relative, expected in dict(journal.get("immutable_sha256", {})).items():
+        path = vault / post_move_path(Path(relative))
+        actual = "MISSING"
+        if path.is_file():
+            try:
+                path.resolve().relative_to(vault.resolve())
+            except ValueError:
+                errors.append(f"immutable file resolves outside the vault: {relative}")
+                continue
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != expected:
+            errors.append(f"immutable file changed: {relative}")
+    return errors
+
+
+def verify_immutable(vault: Path) -> int:
+    journal = load_journal(vault)
+    if journal is None:
+        print("immutable verification requires a valid migration journal", file=sys.stderr)
+        return 1
+    errors = immutable_verification_errors(vault, journal)
+    print(json.dumps({"migration": MIGRATION_ID, "errors": errors}, indent=2))
+    return 0 if not errors else 1
 
 
 def verify(vault: Path) -> int:
     state = inspect(vault)
     errors: list[str] = []
-    if state["layout"] not in {"new-only", "empty-clean"}:
-        errors.append(f"unsafe live layout: {state['layout']}")
     journal = load_journal(vault)
+    allowed_layouts = {"new-only"} if journal else {"new-only", "empty-clean"}
+    if state["layout"] not in allowed_layouts:
+        errors.append(f"unsafe live layout: {state['layout']}")
     if journal:
         expected_members = journal.get("source_members", [])
-        if "source_members" in journal:
+        if journal.get("phase") == "in-progress":
             actual_members = archive_members(vault / NEW_TOKEN)
             if actual_members != expected_members:
                 errors.append("destination member inventory differs from the pre-move source")
-        for relative, expected in dict(journal.get("immutable_sha256", {})).items():
-            path = vault / post_move_path(Path(relative))
-            actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else "MISSING"
-            if actual != expected:
-                errors.append(f"immutable file changed: {relative}")
+        errors.extend(immutable_verification_errors(vault, journal))
     state["journal_phase"] = journal.get("phase") if journal else None
     state["errors"] = errors
     print(json.dumps(state, indent=2))
@@ -390,6 +578,19 @@ def finish(vault: Path) -> int:
 def split_plan(vault: Path) -> int:
     old_root = vault / OLD_TOKEN
     new_root = vault / NEW_TOKEN
+    if new_root.is_symlink():
+        print(
+            json.dumps(
+                {
+                    "kind": "new-symlink-unsafe",
+                    "new_path": str(new_root),
+                    "link_target": str(new_root.readlink()),
+                    "member_reconciliation_permitted": False,
+                },
+                indent=2,
+            )
+        )
+        return 2
     if old_root.is_symlink():
         same_target = False
         try:
@@ -453,6 +654,7 @@ def main() -> int:
             "begin",
             "rewrite",
             "verify",
+            "verify-immutable",
             "finish",
             "split-plan",
             "record",
@@ -476,6 +678,8 @@ def main() -> int:
             return rewrite(vault)
         if args.command == "verify":
             return verify(vault)
+        if args.command == "verify-immutable":
+            return verify_immutable(vault)
         if args.command == "finish":
             return finish(vault)
         if args.command == "split-plan":
