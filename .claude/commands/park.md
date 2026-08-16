@@ -1,6 +1,6 @@
 ---
 name: park
-description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, inline audit.
+description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, and a fresh-context audit.
 ---
 
 # Park - Session Capture
