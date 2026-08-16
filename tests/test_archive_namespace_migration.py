@@ -397,6 +397,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         journal_path = self.vault / "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
         journal = json.loads(journal_path.read_text())
         journal["phase"] = "in-progress"
+        journal.pop("completed_at")
         journal_path.write_text(json.dumps(journal) + "\n")
         new.rmdir()
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "pending-verification")
@@ -552,6 +553,44 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("requires a valid migration journal", result.stderr)
+
+    def test_phase_flipped_journal_without_completion_timestamp_fails_closed(self):
+        old = self.vault / "06 Archive/Claude"
+        old.mkdir(parents=True)
+        begin = subprocess.run(
+            [str(MIGRATE), "begin", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(begin.returncode, 0, begin.stderr)
+        old.rename(self.vault / "06 Archive/OpenCairn")
+        journal_path = (
+            self.vault
+            / "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
+        )
+        journal = json.loads(journal_path.read_text())
+        journal["phase"] = "complete"
+        journal_path.write_text(json.dumps(journal) + "\n")
+
+        state = self.check_state()
+        self.assertEqual(state["ARCHIVE_LAYOUT"], "indeterminate")
+        self.assertEqual(state["MIGRATION_JOURNAL_PHASE"], "invalid")
+        enforce = subprocess.run(
+            [str(CHECK), "--enforce", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(enforce.returncode, 24)
+        verify = subprocess.run(
+            [str(MIGRATE), "verify", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertNotEqual(verify.returncode, 0)
+        self.assertIn("completed_at", verify.stderr)
 
     def test_symlink_alias_is_never_treated_as_split_members(self):
         new = self.vault / "06 Archive/OpenCairn"

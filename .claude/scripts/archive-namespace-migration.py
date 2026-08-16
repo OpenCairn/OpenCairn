@@ -304,6 +304,22 @@ def validated_relative_path(value: object, *, field: str) -> str:
     return value
 
 
+def validated_timestamp(value: object, *, field: str) -> dt.datetime:
+    if not isinstance(value, str) or not value:
+        raise RuntimeError(f"migration journal {field} must be an ISO-8601 timestamp")
+    try:
+        parsed = dt.datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"migration journal {field} must be an ISO-8601 timestamp"
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise RuntimeError(
+            f"migration journal {field} must include a UTC offset"
+        )
+    return parsed
+
+
 def validate_journal(journal: object) -> dict[str, object]:
     if not isinstance(journal, dict):
         raise RuntimeError("migration journal must be a JSON object")
@@ -311,8 +327,22 @@ def validate_journal(journal: object) -> dict[str, object]:
         raise RuntimeError("migration journal has unsupported schema")
     if journal.get("migration") != MIGRATION_ID:
         raise RuntimeError("migration journal has the wrong migration identifier")
-    if journal.get("phase") not in JOURNAL_PHASES:
+    phase = journal.get("phase")
+    if phase not in JOURNAL_PHASES:
         raise RuntimeError("migration journal has an invalid phase")
+    started_at = validated_timestamp(journal.get("started_at"), field="started_at")
+    if phase == "complete":
+        completed_at = validated_timestamp(
+            journal.get("completed_at"), field="completed_at"
+        )
+        if completed_at < started_at:
+            raise RuntimeError(
+                "migration journal completed_at precedes started_at"
+            )
+    elif "completed_at" in journal:
+        raise RuntimeError(
+            "migration journal completed_at is invalid while phase is in-progress"
+        )
     members = journal.get("source_members")
     if not isinstance(members, list):
         raise RuntimeError("migration journal source_members must be a list of strings")
