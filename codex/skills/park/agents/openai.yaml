@@ -1,0 +1,6 @@
+interface:
+  display_name: "Park"
+  short_description: "Capture and close out a work session"
+  default_prompt: "Use $park to capture and close out this session."
+policy:
+  allow_implicit_invocation: false

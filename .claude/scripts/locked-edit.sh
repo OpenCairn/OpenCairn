@@ -29,6 +29,12 @@
 #
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace)
 #
+# With a harness session id, every successful operation also writes one JSON
+# receipt under $CLAUDE_CONFIG_DIR/.session-state/<id>.locked-edit-receipts/.
+# It carries pre/post hashes, exact replace payloads and bounded changed spans;
+# $park uses those receipts to review mechanical locator edits without rereading
+# the whole file. Receipt bookkeeping fails open and never reverses a landed edit.
+#
 # Platform: Linux, macOS, Windows (Git Bash). Locking via lib-lock.sh
 # (flock / mkdir fallback); literal string handling via python3.
 
@@ -71,7 +77,8 @@ fi
 # never survive. A file read preserves the payload byte-for-byte; the single
 # heredoc-added newline is then trimmed explicitly below, where it can be reasoned about.
 STDIN_FILE="$(mktemp "${TMPDIR:-/tmp}/locked-edit-stdin.XXXXXX")"
-trap 'rm -f "$STDIN_FILE"' EXIT
+RECEIPT_TMP="$(mktemp "${TMPDIR:-/tmp}/locked-edit-receipt.XXXXXX")"
+trap 'rm -f "$STDIN_FILE" "$RECEIPT_TMP"' EXIT
 cat > "$STDIN_FILE"
 
 LOCK_FILE="$(_lock_path_for "$TARGET")"
@@ -87,10 +94,11 @@ export _LE_MODE="$MODE"
 export _LE_SEP="$SEP"
 export _LE_STDIN_FILE="$STDIN_FILE"
 export _LE_EXPECTED_SNAPSHOT="$EXPECTED_SNAPSHOT"
+export _LE_RECEIPT_FILE="$RECEIPT_TMP"
 
 set +e
 python3 - <<'PY'
-import hashlib, os, re, sys, tempfile
+import datetime, difflib, hashlib, json, os, re, sys, tempfile
 
 target = os.environ["_LE_TARGET"]
 mode   = os.environ["_LE_MODE"]
@@ -122,6 +130,108 @@ def atomic_write(path, data):
         except OSError: pass
         raise
 
+def receipt_text(value, limit=65536):
+    if value is None:
+        return None, False
+    if len(value) <= limit:
+        return value, False
+    return value[:limit], True
+
+def write_receipt(before, after, old_text=None, new_text=None, occurrences=None):
+    """Write evidence before the target mutation; failure is deliberately non-fatal."""
+    try:
+        before_bytes = before if isinstance(before, bytes) else before.encode()
+        after_bytes = after if isinstance(after, bytes) else after.encode()
+        before_text = before_bytes.decode("utf-8", errors="replace")
+        after_text = after_bytes.decode("utf-8", errors="replace")
+        ranges = []
+        diff_before = ""
+        diff_after = ""
+        if old_text is not None and new_text is not None:
+            # Locator receipts already carry the exact replacement payload, so
+            # derive ranges from literal positions instead of diffing the full
+            # file. This keeps receipt creation linear even for large notes.
+            before_offset = 0
+            line_delta = 0
+            for _ in range(occurrences or 1):
+                before_pos = before_text.find(old_text, before_offset)
+                if before_pos < 0:
+                    break
+                before_start = before_text.count("\n", 0, before_pos) + 1
+                after_start = before_start + line_delta
+                old_line_count = max(1, len(old_text.splitlines()))
+                new_line_count = max(1, len(new_text.splitlines()))
+                ranges.append({
+                    "tag": "replace",
+                    "before_start": before_start,
+                    "before_end": before_start + old_line_count - 1,
+                    "after_start": after_start,
+                    "after_end": after_start + new_line_count - 1,
+                })
+                before_offset = before_pos + len(old_text)
+                line_delta += new_line_count - old_line_count
+            diff_before = old_text
+            diff_after = new_text
+        elif mode == "--append" and after_text.startswith(before_text):
+            diff_after = after_text[len(before_text):]
+            start = len(before_text.splitlines()) + 1
+            ranges.append({
+                "tag": "insert",
+                "before_start": start,
+                "before_end": start - 1,
+                "after_start": start,
+                "after_end": start + max(1, len(diff_after.splitlines())) - 1,
+            })
+        else:
+            ranges.append({
+                "tag": "replace" if before_text else "insert",
+                "before_start": 1,
+                "before_end": len(before_text.splitlines()),
+                "after_start": 1,
+                "after_end": len(after_text.splitlines()),
+            })
+        # Give difflib newline-terminated logical lines even when the source
+        # file itself lacks a final newline; otherwise a deletion and addition
+        # can concatenate into one unreadable receipt line.
+        diff = "".join(difflib.unified_diff(
+            [line + "\n" for line in diff_before.splitlines()],
+            [line + "\n" for line in diff_after.splitlines()],
+            fromfile="before", tofile="after", n=2,
+        ))
+        diff_truncated = len(diff) > 65536
+        if diff_truncated:
+            diff = diff[:65536] + "\n[diff truncated]\n"
+        old_value, old_truncated = receipt_text(old_text)
+        new_value, new_truncated = receipt_text(new_text)
+        payload = {
+            "schema": 1,
+            "captured_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
+            "target": os.path.realpath(os.path.abspath(target)),
+            "mode": mode,
+            "pre_sha256": hashlib.sha256(before_bytes).hexdigest() if os.path.exists(target) else "MISSING",
+            "post_sha256": hashlib.sha256(after_bytes).hexdigest(),
+            "old_text": old_value,
+            "new_text": new_value,
+            "old_text_truncated": old_truncated,
+            "new_text_truncated": new_truncated,
+            "occurrences": occurrences,
+            "changed_ranges": ranges[:200],
+            "ranges_truncated": len(ranges) > 200,
+            "unified_diff": diff,
+            "diff_truncated": diff_truncated,
+        }
+        with open(os.environ["_LE_RECEIPT_FILE"], "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False)
+            handle.write("\n")
+    except Exception as exc:
+        sys.stderr.write("WARNING: locked-edit receipt unavailable: %s\n" % exc)
+
+if os.path.exists(target):
+    with open(target, "rb") as _f:
+        before_bytes = _f.read()
+else:
+    before_bytes = b""
+
 if mode == "--replace-whole":
     expected = os.environ["_LE_EXPECTED_SNAPSHOT"]
     if expected != "MISSING" and not re.fullmatch(r"[0-9a-f]{64}", expected):
@@ -137,6 +247,7 @@ if mode == "--replace-whole":
         sys.stderr.write("Target changed since snapshot read: %s (expected %s, found %s)\n" %
                          (target, expected, actual))
         sys.exit(2)
+    write_receipt(before_bytes, stdin_bytes)
     atomic_write(target, stdin_bytes)
     sys.exit(0)
 
@@ -156,7 +267,9 @@ if mode == "--append":
     # onto the last line.
     if stdin and not stdin.endswith("\n"):
         stdin += "\n"
-    atomic_write(target, existing + stdin)
+    after = existing + stdin
+    write_receipt(before_bytes, after)
+    atomic_write(target, after)
     sys.exit(0)
 
 # --replace / --replace-all: split stdin into OLD and NEW on the separator line.
@@ -192,6 +305,7 @@ if mode == "--replace":
 else:
     content = content.replace(old, new)
 
+write_receipt(before_bytes, content, old, new, count)
 atomic_write(target, content)
 sys.exit(0)
 PY
@@ -199,7 +313,7 @@ RC=$?
 set -e
 
 _unlock
-unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT
+unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT _LE_RECEIPT_FILE
 
 # Self-ledger the write. locked-edit.sh bypasses the Write|Edit tools, so the
 # PostToolUse ledger hook (session-ledger.sh) never sees these edits - and the
@@ -227,12 +341,32 @@ if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
             # sweep - under a hookless harness this is the only place it runs).
             { mkdir -p "$_LEDGER_DIR" &&
               { [ -f "$_LEDGER_DIR/$_LE_SID.tsv" ] ||
-                find "$_LEDGER_DIR" -maxdepth 1 -type f -mtime +14 -delete 2>/dev/null || true; } &&
+                { find "$_LEDGER_DIR" -maxdepth 1 -type f -mtime +14 -delete 2>/dev/null;
+                  find "$_LEDGER_DIR" -maxdepth 2 -type f -path '*.locked-edit-receipts/*' -mtime +14 -delete 2>/dev/null;
+                  find "$_LEDGER_DIR" -maxdepth 1 -type d -name '*.locked-edit-receipts' -empty -delete 2>/dev/null; } || true; } &&
               printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-edit" \
                   "$_LEDGER_PATH" "?" \
                   >> "$_LEDGER_DIR/$_LE_SID.tsv"; } 2>/dev/null || true
             ;;
     esac
+
+    # One JSON file per operation avoids interleaved JSONL writes when park and
+    # its propagation agent edit concurrently. Receipt failure stays fail-open:
+    # the target edit has already landed, so a bookkeeping problem is a warning,
+    # never a false non-zero edit result.
+    if [ -s "$RECEIPT_TMP" ]; then
+        _RECEIPT_DIR="$_LEDGER_DIR/$_LE_SID.locked-edit-receipts"
+        if mkdir -p "$_RECEIPT_DIR" 2>/dev/null; then
+            _RECEIPT_DEST="$(mktemp "$_RECEIPT_DIR/receipt.XXXXXXXX" 2>/dev/null || true)"
+            if [ -n "$_RECEIPT_DEST" ] && mv "$RECEIPT_TMP" "$_RECEIPT_DEST" 2>/dev/null; then
+                :
+            else
+                echo "WARNING: locked-edit receipt could not be stored for $TARGET" >&2
+            fi
+        else
+            echo "WARNING: locked-edit receipt directory unavailable for $TARGET" >&2
+        fi
+    fi
 fi
 
 if [ "$RC" -eq 0 ]; then
