@@ -1,0 +1,6 @@
+interface:
+  display_name: "Oops"
+  short_description: "Capture a mistake and its reusable lesson"
+  default_prompt: "Use $oops to capture the mistake and prevent a repeat."
+policy:
+  allow_implicit_invocation: false

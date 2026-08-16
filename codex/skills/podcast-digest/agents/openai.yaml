@@ -1,0 +1,6 @@
+interface:
+  display_name: "Podcast Digest"
+  short_description: "Turn a podcast or talk into a written digest"
+  default_prompt: "Use $podcast-digest to create a cruxes-first digest of this episode."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Landscape Scan"
+  short_description: "Scan external intelligence through a topic profile"
+  default_prompt: "Use $landscape-scan to run an external-intelligence scan."
+policy:
+  allow_implicit_invocation: false

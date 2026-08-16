@@ -1,0 +1,6 @@
+interface:
+  display_name: "Map Day"
+  short_description: "Turn an itinerary into a KML map and day sheet"
+  default_prompt: "Use $map-day to map this itinerary for Organic Maps."
+policy:
+  allow_implicit_invocation: false
