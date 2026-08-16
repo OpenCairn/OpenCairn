@@ -440,16 +440,6 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
     return completed.returncode
 
 
-def verifier_failed_only_in_lint(record: dict) -> bool:
-    """Return true for the skill's explicitly accepted inherited-lint shape."""
-    if record.get("returncode") != 1:
-        return False
-    failures = [
-        line for line in str(record.get("text", "")).splitlines() if line.startswith("FAIL ")
-    ]
-    return bool(failures) and all(line.startswith("FAIL lint:") for line in failures)
-
-
 def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
     lines = log.read_text(encoding="utf-8").splitlines()
     heading = re.compile(rf"^## Session {number}(?:\s|$)")
@@ -735,14 +725,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         die("no verifier receipt; run park-verify through run-verifier")
     propagation = propagation_items[-1]
     verifier = verifier_items[-1]
-    accepted_lint_failure = verifier_failed_only_in_lint(verifier)
-    if verifier.get("returncode") not in (None, 0) and not accepted_lint_failure:
+    if verifier.get("returncode") not in (None, 0):
         die("latest verifier receipt records a failing exit status")
-    if accepted_lint_failure:
-        warnings.append(
-            "latest verifier receipt is nonzero only for lint; review it under the "
-            "skill's inherited-content accepted-FAIL rule"
-        )
 
     sources: dict[str, dict] = {}
     for item in evidence:
