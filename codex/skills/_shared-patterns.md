@@ -66,6 +66,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **One section, one owner; the second writer appends** — a delegated seat's view is frozen at its read. → `park` Step 9, `goodnight` Step 15(c)
 - **Gate a sub-agent on collection, not on despatch mode** — foreground is not yours to control; the completion notification is the only finish signal. → `park` Steps 8-9, `goodnight` Step 15(c), `ocr` capture loop
 - **Verbatim text vs in-place formatting hook** — hook rewrites whole file; append via shell, never re-Edit. → `_shared-rules.md §14`, `archive-transcript`, `park` Step 2(b)
+- **Dedupe keyed on canonical source URL** — fixed-string URL grep catches retitled duplicates. → `archive-transcript` Phase 3, `archive-article` Phase 4
 - **Frozen content excluded by path, not discipline** — put byte-exact copies beyond auto-rewriters' reach. → `_shared-rules.md §14`, `provenance` Step 5
 - **Preimage snapshot before hashing a living doc** — a hash without its bytes proves nothing later. → `provenance` Step 5, `goodnight` Step 17
 - **Push-side hub record** — pushed commit's canonical row lives in a hub no grep reaches. → `_shared-rules.md §17`, `park` Step 6, `goodnight` Step 15(a)
