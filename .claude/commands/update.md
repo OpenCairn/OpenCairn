@@ -6,7 +6,7 @@ argument-hint: "[--dry-run] [--force] [--tag VERSION]"
 
 # Update - OpenCairn Template Sync
 
-You are updating the user's OpenCairn commands and scripts from the upstream template repository. This updates **infrastructure only** (commands, scripts, and the `codex/` rendering) — vault content and CLAUDE.md are never touched.
+You are updating the user's OpenCairn commands and scripts from the upstream template repository. The ordinary update apply changes **infrastructure only** (commands, scripts, and the `codex/` rendering). A required, consent-gated `/migrate` handoff may separately modify vault content before `/update` resumes; CLAUDE.md is never touched.
 
 **Universal user route:** run `/update`; if it asks for `/migrate`, complete that migration and run `/update` again. Both commands are idempotent. The current updater performs the migration handoff and resumes automatically where the installed version permits; v0.8.0 must still make its first explicit handoff because it predates this bridge.
 
