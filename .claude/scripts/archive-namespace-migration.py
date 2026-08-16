@@ -8,6 +8,7 @@ import datetime as dt
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -45,6 +46,7 @@ SEP = "========OPENCAIRN-LOCKED-EDIT-SEP========"
 MIGRATION_ID = "archive-namespace-opencairn-v1"
 JOURNAL = Path("07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json")
 RECORD = Path("07 System/Migration Record.md")
+JOURNAL_PHASES = {"in-progress", "complete"}
 
 
 def excluded(relative: Path) -> bool:
@@ -209,11 +211,44 @@ def post_move_path(relative: Path) -> Path:
     return relative
 
 
+def validate_journal(journal: object) -> dict[str, object]:
+    if not isinstance(journal, dict):
+        raise RuntimeError("migration journal must be a JSON object")
+    if type(journal.get("schema")) is not int or journal["schema"] != 1:
+        raise RuntimeError("migration journal has unsupported schema")
+    if journal.get("migration") != MIGRATION_ID:
+        raise RuntimeError("migration journal has the wrong migration identifier")
+    if journal.get("phase") not in JOURNAL_PHASES:
+        raise RuntimeError("migration journal has an invalid phase")
+    members = journal.get("source_members")
+    if not isinstance(members, list) or not all(isinstance(item, str) for item in members):
+        raise RuntimeError("migration journal source_members must be a list of strings")
+    immutable = journal.get("immutable_sha256")
+    if not isinstance(immutable, dict) or not all(
+        isinstance(path, str)
+        and isinstance(digest, str)
+        and re.fullmatch(r"[0-9a-f]{64}", digest)
+        for path, digest in immutable.items()
+    ):
+        raise RuntimeError("migration journal immutable_sha256 must map paths to SHA-256 hashes")
+    return journal
+
+
 def load_journal(vault: Path) -> dict[str, object] | None:
     path = vault / JOURNAL
     if not path.is_file():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        journal = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid migration journal: {exc}") from exc
+    return validate_journal(journal)
+
+
+def journal_phase(vault: Path) -> int:
+    journal = load_journal(vault)
+    print(journal["phase"] if journal else "absent")
+    return 0
 
 
 def save_journal(vault: Path, journal: dict[str, object]) -> None:
@@ -338,14 +373,16 @@ def verify(vault: Path) -> int:
 
 
 def finish(vault: Path) -> int:
+    journal = load_journal(vault)
+    if journal is None:
+        print("finish requires a valid migration journal", file=sys.stderr)
+        return 1
     if verify(vault) != 0:
         return 1
-    journal = load_journal(vault)
-    if journal:
-        if journal.get("phase") != "complete":
-            journal["phase"] = "complete"
-            journal["completed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
-            save_journal(vault, journal)
+    if journal.get("phase") != "complete":
+        journal["phase"] = "complete"
+        journal["completed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        save_journal(vault, journal)
     record(vault, "complete")
     return 0
 
@@ -410,7 +447,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
-        choices=("inspect", "begin", "rewrite", "verify", "finish", "split-plan", "record"),
+        choices=(
+            "inspect",
+            "journal-phase",
+            "begin",
+            "rewrite",
+            "verify",
+            "finish",
+            "split-plan",
+            "record",
+        ),
     )
     parser.add_argument("vault", type=Path)
     parser.add_argument("state", nargs="?")
@@ -418,22 +464,24 @@ def main() -> int:
     vault = args.vault.resolve()
     if not vault.is_dir():
         parser.error(f"vault does not exist: {vault}")
-    if args.command == "inspect":
-        print(json.dumps(inspect(vault), indent=2))
-        return 0
-    if args.command == "begin":
-        return begin(vault)
-    if args.command == "rewrite":
-        return rewrite(vault)
-    if args.command == "verify":
-        return verify(vault)
-    if args.command == "finish":
-        return finish(vault)
-    if args.command == "split-plan":
-        return split_plan(vault)
-    if not args.state:
-        parser.error("record requires a state")
     try:
+        if args.command == "inspect":
+            print(json.dumps(inspect(vault), indent=2))
+            return 0
+        if args.command == "journal-phase":
+            return journal_phase(vault)
+        if args.command == "begin":
+            return begin(vault)
+        if args.command == "rewrite":
+            return rewrite(vault)
+        if args.command == "verify":
+            return verify(vault)
+        if args.command == "finish":
+            return finish(vault)
+        if args.command == "split-plan":
+            return split_plan(vault)
+        if not args.state:
+            parser.error("record requires a state")
         record(vault, args.state)
     except RuntimeError as exc:
         print(exc, file=sys.stderr)
