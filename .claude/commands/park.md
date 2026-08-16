@@ -227,5 +227,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
 
-Parked. Pick up when ready: `claude` then `/pickup`
+Parked.
+
+[Roughly 50 words summarising the preceding session.]
 ```

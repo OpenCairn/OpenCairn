@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import datetime as dt
+import errno
 import hashlib
 import json
 import os
@@ -13,7 +15,13 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback uses the final rehash.
+    fcntl = None
 
 
 SEP_RE = re.compile(
@@ -45,6 +53,32 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def decode_utf8(data: bytes, path: Path) -> str:
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        die(f"semantic review file is not UTF-8: {path}: {exc}")
+
+
+def atomic_bytes(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
 def atomic_json(path: Path, data: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
@@ -59,6 +93,62 @@ def atomic_json(path: Path, data: object) -> None:
         except OSError:
             pass
         raise
+
+
+def write_snapshot(root: Path, data: bytes) -> tuple[str, Path]:
+    """Persist immutable review bytes under their digest and return both."""
+    digest = sha256_bytes(data)
+    path = root / "snapshots" / f"{digest}.snapshot"
+    if path.exists():
+        if path.read_bytes() != data:
+            die(f"snapshot digest collision or corruption: {path}")
+    else:
+        atomic_bytes(path, data)
+    return digest, path
+
+
+def is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+@contextmanager
+def vault_file_locks(paths: list[Path], vault: Path | None):
+    """Hold the canonical locked-edit locks through live reconciliation."""
+    handles = []
+    if vault is None or fcntl is None:
+        yield
+        return
+    targets = sorted({path for path in paths if is_within(path, vault)}, key=str)
+    try:
+        for target in targets:
+            lock_path = target.parent / f".{target.name}.lock"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            handle = lock_path.open("a")
+            deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=10)
+            while True:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError as exc:
+                    if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                        handle.close()
+                        raise
+                    if dt.datetime.now(dt.timezone.utc) >= deadline:
+                        handle.close()
+                        die(f"lock timeout after 10s: {target}")
+                    time.sleep(0.05)
+            handles.append(handle)
+        yield
+    finally:
+        for handle in reversed(handles):
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
 
 
 def session_id(explicit: str | None) -> str:
@@ -440,12 +530,12 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
     return completed.returncode
 
 
-def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
-    lines = log.read_text(encoding="utf-8").splitlines()
+def extract_session_text(text: str, number: int, source: Path) -> tuple[str, dict[str, str]]:
+    lines = text.splitlines()
     heading = re.compile(rf"^## Session {number}(?:\s|$)")
     starts = [index for index, line in enumerate(lines) if heading.match(line)]
     if len(starts) != 1:
-        die(f"expected one Session {number} heading in {log}; found {len(starts)}")
+        die(f"expected one Session {number} heading in {source}; found {len(starts)}")
     start = starts[0]
     end = next(
         (index for index in range(start + 1, len(lines)) if lines[index].startswith("## Session ")),
@@ -466,6 +556,10 @@ def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
     if current is not None:
         sections[current] = "\n".join(collected).strip()
     return "\n".join(block_lines), sections
+
+
+def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
+    return extract_session_text(log.read_text(encoding="utf-8"), number, log)
 
 
 def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]:
@@ -599,6 +693,167 @@ def validate_report_attestations(report: str, files: list[dict]) -> None:
             )
 
 
+def receipt_chain(
+    receipts: list[dict], start_digest: str, end_digest: str, after: str
+) -> list[dict] | None:
+    """Return a post-build locked-edit chain from one exact file hash to another."""
+    candidates = [
+        item
+        for item in receipts
+        if item.get("captured_at", "") >= after
+        and isinstance(item.get("pre_sha256"), str)
+        and isinstance(item.get("post_sha256"), str)
+    ]
+    by_pre: dict[str, list[dict]] = {}
+    for item in candidates:
+        by_pre.setdefault(item["pre_sha256"], []).append(item)
+    for items in by_pre.values():
+        items.sort(key=lambda item: (item.get("captured_at", ""), item.get("_receipt_path", "")))
+
+    def walk(digest: str, seen: set[str]) -> list[dict] | None:
+        if digest == end_digest:
+            return []
+        if digest in seen:
+            return None
+        for item in by_pre.get(digest, []):
+            tail = walk(item["post_sha256"], seen | {digest})
+            if tail is not None:
+                return [item, *tail]
+        return None
+
+    return walk(start_digest, set())
+
+
+def load_all_locked_receipts(state_root: Path, target: Path) -> list[dict]:
+    receipts: list[dict] = []
+    for receipt_root in state_root.glob("*.locked-edit-receipts"):
+        receipts.extend(load_locked_receipts(receipt_root, target))
+    receipts.sort(key=lambda item: (item.get("captured_at", ""), item.get("_receipt_path", "")))
+    return receipts
+
+
+def owned_locators(
+    receipts: list[dict], snapshot_digest: str, snapshot_text: str
+) -> list[str]:
+    """Compatibility wrapper returning the locators from complete evidence."""
+    return owned_locator_evidence(receipts, snapshot_digest, snapshot_text)[0]
+
+
+def owned_locator_evidence(
+    receipts: list[dict], snapshot_digest: str, snapshot_text: str
+) -> tuple[list[str], bool]:
+    """Return surviving current-session payloads and whether coverage is complete."""
+    endings = [
+        index
+        for index, item in enumerate(receipts)
+        if item.get("post_sha256") == snapshot_digest
+    ]
+    if not endings:
+        return [], True
+    chain: list[dict] = []
+    index = endings[-1]
+    chain.append(receipts[index])
+    wanted = receipts[index].get("pre_sha256")
+    for prior in reversed(receipts[:index]):
+        if prior.get("post_sha256") == wanted:
+            chain.append(prior)
+            wanted = prior.get("pre_sha256")
+    chain.reverse()
+    whole_indexes = [
+        chain_index
+        for chain_index, item in enumerate(chain)
+        if item.get("mode") == "--replace-whole"
+    ]
+    if whole_indexes:
+        # The latest whole replacement supersedes every earlier ownership range;
+        # all bytes in the final snapshot are consequently session-owned.
+        return ([snapshot_text] if snapshot_text else []), True
+    complete = len(chain) == index + 1
+    locators: list[str] = []
+    for chain_index, item in enumerate(chain):
+        mode = item.get("mode")
+        if item.get("post_sha256") == item.get("pre_sha256"):
+            continue
+        if mode not in ("--append", "--replace", "--replace-all"):
+            complete = False
+            continue
+        if item.get("new_text_truncated"):
+            complete = False
+            continue
+        value = item.get("new_text")
+        if mode == "--append" and not isinstance(value, str):
+            value = append_locator(item, snapshot_text)
+        if not isinstance(value, str) or not value:
+            complete = False
+        elif value in snapshot_text:
+            if value not in locators:
+                locators.append(value)
+        elif not payload_fully_superseded(value, item, chain[chain_index + 1 :]):
+            # A later same-session edit may have superseded this payload, but the
+            # evidence must account for every introduced occurrence before that
+            # can be treated as complete supersession.
+            complete = False
+    return locators, complete
+
+
+def payload_fully_superseded(value: str, source: dict, later: list[dict]) -> bool:
+    """Prove later exact OLD locators consumed every introduced payload occurrence."""
+    introduced = source.get("occurrences") if source.get("mode") == "--replace-all" else 1
+    if not isinstance(introduced, int) or introduced < 1:
+        introduced = 1
+    consumed = 0
+    for item in later:
+        if item.get("old_text_truncated"):
+            continue
+        old_text = item.get("old_text")
+        if not isinstance(old_text, str) or value not in old_text:
+            continue
+        operations = item.get("occurrences") if item.get("mode") == "--replace-all" else 1
+        if not isinstance(operations, int) or operations < 1:
+            operations = 1
+        consumed += old_text.count(value) * operations
+        if consumed >= introduced:
+            return True
+    return False
+
+
+def append_locator(receipt: dict, snapshot_text: str) -> str | None:
+    """Recover an append payload from the schema-1 diff receipt."""
+    if receipt.get("diff_truncated"):
+        return None
+    diff = receipt.get("unified_diff")
+    if not isinstance(diff, str):
+        return None
+    added: list[str] = []
+    in_hunk = False
+    for line in diff.splitlines():
+        if line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and line.startswith("+"):
+            added.append(line[1:])
+    value = "\n".join(added)
+    return value if value and value in snapshot_text else None
+
+
+def validate_post_snapshot_chain(
+    path: Path, chain: list[dict], locators: list[str]
+) -> None:
+    for item in chain:
+        mode = item.get("mode")
+        if mode == "--append":
+            continue
+        if mode not in ("--replace", "--replace-all"):
+            die(f"untraceable post-review receipt mode for {path}: {mode}")
+        if item.get("old_text_truncated") or item.get("new_text_truncated"):
+            die(f"truncated post-review receipt for {path}: {item.get('_receipt_path')}")
+        old_text = item.get("old_text")
+        new_text = item.get("new_text")
+        if not isinstance(old_text, str) or not isinstance(new_text, str):
+            die(f"incomplete post-review receipt for {path}: {item.get('_receipt_path')}")
+        if any(old_text in locator or locator in old_text for locator in locators):
+            die(f"post-review edit overlapped session-owned content: {path}")
+
+
 def fenced(text: str, language: str = "text") -> str:
     fence = "```"
     while fence in text:
@@ -616,7 +871,7 @@ def group_full_reads(files: list[dict]) -> list[dict]:
             order.append(digest)
             groups[digest] = {
                 "sha256": digest,
-                "read_path": item["path"],
+                "read_path": item["snapshot_path"],
                 "paths": [],
                 "reasons": [],
             }
@@ -632,7 +887,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     sid, root, receipt_root, audit_root = state_paths(args.session_id)
     vault = canonical_path(args.vault)
     log = canonical_path(args.session_log, vault)
-    block, sections = extract_session(log, args.number)
+    log_snapshot_at = now()
+    log_bytes = log.read_bytes()
+    log_text = decode_utf8(log_bytes, log)
+    block, sections = extract_session_text(log_text, args.number, log)
     manifest_path = root / "files.json"
     classifications = load_json(manifest_path, {})
     if not isinstance(classifications, dict):
@@ -668,14 +926,30 @@ def cmd_build(args: argparse.Namespace) -> int:
     reused: list[dict] = []
     warnings: list[str] = []
     current_audits = current_audit_receipts(audit_root)
+    captured_bytes = {log: log_bytes}
+    snapshot_times = {log: log_snapshot_at}
     for path in local_paths:
         if not path.is_file():
             die(f"attributed local file is missing: {path}")
-        digest = sha256(path)
+        data = captured_bytes.get(path)
+        if data is None:
+            snapshot_times[path] = now()
+            data = path.read_bytes()
+        snapshot_at = snapshot_times[path]
+        digest = sha256_bytes(data)
         classification = classifications.get(str(path))
         if path in created:
+            snapshot_digest, snapshot_path = write_snapshot(root, data)
             full_read.append(
-                {"path": str(path), "sha256": digest, "reason": "created this session"}
+                {
+                    "path": str(path),
+                    "sha256": snapshot_digest,
+                    "snapshot_path": str(snapshot_path),
+                    "snapshot_at": snapshot_at,
+                    "reason": "created this session",
+                    "owned_locators": [decode_utf8(data, path)] if data else [],
+                    "owned_locators_complete": True,
+                }
             )
             continue
         prior = matching_audit_receipt(current_audits, path, digest)
@@ -712,7 +986,24 @@ def cmd_build(args: argparse.Namespace) -> int:
                 reason = classification.get("reason", reason)
             else:
                 warnings.append(f"defaulted unclassified file to semantic: {path}")
-            full_read.append({"path": str(path), "sha256": digest, "reason": reason})
+            snapshot_digest, snapshot_path = write_snapshot(root, data)
+            snapshot_text = decode_utf8(data, path)
+            locators, locators_complete = owned_locator_evidence(
+                load_locked_receipts(receipt_root, path), snapshot_digest, snapshot_text
+            )
+            if path == log and block not in locators:
+                locators.append(block)
+            full_read.append(
+                {
+                    "path": str(path),
+                    "sha256": snapshot_digest,
+                    "snapshot_path": str(snapshot_path),
+                    "snapshot_at": snapshot_at,
+                    "reason": reason,
+                    "owned_locators": locators,
+                    "owned_locators_complete": locators_complete,
+                }
+            )
 
     captures = load_captures(root)
     evidence = [item for item in captures if item.get("kind") == "evidence"]
@@ -760,7 +1051,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         "## Review modes",
         "",
         "The modes below are mechanically derived from the post-backfill Files lists, "
-        "current hashes, locked-edit receipts, and prior clean audit receipts.",
+        "immutable snapshots, locked-edit receipts, and prior clean audit receipts.",
         "",
         "### Full-read semantic files",
         "",
@@ -769,12 +1060,11 @@ def cmd_build(args: argparse.Namespace) -> int:
         for group in read_groups:
             reasons = "; ".join(group["reasons"])
             lines.append(
-                f"- Read once: `{group['read_path']}` — `{group['sha256']}` — {reasons}"
+                f"- Read immutable snapshot once: `{group['read_path']}` — `{group['sha256']}` — {reasons}"
             )
-            if len(group["paths"]) > 1:
-                lines.append("  - Byte-identical original paths covered by this read:")
-                for path in group["paths"]:
-                    lines.append(f"    - `{path}`")
+            lines.append("  - Original path(s) covered by this snapshot:")
+            for path in group["paths"]:
+                lines.append(f"    - `{path}`")
     else:
         lines.append("None")
 
@@ -902,12 +1192,14 @@ def cmd_build(args: argparse.Namespace) -> int:
             "",
             "## Scope and method",
             "",
-            "- Review the embedded Session N block; do not open the full session log.",
-            "- Each `Read once` row under **Full-read semantic files** is one byte-identity group. "
-            "Read only that row's path, in its own tool call. If it truncates, continue only from its "
+            "- Review the embedded Session N block; do not open the live full session log. If its immutable "
+            "snapshot is a full-read row, emit only Session N from that snapshot.",
+            "- Each `Read immutable snapshot once` row under **Full-read semantic files** is one byte-identity group. "
+            "Read only the snapshot path in that row, in its own tool call; do not open the live original. "
+            "If it truncates, continue only from its "
             "first unread line. Return the SHA-256 printed by your command.",
             "- Include exactly one machine-readable attestation line for every original path represented "
-            "by those groups: `ATTEST <sha256> <absolute-path>`. Byte-identical aliases are attested but "
+            "by those groups: `ATTEST <sha256> <absolute-original-path>`. Byte-identical aliases are attested but "
             "not reread. Do not wrap either field in backticks and do not leave trailing whitespace.",
             "- Do not reread files backed by a matching clean audit receipt.",
             "- For mechanical-only files, review only the embedded locked-edit receipts, exact checks, "
@@ -940,9 +1232,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(brief, encoding="utf-8")
     brief_manifest = {
-        "schema": 1,
+        "schema": 2,
         "built_at": now(),
         "brief": str(out),
+        "vault": str(vault),
         "session_log": str(log),
         "session_number": args.number,
         "full_read": full_read,
@@ -976,11 +1269,16 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         detail = terminal_state or "missing or ambiguous"
         die(f"audit report terminal state is not clean ({detail})")
     files: list[dict] = []
+    built_at = now()
+    manifest: dict | None = None
     if args.from_brief:
         manifest = load_json(root / "review-brief-manifest.json", None)
         if not isinstance(manifest, dict):
             die("no review brief manifest; run build first")
         files.extend(manifest.get("full_read", []))
+        built_at = manifest.get("built_at", built_at)
+        if vault is None and isinstance(manifest.get("vault"), str):
+            vault = canonical_path(manifest["vault"])
     for raw in args.file or []:
         path = canonical_path(raw, vault)
         if not path.is_file():
@@ -991,24 +1289,94 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     if not files:
         print("No full-read files; no audit receipt written")
         return 0
-    for item in files:
-        path = Path(item["path"])
-        current = sha256(path)
-        if current != item["sha256"]:
-            die(f"file changed after review brief: {path}")
     validate_report_attestations(report, files)
-    receipt = {
-        "schema": 1,
-        "captured_at": now(),
-        "status": "clean",
-        "reviewer": args.reviewer,
-        "files": files,
-        "report_sha256": hashlib.sha256(report.encode()).hexdigest(),
-        "report": report,
-    }
-    path = audit_root / f"audit-{uuid.uuid4().hex}.json"
-    atomic_json(path, receipt)
-    print(f"Audit receipt: {path} ({len(files)} full-read file(s))")
+    state_root = root.parent
+    reusable: list[dict] = []
+    post_review_changes: list[dict] = []
+    live_hashes: dict[str, str] = {}
+    paths = [canonical_path(item["path"]) for item in files]
+    with vault_file_locks(paths, vault):
+        for item in files:
+            path = canonical_path(item["path"])
+            if not path.is_file():
+                die(f"audited file missing: {path}")
+            snapshot_raw = item.get("snapshot_path")
+            if not snapshot_raw:
+                current = sha256(path)
+                if current != item["sha256"]:
+                    die(f"file changed after live review: {path}")
+                reusable.append({"path": str(path), "sha256": item["sha256"]})
+                live_hashes[str(path)] = current
+                continue
+            snapshot = Path(snapshot_raw)
+            if not snapshot.is_file() or sha256(snapshot) != item["sha256"]:
+                die(f"review snapshot missing or corrupt: {snapshot}")
+            current = sha256(path)
+            if current == item["sha256"]:
+                reusable.append({"path": str(path), "sha256": item["sha256"]})
+                live_hashes[str(path)] = current
+                continue
+            chain = receipt_chain(
+                load_all_locked_receipts(state_root, path),
+                item["sha256"],
+                current,
+                item.get("snapshot_at", built_at),
+            )
+            if chain is None:
+                die(f"untraceable live change after review snapshot: {path}")
+            locators = item.get("owned_locators", [])
+            if not item.get("owned_locators_complete", True):
+                die(f"incomplete session-owned content evidence: {path}")
+            if not locators:
+                die(f"cannot prove session-owned content survived live change: {path}")
+            validate_post_snapshot_chain(path, chain, locators)
+            try:
+                live_text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                die(f"changed semantic file is not UTF-8: {path}: {exc}")
+            missing = [locator for locator in locators if locator not in live_text]
+            if missing:
+                die(f"post-review edit overlapped session-owned content: {path}")
+            live_hashes[str(path)] = current
+            post_review_changes.append(
+                {
+                    "path": str(path),
+                    "snapshot_sha256": item["sha256"],
+                    "live_sha256": current,
+                    "receipts": [entry["_receipt_path"] for entry in chain],
+                }
+            )
+        receipt = {
+            "schema": 2,
+            "captured_at": now(),
+            "status": "clean",
+            "reviewer": args.reviewer,
+            "files": reusable,
+            "reviewed_files": files,
+            "post_review_changes": post_review_changes,
+            "report_sha256": hashlib.sha256(report.encode()).hexdigest(),
+            "report": report,
+        }
+        path = audit_root / f"audit-{uuid.uuid4().hex}.json"
+        atomic_json(path, receipt)
+        changed_after_validation = [
+            raw_path
+            for raw_path, digest in live_hashes.items()
+            if not Path(raw_path).is_file() or sha256(Path(raw_path)) != digest
+        ]
+        if changed_after_validation:
+            receipt["status"] = "invalidated"
+            receipt["invalidated_at"] = now()
+            receipt["invalidation_reason"] = (
+                "live file changed during audit receipt finalisation: "
+                + ", ".join(changed_after_validation)
+            )
+            atomic_json(path, receipt)
+            die(receipt["invalidation_reason"])
+    print(
+        f"Audit receipt: {path} ({len(files)} snapshot-reviewed file(s); "
+        f"{len(reusable)} live-reusable)"
+    )
     return 0
 
 
