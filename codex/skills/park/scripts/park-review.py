@@ -297,6 +297,7 @@ def verify_mechanical(
     replacements: list[list[str]],
     targets: list[str],
     receipt_root: Path,
+    allow_inherited_lint: bool = False,
 ) -> dict:
     failures: list[str] = []
     if not target.is_file():
@@ -391,7 +392,9 @@ def verify_mechanical(
 
     if SEP_RE.search(text):
         failures.append("stranded locked-edit separator line")
-    failures.extend(lint_errors(text))
+    lint = lint_errors(text)
+    if not allow_inherited_lint:
+        failures.extend(lint)
     return {
         "ok": not failures,
         "failures": failures,
@@ -399,7 +402,8 @@ def verify_mechanical(
         "replacements": replacement_checks,
         "targets": resolved_targets,
         "separator_clean": not SEP_RE.search(text),
-        "lint_clean": not lint_errors(text),
+        "lint_clean": not lint,
+        "accepted_inherited_lint": lint if allow_inherited_lint else [],
         "receipts": receipt_summaries,
     }
 
@@ -438,7 +442,14 @@ def cmd_classify(args: argparse.Namespace) -> int:
         die("--mechanical requires at least one --replace OLD NEW pair")
     if not args.target:
         die("--mechanical requires at least one --target")
-    result = verify_mechanical(path, vault, args.replace, args.target, receipt_root)
+    result = verify_mechanical(
+        path,
+        vault,
+        args.replace,
+        args.target,
+        receipt_root,
+        allow_inherited_lint=args.allow_inherited_lint,
+    )
     if not result["ok"]:
         for failure in result["failures"]:
             print(f"FAIL mechanical: {failure}", file=sys.stderr)
@@ -543,6 +554,21 @@ def accepted_inherited_lint(
     return True, sorted(found)
 
 
+def approved_inherited_lint_paths(manifest: dict) -> set[str]:
+    """Return paths whose exact mechanical classification recorded inherited lint."""
+    approved: set[str] = set()
+    for path, item in manifest.items():
+        if not isinstance(item, dict) or item.get("mode") != "mechanical":
+            continue
+        verification = item.get("verification")
+        if (
+            isinstance(verification, dict)
+            and verification.get("accepted_inherited_lint")
+        ):
+            approved.add(str(Path(path).resolve()))
+    return approved
+
+
 def cmd_run_verifier(args: argparse.Namespace) -> int:
     _, root, _, _ = state_paths(args.session_id)
     command = args.command
@@ -561,9 +587,19 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
     effective_returncode = completed.returncode
     accepted_paths: list[str] = []
     if completed.returncode and args.accept_inherited_lint:
-        accepted, accepted_paths = accepted_inherited_lint(
-            combined, args.accept_inherited_lint
+        manifest = load_json(root / "files.json", {})
+        approved = approved_inherited_lint_paths(
+            manifest if isinstance(manifest, dict) else {}
         )
+        requested = {
+            str(Path(path).expanduser().resolve())
+            for path in args.accept_inherited_lint
+        }
+        accepted = requested <= approved
+        if accepted:
+            accepted, accepted_paths = accepted_inherited_lint(
+                combined, args.accept_inherited_lint
+            )
         if accepted:
             effective_returncode = 0
             note = (
@@ -1458,6 +1494,14 @@ def build_parser() -> argparse.ArgumentParser:
     classify.add_argument("--reason")
     classify.add_argument("--replace", nargs=2, action="append", metavar=("OLD", "NEW"))
     classify.add_argument("--target", action="append")
+    classify.add_argument(
+        "--allow-inherited-lint",
+        action="store_true",
+        help=(
+            "permit pre-existing whole-file lint only after every delta is proven "
+            "an exact declared mechanical replacement"
+        ),
+    )
     classify.set_defaults(func=cmd_classify)
 
     capture = subparsers.add_parser("capture", help="capture review evidence immediately")

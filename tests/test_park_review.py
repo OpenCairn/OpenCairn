@@ -22,6 +22,27 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_only_mechanical_receipts_can_preapprove_inherited_lint(self) -> None:
+        manifest = {
+            "/vault/approved.md": {
+                "mode": "mechanical",
+                "verification": {"accepted_inherited_lint": ["old lint"]},
+            },
+            "/vault/clean.md": {
+                "mode": "mechanical",
+                "verification": {"accepted_inherited_lint": []},
+            },
+            "/vault/semantic.md": {
+                "mode": "semantic",
+                "verification": {"accepted_inherited_lint": ["not enough"]},
+            },
+        }
+
+        self.assertEqual(
+            park_review.approved_inherited_lint_paths(manifest),
+            {"/vault/approved.md"},
+        )
+
     def test_accepts_only_exact_path_scoped_inherited_lint(self) -> None:
         first = "/vault/history one.md"
         second = "/vault/history two.md"
