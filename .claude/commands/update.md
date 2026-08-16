@@ -245,6 +245,66 @@ If the user chooses **n**, abort. If **y**, continue with a warning banner prepe
 
 **Why warn instead of hard-block:** Early adopters pulling older (pre-signing) commits would be locked out. Once all historical commits are superseded by signed ones, this can be tightened to a hard block.
 
+### Step 3d: Recover the Migration Bundle, Then Gate
+
+Fetching and signature verification are read-only and may run against an old vault. The only infrastructure allowed to apply before the gate is this backwards-compatible recovery bundle:
+
+```text
+.claude/commands/update.md
+.claude/commands/migrate.md
+.claude/scripts/check-archive-layout.sh
+.claude/scripts/archive-namespace-migration.py
+```
+
+This exception repairs a partial first transition: the old per-file updater may have accepted the new updater while skipping one of its paired helpers. It must not strand `/update` permanently.
+
+Resolve the vault, then test the installed bundle:
+
+```bash
+"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+test -x "$VAULT_PATH/.claude/scripts/check-archive-layout.sh"
+test -x "$VAULT_PATH/.claude/scripts/archive-namespace-migration.py"
+rg -q 'archive-namespace-opencairn-v1' ".claude/commands/migrate.md"
+```
+
+Treat any failed line as an incomplete or mixed-version bundle. In particular, helper presence alone is insufficient: an old task-only `migrate.md` would leave the user blocked with no capable recovery command. If the bundle is incomplete:
+
+1. Verify all four bundle paths exist in the already fetched and signature-checked `$REF` using `git ls-tree -r --name-only $REF -- <the-four-literal-paths>`. Require four exact lines; otherwise abort because the selected ref predates the recovery bundle.
+2. Show `git diff $REF -- <the-four-literal-paths>` as one atomic review. If `--dry-run` was passed, report that this recovery bundle is required and stop without writing.
+3. Unless `--force` was explicit, ask once: `Install the four-file OpenCairn migration recovery bundle? (y/n)`. A refusal aborts without changing any file. Do not offer independent accept/skip choices inside this paired bundle.
+4. Record the pre-bootstrap `HEAD`, then apply exactly the four literal paths together with `git checkout $REF -- <the-four-literal-paths>`. Do not touch any other file. Assert both helpers are executable and all four working-tree files now match `$REF`.
+5. Commit only those four paths with `git commit --only -m "Install OpenCairn migration recovery bundle ($(git rev-parse --short $REF))" -- <the-four-literal-paths>`. If the commit fails, report whether the four files are nevertheless present and matching; never claim the recovery commit landed without checking it.
+
+If recovery was declined or could not be verified, stop with the exact four paths above. This is the manual recovery surface; do not merely tell the user to rerun the same blocked updater.
+
+With the complete local bundle present, run:
+
+```bash
+"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --status "$VAULT_PATH"
+```
+
+Interpret `ARCHIVE_LAYOUT` from the helper output:
+
+- `new-only` or `empty-clean` → proceed.
+- `old-only`, `new-with-legacy-locators`, `empty-with-legacy-locators`, or `pending-verification` → abort before Step 4:
+
+```
+✗ A required OpenCairn vault migration is pending.
+  Run /migrate, then rerun /update.
+```
+
+- `split` → abort before Step 4:
+
+```text
+✗ Both 06 Archive/Claude and 06 Archive/OpenCairn contain state.
+  Run /migrate for explicit split-archive reconciliation; /update will not merge them.
+```
+
+- `legacy-symlink-alias` or `legacy-symlink-unsafe` → abort before Step 4. `/migrate` must inspect the link without traversing it.
+- `indeterminate` or any unknown/malformed output → abort. A failed locator search or unreadable migration journal is never evidence that the vault is compatible.
+
+Do not infer completion from `07 System/Migration Record.md`; the live helper output is the gate. For an otherwise clean layout, an absent journal is a fresh-install state and a `complete` journal passes; any other journal phase yields `pending-verification`. Recovery modifies only the four infrastructure files above, never vault content, so `/update`'s infrastructure-only contract remains intact.
+
 ### Step 4: Compare Working Tree Against Template
 
 Compare the user's **actual files on disc** (not committed state) against the template:
@@ -258,7 +318,8 @@ If no differences:
 ```
 ✓ Already up to date. Commands and scripts match the latest template.
 ```
-Stop here — nothing to do.
+
+If the live Codex install marker exists (`[ -f "$HOME/.codex/skills/_shared-rules.md" ]`), do **not** stop: skip repository apply/commit and continue to Step 6b with every file under `codex/skills/` as the live-sync candidate set. This is the bootstrap and drift-recovery path for a Codex user whose checkout is current but `~/.codex/skills/` is stale. Otherwise stop here.
 
 ### Step 5: Preview Changes
 
@@ -394,12 +455,14 @@ If the commit fails (nothing to commit), that's fine — files are already updat
 
 ### Step 6b: Offer Accepted Codex Files to the Live `~/.codex/` Install
 
-The repo's `codex/` tree is a distribution copy — Codex CLI reads `~/.codex/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step only if **both** hold; otherwise skip silently:
+The repo's `codex/` tree is a distribution copy — Codex CLI reads `~/.codex/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step when the live marker exists and either candidate condition holds:
 
-1. This run accepted or auto-applied (as a new file) at least one `codex/` file in Step 6.
-2. The live install exists: `[ -f "$HOME/.codex/skills/_shared-rules.md" ]` (the OpenCairn support file is the marker — its absence means the user hasn't installed the Codex rendering).
+1. This run accepted or auto-applied at least one `codex/skills/` file in Step 6. Candidate set = those accepted/new skill files.
+2. Step 4 found the repository already current and continued for live drift recovery. Candidate set = every file under `codex/skills/`.
 
-For each accepted or newly added `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
+The marker is `[ -f "$HOME/.codex/skills/_shared-rules.md" ]`; its absence means the user has not installed the Codex rendering, so skip silently.
+
+For each candidate `codex/skills/` file, compare the live counterpart at `~/.codex/skills/<same relative path>`:
 
 ```bash
 diff -q "codex/skills/<file>" "$HOME/.codex/skills/<file>" 2>/dev/null
@@ -525,8 +588,8 @@ git rev-parse --short $REF
      Some updates change file paths or vault structure.
      Check the latest release notes for any manual migration steps.
 
-  Restart Claude Code to use the updated commands.
-  (Just exit and re-launch)
+  Restart the current harness before running another OpenCairn workflow.
+  Files already loaded in this session do not change retroactively.
 ```
 
 ## Error Recovery

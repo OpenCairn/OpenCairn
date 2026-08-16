@@ -1,90 +1,195 @@
 ---
 name: migrate
-description: One-shot migration of an existing OpenCairn vault to the project-doc task system (post-2026-08 format)
+description: Run pending versioned OpenCairn vault migrations and the legacy project-doc task migration
 ---
 
-# Migrate - Old-Format Vault to the Project-Doc Task System
+# Migrate - OpenCairn Vault Migrations
 
-You are migrating an existing OpenCairn vault from the pre-2026-08 task format (Tasks.md catch-all + Works in Progress dashboard + Status fields) to the current one (project docs as SSOT, folder-location-as-status, Whimsy sink). This runs **once per vault**; `/update` refuses old-format vaults and redirects here. A new vault created by `/setup` never needs it.
+Run required vault migrations without letting infrastructure updates silently outrun the vault layout. Versioned migrations are live-state checked and resumable; the older task-system conversion remains component-wise and consent-gated.
 
-**Old format** (any of these marks a vault as old-format): `01 Now/Tasks.md` exists · `01 Now/Works in Progress.md` exists · `03 Projects/` root docs carry `**Status:**` lines and lack `bucket:` frontmatter.
+## 0. Resolve and load rules
 
-**Target format:** each `03 Projects/` root doc = `bucket:` YAML frontmatter + `## Current Objective` + `## Next Actions`; root = active, `Cold/` = paused, `Backlog/` = unstarted — folder is the status (no dashboard file; the root listing is the view); undated low-priority items live in `04 Areas/Whimsy/_notes.md` (plain lines, no checkboxes); dated items in This Week / Tickler. See `07 System/Vault Organisation Principles.md` → Project Doc Format.
-
-## Instructions
-
-### 0. Resolve Vault Path
+Run:
 
 ```bash
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-If error, abort. Read `_shared-rules.md` from this skill's own commands directory and apply it throughout — §5 (locked writes) governs every planning-file edit below. `{VAULT}` = the resolved path.
+Do **not** run `check-archive-layout.sh --enforce` here: this skill is the recovery route that enforcement deliberately leaves open. Read `_shared-rules.md` from this skill's commands directory and apply it throughout, especially §5 (locked vault writes), §12 (grep-hit triage), §23 (evidence), and §24 (structural moves). `{VAULT}` is the resolved path.
 
-### 1. Detect and inventory
+Require these helpers before continuing:
 
-Check the three old-format marks above and count the work: root-doc count, Tasks.md line/checkbox count, WIP entry count.
-
-If none of the marks are present AND no `{VAULT}/07 System/Migration Record.md` exists, the vault is current-format — stop. If a Migration Record exists with `later`/deferred components, skip the inventory and jump to Step 2 for the outstanding components only (then Doctor).
-
-### 2. Per-component consent
-
-The migration is component-wise, and each component is asked **now / later / never** — record the answers in a `{VAULT}/07 System/Migration Record.md` (create it). "Later" components re-offer on the next `/migrate` run; "never" is recorded and not re-asked (the vault then intentionally diverges — `/update` accepts it once the record says so).
-
-**Record format — one table row per component, machine-greppable** (`/update` greps this file for `never` against the file-mark components):
-
+```bash
+test -x "{VAULT}/.claude/scripts/check-archive-layout.sh"
+test -x "{VAULT}/.claude/scripts/archive-namespace-migration.py"
+test -x "{VAULT}/.claude/scripts/locked-edit.sh"
 ```
+
+If one is absent, stop: the installed migration bundle is incomplete. A full-clone user should rerun `/update` and accept the new scripts plus `migrate.md`; a Codex user should reinstall the paired `update` and `migrate` skills from the same OpenCairn checkout. Do not improvise the migration from partial instructions.
+
+## 1. Versioned migrations
+
+### Registry
+
+Current required migration:
+
+| Migration ID | Purpose | Blocking |
+|---|---|---|
+| `archive-namespace-opencairn-v1` | Rename `06 Archive/Claude/` to `06 Archive/OpenCairn/` and repair live locators | Yes |
+
+Versioned outcomes live in a separate `## Versioned migrations` table in `07 System/Migration Record.md`:
+
+```markdown
+| Migration | State | Last checked |
+|---|---|---|
+| archive-namespace-opencairn-v1 | complete | YYYY-MM-DD |
+```
+
+Allowed states: `in-progress`, `blocked`, `deferred`, `declined`, `complete`. Only verified `complete` unblocks incompatible workflows. Preserve the legacy component table and its `now/later/never` vocabulary unchanged; the helper updates only the versioned row.
+
+### Inspect live state
+
+```bash
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" inspect "{VAULT}"
+```
+
+The state vector includes both directory paths, actionable old-path files, excluded immutable/transcript hits, and the transaction-journal phase. Trust live state over a stale `complete` row.
+
+#### `empty-clean`
+
+This is a fresh vault with neither archive tree nor actionable legacy locator. Record the verified no-op:
+
+```bash
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" record "{VAULT}" complete
+```
+
+Proceed to §2.
+
+#### `new-only`, `new-with-legacy-locators`, or gate state `pending-verification`
+
+This can be a completed manual rename or an interrupted migration. Never infer completion from the directory name. Run the remaining phases idempotently:
+
+```bash
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" finish "{VAULT}"
+```
+
+`finish` verifies the folder state and actionable locator count; when a journal exists it also verifies the pre-move member inventory and byte identity of excluded provenance snapshots before recording `complete`. If it fails, record `blocked`, report the exact failed postcondition, and stop.
+
+`pending-verification` is emitted by the shared gate when the directory/locator layout is otherwise safe but the transaction journal is not `complete`; only `finish` may clear it.
+
+#### `old-only`
+
+This is the normal migration path.
+
+1. Ask for one confirmation: **Obsidian Sync (or the user's vault sync client) is active, and all other vault-writing agent sessions are stopped.** Do not begin without it. This is a structural maintenance window; per-file locks cannot coordinate with Obsidian's link-healing writes.
+
+2. Read the vault's search/tool routing documentation if present. Capture a reliable unresolved-link baseline and state the route plus count. An empty result without the route's documented positive control is unknown, not zero.
+
+3. Start the resumable transaction:
+
+   ```bash
+   python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" begin "{VAULT}"
+   ```
+
+   This records `in-progress` and atomically writes a journal containing the logical source-member inventory (lock artefacts excluded) and immutable-file hashes. If the source changes on a repeated `begin`, stop.
+
+4. Rename the folder **inside Obsidian** from `Claude` to `OpenCairn`, so the application heals path-qualified wikilinks. If an installed Obsidian CLI is to perform it, first follow `_shared-rules.md` §24 in full: derive syntax from `help`, prove folder support, use a canary, wait for async settlement, and verify by source/destination state rather than exit code. If folder rename support cannot be verified, ask the user to do the single File Explorer rename in Obsidian. Never use raw `mv`.
+
+5. Re-run `inspect`. The old directory must now be absent and the new directory present. Then repair remaining live plain-text locators through the deterministic locked-edit engine:
+
+   ```bash
+   python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
+   ```
+
+   The engine replaces literal `06 Archive/Claude` locators one file at a time through `locked-edit.sh --replace-all`. It excludes `07 System/.Provenance/`, `.Session Transcripts/` under either archive namespace, lock files, and the Migration Record. Excluded hits remain reported; they are not silently treated as actionable.
+
+6. Let Obsidian's index settle. Re-run the same reliable unresolved-link route used for the baseline. The count must not increase, and no moved archive target may be unresolved. Then finish:
+
+   ```bash
+   python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" finish "{VAULT}"
+   ```
+
+   If the structural link check or `finish` fails, record `blocked` and stop. Do not mark completion from this run's memory.
+
+#### `legacy-symlink-alias` or `legacy-symlink-unsafe`
+
+A legacy symlink is not a second archive tree and must never enter per-member reconciliation. Run:
+
+```bash
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" split-plan "{VAULT}"
+```
+
+The report identifies the link target and whether it resolves to the new archive. Do not traverse the old path, move a member through it, or delete a supposed duplicate through it: that would mutate the target tree. Record `blocked` and stop.
+
+For `legacy-symlink-alias`, explain that only the compatibility link itself must eventually be removed, after all pre-rename agent sessions have exited. Ask the user to remove that single alias in their file manager, explicitly distinguishing it from the `OpenCairn` target, then rerun `/migrate`. For `legacy-symlink-unsafe`, report the literal link target and ask the user to resolve or remove the link; do not guess its intent.
+
+#### `split`
+
+Both trees contain live state. Do not merge or delete automatically. Record `blocked` and generate the collision inventory:
+
+```bash
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" record "{VAULT}" blocked
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" split-plan "{VAULT}"
+```
+
+The report separates old-only, new-only, byte-identical, and conflicting relative paths and binds every entry to the observed SHA-256 value(s). Present the counts and full conflict list. Re-check the recorded hash immediately before any approved action. Reconciliation is explicit:
+
+- old-only entries: propose link-aware moves into the new tree;
+- new-only entries: retain;
+- identical collisions: propose deletion of the old duplicate only after the user approves the destructive action;
+- differing collisions: show a content diff and ask which version or merge to retain, one collision at a time.
+
+Use the §24 maintenance window and verification for every approved structural batch. When the old tree is empty, remove it only with explicit approval, then run `rewrite` and `finish`. Until then, all archive-backed workflows remain blocked.
+
+## 2. Legacy project-doc task migration
+
+After the versioned migration is complete, inspect the pre-2026-08 task marks:
+
+- `01 Now/Tasks.md` exists;
+- `01 Now/Works in Progress.md` exists;
+- a `03 Projects/*.md` root doc carries `**Status:**` but lacks `bucket:` frontmatter.
+
+If none exists and the legacy component table has no `later` item, skip to Doctor. Otherwise retain the existing component-wise process. Ask **now / later / never** for each outstanding component and preserve answers in the legacy four-column table:
+
+| # | Component | What it does |
+|---|---|---|
+| 1 | Whimsy sink | Create `04 Areas/Whimsy/_notes.md` if absent |
+| 2 | Project-doc schema | Add `bucket:` plus `## Current Objective` and `## Next Actions`; remove `**Status:**` tokens |
+| 3 | Tasks.md triage + kill | Propose a route for every item, execute unvetoed routes, then delete Tasks.md |
+| 4 | WIP demotion + delete | Absorb unique state into project docs, then delete Works in Progress.md |
+| 5 | Archive re-sort | Optionally move living docs from `06 Archive/` to their Area or Area archive |
+
+Components 3 and 4 require 2. Component 5 is independent and defaults to `later`. Use `locked-edit.sh` for planning/hub writes, `write-tickler.sh` for Tickler writes, and `_shared-rules.md` §24 for every linked-file move. Draft project objectives/actions only from the document's own content. A finished-looking project requires the user's call rather than an invented objective.
+
+Record rows exactly as before:
+
+```markdown
 | # | Component | now/later/never | YYYY-MM-DD |
 ```
 
-| # | Component | What it does |
-|---|-----------|--------------|
-| 1 | Whimsy sink | Create `04 Areas/Whimsy/_notes.md` if absent (plain-line dump; no checkboxes, no scanner) |
-| 2 | Project-doc schema | Retrofit every `03 Projects/` root doc: `bucket:` frontmatter (offer the taxonomy from Vault Organisation Principles → Project Doc Format; the user personalises), draft `## Current Objective` + `## Next Actions` FROM the doc's own content for approval, strip `**Status:**` tokens (keep informative remainders under a different label). User approves bucket + active/Cold/Backlog per doc, batched |
-| 3 | Tasks.md triage + kill | Propose a route for EVERY item (project doc / Tickler date / Whimsy / delete + reason) — veto-of-proposed-routes: the user vetoes, nothing is left unproposed. Execute the approved routes, then delete Tasks.md |
-| 4 | WIP demotion + delete | Absorb any WIP entry state not already in its project doc (Last/Next fields → the doc's Current Objective / Next Actions), then delete `01 Now/Works in Progress.md` |
-| 5 | Archive re-sort | Optional, deferrable: move living docs out of `06 Archive/` to their Area (or Area `Archive/`) per the routing taxonomy — `06 Archive/` keeps only immutable dated records |
+Do not translate or merge these rows into the versioned table.
 
-Sequencing constraint: 3 and 4 require 2 (routes need schema'd destinations). 1 is independent and takes seconds. 5 is fully independent — offer "later" as the default.
+## 3. Doctor
 
-### 3. Execute consented components
-
-In the order above. Mechanics:
-
-- All planning/hub edits via `locked-edit.sh` (§5), Tickler writes via `write-tickler.sh`, file moves via the `obsidian` CLI (link healing — §24), never raw `mv`.
-- Component 2's drafting rule: Current Objective / Next Actions are drafted **from the doc's own content**, never invented; a doc that reads as finished is flagged for the user's call (Cold, complete, or delete) rather than retrofitted.
-- Component 2's taxonomy fallback: if the vault's `07 System/Vault Organisation Principles.md` lacks a Project Doc Format section, first append the template's version of that section to it (default taxonomy: craft / constitution / community / contemplation / calm — the user personalises), then offer the taxonomy from there. `/update` never touches vault content, so a template user's vault will not have this section already.
-- Component 3's routing heuristics: next-30-45-day items → project doc or dated Tickler; obviously dead → delete with one-line reason; everything else → Whimsy. Whole sections may route wholesale.
-- Component 5's execution: move living docs out of `06 Archive/` with the `obsidian` CLI per the routing taxonomy — propose the full move list for the user's review first, never bulk-move unreviewed.
-- Existence-check every destination before appending — `locked-edit.sh` silently creates missing targets, so a typo'd path mints a stray file.
-
-### 4. Doctor - verify actual state, then report
-
-Check each component's **live state**, not this run's memory of what it did:
+Verify live state:
 
 ```bash
-# marks gone?
+"{VAULT}/.claude/scripts/check-archive-layout.sh" --status "{VAULT}"
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" verify "{VAULT}"
 ls "{VAULT}/01 Now/Tasks.md" "{VAULT}/01 Now/Works in Progress.md" 2>/dev/null
-# schema present?  (per root doc: bucket + both headings)
-for f in "{VAULT}/03 Projects/"*.md; do printf '%s: ' "$f"; grep -q '^bucket:' "$f" && grep -q '^## Current Objective' "$f" && grep -q '^## Next Actions' "$f" && echo OK || echo MISSING; done
-# sink present?
-ls "{VAULT}/04 Areas/Whimsy/_notes.md"
-# archive re-sort spot-check: living docs still in 06 Archive/ (excluding the Migration Record)
-find "{VAULT}/06 Archive" -name '*.md' | wc -l
+for f in "{VAULT}/03 Projects/"*.md; do printf '%s: ' "$f"; rg -q '^bucket:' "$f" && rg -q '^## Current Objective' "$f" && rg -q '^## Next Actions' "$f" && echo OK || echo MISSING; done
 ```
 
-The archive count is a **spot-check, not a proof** — `06 Archive/` legitimately holds immutable dated records, so a non-zero count is expected. Compare it against the component-5 move list: a count unchanged since before the run means the moves didn't land.
-
-Report one line per component: **live** (verified working) / **broken** (attempted but the check fails — say what's wrong) / **declined** (user said never) / **deferred** (user said later) / **stale** (consented on a previous run but the check no longer passes). Never assume this run's own success — the check is the claim. Append the Doctor table to `07 System/Migration Record.md` with the date.
-
-## Guidelines
-
-- **One vault, one migration, many sittings is fine** — the Migration Record + "later" answers make re-runs cheap and idempotent.
-- **The user gates judgement; the skill executes mechanics.** Bucket choices, route vetoes, and finished-doc calls are the user's; drafting, counting, moving, and verifying are yours.
-- **Don't migrate content into invented structure** — a vault without Areas that the taxonomy expects gets the question, not a guess.
+Report the archive migration from the live output: `complete`, `blocked`, `deferred`, or `declined`. Report each legacy component as `live`, `broken`, `declined`, `deferred`, or `stale`. A ledger row never overrides a failing live check.
 
 ## Integration
 
-**Reads:** `03 Projects/`, `01 Now/Tasks.md`, `01 Now/Works in Progress.md`, Vault Organisation Principles.
-**Writes:** project docs, Tickler, This Week, Whimsy, `07 System/Migration Record.md`; deletes Tasks.md and WIP on consent.
-**Called by:** `/update` (redirects here on old-format detection).
+**Reads:** archive layout, legacy locators, project/task surfaces, Migration Record.
+**Writes:** migration journal/record, locked locator replacements, consented legacy task destinations.
+**Deletes/moves:** only with explicit approval and link-aware structural mechanics.
+**Called by:** `/update`; native Codex rendering is `$migrate`.
+
+## Skill Monitor
+
+Follow `_skill-monitor.md` from this commands directory and log any execution gap at the end.

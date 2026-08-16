@@ -15,6 +15,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 
    If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

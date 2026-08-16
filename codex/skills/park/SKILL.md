@@ -15,7 +15,7 @@ Capture a work session: proportional quality gate, session log, project-doc upda
 
 ### 0. Setup
 
-Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — the README Quick Start covers it). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="${CODEX_HOME:-$HOME/.codex}/skills/park/scripts/park-review.py"` and abort if it is absent.
+Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`, then `"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"`; abort on either error (usual causes: `VAULT_PATH` unset, or a pending archive migration). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="${CODEX_HOME:-$HOME/.codex}/skills/park/scripts/park-review.py"` and abort if it is absent.
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 

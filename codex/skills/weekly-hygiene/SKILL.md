@@ -18,6 +18,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 
    If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

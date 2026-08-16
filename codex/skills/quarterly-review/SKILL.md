@@ -20,6 +20,7 @@ This is the **strategic half**, the reflective companion to `$quarterly-hygiene`
 
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 
    If error, abort. Read `${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

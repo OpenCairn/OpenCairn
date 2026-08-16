@@ -1,0 +1,6 @@
+interface:
+  display_name: "Migrate OpenCairn"
+  short_description: "Run pending OpenCairn vault migrations"
+  default_prompt: "Use $migrate to run pending OpenCairn vault migrations."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Update OpenCairn"
+  short_description: "Update OpenCairn skills and scripts safely"
+  default_prompt: "Use $update to update this OpenCairn installation."
+policy:
+  allow_implicit_invocation: false
