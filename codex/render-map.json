@@ -106,7 +106,7 @@
     "migrate": {
       "source": ".claude/commands/migrate.md",
       "render": "codex/skills/migrate/SKILL.md",
-      "source_sha256": "a9c8c3a2561a1f1359ff5d454f28c397e16dc6f73383a978e1fdd0997b0199eb",
+      "source_sha256": "ce35f08a20ae17c96f8cbfc1e5996f4bbabeedd0acd5af9729e48ad56979e510",
       "render_sha256": "b30c0f576294d39542ba77e682d7cbbe24197371ee94225e921c0879a4334539"
     },
     "map-day": {

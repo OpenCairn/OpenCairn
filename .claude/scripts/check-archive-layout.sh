@@ -25,7 +25,7 @@ fi
 
 OLD_DIR="$VAULT/06 Archive/Claude"
 NEW_DIR="$VAULT/06 Archive/OpenCairn"
-OLD_TOKEN='06 Archive/Claude'
+OLD_LOCATOR='06 Archive/Claude/'
 JOURNAL="$VAULT/07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
 
 legacy_files() {
@@ -42,9 +42,21 @@ legacy_files() {
     set +e
     output=$(
         cd "$VAULT"
-        rg -l --hidden --no-ignore -F "$OLD_TOKEN" "${roots[@]}" \
+        rg -l --hidden --no-ignore -F "$OLD_LOCATOR" "${roots[@]}" \
             -g '*.md' \
             -g '*.canvas' \
+            -g '*.sh' \
+            -g '*.py' \
+            -g '*.json' \
+            -g '*.toml' \
+            -g '*.yaml' \
+            -g '*.yml' \
+            -g '*.txt' \
+            -g '*.csv' \
+            -g '*.tex' \
+            -g '*.html' \
+            -g '*.css' \
+            -g '*.js' \
             -g '!06 Archive/*/.Session Transcripts/**' \
             -g '!07 System/.Provenance/**' \
             -g '!07 System/Migration Record.md' \
