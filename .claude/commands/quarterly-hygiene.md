@@ -145,7 +145,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Flat session logs: N (keeping last ~90 days flat)
    - Archived this run: N logs → YYYY/ subfolders (or "none — nothing older than 90 days")
    - Skipped (already archived): N — flat copies whose year folder already holds that basename; duplication surfaced, nothing deleted [list or "none"]
-   - Wikilink spot-check: [pass / fail — basename / n/a — nothing moved]
+   - Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
 
    ## Skill-Library Flywheel (draft)
    - Proposed new index entries (≥2 reuses, unindexed): [list or "none"]
@@ -176,7 +176,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ CRM stale entries: N flagged
    ✓ Corrections-log index: [refreshed (N entries re-bucketed) / no curated index present]
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
-   ✓ Wikilink spot-check: [pass / fail — basename / n/a]
+   ✓ Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Panel model currency: [N seats checked, M stale/unstable pins flagged / no panel configured]
    ✓ Skill self-review: [no gaps / N observations logged]

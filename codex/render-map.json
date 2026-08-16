@@ -154,8 +154,8 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "2139d263fb14166bfab01eb8362f85655b6bc142ee6b008a96f67ca4e876ed9a",
-      "render_sha256": "f07b4bb51a551efd94e99b0ef5d5b56b54b57d1e3c20113e3eac2eb8e99157b4"
+      "source_sha256": "03c4ee43bddb45a26366fec498344433aa191f010127d6f0887c92cac93a8da2",
+      "render_sha256": "0af9b4634f34bd0cd6eb15d99dbd1304054989304163fc752c5f7086762de120"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
