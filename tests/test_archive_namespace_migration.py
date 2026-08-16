@@ -62,17 +62,33 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(state["layout"], "new-with-legacy-locators")
         self.assertEqual(state["actionable_legacy_files"], ["03 Projects/Example.md"])
 
-    def test_locator_scan_is_limited_to_obsidian_text_artefacts(self):
+    def test_locator_scan_covers_text_artefacts_and_ignores_binary_data(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
         binary = self.vault / "04 Areas/Photos/example.jpg"
         binary.parent.mkdir(parents=True)
-        binary.write_bytes(b"prefix 06 Archive/Claude suffix")
+        binary.write_bytes(b"\x00prefix 06 Archive/Claude/Session Logs suffix")
         canvas = self.vault / "03 Projects/Map.canvas"
-        canvas.write_text('{"text":"06 Archive/Claude"}\n')
+        canvas.write_text('{"text":"06 Archive/Claude/Session Logs"}\n')
+        script = self.vault / "04 Areas/Scripts/archive.sh"
+        script.parent.mkdir(parents=True)
+        script.write_text('archive="06 Archive/Claude/Session Logs"\n')
+        unrelated = self.vault / "04 Areas/Scripts/older-layout.sh"
+        unrelated.write_text('archive="06 Archive/Claude Sessions"\n')
 
         state = self.inspect()
-        self.assertEqual(state["actionable_legacy_files"], ["03 Projects/Map.canvas"])
-        self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "1")
+        self.assertEqual(
+            state["actionable_legacy_files"],
+            ["03 Projects/Map.canvas", "04 Areas/Scripts/archive.sh"],
+        )
+        self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "2")
+
+        subprocess.run(
+            [str(MIGRATE), "rewrite", str(self.vault)],
+            check=True,
+            capture_output=True,
+        )
+        self.assertIn("06 Archive/OpenCairn/Session Logs", script.read_text())
+        self.assertIn("06 Archive/Claude Sessions", unrelated.read_text())
 
     def test_locator_search_error_fails_closed(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)

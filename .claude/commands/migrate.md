@@ -102,7 +102,7 @@ This is the normal migration path.
    python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
    ```
 
-   The engine replaces literal `06 Archive/Claude` locators one file at a time through `locked-edit.sh --replace-all`. It excludes `07 System/.Provenance/`, `.Session Transcripts/` under either archive namespace, lock files, and the Migration Record. Excluded hits remain reported; they are not silently treated as actionable.
+   The engine replaces literal `06 Archive/Claude/` locators across common text, config, script and web artefacts, one file at a time through `locked-edit.sh --replace-all`; binary files are ignored. It excludes `07 System/.Provenance/`, `.Session Transcripts/` under either archive namespace, lock files, and the Migration Record. Excluded hits remain reported; they are not silently treated as actionable.
 
 6. Let Obsidian's index settle. Re-run the same reliable unresolved-link route used for the baseline. The count must not increase, and no moved archive target may be unresolved. Then finish:
 

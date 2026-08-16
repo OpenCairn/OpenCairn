@@ -14,6 +14,8 @@ import sys
 
 OLD_TOKEN = "06 Archive/Claude"
 NEW_TOKEN = "06 Archive/OpenCairn"
+OLD_LOCATOR = f"{OLD_TOKEN}/"
+NEW_LOCATOR = f"{NEW_TOKEN}/"
 ROOT_NAMES = (
     "01 Now",
     "02 Inbox",
@@ -22,6 +24,22 @@ ROOT_NAMES = (
     "05 Resources",
     "06 Archive",
     "07 System",
+)
+TEXT_GLOBS = (
+    "*.md",
+    "*.canvas",
+    "*.sh",
+    "*.py",
+    "*.json",
+    "*.toml",
+    "*.yaml",
+    "*.yml",
+    "*.txt",
+    "*.csv",
+    "*.tex",
+    "*.html",
+    "*.css",
+    "*.js",
 )
 SEP = "========OPENCAIRN-LOCKED-EDIT-SEP========"
 MIGRATION_ID = "archive-namespace-opencairn-v1"
@@ -55,13 +73,11 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
         "--hidden",
         "--no-ignore",
         "-F",
-        OLD_TOKEN,
+        OLD_LOCATOR,
         *roots,
-        "-g",
-        "*.md",
-        "-g",
-        "*.canvas",
     ]
+    for pattern in TEXT_GLOBS:
+        command.extend(("-g", pattern))
     completed = subprocess.run(
         command,
         cwd=vault,
@@ -278,7 +294,7 @@ def rewrite(vault: Path) -> int:
     if not edit_script.is_file():
         print(f"locked editor missing: {edit_script}", file=sys.stderr)
         return 2
-    payload = f"{OLD_TOKEN}\n{SEP}\n{NEW_TOKEN}"
+    payload = f"{OLD_LOCATOR}\n{SEP}\n{NEW_LOCATOR}"
     changed: list[str] = []
     for relative in state["actionable_legacy_files"]:
         target = vault / str(relative)
