@@ -93,7 +93,7 @@ Send the brief to all reviewers concurrently (parallel shell calls where the har
 
    **After the call completes, capture and surface the Claude session id in your user-visible response text** (`--output-format json` → `.session_id` via jq; `.result` carries the review text). This makes the id recoverable from the conversation transcript even after the raw output scrolls away, which matters for Mode B round 2.
 
-2. **Gemini CLI**, in parallel with the Claude call. **Give the call a five-minute window** — confirm the harness's command timeout allows it (§10's timeout note; mechanism unverified under Codex). A default timeout will kill Gemini mid-review on any non-trivial target.
+2. **Gemini CLI**, in parallel with the Claude call. **Give the call a five-minute ceiling** and, under Codex, use §10's verified yield-and-poll mechanism so the review can outlive `exec_command`'s initial 10-second window.
 
    Preferred invocation (gemini ≥ 0.40, which has the Policy Engine): use the **canonical despatch block in `_shared-rules.md` §10** — the single source of truth for the read-only policy file, the piped `gemini` call, and the workspace flags for out-of-cwd targets — substituting `<brief>` with the path recorded in Phase 1. Why a `--policy` deny-file: it loads Gemini's **Policy Engine** (the non-deprecated successor to `--allowed-tools`) and a `deny` rule strips the named tools from the model's toolset entirely — **verified on gemini 0.40.x** as a *hard* read-only guarantee (the reviewer reports the edit tools "not found" while every read tool stays available). This **replaces `--approval-mode plan`**, which was *not* read-only (plan blocked shell but still exposed the `replace` edit tool, so a reviewer briefed to propose fixes wrote them straight into the target — the contamination that motivated this change). Further operational caveats — portable `mktemp` form, no `~/.gemini/policies/` drop, the post-run denied-tools check, untrusted-directory refusals — live in §10; read it rather than reciting from memory. The integrity guard in step 6 stays as a cheap backstop (and confirms the policy loaded). Gemini also has a real `-s/--sandbox`, but it needs a container runtime, so don't mandate it.
 
@@ -112,7 +112,7 @@ Send the brief to all reviewers concurrently (parallel shell calls where the har
 
    **After the call completes, capture and surface the Codex session id.** The `codex exec` preamble prints a `session id: <uuid>` line; record that UUID and surface it in the user-visible response text alongside the other handles (e.g. `Panel spawned: Claude agent a5abc789, Gemini session #12, Codex session 019e87a8-…`). You'll need it for Mode B round 2; Codex resumes by UUID, which is more robust than Gemini's index.
 
-3b. **Grok**, in parallel with the other three. **Give the call a five-minute window** — xhigh reasoning can think >90 s before the first byte, so a default timeout kills it. Invocation per the **canonical block in `_shared-rules.md` §10**:
+3b. **Grok**, in parallel with the other three. **Give the call a five-minute ceiling** — xhigh reasoning can think >90 s before the first byte; under Codex, use §10's yield-and-poll mechanism. Invocation per the **canonical block in `_shared-rules.md` §10**:
 
    ```
    "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...] > <grok-out>

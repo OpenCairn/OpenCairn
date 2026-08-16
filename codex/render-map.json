@@ -11,7 +11,7 @@
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
       "source_sha256": "c22bb7a0fba731fdc2a0e89bdd36bafffe9457146372579292dd3bc12c0e61a6",
-      "render_sha256": "9c0c3912e6e9e800cf5d2b467975f8cbe3e5e9c3d2be1a021b4c2381e75a76d3"
+      "render_sha256": "78e6b4b440426613d6397ec33e9475a5a6cf2a1d321fbee2feef275ac9824407"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -29,7 +29,7 @@
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
       "source_sha256": "2e5502161eaac3ab613470d556b60fa62aa37c43e0c017d6f376069588b47686",
-      "render_sha256": "d92a123a0406aa807567f472b23d4f431c339ee4beae2b6fed259e004eeebecd"
+      "render_sha256": "689a2f2d6e7ccc8bda79a506ca376a6afdc5bd5ced8cd6ea94c04f67c10154ce"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
@@ -191,7 +191,7 @@
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
       "source_sha256": "560aeabe15e6f594a4662951087749bbed3a7c332210ad8a90e1a8d987555bac",
-      "render_sha256": "d11d72e5f1bfdc2977d5ec61a2b6bc015aa0a9de6fc5802885100d359966ac27"
+      "render_sha256": "92816187c4bcb75188022bd5783de644606f332d99e8ea7c9e4603247c18c252"
     },
     "shop": {
       "source": ".claude/commands/shop.md",
