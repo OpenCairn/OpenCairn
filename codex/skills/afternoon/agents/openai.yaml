@@ -1,0 +1,6 @@
+interface:
+  display_name: "Afternoon"
+  short_description: "Recalibrate the rest of the day"
+  default_prompt: "Use $afternoon to check drift and reprioritise the rest of today."
+policy:
+  allow_implicit_invocation: false

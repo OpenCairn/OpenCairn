@@ -1,0 +1,6 @@
+interface:
+  display_name: "Audit"
+  short_description: "Run a rigorous cross-model implementation review"
+  default_prompt: "Use $audit to run a rigorous six-layer review of this implementation."
+policy:
+  allow_implicit_invocation: false

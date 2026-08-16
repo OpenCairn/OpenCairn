@@ -13,7 +13,7 @@ The default profile. Tool-adoption lens on the AI / Claude Code / Obsidian-PKM l
 
 Relevance is filtered through both "what I do privately" and "what I publicly claim to do."
 
-- **[required] Current Claude Code usage patterns** — sample 2–4 recent files across `{VAULT}/06 Archive/Claude/Daily Reports/`, `{VAULT}/06 Archive/Claude/Weekly Reviews/`, and `{VAULT}/07 System/Claude Corrections Log.md` (the corrections log's canonical home is `07 System/`, not the archive). Get a feel for session shape, what gets delegated, friction points, and what the user praises. **If missing:** on a fresh clone these may be absent or empty — say so in the report's `## Contextualising reads` section, run the fit pass against `CLAUDE.md` alone, and mark every assessment *uncalibrated*. Infer nothing about usage patterns from an empty archive.
+- **[required] Current Claude Code usage patterns** — sample 2–4 recent files across `{VAULT}/06 Archive/OpenCairn/Daily Reports/`, `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/`, and `{VAULT}/07 System/Claude Corrections Log.md` (the corrections log's canonical home is `07 System/`, not the archive). Get a feel for session shape, what gets delegated, friction points, and what the user praises. **If missing:** on a fresh clone these may be absent or empty — say so in the report's `## Contextualising reads` section, run the fit pass against `CLAUDE.md` alone, and mark every assessment *uncalibrated*. Infer nothing about usage patterns from an empty archive.
 - **[optional] Public-facing work relevant to the domain** — the user's public site(s), if any are listed in CLAUDE.md (e.g. a personal site posting Claude Code / Obsidian / self-hosting content); other sites the user runs for other domains.
 
 ## Sources

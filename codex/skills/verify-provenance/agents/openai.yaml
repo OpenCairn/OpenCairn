@@ -1,0 +1,6 @@
+interface:
+  display_name: "Verify Provenance"
+  short_description: "Run provenance checks from weekly hygiene"
+  default_prompt: "Use $verify-provenance to run the provenance checks from weekly hygiene."
+policy:
+  allow_implicit_invocation: false

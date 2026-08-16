@@ -43,7 +43,7 @@ Note what's left of the day. Only state a number of hours if an end time is give
 Read:
 - **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
 - **Active projects:** list `{VAULT}/03 Projects/*.md` (root only — folder location is status) and read each doc's `## Current Objective` - what's meant to be priority? Read the full root doc when a project's detail is needed.
-- **Today's sessions:** `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
+- **Today's sessions:** `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
 - **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by /morning; if the day section is empty or missing, report "None set".
 
 ### 3. Present Current State
@@ -61,7 +61,7 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 - [x] [Completed items from timeline]
 - ▶ [Upcoming items still on timeline]
 
-**Done so far:** (from Claude sessions only — off-Claude work not visible here; may overlap with This Week.md)
+**Done so far:** (from parked agent sessions only — work outside agent sessions is not visible here; may overlap with This Week.md)
 - [x] Task 1
 - [x] Task 2
 
@@ -70,17 +70,17 @@ Display concisely. If This Week.md exists and is current, use today's day sectio
 - [Project] - [current status]
 ```
 
-If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through Claude today"; on a fresh vault with an empty `03 Projects/` root, drop the **Active projects** block.
+If no This Week.md or it's stale, skip that section and show the standard view. If today's session log is missing, show **Done so far:** as "Nothing logged through an agent today"; on a fresh vault with an empty `03 Projects/` root, drop the **Active projects** block.
 
 ### 4. Drift Check
 
-**Before calling drift — account for off-Claude work channels.** Claude's session log only captures work that ran through Claude. If the user has parallel work streams happening outside Claude (external AI tools, voice drills, paper notebooks, reading, phone calls, meetings, physical practice, time with other people), that work is invisible to the session log and to the vault. Calling drift based on absence from the session log produces false positives that waste the user's time and erode trust. Before interpreting a gap as drift:
+**Before calling drift — account for work outside parked agent sessions.** The session log only captures work that an agent has parked. If the user has parallel work streams happening elsewhere (other AI tools, voice drills, paper notebooks, reading, phone calls, meetings, physical practice, time with other people), that work is invisible to the session log and may be invisible to the vault. Calling drift based on absence from the session log produces false positives that waste the user's time and erode trust. Before interpreting a gap as drift:
 
-1. Check This Week.md (if current, not stale per Step 2) and the project docs for any task that plausibly happens off-Claude (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
+1. Check This Week.md (if current, not stale per Step 2) and the project docs for any task that plausibly happens outside agent sessions (anything labelled "rehearsal", "practice", "reading", "call", "meeting", "walk", "drill", "workout", "study", or that points at an external tool like ChatGPT, Anki, a paper notebook, etc.).
 2. If such a task exists and is time-boxed to today, do NOT assume its absence from the session log means it didn't happen. Ask, or present the state neutrally without a drift verdict.
-3. **Rule:** *Absence from Claude's session log is not absence from the day.* The right question is "what did the day look like?" not "what's in the log?"
+3. **Rule:** *Absence from the agent session log is not absence from the day.* The right question is "what did the day look like?" not "what's in the log?"
 
-Only after accounting for likely off-Claude work should you ask:
+Only after accounting for likely work outside agent sessions should you ask:
 
 > "How's the day going? On track, drifted, or intentionally pivoted?"
 
@@ -168,7 +168,7 @@ This command should trigger when the user says:
 
 ## Integration
 
-- **Reads from:** This Week.md, project docs, today's Claude Sessions
+- **Reads from:** This Week.md, project docs, today's agent session log
 - **May update:** This Week.md (mark done, add tasks), project docs (if priorities shifted)
 - **Complements:** `/morning` (start of day), `/goodnight` (end of day), `/park` (end of session)
 - **Not a replacement for:** `/park` (regroup doesn't close sessions, just recalibrates)

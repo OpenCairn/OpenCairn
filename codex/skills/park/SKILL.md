@@ -15,7 +15,7 @@ Capture a work session: proportional quality gate, session log, project-doc upda
 
 ### 0. Setup
 
-Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — `$setup` covers it). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="${CODEX_HOME:-$HOME/.codex}/skills/park/scripts/park-review.py"` and abort if it is absent.
+Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — the README Quick Start covers it). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="${CODEX_HOME:-$HOME/.codex}/skills/park/scripts/park-review.py"` and abort if it is absent.
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 
@@ -23,7 +23,7 @@ Derive and display today's session-log path mechanically:
 
 ```bash
 TODAY="$(date +%F)"
-SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
 printf 'Session log path: %s\n' "$SESSION_LOG"
@@ -111,7 +111,7 @@ Display the inventory with its classification. Do not full-read here; Step 4b mu
 
 ### Pickup Context
 **For next session:** [one immediately-actionable sentence]
-**Continues:** [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session X - Topic)   [only if continuing]
+**Continues:** [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session X - Topic)   [only if continuing]
 **Project:** [exact link from the metadata line]
 ```
 
@@ -119,7 +119,7 @@ Display the inventory with its classification. Do not full-read here; Step 4b mu
 
 ```bash
 TODAY="$(date +%F)"
-SESSION_DIR="{VAULT}/06 Archive/Claude/Session Logs"
+SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
 cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "TOPIC" "HH:MMam/pm"
@@ -165,7 +165,7 @@ Output: `✓ Quality check: S semantic files full-read; M mechanical files recei
 
 ### 5. Project doc update
 
-If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its `## Current Objective` / `## Next Actions` to match reality, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
+If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its `## Current Objective` / `## Next Actions` to match reality, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
 
 ### 6. Reference-graph propagation
 
@@ -181,7 +181,7 @@ Output: `✓ Reference graph: N files updated for [identifier]` (+ file list) or
 
 Route every open loop to exactly one canonical target — no per-item prompting:
 
-1. **Explicit future date** → Tickler: `"{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] text → [[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N - Topic)"`
+1. **Explicit future date** → Tickler: `"{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] text → [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N - Topic)"`
 2. **No date, actionable this week** → This Week.md day section (tomorrow's; today's if parking before noon) via `locked-edit.sh --replace` on the day section — never `--append`, which lands outside any section. Format: `- [ ] text → [[project/area doc]]`. Trigger-contingent loops ("next time X runs, check Y") are not day-bound — use rule 3, or the Tickler at +10 days if no project doc exists.
 3. **No date, has a project** → that project doc's `## Next Actions` (prefer existing `## Next Actions`, then `## Open Loops`; if neither, create `## Next Actions` above `## Session History` or at EOF — no improvised section names).
 4. **Undated, low-priority, no project home** → Whimsy: append a plain line (no checkbox) to `{VAULT}/04 Areas/Whimsy/_notes.md`. There is no undated catch-all task list.
@@ -281,7 +281,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 
 ```
 ✓ Quality check: N files, [no issues | M fixed]
-✓ Session N saved: 06 Archive/Claude/Session Logs/YYYY-MM-DD.md
+✓ Session N saved: 06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md
 ✓ At-risk work product: [none | persisted N]
 ✓ Project doc: [updated [[Name]] | no material change]
 ✓ Reference graph: [N files updated | No identifier values changed]

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Checkpoint"
+  short_description: "Capture the current work session"
+  default_prompt: "Use $checkpoint to capture and close out this work session."
+policy:
+  allow_implicit_invocation: false

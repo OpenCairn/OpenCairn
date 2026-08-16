@@ -1,0 +1,6 @@
+interface:
+  display_name: "Provenance"
+  short_description: "Create a cryptographic provenance trail"
+  default_prompt: "Use $provenance to create a cryptographic trail for this work."
+policy:
+  allow_implicit_invocation: false

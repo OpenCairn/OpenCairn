@@ -9,7 +9,7 @@ At the end of the run, **log observations — do not propose skill edits in-sess
   **Duplicate preflight:** before appending, search the whole monitor with `rg -n -i -F` for the observation's distinctive mechanism (target script/step plus the failing behaviour). Same mechanism and same evidence → do not append. An independent run that materially strengthens the evidence → append one concise recurrence bullet naming the prior date and only what the new run adds.
 
 ```bash
-{ printf '## %s — /<skill>\n' "$(date +%F)"; cat <<'EOF'
+{ printf '## %s — $<skill>\n' "$(date +%F)"; cat <<'EOF'
 - [gap observed]: [specific suggested edit]
 EOF
 } | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/Skill Monitor Log.md" --append

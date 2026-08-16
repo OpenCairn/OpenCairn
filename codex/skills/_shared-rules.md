@@ -94,7 +94,7 @@ EOF
 
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
-| `06 Archive/Claude/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
+| `06 Archive/OpenCairn/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
 | `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A single target file's atomic mutation | locked-edit.sh (planning edits and generated whole-file CAS), write-tickler.sh |
 | (retired 2026-06-12) `07 System/.provenance-lock` | — | AI Provenance Log writes now use `locked-edit.sh`'s canonical per-file lock, like every planning file (B9) |
 
@@ -138,7 +138,7 @@ Likely cause: **a prior invocation of the same script is still running and holds
 **Diagnostic — find the hung process, don't work around it:**
 ```bash
 # List processes holding the lock
-fuser "{VAULT}/06 Archive/Claude/Session Logs/.lock"
+fuser "{VAULT}/06 Archive/OpenCairn/Session Logs/.lock"
 # Inspect them
 ps -ef | grep -E "write-session|update-session-section|backfill-files|add-forward-link" | grep -v grep
 # Confirm they're blocked on stdin pipe (expect anon_pipe_read)
@@ -156,7 +156,7 @@ pkill -f update-session-section
 
 After killing, the lock releases and subsequent script invocations work normally.
 
-**Why Python+flock is only a partial fallback here.** The scripts lock a *separate* `.lock` sibling file (e.g. `06 Archive/Claude/Session Logs/.lock`), while Python+flock locks the *target* session log file directly. These are two different inodes, two different locks — they do not coordinate at all. Python "works" not because it's stronger than the shell `flock(1)` command (both use `flock(2)` under the hood), but because it's locking a different file entirely and therefore doesn't contend with the hung script. This means:
+**Why Python+flock is only a partial fallback here.** The scripts lock a *separate* `.lock` sibling file (e.g. `06 Archive/OpenCairn/Session Logs/.lock`), while Python+flock locks the *target* session log file directly. These are two different inodes, two different locks — they do not coordinate at all. Python "works" not because it's stronger than the shell `flock(1)` command (both use `flock(2)` under the hood), but because it's locking a different file entirely and therefore doesn't contend with the hung script. This means:
 
 - **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another agent session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
 - **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
@@ -299,13 +299,13 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
 - **The Grok seat is an API seat, not a CLI seat — it reads nothing.** `xai_client.py` posts to xAI's Responses API over stdlib `urllib`; it has no filesystem access, so the target must be passed with `--source` and is inlined into the prompt as a delimited appendix. Three consequences that the other two seats don't have:
   - **Manifest in place of a read-list.** The wrapper appends each source as `path | bytes | sha256` and instructs the seat to reproduce that manifest verbatim and quote what it relied on. That manifest is this seat's evidence standard — the attestation rule (**§23**) is satisfied by the manifest, not waived. §23 carries the enforcement test; note it requires manifest **and** quoted passages, so supplying only one fails.
   - **Size cap, fail-closed.** `MAX_INLINE_BYTES` (400 KB, ~100k tokens — kept under xAI's >200k-token tier where the per-token rate doubles). Over the cap the wrapper raises and the seat is **dropped with the reduced panel announced**; it never silently truncates, because a truncated appendix produces confident findings about text the seat never saw.
-  - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when `XAI_API_KEY` is set, 1 otherwise. Probe *before* despatch — an unset key must degrade to a three-seat panel up front, not fail mid-run. Note the key must be in the environment shell commands actually run in — Codex invokes `/bin/bash -lc`, which reads the profile, so profile-exported keys reach it; keys set only in another harness's env files do not.
+  - **Availability probe is `--probe`, not `--version`.** There is no binary: `xai_client.py --probe` exits 0 when it resolves `XAI_API_KEY`, 1 otherwise. Resolution checks the process environment first, then `~/.claude/settings.json` `env.XAI_API_KEY`; the fallback is the port boundary that lets Codex use Claude Code's existing credential without duplicating the secret into Codex config. Probe *before* despatch — an unavailable key must degrade to a reduced panel up front, not fail mid-run.
 
   The wrapper sets `store: false` (xAI otherwise retains responses server-side for 30 days) and never enables live search on a review call. `store: false` forecloses `previous_response_id` threading, which is why the Grok seat has no true resume — round 2 replays prior context. **xAI does not train on API inputs or outputs by default** — its API security FAQ states it "never trains on your API inputs or outputs without your explicit permission," so training is opt-in, not opt-out. The "improve the model" toggle is the *consumer* Grok control, not a developer-API setting; there is nothing to switch off. What does apply: API requests and responses are retained 30 days, encrypted at rest, for abuse auditing. `store: false` governs stateful threading, not that audit window. Zero Data Retention eliminates it but is team-level and disables the stateful Responses API, Files, Collections, Batch, and per-key logging — don't enable it for this.
 
 - **Seat tiering (harness-native seats).** Judgement and generation seats — anything whose errors propagate invisibly or whose output *is* the deliverable — run on the despatching session's model; do not downgrade them. Verification and mechanical seats — audits of work the session already did, bounded-failure checks whose misses are caught downstream — may pin to a strong-but-cheaper tier (under Codex: `-m <model>` / `-c model_reasoning_effort=...` on the despatch call). A pin is declared at the despatch site in the despatching skill, with its reason stated, and never sits below a frontier tier without an explicit per-skill justification. **A pin is a floor, not a discount:** it only reduces spend when the despatching session is running something more expensive, is a no-op when the parent is already at the pinned tier, and *raises* cost against a cheaper parent. Justify a pin by the capability the seat needs, not by an assumed saving. This tiering governs harness-native seats only; the CLI/API seats' models resolve per the bullet below.
 
-- **Seat model resolution (for currency checks).** Each seat resolves its model a different way, and the answer lives in config or a live probe, never in memory: the **harness-native seat** floats with the `model` key in `~/.codex/config.toml` (and the session's `-m` override) — a minimal `codex exec` call prints `model:` in its preamble to confirm; seats pinned under the seat-tiering rule above declare their pin at the despatch site — resolve pins by grepping the skill files; the **Gemini seat** reads `model.name` in `~/.gemini/settings.json`; the **Claude seat** (when despatched via `claude -p`) resolves per that CLI's own config and default — probe live rather than assuming, and record the CLI version, since an unpinned seat is only as current as its last CLI update; the **Grok seat**'s models are the constants at the top of `xai_client.py`, checked against the provider's models endpoint (`GET https://api.x.ai/v1/models`, `XAI_API_KEY` in the shell environment). Consumed by `$quarterly-hygiene`'s model-currency step; update here, not there, when a CLI moves its config.
+- **Seat model resolution (for currency checks).** Each seat resolves its model a different way, and the answer lives in config or a live probe, never in memory: the **harness-native seat** floats with the `model` key in `~/.codex/config.toml` (and the session's `-m` override) — a minimal `codex exec` call prints `model:` in its preamble to confirm; seats pinned under the seat-tiering rule above declare their pin at the despatch site — resolve pins by grepping the skill files; the **Gemini seat** reads `model.name` in `~/.gemini/settings.json`; the **Claude seat** (when despatched via `claude -p`) resolves per that CLI's own config and default — probe live rather than assuming, and record the CLI version, since an unpinned seat is only as current as its last CLI update; the **Grok seat**'s models are the constants at the top of `xai_client.py`, checked against the provider's models endpoint (`GET https://api.x.ai/v1/models`, using the key resolved by the client). Consumed by `$quarterly-hygiene`'s model-currency step; update here, not there, when a CLI moves its config.
 
 ---
 
@@ -363,10 +363,10 @@ The rule above says cite by heading rather than line number. **Session logs are 
 Link the **file** and name the session in plain text after it:
 
 ```
-[[06 Archive/Claude/Session Logs/YYYY-MM-DD]] (Session N)
+[[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N)
 ```
 
-Applies to every session-log reference a skill writes — continuation links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/Claude/Session Logs/` prefix, which is unchanged, and the plain-text session number carries what `$pickup` reads.
+Applies to every session-log reference a skill writes — continuation links, project-hub Session History rows, completed-item backlinks, Tickler routing links — and to session-log links written into vault docs outside a skill. Consumers key on the `[[06 Archive/OpenCairn/Session Logs/` prefix, and the plain-text session number carries what `$pickup` reads.
 
 Heading anchors remain correct for **stable** docs (project hubs, guides, reference notes) where the heading is hand-written and durable.
 

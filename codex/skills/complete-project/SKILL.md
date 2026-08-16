@@ -1,7 +1,6 @@
 ---
 name: complete-project
 description: Explicitly complete a project and route artefacts - prevents zombie projects lingering in the 03 Projects root
-allow_implicit_invocation: false
 ---
 
 # Complete Project - Formal Project Completion
@@ -65,7 +64,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 
    Shell `mv` moves the bytes but leaves every inbound link dangling. This matters most for the **project file**: per `_shared-rules.md` §3, items link to projects with *path-based* references (`→ [[03 Projects/Project Name]]`), so the instant the file leaves the root a raw `mv` breaks every one of them across This Week.md, Tickler, day sections, and other project files. `obsidian move` rewrites those references for you. (Requires the Obsidian app running — the Step 2 `vault info=name` probe. A probe that passed does not guarantee every later call succeeds, for the reasons in `_shared-rules.md` §24; verify each move by result. A probe that failed means every move here is deferred to the user per Step 2 — completion still proceeds.)
 
-   **Batches are fine, but drive the CLI per `_shared-rules.md` §24** — the single source of truth for this CLI (the `</dev/null`, the settle delay, verify-by-result rather than exit code, and why raw `mv` is never an alternative for link-bearing files). `$quarterly-hygiene` Step 6 has the worked batch loop.
+   **Batches are fine, but drive the CLI per `_shared-rules.md` §24** — the single source of truth for this CLI (the `</dev/null`, the settle delay, verify-by-result rather than exit code, and why raw `mv` is never an alternative for link-bearing files). The Claude-side quarterly-hygiene command's Step 6 has the worked batch loop.
 
    **Step 4a — Route artefacts:**
    - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself — explicitly including `05 Resources/[Project Name]/` (created by `$start-project` Step 7) and anything linked from the project file's `## Resources` section, not just folders under `03 Projects/`

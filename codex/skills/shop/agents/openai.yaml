@@ -1,0 +1,6 @@
+interface:
+  display_name: "Shop"
+  short_description: "Research and decide what to purchase"
+  default_prompt: "Use $shop to clarify what I need and recommend what to buy."
+policy:
+  allow_implicit_invocation: false

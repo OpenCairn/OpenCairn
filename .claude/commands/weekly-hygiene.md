@@ -110,12 +110,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      ```bash
      # Self-contained block: shell vars don't survive between tool calls, so derive and use in one go.
      # Window = since the LAST hygiene run, by the log's OWN date (its filename). Never -mtime. See notes below.
-     REPORTS="{VAULT}/06 Archive/Claude/Hygiene Reports"
+     REPORTS="{VAULT}/06 Archive/OpenCairn/Hygiene Reports"
      LAST=$(ls -1 "$REPORTS"/*.md 2>/dev/null | sort | tail -1)     # sort by NAME (ISO week sorts correctly), not -t
      CUTOFF=$(grep -m1 '^\*\*Generated:\*\*' "$LAST" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
      [ -z "$CUTOFF" ] && CUTOFF=$(date -d '7 days ago' +%Y-%m-%d)   # BSD/macOS: date -v-7d +%Y-%m-%d
      echo "CRM scan window: sessions dated ${CUTOFF}..today | source: ${LAST:-none — 7-day fallback}"
-     find "{VAULT}/06 Archive/Claude/Session Logs/" -name '[0-9]*-[0-9]*-[0-9]*.md' \
+     find "{VAULT}/06 Archive/OpenCairn/Session Logs/" -name '[0-9]*-[0-9]*-[0-9]*.md' \
        | awk -v c="$CUTOFF" -F/ '{d=$NF; sub(/\.md$/,"",d); if (d >= c) print}' \
        | awk -F/ '!seen[$NF]++' \
        | tr '\n' '\0' | xargs -0 cat \
@@ -242,7 +242,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    The script:
    - Finds JSONL session files modified in the last 7 days across **all** project directories under `~/.claude/projects/` (via `--all-projects`) — so the weekly backstop covers sessions launched from any directory, not just the vault-launched project
    - Extracts user messages, assistant text blocks, and Write/Edit/Agent tool inputs
-   - Writes one file per day to `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
+   - Writes one file per day to `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
    - Overwrites existing files for the same date (idempotent)
 
    Report the script's stdout summary in the hygiene report.
@@ -453,8 +453,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    If any flag files exist (these are sessions where `/provenance` was invoked but `/goodnight` didn't process them — missed goodnight, crashed session, etc.):
    - Read each flag to get the tag and work product list
    - Hash any work products not already hashed
-   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
-   - Hash the session log for that date: `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`
+   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
+   - Hash the session log for that date: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
    - OTS stamp all newly hashed files
    - Append entries to `07 System/AI Provenance Log.md`
    - Delete the processed flag file
@@ -464,8 +464,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    Read `{VAULT}/07 System/AI Provenance Log.md`. For each entry:
 
    **Resolve file path** from the File column:
-   - `*-transcript.md` → `{VAULT}/06 Archive/Claude/.Session Transcripts/YYYY-MM-DD.md`
-   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by `/quarterly-hygiene` — the `YYYY` is the date's year)
+   - `*-transcript.md` → `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
+   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by `/quarterly-hygiene` — the `YYYY` is the date's year)
    - Paths containing `/` → `{VAULT}/relative/path`. **Self-heal on move:** if that literal path is absent (the file was moved/renamed since logging — e.g. a folder dot-prefixed), fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -type f -print -quit` (note: do NOT exclude `06 Archive/` here — relocated transcripts live there) and accept the hit **only if** its content hash matches the logged hash. A hash match confirms it's the same file at a new location → use it for verification and update the log's path to the found location. No hit, or a hit whose hash differs → record MISSING (never repoint to a non-matching file), **then run the snapshot fallback below before reporting the row** — MISSING is precisely the case where the live file is unresolvable *and* the attested bytes may still be sitting in `.Provenance`. This keeps the verify pass robust to moves without depending on `/park` having caught every path reference.
    - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
 
@@ -558,7 +558,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 16. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
-   Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/Claude/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md`:
+   Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/OpenCairn/Hygiene Reports"` — prevents first-run failures), then write all findings to `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md`:
 
    **⛔ Cite report/flag items by stable identifier, not line number** — see `_shared-rules.md` §13. Acute here: step 7's completed-`[x]` purge mutates This Week.md *within this same run*, so any `This Week.md Lnn` written into the report or a routed `⚠ Hygiene Wnn:` flag afterward is stale on write. Name items by title/heading/content.
 
@@ -694,7 +694,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
     - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — appended under `## Next Actions` (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
     - **Tier 2 items the user declined to engage with** (the disengage-routing rule) — two destinations:
-      - **Project/area doc identifiable:** append `- [ ] [Description] → [[06 Archive/Claude/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under the doc's `## Next Actions` via `locked-edit.sh`.
+      - **Project/area doc identifiable:** append `- [ ] [Description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under the doc's `## Next Actions` via `locked-edit.sh`.
       - **No doc identifiable:** write a Tickler entry dated 7 days out via `write-tickler.sh`, same line format.
       Findings never go to the Whimsy sink and are never silently dropped.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent.
@@ -704,7 +704,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 18. **Display confirmation:**
 
     ```
-    ✓ Hygiene report saved to: 06 Archive/Claude/Hygiene Reports/YYYY-Wnn.md
+    ✓ Hygiene report saved to: 06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md
     ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, internal file cleanup)
     ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
     ✓ Routed to SSOT: M (N to project docs, M to files, P to Tickler)

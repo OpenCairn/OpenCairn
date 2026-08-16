@@ -1,0 +1,6 @@
+interface:
+  display_name: "Research Assistant"
+  short_description: "Search the vault before external research"
+  default_prompt: "Use $research-assistant to search the vault before researching externally."
+policy:
+  allow_implicit_invocation: false

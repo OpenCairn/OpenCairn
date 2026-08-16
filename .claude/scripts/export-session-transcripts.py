@@ -13,10 +13,11 @@ per-project scoping of the Claude source. Codex `spawn_agent` payloads are
 encrypted at rest in the rollout — only the task name is exportable.
 
 Usage:
-    export-session-transcripts.py <vault_path> [--days N]
+    export-session-transcripts.py <vault_path> [--days N] [--all-projects]
 
 Options:
-    --days N    Export sessions modified in the last N days (default: 7)
+    --days N       Export sessions modified in the last N days (default: 7)
+    --all-projects Export every Claude Code project and Codex rollout
 """
 
 import hashlib
@@ -49,7 +50,7 @@ def find_session_dir(allow_fallback=False):
     # Fallback is OFF by default: returning an arbitrary project's transcripts here
     # silently exports the WRONG project, which /goodnight then hashes as provenance.
     # Only an explicit --fallback-any-project opts into that risk.
-    if allow_fallback:
+    if allow_fallback and claude_dir.is_dir():
         for d in sorted(claude_dir.iterdir()):
             if d.is_dir() and list(d.glob("*.jsonl")):
                 return d, encoded
@@ -59,6 +60,8 @@ def find_session_dir(allow_fallback=False):
 def all_session_dirs():
     """Every project dir containing JSONL — for the cross-project backstop sweep."""
     claude_dir = Path.home() / ".claude" / "projects"
+    if not claude_dir.is_dir():
+        return []
     return [d for d in sorted(claude_dir.iterdir()) if d.is_dir() and list(d.glob("*.jsonl"))]
 
 
@@ -405,22 +408,31 @@ def main():
 
     all_projects = "--all-projects" in sys.argv
     allow_fallback = "--fallback-any-project" in sys.argv
+    codex_files = codex_session_files()
 
     if all_projects:
         scan_dirs = all_session_dirs()
-        if not scan_dirs:
-            print("Error: no project directories with JSONL under ~/.claude/projects/", file=sys.stderr)
+        if not scan_dirs and not codex_files:
+            print("Error: no session JSONL under ~/.claude/projects/ or ~/.codex/sessions/", file=sys.stderr)
             sys.exit(1)
-        print(f"Session directories: {len(scan_dirs)} project(s) (--all-projects sweep)")
+        print(
+            f"Session sources: {len(scan_dirs)} Claude project(s), "
+            f"{len(codex_files)} Codex rollout(s) (--all-projects sweep)"
+        )
     else:
         session_dir, encoded = find_session_dir(allow_fallback=allow_fallback)
         if not session_dir:
-            print(f"Error: no session directory for this cwd. Expected ~/.claude/projects/{encoded}", file=sys.stderr)
-            print("  cwd may have drifted, or this project has no sessions. Re-run from the session's", file=sys.stderr)
-            print("  launch directory, or pass --all-projects (backstop) / --fallback-any-project (may be wrong).", file=sys.stderr)
-            sys.exit(1)
-        print(f"Session directory: {session_dir}")  # attestation — confirm this is the expected project
-        scan_dirs = [session_dir]
+            has_scoped_codex = any(codex_meta(path)[1] == os.getcwd() for path in codex_files)
+            if not has_scoped_codex:
+                print(f"Error: no session source for this cwd. Expected ~/.claude/projects/{encoded}", file=sys.stderr)
+                print("  cwd may have drifted, or this project has no sessions. Re-run from the session's", file=sys.stderr)
+                print("  launch directory, or pass --all-projects (backstop) / --fallback-any-project (may be wrong).", file=sys.stderr)
+                sys.exit(1)
+            print(f"Session source: Codex rollouts for {os.getcwd()}")
+            scan_dirs = []
+        else:
+            print(f"Session directory: {session_dir}")  # attestation — confirm this is the expected project
+            scan_dirs = [session_dir]
 
     # Dot-prefixed so Obsidian's metadata indexer ignores this tree: verbatim
     # transcripts are the bulk of vault markdown and a full-vault cold index of
@@ -428,7 +440,7 @@ def main():
     # stay on disk (still synced, provenance-hashable), just unindexed. Whether
     # they are also version-controlled is a per-vault .gitignore decision — do not
     # assume git is available as a recovery path; the merge below is the guarantee.
-    output_dir = vault_path / "06 Archive" / "Claude" / ".Session Transcripts"
+    output_dir = vault_path / "06 Archive" / "OpenCairn" / ".Session Transcripts"
 
     cutoff = datetime.now() - timedelta(days=days)
     cutoff_ts = cutoff.timestamp()
@@ -476,7 +488,7 @@ def main():
     # Codex CLI rollouts — same mtime window; cwd-scoped unless --all-projects,
     # mirroring the Claude source's per-project scoping.
     codex_exported = 0
-    for jsonl_path in codex_session_files():
+    for jsonl_path in codex_files:
         if jsonl_path.stat().st_mtime < cutoff_ts:
             continue
         sid, sess_cwd = codex_meta(jsonl_path)

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Longpoles"
+  short_description: "Surface critical-path tasks across the vault"
+  default_prompt: "Use $longpoles to surface critical-path tasks in the vault."
+policy:
+  allow_implicit_invocation: false

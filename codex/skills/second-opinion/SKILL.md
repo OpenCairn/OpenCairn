@@ -1,7 +1,6 @@
 ---
 name: second-opinion
 description: Get an independent second opinion on work or decisions — either by running a fresh cross-model panel in parallel, or by bringing the same reviewers back for iterative deepening
-allow_implicit_invocation: false
 ---
 
 # Second Opinion - Parallel Panel and Iterative Review
@@ -55,6 +54,12 @@ Get a second opinion on a piece of work — code, writing, an audit pass, a plan
 3. **Check the target fits.** If it's too large to fit in a reviewer's context window (a multi-file system, a whole repo, an entire knowledge base), scope it in the brief: name the files or sections to focus on, or ask the user to narrow scope. A run that silently skips half the target is worse than a scoped one that's honest about its boundaries.
 
 4. **Write a self-contained brief** that each reviewer can read. For Mode A they read it cold; for Mode B they read it on top of their existing context. Include:
+   - **Reviewer-seat execution boundary** — begin the brief with this exact block. It is a role boundary, not supplementary context:
+     ```markdown
+     ## Reviewer-seat execution boundary
+
+     You are one leaf reviewer inside an already-running review panel. Execute this brief directly and return the requested review. Do not activate or follow any audit, second-opinion, reviewer, or orchestration skill as a workflow; if one is itself in scope, inspect it only as target material. Do not dispatch another reviewer or create another panel. Do not edit files.
+     ```
    - What the work product is and where it lives (absolute path if local).
    - What context matters: audience, publication target, constraints, dependencies, the author's situation.
    - **Out-of-band evidence** — every source the work product's claims rest on that the reviewer cannot reach from the work itself, embedded verbatim under an established-fact heading, per **`_shared-rules.md` §16** (the single source of truth; no copy here, to avoid drift).
@@ -80,7 +85,7 @@ Write the brief once and save it to a scratch file with a unique name — e.g. `
 
 ### Phase 2A: Launch a fresh panel (Mode A)
 
-**Before launching: confirm the reviewers are available** — run `claude --version`, `gemini --version`, `codex --version`, and `"{VAULT}/.claude/scripts/xai_client.py" --probe` in the shell. If a CLI errors out, it isn't installed; drop it and note the reduced panel per step 4. The Grok probe has no binary to version-check — it exits 0 when `XAI_API_KEY` is set, 1 otherwise; run it *before* despatch so an unset key degrades the panel up front rather than failing mid-run. If Gemini's version is older than 0.40 (no Policy Engine), use the write-capable fallback invocation in step 2 — but note that path has **no read-only enforcement** (the step-6 integrity guard is the *only* protection), so prefer upgrading to gemini ≥ 0.40 and treat findings from a 0.33–0.39 Gemini as lower-assurance.
+**Before launching: confirm the reviewers are available** — run `claude --version`, `gemini --version`, `codex --version`, and `"{VAULT}/.claude/scripts/xai_client.py" --probe` in the shell. If a CLI errors out, it isn't installed; drop it and note the reduced panel per step 4. The Grok probe has no binary to version-check — it exits 0 when the client resolves `XAI_API_KEY` from the process environment or `~/.claude/settings.json`, 1 otherwise; run it *before* despatch so an unavailable key degrades the panel up front rather than failing mid-run. If Gemini's version is older than 0.40 (no Policy Engine), use the write-capable fallback invocation in step 2 — but note that path has **no read-only enforcement** (the step-6 integrity guard is the *only* protection), so prefer upgrading to gemini ≥ 0.40 and treat findings from a 0.33–0.39 Gemini as lower-assurance.
 
 Send the brief to all reviewers concurrently (parallel shell calls where the harness supports them; otherwise back-to-back despatches in one turn):
 

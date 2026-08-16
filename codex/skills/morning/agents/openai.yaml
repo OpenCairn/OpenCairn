@@ -1,0 +1,6 @@
+interface:
+  display_name: "Morning"
+  short_description: "Start the day with an adaptive check-in"
+  default_prompt: "Use $morning to run my adaptive morning check-in."
+policy:
+  allow_implicit_invocation: false

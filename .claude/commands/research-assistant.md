@@ -44,9 +44,9 @@ Use this search strategy:
 - Search for both technical terms and natural language
 
 **c) Check session summaries and reflections:**
-- `{VAULT}/06 Archive/Claude/Session Logs/` - Have we discussed this before?
+- `{VAULT}/06 Archive/OpenCairn/Session Logs/` - Have we discussed this before?
 - `{VAULT}/06 Archive/Daily Reviews/` - User-authored daily reflections (if present)
-- `{VAULT}/06 Archive/Claude/Daily Reports/` - Machine-generated day indexes; useful as pointers to sessions, not as user insight
+- `{VAULT}/06 Archive/OpenCairn/Daily Reports/` - Machine-generated day indexes; useful as pointers to sessions, not as user insight
 
 **d) Explore connected notes:**
 - Follow links from relevant notes

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Shutdown"
+  short_description: "Close the day and route unfinished work"
+  default_prompt: "Use $shutdown to close out today and route unfinished work."
+policy:
+  allow_implicit_invocation: false

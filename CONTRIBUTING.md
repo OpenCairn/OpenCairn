@@ -15,13 +15,13 @@ Template repo (~/repos/OpenCairn/)
                  GitHub
 ```
 
-`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts. Codex skills sync through the same run via their own lane. The repository's generic `codex/AGENTS.md` is an install bootstrap, not a reverse-sync source; a live `~/.codex/AGENTS.md` may contain private local instructions and must never be propagated into the repository.
+`~/.claude/commands/` and `~/.claude/scripts/` contain **copies** (not symlinks) of the template files. `/sync-template` classifies each file as identical, diverged, template-only, or personal-only, and syncs per file with user confirmation for conflicts. Codex skill directories — including nested resources such as `agents/openai.yaml` — sync through the same run via their own lane. The repository's generic `codex/AGENTS.md` is an install bootstrap, not a reverse-sync source; a live `~/.codex/AGENTS.md` may contain private local instructions and must never be propagated into the repository.
 
 The two trees are deliberately asymmetric: `.claude/` is a **live load path** — Claude Code reads `.claude/commands/` and executes `.claude/scripts/` in place when the repo is cloned as a vault, and the plugin manifest points at it — whereas `codex/` is a **distribution tree** that users copy out to `~/.codex/` (Codex CLI has no per-project skills convention). Don't rename `.claude/` for symmetry; the path is load-bearing.
 
 ### Edit → Test → Sync → Push
 
-1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth); edit Codex skills in `~/repos/OpenCairn/codex/skills/`
+1. **Edit** commands in `~/repos/OpenCairn/.claude/commands/` (the template repo is the source of truth); edit Codex skills and their metadata/resources in `~/repos/OpenCairn/codex/skills/`
 2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` and `~/.codex/skills/` for testing; review generic `codex/AGENTS.md` changes manually
 3. `/sync-template` handles the personal info check, commit, and push
 
@@ -64,7 +64,8 @@ Before pushing, verify no personal information has leaked into the template:
 ```bash
 cd ~/repos/OpenCairn
 grep -rE -i "your_name|your_home_path|your_personal_details" \
-  --include="*.md" --include="*.sh" --include="*.py" --include="*.json" | grep -v ".git/"
+  --include="*.md" --include="*.sh" --include="*.py" --include="*.json" \
+  --include="*.yaml" --include="*.yml" --include="*.toml" | grep -v ".git/"
 # Should return nothing
 ```
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Awaken"
+  short_description: "Restore context after an extended break"
+  default_prompt: "Use $awaken to restore context after an extended break."
+policy:
+  allow_implicit_invocation: false
