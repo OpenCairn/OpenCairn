@@ -321,6 +321,73 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         new.rmdir()
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "pending-verification")
 
+    def test_structurally_invalid_journals_fail_closed(self):
+        (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
+        journal_path = self.vault / "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
+        journal_path.parent.mkdir(parents=True)
+        cases = {
+            "phase only": {"phase": "complete"},
+            "wrong schema": {
+                "schema": 2,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": [],
+                "immutable_sha256": {},
+            },
+            "wrong migration": {
+                "schema": 1,
+                "migration": "different-migration",
+                "phase": "complete",
+                "source_members": [],
+                "immutable_sha256": {},
+            },
+            "bad member inventory": {
+                "schema": 1,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": "not-a-list",
+                "immutable_sha256": {},
+            },
+            "bad immutable hashes": {
+                "schema": 1,
+                "migration": "archive-namespace-opencairn-v1",
+                "phase": "complete",
+                "source_members": [],
+                "immutable_sha256": {"example.md": "not-a-hash"},
+            },
+        }
+        for label, journal in cases.items():
+            with self.subTest(label=label):
+                journal_path.write_text(json.dumps(journal) + "\n")
+                state = self.check_state()
+                self.assertEqual(state["ARCHIVE_LAYOUT"], "indeterminate")
+                self.assertEqual(state["MIGRATION_JOURNAL_PHASE"], "invalid")
+                enforce = subprocess.run(
+                    [str(CHECK), "--enforce", str(self.vault)],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(enforce.returncode, 24)
+                verify = subprocess.run(
+                    [str(MIGRATE), "verify", str(self.vault)],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertNotEqual(verify.returncode, 0)
+
+    def test_finish_requires_a_valid_journal(self):
+        (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
+        result = subprocess.run(
+            [str(MIGRATE), "finish", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires a valid migration journal", result.stderr)
+
     def test_symlink_alias_is_never_treated_as_split_members(self):
         new = self.vault / "06 Archive/OpenCairn"
         new.mkdir(parents=True)

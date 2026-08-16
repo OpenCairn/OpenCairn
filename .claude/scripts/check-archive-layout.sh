@@ -27,6 +27,7 @@ OLD_DIR="$VAULT/06 Archive/Claude"
 NEW_DIR="$VAULT/06 Archive/OpenCairn"
 OLD_LOCATOR='06 Archive/Claude/'
 JOURNAL="$VAULT/07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
+MIGRATION_HELPER="$(dirname "$0")/archive-namespace-migration.py"
 
 legacy_files() {
     local roots=()
@@ -103,17 +104,7 @@ fi
 JOURNAL_PHASE="absent"
 if [[ -f "$JOURNAL" ]]; then
     set +e
-    JOURNAL_PHASE=$(python3 - "$JOURNAL" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    phase = json.load(handle).get("phase")
-if not isinstance(phase, str) or not phase:
-    raise SystemExit(2)
-print(phase)
-PY
-    )
+    JOURNAL_PHASE=$("$MIGRATION_HELPER" journal-phase "$VAULT")
     journal_rc=$?
     set -e
     if [[ $journal_rc -ne 0 ]]; then
