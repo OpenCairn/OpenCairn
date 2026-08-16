@@ -22,6 +22,51 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_accepts_only_exact_path_scoped_inherited_lint(self) -> None:
+        first = "/vault/history one.md"
+        second = "/vault/history two.md"
+        output = (
+            f"FAIL lint: {first} 12: 3+ blank lines; "
+            f"{second} joined-list: 8: prose- [ ] item; \n"
+            "RESULT: FAIL (1 fail, 0 review)\n"
+        )
+
+        accepted, paths = park_review.accepted_inherited_lint(
+            output, [first, second]
+        )
+
+        self.assertTrue(accepted)
+        self.assertEqual(paths, [first, second])
+
+    def test_rejects_inherited_lint_acceptance_when_any_other_issue_exists(self) -> None:
+        path = "/vault/history.md"
+        cases = [
+            (
+                f"FAIL lint: {path} 12: 3+ blank lines; \n"
+                "FAIL separator: leaked token\n"
+                "RESULT: FAIL (2 fail, 0 review)\n"
+            ),
+            (
+                f"FAIL lint: {path} 12: 3+ blank lines; \n"
+                "REVIEW closure: still open\n"
+                "RESULT: FAIL (1 fail, 1 review)\n"
+            ),
+            (
+                f"FAIL lint: {path} 12: 3+ blank lines; \n"
+                "RESULT: FAIL (1 fail, 0 review)\n"
+            ),
+        ]
+
+        self.assertFalse(
+            park_review.accepted_inherited_lint(cases[0], [path])[0]
+        )
+        self.assertFalse(
+            park_review.accepted_inherited_lint(cases[1], [path])[0]
+        )
+        self.assertFalse(
+            park_review.accepted_inherited_lint(cases[2], ["/vault/other.md"])[0]
+        )
+
     def test_byte_identical_full_reads_share_one_read_group(self) -> None:
         digest = "a" * 64
         files = [

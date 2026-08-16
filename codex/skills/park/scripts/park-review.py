@@ -503,6 +503,35 @@ def cmd_capture(args: argparse.Namespace) -> int:
     return 0
 
 
+def accepted_inherited_lint(
+    output: str, accepted_paths: list[str]
+) -> tuple[bool, list[str]]:
+    """Validate the one park-verifier failure class the skill permits accepting."""
+    if not accepted_paths:
+        return False, []
+    fail_lines = [line for line in output.splitlines() if line.startswith("FAIL ")]
+    review_lines = [line for line in output.splitlines() if line.startswith("REVIEW ")]
+    result_lines = [line for line in output.splitlines() if line.startswith("RESULT: ")]
+    if (
+        len(fail_lines) != 1
+        or not fail_lines[0].startswith("FAIL lint: ")
+        or review_lines
+        or result_lines != ["RESULT: FAIL (1 fail, 0 review)"]
+    ):
+        return False, []
+
+    payload = fail_lines[0].removeprefix("FAIL lint: ")
+    lint_paths = re.findall(
+        r"(?:^|; )(/.*?)(?= joined-list: | \d+: 3\+ blank lines(?:;|$))",
+        payload,
+    )
+    allowed = {str(Path(path).expanduser().resolve()) for path in accepted_paths}
+    found = {str(Path(path).resolve()) for path in lint_paths}
+    if not found or found != allowed:
+        return False, sorted(found)
+    return True, sorted(found)
+
+
 def cmd_run_verifier(args: argparse.Namespace) -> int:
     _, root, _, _ = state_paths(args.session_id)
     command = args.command
@@ -518,6 +547,20 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
     combined = completed.stdout
     if completed.stderr:
         combined += "\n[stderr]\n" + completed.stderr
+    effective_returncode = completed.returncode
+    accepted_paths: list[str] = []
+    if completed.returncode and args.accept_inherited_lint:
+        accepted, accepted_paths = accepted_inherited_lint(
+            combined, args.accept_inherited_lint
+        )
+        if accepted:
+            effective_returncode = 0
+            note = (
+                "ACCEPTED inherited lint only in explicitly named path(s): "
+                + "; ".join(accepted_paths)
+            )
+            print(note)
+            combined += "\n" + note + "\n"
     path = capture_record(
         root,
         kind="verifier",
@@ -525,10 +568,10 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
         text=combined,
         source=" ".join(command),
         provenance="primary",
-        returncode=completed.returncode,
+        returncode=effective_returncode,
     )
     print(f"Verifier receipt: {path}", file=sys.stderr)
-    return completed.returncode
+    return effective_returncode
 
 
 def extract_session_text(text: str, number: int, source: Path) -> tuple[str, dict[str, str]]:
@@ -1421,6 +1464,16 @@ def build_parser() -> argparse.ArgumentParser:
         "run-verifier", help="run and capture park-verify without losing its exit status"
     )
     run_verifier.add_argument("--label", default="park-verify")
+    run_verifier.add_argument(
+        "--accept-inherited-lint",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help=(
+            "accept a verifier exit 1 only when its sole failure is inherited lint "
+            "in exactly the named path(s); repeat for each path"
+        ),
+    )
     run_verifier.add_argument("command", nargs=argparse.REMAINDER)
     run_verifier.set_defaults(func=cmd_run_verifier)
 

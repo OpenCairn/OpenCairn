@@ -227,6 +227,8 @@ It checks the deterministic layer: session numbering, required sections, Project
 
 **One accepted-FAIL class:** a lint hit in a file the session only *moved* or appended to, inside content it never wrote. A relocation inherits every blank-line run in the file it carried, and "fixing" those means reformatting the user's own notes — which a standing instruction forbids. Say so and move on; do not edit the file to clear the gate. Anything the session actually wrote is not in this class.
 
+When this is the verifier's **only** failure, rerun through `run-verifier` with one `--accept-inherited-lint "<path>"` before `--` for every affected file. The wrapper accepts only an exact path-set match, exactly one `FAIL lint`, zero `REVIEW` lines, and `RESULT: FAIL (1 fail, 0 review)`; any additional or differently scoped issue remains a failing receipt. Use this only for inherited content covered by the class above, never for lint the session introduced.
+
 Output: the script's `RESULT:` line plus what you fixed.
 
 ### 9. Bounded delta-aware audit (fresh read-only sub-agent — standing authorisation)
