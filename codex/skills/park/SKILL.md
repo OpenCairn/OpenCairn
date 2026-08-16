@@ -1,14 +1,13 @@
 ---
 name: park
 description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, and a bounded close-out review.
-allow_implicit_invocation: false
 ---
 
 # Park - Session Capture
 
-Capture a work session: quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, and a bounded close-out review. Every session gets the full bookkeeping pass and one fresh close-out review.
+Capture a work session: proportional quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, and a bounded close-out review. Every session gets the full bookkeeping pass and one fresh close-out review.
 
-**The propagation agent is despatched at Step 4b and collected at Step 8** — it runs in the background across Steps 4, 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 5 and 7 also write. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction. The saving is bounded by however long Steps 4, 5 and 7 actually take; it does not remove the agent's runtime, it hides as much of it as those steps cover.
+**The propagation agent is despatched at Step 4b and collected at Step 8** — after park-time moves are known, but before the main quality pass. It runs in the background across Step 4c and Steps 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 4c, 5 and 7 may also touch. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction.
 
 **Concurrent parks are safe.** All shared-file writes go through the locking scripts (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`, `write-tickler.sh` — `_shared-rules.md` §5; exit 2/3 = a parallel writer changed the region: re-read and recompute, don't loop-retry; lock timeouts are §5 Failure mode B — kill the hung script, never fall back to a raw write). After each `locked-edit.sh` call, grep the target for the full padded separator line `========OPENCAIRN-LOCKED-EDIT-SEP========`, not the bare fragment, which also matches any doc discussing the token (§5). `$goodnight` uses the same machinery; parking before goodnight keeps its daily report coherent.
 
@@ -16,7 +15,7 @@ Capture a work session: quality gate, session log, project-doc update, reference
 
 ### 0. Setup
 
-Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — `$setup` covers it). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path.
+Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — `$setup` covers it). Read `~/.codex/skills/_shared-rules.md` and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="${CODEX_HOME:-$HOME/.codex}/skills/park/scripts/park-review.py"` and abort if it is absent.
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 
@@ -44,11 +43,25 @@ Compare the draft's `SNAPSHOT-LEDGER-LINES: K` against `LEDGER NOW`. **An equal 
 
 Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses, and Steps 2, 4–5 and 8–11 run in full regardless — they verify current state, which no snapshot can stand in for.
 
+**Evidence receipts.** When relevant pre-state or out-of-band evidence is handled during park, capture the load-bearing excerpt immediately instead of reconstructing it at Step 9:
+
+```bash
+python3 "$PARK_REVIEW" capture --kind prestate --label "<what this establishes>" --source "<path/tool>" <<'EOF'
+<excerpt>
+EOF
+
+python3 "$PARK_REVIEW" capture --kind evidence --label "<source name>" --source "<URL/path/message>" --provenance primary <<'EOF'
+<excerpt>
+EOF
+```
+
+Use `secondary` or `unverified` where §16 requires it. One receipt per distinct source; update by adding a later receipt for the same `--source`. If the working session predates these receipts, do §16's source-union sweep once now and capture only the load-bearing excerpts. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript.
+
 ### 1. Merge-continuation check
 
 If this session directly continues a just-parked session (a `$pickup` loaded it and the work finishes its loose end), don't create a new entry — update the existing one via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), then run Steps 2 and 4–11 against the merged session's N. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
 
-### 2. Quality gate
+### 2. Inventory and change classification
 
 (a) **Enumerate every file the session created or edited** — vault and non-vault. Recall reliably under-reports the non-vault half (early config edits, tooling side-effects, hook-written files), so derive it mechanically:
 
@@ -59,15 +72,17 @@ If this session directly continues a just-parked session (a `$pickup` loaded it 
 
 The ledger is exact where it reaches — it records the session id at write time, so §20 attribution comes free rather than being inferred — but under this harness no write-hook exists: `locked-edit.sh`'s self-ledger is the only recorder, so only edits made through it have rows. The mtime sweep stays as the backstop for everything else: raw writes, shell redirection, scripts. Two distinct failure observables, both meaning "fall back to park-files.sh alone and say so": `NOTE: no ledger` (no locked-edit write has landed yet), and `ERROR: no session id` (no harness session id resolvable — see lib-session.sh) with **exit 1** — that exit 1 is expected here and is not the invocation error Step 3 warns about. A sub-agent's writes ledger under **this** session's id only when its brief carries the `env OPENCAIRN_SESSION_ID=<this session's id>` prefix on every `locked-edit.sh` call (mandatory in every despatch block below — a sub-agent otherwise gets its own thread id and its edits land in a separate ledger). With the prefix, the Step 4b propagation agent's edits appear inline in your own list. `# CONCURRENT-SESSION` lines are other sessions — or a sub-agent despatched without the prefix; account for your own sub-agents before excluding per §20. The `# ledger begins` line is the coverage window — earlier writes are not in it, which is one more reason park-files.sh stays.
 
-Reconcile park-files.sh's candidate lines (sync-receipt, config-tree mtimes, repo status, transient surfaces) against the ledger and your own list; anything either returns that you were about to omit gets added. Files another session wrote are not yours — the file list is the attribution boundary (§20); exclude and say so. Display the list.
+Reconcile park-files.sh's candidate lines (sync-receipt, config-tree mtimes, repo status, transient surfaces) against the ledger and your own list; anything either returns that you were about to omit gets added. Files another session wrote are not yours — the file list is the attribution boundary (§20); exclude and say so.
 
-(b) **Read each edited file IN FULL** (mid-session direction changes leave stale residue in *unedited* regions) and fix: broken syntax/links/paths, stale interim state, redundancy, typos and spelling per the user's locale, filename still carrying a draft-era prefix after a terminal status change (rename via link-healing move, not raw `mv`), and hook collateral on verbatim external text (§14 — repair via shell, never Edit/Write). A durable doc created this session must be linked from a durable parent (hub/`_index`), not only from rolling-window files. Don't auto-revert changes you didn't make — surface them.
+(b) **Classify each attributed file before reading it again:**
 
-(c) **SOURCE check:** run `_shared-rules.md` §19 over the enumerated files; its required output line is part of this gate.
+- `semantic` — new, substantively rewritten, or otherwise meaning-bearing. Register it with `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --semantic --reason "<created|substantive>"`. These receive one full read at Step 4c.
+- `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic/full-read — never waive the check.
+- `nonlocal` — a remote artefact that cannot be read from this filesystem. Register it with `--nonlocal --reason "<surface represented by evidence>"`; the reviewer sees it only through evidence receipts. Deleted files stay in `Files Deleted` and need no read classification.
 
-(d) **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
+Display the inventory with its classification. Do not full-read here; Step 4b must start before the expensive quality pass.
 
-Output: `✓ Quality check: N files checked, no issues` or `🔧 Quality check: fixed M issues — [file: fix]`.
+(c) **Earlier audit reuse:** if a clean independent reviewer already full-read any attributed file in this or an earlier session and returned its SHA-256, pipe that report once into `python3 "$PARK_REVIEW" record-audit --reviewer "<seat>" --vault "{VAULT}" --file "<file>" ...`. The helper records only hashes explicitly attested in a clean report. Step 9 reuses the receipt only while the current file hash remains identical.
 
 ### 3. Write the session log
 
@@ -127,11 +142,20 @@ Output: `✓ No at-risk work product to persist` or `🔧 Persisted N item(s): [
 
 ### 4b. Despatch the propagation agent (background)
 
-**Do this here — after Step 4, before Step 5 — not at Step 6.** Build the identifier enumeration per Step 6 and despatch that agent now via `collaboration.spawn_agent` (background). Step 6 below defines what it does and what its prompt contains; this step fixes *when*.
+**Do this here — after Step 4, before the main quality pass and Step 5 — not at Step 6.** Build the identifier enumeration per Step 6 and despatch that agent now via `collaboration.spawn_agent` (background). Step 6 below defines what it does and what its prompt contains; this step fixes *when*.
 
-Not earlier: Step 4 **moves files**, and moves are one of Step 6's identifier classes (full old-path forms). Despatching before Step 4 would put every park-time relocation outside the vault-wide sweep, leaving Step 4's own hand-picked reference update as the only net — which is exactly the candidate-list approach §12 forbids. Not later: walking the headings to Step 6 costs the Step 5 and 7 overlap, which is the saving.
+Not earlier: Step 4 **moves files**, and moves are one of Step 6's identifier classes (full old-path forms). Despatching before Step 4 would put every park-time relocation outside the vault-wide sweep, leaving Step 4's own hand-picked reference update as the only net — which is exactly the candidate-list approach §12 forbids. Not later: delaying until after Step 4c throws away the quality-pass overlap.
 
 If you reach Step 5 without having despatched it, despatch it before continuing.
+
+### 4c. Proportional quality gate (while propagation runs)
+
+- **Semantic files:** read each in full once and fix broken syntax/links/paths, stale interim state, redundancy, typos and locale spelling, draft-era filename residue after a terminal status change (rename via link-healing move, never raw `mv`), and hook collateral on verbatim external text (§14). A durable new doc must be linked from a durable parent, not only a rolling-window file. Don't auto-revert changes you didn't make — surface them.
+- **Mechanical-only files:** do not full-read. Use the Step 2 receipt result; inspect only its exact replacement and changed span if judgement is needed. Re-run `classify --mechanical` after any later edit; it fails if the receipt chain or current hash changed.
+- **All attributed files:** run `_shared-rules.md` §19's SOURCE check; its required output line is part of this gate.
+- **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
+
+Output: `✓ Quality check: S semantic files full-read; M mechanical files receipt-verified` or `🔧 Quality check: fixed N issues — [file: fix]`.
 
 ### 5. Project doc update
 
@@ -141,7 +165,7 @@ If the session materially changed a project's state, update that project's doc i
 
 **Enumerate (main session):** list every identifier value the session changed as `old → new` pairs — status flips, factual corrections, renames/moves (include full old-path forms, not just filenames), numeric changes (carry the constrained subject phrase too), new options on pre-existing decisions (carry the decision's anchor), and **world-state changes from what the session did**: a sent message or made booking changes the acted-on entity's state even where no file token changed. Commits pushed this session are their own identifier class — hub record per §17. Display the enumeration. Nil is a positive claim, not a default — display `✓ Reference graph: No identifier values changed` only after actually checking these categories.
 
-**Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a background sub-agent via `collaboration.spawn_agent`, on the session's own model — do not downgrade this seat. §12 triage decides whether each hit is a stale cross-reference, a live locator, a historical record, or unrelated; getting that wrong silently corrupts the reference graph, and the failure is invisible until something breaks much later. Despatch at Step 4b, then run Steps 5 and 7 while it works; collect its report at Step 8 before the backfill (`collaboration.wait_agent` at Step 8 is the collection mechanism — do not poll by proxy; `collaboration.send_message` if you need to reach it mid-run. Backfill and park-verify both depend on its file list). Its prompt is self-contained, embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to `rg --type md -i` each identifier over the whole live vault (exclude `06 Archive/`; separate call per identifier; the vault-wide hit-set IS the scope — no hand-picked candidate lists, and "already updated" docs get re-grepped for other instances), triage every hit per §12 (read §12 itself, don't recall it), run the structural link-integrity query after any file moves, bump co-located `Last updated:` stamps on docs it edits, and report the full per-identifier hit-list with each hit tagged updated / left-and-why. Planning/hub writes via `locked-edit.sh`, every call prefixed `env OPENCAIRN_SESSION_ID=<id>` with this session's id (resolve it first: `echo $CODEX_THREAD_ID`; embed the value in the brief) so the sub-agent's edits ledger under this session.
+**Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a background sub-agent via `collaboration.spawn_agent`, on the session's own model — do not downgrade this seat. §12 triage decides whether each hit is a stale cross-reference, a live locator, a historical record, or unrelated; getting that wrong silently corrupts the reference graph. Despatch at Step 4b, then run Step 4c and Steps 5 and 7 while it works; collect its report at Step 8 before the backfill. Its prompt is self-contained, embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to run a separate `rg --type md -i -g '!06 Archive/**' -g '!07 System/.Provenance/**' -- '<identifier>' '{VAULT}'` for each identifier; the resulting live-vault hit-set is the scope, with no hand-picked candidate lists and with already-updated docs re-grepped for other instances. `07 System/.Provenance/**` is a frozen evidence snapshot, not a live reference surface: exclude it from triage, while still validating any snapshot file explicitly attributed to this session. The agent reads §12 rather than recalling it, triages every hit, runs structural link-integrity after moves, bumps co-located `Last updated:` stamps on docs it edits, and reports the full per-identifier hit-list tagged updated / left-and-why. Planning/hub writes use `locked-edit.sh`, every call prefixed `env OPENCAIRN_SESSION_ID=<id>` with this session's id (resolve it first: `echo $CODEX_THREAD_ID`; embed the value in the brief) so its edits and receipts land under this session.
 
 **Out-of-vault facts** (skill/command files asserting things about each other) stay in the main session — the sub-agent has no skill-edit authority: grep `~/.codex/skills`, `~/.claude/commands` and repo command dirs yourself, propagate mechanical fixes, and log non-mechanical skill changes at Step 10.
 
@@ -166,12 +190,23 @@ Output: `✓ Routed: [item] → [target]` per item. A zero-routing claim cites a
 
 **Collect Step 6 first.** The background propagation agent must have reported before anything here runs — its edits belong in the backfill, and park-verify's `--touched` list is incomplete without them. If its report hasn't arrived, collect it with `collaboration.wait_agent`; do not proceed on the assumption it changed nothing. wait_agent's return is the *only* signal it has finished — never substitute a proxy that cannot tell "running" from "finished" (a transcript's file size, an elapsed-time guess, a scratch file appearing). Improvising one has already reported completion mid-run.
 
-**Backfill:** park-time edits (Steps 5–7: project docs, This Week, Tickler) postdate the Step 3 log write — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script dedups by path but *silently discards* the incoming description on a hit — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh <log> N "Files Updated" --replace`. Also reconcile inline closures: a Next Steps item that park itself closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
-
-**Verify:** run the verifier and resolve every FAIL, re-running until clean:
+Immediately capture the returned report — including a checked nil result — so Step 9 consumes it mechanically:
 
 ```bash
-"{VAULT}/.claude/scripts/park-verify.sh" "{VAULT}" "<session log>" N \
+python3 "$PARK_REVIEW" capture --kind propagation --label "Step 6 propagation" <<'EOF'
+<agent report verbatim>
+EOF
+```
+
+Add every propagation-touched file to the attribution list. Classify new locator-only files through the locked-edit receipts; full-read any semantic file once. This closes the overlap without repeating full reads of mechanical files.
+
+**Backfill:** park-time edits (Steps 5–7: project docs, This Week, Tickler) postdate the Step 3 log write — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script dedups by path but *silently discards* the incoming description on a hit — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh <log> N "Files Updated" --replace`. Also reconcile inline closures: a Next Steps item that park itself closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
+
+**Verify:** run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
+
+```bash
+python3 "$PARK_REVIEW" run-verifier -- \
+  "{VAULT}/.claude/scripts/park-verify.sh" "{VAULT}" "<session log>" N \
   --ident "<distinctive substring per item/identifier the session completed>" ... \
   --touched "<each file the session+park created or edited>" ...
 ```
@@ -184,9 +219,17 @@ It checks the deterministic layer: session numbering, required sections, Project
 
 Output: the script's `RESULT:` line plus what you fixed.
 
-### 9. Bounded audit (fresh read-only sub-agent — standing authorisation)
+### 9. Bounded delta-aware audit (fresh read-only sub-agent — standing authorisation)
 
-This is a **close-out review, not a nested `$audit` run**. Steps 2, 6 and 8 already perform full-file hygiene, vault-wide propagation and deterministic verification. Keep the independent fresh-context check, but do not repeat those passes or import `$audit`'s panel, remediation or "iterate until clean" workflow. A deliberate full six-layer review remains available by invoking `$audit` separately.
+This is a **close-out review, not a nested `$audit` run**. Steps 4c, 6 and 8 already perform proportional hygiene, vault-wide propagation and deterministic verification. Keep the independent fresh-context check, but do not repeat those passes or import `$audit`'s panel, remediation or "iterate until clean" workflow.
+
+Generate the brief from the post-backfill session log, raw session ledger, locked-edit/classification receipts, propagation receipt, latest verifier receipt, evidence receipts and hash-matching prior audit receipts:
+
+```bash
+python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --number N
+```
+
+The command prints the §16 evidence count and the review-mode counts, and writes `review-brief.md` under this session's `.session-state` directory. It fails closed if a propagation/verifier receipt is absent or a mechanical receipt no longer matches the live file. Pass that generated file's contents verbatim as the brief below; do not reconstruct or embellish it from the transcript.
 
 Despatch exactly one reviewer with this shape (replace `yyyymmdd` and `n` with the current date and assigned session number; both substitutions use digits only):
 
@@ -200,17 +243,13 @@ collaboration.spawn_agent({
 
 Omit both `model` and `reasoning_effort`: the reviewer must inherit the active park seat's model and reasoning effort exactly. Do not resolve, copy or hard-code their current names or values; omission keeps the match intact when the user changes either setting. `fork_turns: "none"` keeps the context fresh and does not change that inheritance. The propagation seat's anti-downgrade clause in Step 6 is unaffected.
 
-Before despatch, display the §16 line `Out-of-band evidence: sources N → excerpts embedded N` (or the none-line). The brief embeds verbatim:
-
-- Resolved vault path; session log path and N; the post-backfill Files Created/Updated list; the `### Summary`; relevant pre-state from this session's own Reads; out-of-band evidence excerpts; the Step 6 propagation result; and the Step 8 verifier result. The file list is the §20 attribution boundary; auto-save Git is not pre-state evidence.
-- **One-pass checklist:** Layer 1 — does the approach serve the stated outcome? Layer 2 — do operating assumptions agree with the embedded evidence? Layer 3 — do the session summary, pending/completed state and listed files agree in both directions? Layer 4 — is the changed content internally correct? Layer 5 — are claimed results supported and future checks falsifiable? Layer 0 is out of scope because the park frame is fixed.
-- **Strict scope:** read only Session N and the attributed local files, reading each local file in full once with the bounded per-file pattern below. Treat non-local paths only through embedded evidence. Use the Step 6 report for reference-graph coverage; do not repeat its vault-wide searches. No web, network, SSH, remote hosts, sub-agents, skill/command maintenance, or adjacent cleanup.
-- **Read-only and bounded:** make no edits. Read each attributed file exactly once in its own tool call; a canonical/live pair may share one call when a byte comparison proves them identical, and the session-log call extracts only Session N. If a single file truncates, continue only from its first unread line in a targeted follow-up. Make no exploratory or repeated calls and run one review pass. Return only material findings introduced by this session; omit style nits and speculative improvements.
-- **Compact report:** scope and coverage; findings tagged Layer 1–5 with exact file/line evidence and a concrete fix, or one evidence-bearing clean line; files read; commands used; coverage gaps; terminal state `clean`, `findings`, or `incomplete`. State explicitly that no network was used.
+The generated brief is delta-aware: new/semantic files are full-read once; mechanical-only files are reviewed from exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread when their SHA-256 is unchanged. It embeds the one-pass Layers 1–5 checklist, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
 
 Collect with `collaboration.wait_agent` in intervals no longer than 60 seconds until the report arrives. Do not infer completion from elapsed time or another proxy, and do not re-despatch merely because the seat is still running.
 
 For a completed report, sanity-check each finding in the live file. The main seat may remediate confirmed, attributable findings in one fix round using the normal locked write mechanics, backfill any newly touched paths, re-read the changed portions and rerun the relevant deterministic check. Do not send the reviewer back for another pass; route anything needing external verification or a broader design decision as an open loop.
+
+On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "park_audit_yyyymmdd_n" --from-brief`. The helper refuses a receipt unless the report says clean, attests every current full-read SHA-256, and the files still match the brief. This receipt may replace a redundant full read in a later park. Do not create a clean receipt after findings/remediation without a new independent full read.
 
 Output: `✓ Audit: bounded clean pass` or `🔧 Audit: N findings fixed — see [paths]`.
 
@@ -240,5 +279,5 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
 
-Parked. Pick up when ready: `claude` then `$pickup`
+Parked. Pick up when ready: `codex` then `$pickup`
 ```
