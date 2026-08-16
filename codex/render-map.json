@@ -10,20 +10,20 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "4517f14de5fa069c81e5d4bb46711beaa2e09ca7f19cd1ae563f7f1e99303591",
-      "render_sha256": "278536aa169ccb4ef610b1f3649a252f6092b3e0165ea9b04320d4c6e6002bcc"
+      "source_sha256": "015cdf6e78412443057b06bed9df73993032756e7aab454b3568e5add21ed465",
+      "render_sha256": "29ed720541dcca27f7e2740d9f777586d6efff66bb56eca11725a6009ae11798"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
       "render": "codex/skills/_skill-monitor.md",
-      "source_sha256": "1ce91195737e78458f05628c47f59876c514c871daaf429597814b68a104a061",
-      "render_sha256": "e66768ad6e13f7828066b7cac62d57920ba8fb712c008f526043441e10ce1a73"
+      "source_sha256": "3d8cf2efb392449563bdd24365f277321cfbe0f8f067d91e14c4a008ce5846ff",
+      "render_sha256": "4dbc7a689180ceb1c6cbadebfabf1701579086d8137c3981a24547aff3cfe46c"
     },
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "54f5a4dc133977bfe0a5d38a9c1321252d95487684482a1f4d81d872e21c022b",
-      "render_sha256": "eab341da764d4ab18db0233f971199f1eeec545ce80e634a2d44884347a280dc"
+      "source_sha256": "0fd966a151a111496a725a024a2a8d65c68f4dc5d094bfa075ef38d4278351e7",
+      "render_sha256": "1ae3f041eb53a3dcfd231be2e1d787558a18a4ead3aadad5dbf57465080c07ec"
     },
     "book-stay": {
       "source": ".claude/commands/book-stay.md",
@@ -34,14 +34,14 @@
     "complete-project": {
       "source": ".claude/commands/complete-project.md",
       "render": "codex/skills/complete-project/SKILL.md",
-      "source_sha256": "a436e2b1f714db604c9c3c6c929f33e2bf2ee8f26748d0528448d009d9e541c0",
-      "render_sha256": "1ac0481715948f031b42f62b74918f0505834899e56bf4b3e1b8069035243103"
+      "source_sha256": "ee810468e2b0d3bb4e4cc962dc6941be4b9f06b4a6200d0c304fe0842b0cfec0",
+      "render_sha256": "570a3d177b1e2acbba679effa682b014f573ff17340caa443098d6e1ce72bf5d"
     },
     "de-ai-ify": {
       "source": ".claude/commands/de-ai-ify.md",
       "render": "codex/skills/de-ai-ify/SKILL.md",
-      "source_sha256": "922a541027ada5afd18fd67895ba97055dab991b2d2f22a1c2643527900b6ef4",
-      "render_sha256": "f21d60c4034bb9843a5e2de99247ae174e176a851eb63a1e7bc898f95e884d54"
+      "source_sha256": "bb2b7b41a6babf05e6cb6e65c34a1786e144083678c00a0ad70f24d2d7fa0aae",
+      "render_sha256": "d9dc1a873d525bf9c1aabb3428a8a109f83b025e12f1ba7945d5e459219b86d3"
     },
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
@@ -52,20 +52,20 @@
     "morning": {
       "source": ".claude/commands/morning.md",
       "render": "codex/skills/morning/SKILL.md",
-      "source_sha256": "26e5ec03f7948d33bd369ae34a98589203c0a8805e7f9aa1d4cda7df301edb84",
-      "render_sha256": "42b4b41eac5adf14f5b1531e3b168230179ccef715b390f3863732df565e3f9f"
+      "source_sha256": "94ecd329fe83e10febd29dcaa2cd51c8fdf286af0eaa3d9d1cb8eb1f6b6f6e2c",
+      "render_sha256": "7cec174e5e22ceb8880aefe0335a7def9f9d54a954b56c4470758beea4be64e4"
     },
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "e63eebb4b9df1df60607c86eeb431097bba3e1048b469e7304c868b672b7d8ad",
-      "render_sha256": "7436e55212efb61886fa003c4ecbad5620884e3e4d5f2a5550b4b03a84d10197"
+      "source_sha256": "9077ed97b9a917b4540a0ecf6f3bbc87161c3595674a87e77267de49839ce5c0",
+      "render_sha256": "201e1b014f82b9f2562ea2c9a9644334da7b64bd2e3fbf1df0dadc4f84b65919"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
       "render": "codex/skills/pickup/SKILL.md",
-      "source_sha256": "fe8330b1500e47a09ef5df84c32a4717f505a1a4ead3f4513dfb120f69be18c2",
-      "render_sha256": "194bb8479ab0909f3b4eef959970eba58828b8215a0a87876f8214053f4d754b"
+      "source_sha256": "27dc6e12d616347e694792957eab85ab221ef9965dfd542c76f9e83069064f3c",
+      "render_sha256": "9b3885226c1162a6da226baeca57ecb63f66b691d1662a3ddc4c5349e742987d"
     },
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",

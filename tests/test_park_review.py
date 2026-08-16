@@ -18,6 +18,20 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_byte_identical_full_reads_share_one_read_group(self) -> None:
+        digest = "a" * 64
+        files = [
+            {"path": "/repo/source.md", "sha256": digest, "reason": "source"},
+            {"path": "/live/source.md", "sha256": digest, "reason": "live copy"},
+        ]
+
+        groups = park_review.group_full_reads(files)
+
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["read_path"], "/repo/source.md")
+        self.assertEqual(groups[0]["paths"], ["/repo/source.md", "/live/source.md"])
+        self.assertEqual(groups[0]["reasons"], ["source", "live copy"])
+
     def test_files_list_keeps_hyphenated_filename(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)

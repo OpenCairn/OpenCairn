@@ -131,6 +131,9 @@ also cannot be backgrounded — its whole value is reusing context only this tur
 a sub-agent would have to reconstruct the session from its transcript, which is the cost
 the snapshot exists to avoid.
 
+If /park is already in progress when this trigger arrives, do not write or refresh the
+shadow snapshot: the active park satisfies the trigger.
+
 $HOWTO Work from context you already hold — do NOT re-read the session's files, re-run
 greps, or despatch sub-agents for it. It is a cheap draft, not a park: if the session
 moves on, /park patches or discards it.
@@ -138,6 +141,9 @@ moves on, /park patches or discards it.
 Required format (first line exactly as shown — /park diffs against that count):
 
   SNAPSHOT-LEDGER-LINES: $LEDGER_LINES
+
+That number is the hook's exact \`wc -l < "$LEDGER"\` result at trigger time. It is not
+a count of bullets, files, or sections in the draft.
 
   ## Draft session log
   ### Summary            — 2-4 sentences, outcomes and decisions

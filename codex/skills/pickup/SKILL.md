@@ -36,13 +36,13 @@ You are helping the user resume previous work with full context.
 
    - **Run the scan script** to get recent session metadata cheaply, filtering inside the command so only matching rows come back:
      ```bash
-     "{VAULT}/.claude/scripts/pickup-scan.sh" --days=30 | grep -i -- 'TOPIC'
+     "{VAULT}/.claude/scripts/pickup-scan.sh" --days=30 | rg -i -- 'TOPIC'
      ```
-     Substitute the user's keyword for `TOPIC`. The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position); the grep matches against TITLE, PROJECT, and SUMMARY alike. If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **Keep the filter in the pipeline every time you widen the window.** Unfiltered output is sorted newest-first and grows fast enough to be truncated, which cuts exactly the older rows the wider window exists to reach. If output is ever truncated or spilled to a file, re-run with the filter (or a tighter one) rather than reading the preview. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
+     Substitute the user's keyword for `TOPIC`. The TSV columns are `DATE, SESSION_NUM, TITLE, TIME, PROJECT, LOOP_COUNT, SUMMARY` (seven — match columns by name, not position); the filter matches against TITLE, PROJECT, and SUMMARY alike. If no matches, extend to `--days=90`; if the topic is likely older still, `--days=365` — archived logs in `Session Logs/YYYY/` subfolders are only reachable when the day window covers them. **Keep the filter in the pipeline every time you widen the window.** Unfiltered output is sorted newest-first and grows fast enough to be truncated, which cuts exactly the older rows the wider window exists to reach. If output is ever truncated or spilled to a file, re-run with the filter (or a tighter one) rather than reading the preview. **If the script errors** (no session directory yet on a fresh vault; stock macOS bash 3.2 — the script needs bash 4.2+), treat it as "no session metadata yet" and continue with the vault search below; mention `brew install bash` to macOS users for future scans.
 
    - **Search the vault** for matching project hubs (`03 Projects/`, `03 Projects/Cold/`, `03 Projects/Backlog/`) and area files as needed.
 
-   - **Follow CLAUDE.md's context routing table** for domain-specific context files (e.g. travel topic → load travel context files).
+   - **Follow CLAUDE.md's context routing table** for domain-specific context files. If the vault-root CLAUDE.md is absent or has no routing table, follow the user's explicit target link and load its project/area hub plus directly related context notes.
 
    Use judgement about what's relevant. Don't over-load — read what the user needs to get back into the work.
 
@@ -51,7 +51,7 @@ You are helping the user resume previous work with full context.
    From whatever you found, read:
    - The most recent matching session section — the scan script's DATE column (e.g. `2026-03-30`) maps to `{VAULT}/06 Archive/Claude/Session Logs/YYYY-MM-DD.md`, or `{VAULT}/06 Archive/Claude/Session Logs/YYYY/YYYY-MM-DD.md` if that date has been archived into a year subfolder (logs >90 days old; `pickup-scan.sh` finds them via `-maxdepth 2`). SESSION_NUM tells you which `## Session N` block to read. Go straight there; don't re-search. The year-subfolder form is an archival **read** path only: if `$park` or `$goodnight` follows, today's new entry still goes directly in `Session Logs/YYYY-MM-DD.md`; never carry this loaded path forward as the write target.
    - The project hub file if one exists
-   - Relevant context files per CLAUDE.md routing table
+   - Relevant context files per the routing rule above
 
    Present concisely:
 
@@ -104,7 +104,7 @@ You are helping the user resume previous work with full context.
 
 8. **Wait for user response:**
 
-   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/Claude/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per CLAUDE.md routing table. Present as in Step 5.
+   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/Claude/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per the routing rule above. Present as in Step 5.
    - **"show all"** → Redisplay including `Cold/` and `Backlog/` docs (grouped under their tier headings)
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally
