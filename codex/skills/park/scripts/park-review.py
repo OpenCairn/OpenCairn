@@ -184,6 +184,7 @@ def report_terminal_state(report: str) -> str | None:
     states: list[str] = []
     for line in report.splitlines():
         normalised = line.strip()
+        normalised = re.sub(r"^#{1,6}\s+", "", normalised)
         normalised = re.sub(r"^[-*]\s+", "", normalised)
         normalised = normalised.replace("**", "").replace("`", "")
         match = re.fullmatch(
@@ -804,7 +805,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "",
             "Return: scope and coverage; findings tagged Layer 1–5 with exact file/line evidence and a "
             "concrete fix, or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
-            "outputs; coverage gaps; terminal state `clean`, `findings`, or `incomplete`.",
+            "outputs; coverage gaps. Finish with exactly one line: `Terminal state: clean`, "
+            "`Terminal state: findings`, or `Terminal state: incomplete`.",
         ]
     )
 
