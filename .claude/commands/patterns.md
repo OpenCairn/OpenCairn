@@ -15,6 +15,7 @@ Find patterns, themes, and connections across files related to a topic.
 0. **Resolve the vault path**:
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
    If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path in every search (not the cwd, and not a shell variable, which won't persist across tool calls).
 

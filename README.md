@@ -188,7 +188,7 @@ cc   # or: cd ~/Files && claude
 
 If using Obsidian, open it and select `~/Files` as your vault folder.
 
-**Staying current:** Run `/update` periodically to pull the latest skills and scripts from the template repo (including the Codex rendering — it offers accepted `codex/` files to an existing `~/.codex/` install). Your CLAUDE.md and vault content are never touched - only infrastructure files update.
+**Staying current:** Run `/update` in Claude Code or `$update` in Codex periodically to pull the latest skills and scripts from the template repo. Both review repository changes and then offer differing accepted Codex files to an existing `~/.codex/` install. Your CLAUDE.md and vault content are never touched; required vault migrations run separately through `/migrate` or `$migrate`.
 
 **Signed releases:** Release tags from `v0.7.13` onward are SSH-signed annotated tags. If you pin to a release rather than tracking `main`, you can verify a tag's signature with `git verify-tag <tag>` after adding the maintainer's signing key to your `gpg.ssh.allowedSignersFile`. Earlier tags (`v0.7.12` and before) are lightweight and won't verify.
 
@@ -201,7 +201,7 @@ If using Obsidian, open it and select `~/Files` as your vault folder.
 
 This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops` and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
 
-**Codex CLI (optional):** an expanded rendering of the skill library for OpenAI's Codex CLI lives under `codex/` — 28 skills covering the day/session loops, extended breaks, project lifecycle, structural hygiene, deadline scanners, provenance, research/reply workflows, and the cross-model review panel. They include Codex metadata plus three shared support files and are invoked as `$name` rather than `/name`. To install:
+**Codex CLI (optional):** an expanded rendering of the skill library for OpenAI's Codex CLI lives under `codex/` — 30 skills covering the day/session loops, extended breaks, project lifecycle, structural hygiene, deadline scanners, provenance, migrations/updating, research/reply workflows, and the cross-model review panel. They include Codex metadata plus three shared support files and are invoked as `$name` rather than `/name`. To install:
 
 ```bash
 mkdir -p ~/.codex/skills
@@ -211,7 +211,9 @@ cat codex/AGENTS.md >> ~/.codex/AGENTS.md   # or cp if you have no AGENTS.md yet
 
 The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. Shared runtime scripts remain under `.claude/scripts/` because both harnesses use them; Claude Code memory/internal-file maintenance in `$weekly-hygiene` is conditional and is skipped when that state is absent.
 
-**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Before using these workflows against an older vault, rename that folder inside Obsidian so path-qualified wikilinks heal, then run `rg -F '06 Archive/Claude' "$VAULT_PATH"` and update any remaining plain-text locators through `.claude/scripts/locked-edit.sh`. Do not rewrite byte-exact files under `07 System/.Provenance/`.
+Existing Codex installs created before `$update` shipped need one bootstrap copy after updating their checkout: copy `codex/skills/update/` and `codex/skills/migrate/` into `~/.codex/skills/`, start a fresh Codex session, then run `$update`. The native updater can thereafter maintain the full live skill tree without overwriting differing local customisations silently.
+
+**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Updated archive-backed workflows stop deterministically before writing against an unmigrated or split vault. Run `/migrate` or `$migrate`: it journals the source inventory, requires a link-aware rename inside Obsidian, repairs remaining live locators through locked writes, preserves immutable provenance files, and records completion only after live verification.
 
 ---
 
@@ -222,7 +224,7 @@ The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$
 
 > **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
 >
-> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `afternoon`, `audit`, `awaken`, `book-stay`, `checkpoint`, `complete-project`, `cornerstones`, `de-ai-ify`, `goodnight`, `guillotines`, `hibernate`, `inbox-processor`, `longpoles`, `morning`, `park`, `pickup`, `provenance`, `regroup`, `reply`, `research-assistant`, `second-opinion`, `shop`, `shutdown`, `start-project`, `thinking-partner`, `verify-provenance`, `weekly-hygiene`, `weekly-review`.
+> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `afternoon`, `audit`, `awaken`, `book-stay`, `checkpoint`, `complete-project`, `cornerstones`, `de-ai-ify`, `goodnight`, `guillotines`, `hibernate`, `inbox-processor`, `longpoles`, `migrate`, `morning`, `park`, `pickup`, `provenance`, `regroup`, `reply`, `research-assistant`, `second-opinion`, `shop`, `shutdown`, `start-project`, `thinking-partner`, `update`, `verify-provenance`, `weekly-hygiene`, `weekly-review`.
 
 **Daily rhythm:**
 
@@ -316,8 +318,8 @@ The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$
 | Skill | What it does |
 |---------|-------------|
 | `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
-| `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo. Previews changes before applying. Args: `--dry-run`, `--force`. |
-| `/migrate` | One-shot migration of a pre-2026-08 vault to the project-doc task system — per-component consent (now/later/never, recorded), veto-style Tasks.md triage, Doctor-style closing verify. `/update` redirects here on old-format detection. |
+| `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo, gates incompatible vault layouts, previews changes, and reviews live Codex copies. Args: `--dry-run`, `--force`, `--tag VERSION`. Codex: `$update`. |
+| `/migrate` | Runs versioned vault migrations, including the resumable shared-archive namespace migration, then any outstanding legacy project-doc task components. Codex: `$migrate`. |
 | `/setup-hooks` | Opt in to OpenCairn's optional hooks, in two independent sets: `skill-edit` (a Stop hook nudging a sibling-skill review when you edit a skill) and `park` (a write-ledger for exact file enumeration, plus a mid-session snapshot that makes `/park` cheaper). Usage `/setup-hooks [skill-edit\|park\|all] [--remove]`; default `all`. Idempotently wires into `settings.json`. Needs `jq`. |
 
 **Aliases:**

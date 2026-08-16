@@ -15,7 +15,7 @@ Capture a work session: quality gate, session log, project-doc update, reference
 
 ### 0. Setup
 
-Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; abort on error (usual cause: `VAULT_PATH` unset — `/setup` covers it). Read `_shared-rules.md` from this skill's own commands directory and apply it throughout. `{VAULT}` below = the resolved vault path.
+Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`, then `"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"`; abort on either error (usual causes: `VAULT_PATH` unset, or a pending archive migration). Read `_shared-rules.md` from this skill's own commands directory and apply it throughout. `{VAULT}` below = the resolved vault path.
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
 

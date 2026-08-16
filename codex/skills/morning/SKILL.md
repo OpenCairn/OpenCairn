@@ -25,6 +25,7 @@ This routine handles all four without forcing you into one mode. Start operation
 
 ```bash
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
 ```
 
 If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

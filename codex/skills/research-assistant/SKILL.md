@@ -18,6 +18,7 @@ You are the user's research assistant. Your job is to search the vault comprehen
 
    ```bash
    "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 
    If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition documented in the README's Quick Start). Read `~/.codex/skills/_shared-rules.md` and apply its rules throughout this skill. All paths below use `{VAULT}` as a placeholder — substitute the resolved vault path and search against it, not the cwd.
