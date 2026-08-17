@@ -3,4 +3,4 @@ interface:
   short_description: "Extract structured text from screenshot batches"
   default_prompt: "Use $ocr to extract and structure the text in these screenshots."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

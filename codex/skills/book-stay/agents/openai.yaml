@@ -3,4 +3,4 @@ interface:
   short_description: "Choose, verify, and book a stay"
   default_prompt: "Use $book-stay to choose and verify a stay for this trip leg."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
