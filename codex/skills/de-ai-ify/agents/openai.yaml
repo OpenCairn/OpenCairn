@@ -3,4 +3,4 @@ interface:
   short_description: "Restore authentic voice to drafted text"
   default_prompt: "Use $de-ai-ify to restore my authentic voice in this draft."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
