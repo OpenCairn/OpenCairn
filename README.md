@@ -13,219 +13,174 @@
 <p align="center">
   <a href="https://github.com/OpenCairn/OpenCairn/releases/latest"><img src="https://img.shields.io/github/v/release/OpenCairn/OpenCairn?style=for-the-badge" alt="Latest release"></a>&nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-CC%20BY--NC%204.0-blue?style=for-the-badge" alt="Licence: CC BY-NC 4.0"></a>&nbsp;
-  <a href="https://github.com/OpenCairn/OpenCairn/stargazers"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
+  <a href="https://github.com/OpenCairn/OpenCairn"><img src="https://img.shields.io/github/stars/OpenCairn/OpenCairn?style=for-the-badge" alt="GitHub stars"></a>
 </p>
 
-Session chaining, day/week/quarter review loops, and a 7-folder vault for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) + [Obsidian](https://obsidian.md/) — plus skills like `/audit` and `/second-opinion` that run standalone in any project.
+OpenCairn is a local-first workflow system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex CLI](https://developers.openai.com/codex/cli/), and [Obsidian](https://obsidian.md/). It preserves project state between AI sessions, turns review routines into reusable skills, and keeps the durable context in plain Markdown files you control.
 
 <p align="center">
-  <a href="https://hedwards.dev/cco-setup/">Setup Guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">Blog Series</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
+  <a href="#quick-start">Quick start</a> · <a href="https://hedwards.dev/cco-setup/">Setup guide</a> · <a href="https://hedwards.dev/claude-code-obsidian/">How it was built</a> · <a href="https://hedwards.dev/claude-code-tips/">Tips</a>
 </p>
 
 ---
 
-> **It's Sunday afternoon. You sit down to continue planning that Japan trip you were excited about on Thursday. You open your laptop and... nothing. Where were you? Which hotels were you comparing? What did you decide about the Kyoto day trips?**
->
-> **You won't spend 20 minutes reconstructing. Nobody does. The activation energy is too high, the dopamine too low. So you check your phone. Refresh something. The trip sits there unplanned for another week.**
+## The handoff between sessions
 
-```
+AI sessions are good at the current conversation and poor at continuity. OpenCairn gives each session a deliberate handoff: `/park` records what changed and what remains open, then `/pickup` restores that state when you return. Codex uses the same skills with `$park` and `$pickup`.
+
+```text
 > /pickup
 
 Active projects: Japan Trip, Website Redesign
-Last daily report: Thu 9:16pm
+Last session: Japan Trip
 
-Open loops (from Thu):
+Open loops:
  [ ] Book ryokan - narrowed to 2 options, need to decide
  [ ] Figure out JR pass vs individual tickets
  [ ] Ask Mike about that ramen place in Osaka
 
-Tomorrow's queue had "Kyoto logistics" first.
+Next up: Kyoto logistics
 What would you like to pick up?
 ```
 
-Zero reconstruction. Instant flow.
+The handoff lives in your vault rather than in model memory, so it remains inspectable, editable, and available to either harness.
 
 ---
 
-## Two Ways to Use This
+## Choose your starting point
 
-**Grab the portable skills.** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` work in *any* Claude Code project — no vault, no folder structure (`/shop` and `/book-stay` each keep a couple of vault-only extras — a tickler backstop, the post-booking fan-out — that switch off gracefully without one). Install them as a plugin:
+| If you want... | Start with... |
+|---|---|
+| Session continuity, daily planning, reviews, and durable personal context | [Clone the full vault](#quick-start) |
+| Reusable Claude Code skills inside an existing project | [Install the plugin](#claude-code-plugin) |
+| The same workflows in Codex CLI | [Install the Codex renderings](#codex-cli) |
 
-```bash
+The portable skills include `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay`. They work without a vault. Media skills such as `/ocr`, `/transcribe`, and `/podcast-digest` also work standalone once their external dependencies are installed.
+
+### Claude Code plugin
+
+```text
 /plugin marketplace add OpenCairn/OpenCairn
 /plugin install opencairn@opencairn
 ```
 
-`/audit` runs a rigorous six-layer review of any code, config, or plan — by default through a **cross-model panel** (Claude + Gemini + Codex + Grok), so you catch what a single model rationalises away. Each seat is optional: the panel probes what's installed and runs with whoever's available, saying so. `/second-opinion` brings those same models together for an independent verdict on a decision or a piece of work. `/thinking-partner` is a Socratic mode that interrogates your assumptions instead of jumping to answers. `/shop` is purchase decision support — it clarifies what you actually need and why before researching candidates. `/book-stay` is its hotel-booking sibling — preference quiz, region-aware research, user-verified shortlist, booking handoff. None of them need a vault.
-
-**Heavier portable skills.** `/ocr`, `/transcribe`, and `/transcribecloud` also run standalone (no vault), but unlike the five above they're not zero-setup — each needs external tooling installed first: local easyocr for `/ocr`, a local WhisperX venv for `/transcribe`, and a rented RunPod GPU (account + cost) for `/transcribecloud`. Each skill lists its prerequisites at the top.
-
-**Or adopt the whole system.** Everything below is the integrated vault: session chaining, the day/week/quarter review loops, and a life-direction layer. The rest of the skills (`/park`, `/morning`, `/oops`, the review passes) assume the [folder structure](#folder-structure-niparas) and a `VAULT_PATH`. Start at [Quick Start](#quick-start).
-
-**Using OpenAI Codex CLI?** An expanded rendering of the skill library ships under `codex/` — the same workflows, rewritten for Codex primitives (`$name` invocation, `SKILL.md` format, CLI-despatched panel seats). Install steps are in [Quick Start](#quick-start).
+This installs the skills only. Vault-backed skills such as `/park`, `/morning`, and the review passes still require the [NIPARAS folder structure](#folder-structure-niparas) and `VAULT_PATH`.
 
 ---
 
-## Who This Is For
+## Quick start
 
-**Good fit:**
-- You have multiple domains of life you think about seriously
-- You want AI as a long-term thinking partner, not a chat toy
-- You're comfortable with a terminal (Claude Code is a CLI tool)
-- You're willing to spend an hour setting up for long-term payoff
+### Full vault
 
-**Less good fit:**
-- You just want quick answers to quick questions
-- You prefer everything to "just work" without configuration
-
-If the terminal part sounds alien, the [setup wizard](https://hedwards.dev/cco-setup/) walks through everything step by step.
-
----
-
-## How It Works
-
-**Obsidian** is a markdown editor that works on local files - no cloud, no proprietary format, just folders of `.md` files on your disc. **Claude Code** reads and writes those same files directly. Your notes and Claude's context are the same thing.
-
-**The files are the context.** Not Claude's summary of the files. Not what it thinks you said last week. The actual files. Each conversation produces refined thinking that gets written back to your vault, becoming input for the next conversation. Context compounds instead of decaying.
-
-This template provides the structure: where files go, how Claude navigates them, and how sessions connect across time.
-
----
-
-## The System
-
-Five layers, from single sessions up to life direction.
-
-### Session: Park and Pickup
-
-The core mechanic. Based on the "shutdown complete" ritual — the idea that you can't truly rest while your brain holds onto incomplete loops.
-
-**End of session:** `/park` documents what you did, captures open loops, and archives to a session file. It detects whether you did 5 minutes of quick work or an hour of deep thinking and adjusts accordingly - quick sessions get a one-liner, full sessions get structured documentation with next steps and pickup context. Before closing, it runs a quality gate (lint, refactor, proofread any files you modified). Sessions chain bidirectionally - each one links to the previous and next, so you can trace a project's history through time.
-
-**Next session:** `/pickup` shows your active projects (the `03 Projects/` root, grouped by bucket) as a numbered list — pick one to load its project hub and last session context. Or pass a topic/keyword to jump straight in; a shell script extracts session metadata as compact TSV so targeted searches are cheap.
-
-All session writes use `flock` (Linux) or an `mkdir` fallback (macOS/Windows), so concurrent Claude instances and NAS-mounted vaults don't trample each other.
-
-### Day: Morning, Afternoon, Goodnight
-
-| Skill | When | What |
-|---------|------|------|
-| `/morning` | Start of day | Read the landscape (the `03 Projects/` docs, tickler, yesterday's loops), catch gaps, optionally build today's time-blocked plan in `This Week.md` |
-| `/afternoon` | Mid-day | Check progress against morning intention, catch productive drift, reprioritise remaining time |
-| `/goodnight` | End of day | Inventory open loops, set tomorrow's queue, generate daily report, log the session |
-
-`This Week.md` is a rolling 7-day plan — viewable in Obsidian on your phone (via [Obsidian Sync](https://obsidian.md/sync)), editable by hand mid-day, never dependent on a calendar API being up. Each day gets a time-blocked section. `/afternoon` and `/goodnight` read today's section to track what actually happened.
-
-A **tickler** sits underneath the day layer: `/park` offers to defer open loops to specific future dates, and deferred items resurface automatically in `/morning` and `/pickup` when their date arrives. Once an item is pulled into a planning document, that document becomes SSOT and the tickler copy is deleted — no duplicate checkboxes drifting across the vault.
-
-### Week: Weekly Review
-
-`/weekly-review` zooms out. Aggregates progress across projects, surfaces stalled work, checks for zombie projects lingering in the `03 Projects/` root, and flags open loops older than 14 days. It also reviews the **corrections log** — `/oops` captures mistakes and lessons as you go; the weekly pass looks for recurring patterns worth promoting to context files, so you only get something wrong once. Structural vault maintenance (broken links, stale items, orphaned files) is handled by `/weekly-hygiene`, which can run standalone or as a precursor.
-
-### Quarter: Quarterly Review
-
-`/quarterly-review` is the deepest pass: strategic alignment (are you working on the right things?), priority drift, next quarter's Big Rocks, and a `Context - Direction.md` overhaul. Structural deep maintenance (full context-file re-read, CRM stale-entry review, corrections-log index refresh, session-log archiving, skill-library flywheel audit, panel model-currency check) is handled by `/quarterly-hygiene`, which the review consumes — mirroring how `/weekly-review` pairs with `/weekly-hygiene`. Too heavy for weekly, but accumulates real debt if never done.
-
-### Extended Breaks: Hibernate and Awaken
-
-Going on vacation? `/hibernate` captures a full state snapshot - all active projects, prioritised open loops, deliberate deferrals, recent decisions. `/awaken` restores context when you return weeks or months later and interviews you on what changed while you were away.
-
-### Direction: Values, Strategic Plans, Disciplines
-
-Without a strategic layer, you can be perfectly organised and still working on the wrong things. `07 System/Context - Direction.md` holds your values and roles, career and personal strategic plans, anti-goals (things you've explicitly decided against), and an evolving list of disciplines (hard commitments you always follow). Everything below flows from this — your weekly plan is shaped by your strategic plan, which is shaped by your values. Reviewed weekly for alignment, overhauled at major life transitions. A separate `Strategic Decision Log` preserves the rationale behind major direction choices.
-
----
-
-## Folder Structure (NIPARAS)
-
-NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) (Projects, Areas, Resources, Archive) by adding three folders: **Now** (active working memory), **Inbox** (capture point), and **System** (meta-documentation and context files for Claude).
-
-| Folder | Purpose | Examples |
-|--------|---------|----------|
-| **01 Now** | Active working memory - what's in flight right now | This Week (rolling 7-day plan), Tickler, scratch notes |
-| **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
-| **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
-| **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
-| **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
-| **06 Archive** | Immutable write-once records (logs, reports, snapshots) | OpenCairn session logs, daily/weekly reports, scans |
-| **07 System** | Meta-documentation - how the vault works and context for Claude | CLAUDE.md, Context hub files, Direction (strategic plans), decision/corrections/wins logs |
-
-**Areas vs Resources (differs from standard PARA):** NIPARAS uses Areas and Resources differently to Tiago Forte's original PARA. Here, **Areas** are domains you actively maintain, each containing its own nested reference material and Archive subfolders. **Resources** is a staging ground for generic stuff that doesn't belong to an Area yet. When something accumulates enough mass, it graduates to an Area. The key shift is that reference material lives *inside* the Area it belongs to, rather than in a separate top-level folder.
-
-**Context navigation** follows a hierarchical lazy-loading pattern - Claude reads `CLAUDE.md` first, follows links to domain hub files (e.g. `Context - Health.md`) when relevant, then drills into specific notes only when needed. Detailed in the [blog series](https://hedwards.dev/hierarchical-context-navigation/).
-
----
-
-## Quick Start
-
-**Prerequisites:** [Git](https://git-scm.com/downloads), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Obsidian](https://obsidian.md/) (optional but recommended), Python 3, and [ripgrep](https://github.com/BurntSushi/ripgrep). Python and ripgrep are required by vault locking, migration, and compatibility checks. For a detailed walkthrough: [hedwards.dev/cco-setup/](https://hedwards.dev/cco-setup/)
+**Prerequisites:** [Git](https://git-scm.com/downloads), Python 3, [ripgrep](https://github.com/BurntSushi/ripgrep), and either [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex CLI](https://developers.openai.com/codex/cli/). Obsidian is optional but recommended.
 
 ```bash
-git clone https://github.com/OpenCairn/OpenCairn.git ~/Files
-cd ~/Files
+# Choose where the vault will live
+export VAULT_PATH="/path/to/your/obsidian/vault"
 
-# Rename remote to 'template' so /update can pull future changes
-# (leaves 'origin' free for your own repo if you want one)
+git clone https://github.com/OpenCairn/OpenCairn.git "$VAULT_PATH"
+cd "$VAULT_PATH"
+
+# Keep the template remote separate from your own future vault remote
 git remote rename origin template
 
-# Make scripts executable
 chmod +x .claude/scripts/*.sh
 
-# Add to your shell profile (~/.bashrc or ~/.zshrc):
-export VAULT_PATH="$HOME/Files"
-alias cc='cd ~/Files && claude'
+# Add VAULT_PATH and this alias to ~/.bashrc or ~/.zshrc
+alias cc='cd "$VAULT_PATH" && claude'
 ```
 
-Then start Claude and run the setup interview:
+Start Claude Code with `cc`, then run the setup interview:
 
-```bash
-cc   # or: cd ~/Files && claude
-
-> /setup   # Checks prerequisites, personalises CLAUDE.md through a short interview
-> /park    # End your first session
-> /pickup  # See your landscape and open loops
+```text
+> /setup
+> /park
+> /pickup
 ```
 
-If using Obsidian, open it and select `~/Files` as your vault folder.
+Open `$VAULT_PATH` as a vault in Obsidian if you use it. The [step-by-step setup guide](https://hedwards.dev/cco-setup/) covers shell configuration, personalisation, and optional sync.
 
-**Staying current:** Run `/update` in Claude Code or `$update` in Codex periodically to pull the latest skills and scripts from the template repo. If it asks for `/migrate` or `$migrate`, complete that migration and run the updater again; both operations are idempotent. Current updaters hand off to migration and resume automatically where possible, while v0.8.0 must make its first explicit handoff because it predates the bridge. Both lanes review repository changes and then offer differing accepted Codex files to the live `${CODEX_HOME:-$HOME/.codex}` install. Your CLAUDE.md and vault content are not changed by the update itself.
+### Codex CLI
 
-**Signed releases:** Release tags from `v0.7.13` onward are SSH-signed annotated tags. If you pin to a release rather than tracking `main`, you can verify a tag's signature with `git verify-tag <tag>` after adding the maintainer's signing key to your `gpg.ssh.allowedSignersFile`. Earlier tags (`v0.7.12` and before) are lightweight and won't verify.
-
-**Install just the skills (optional):** OpenCairn is also a Claude Code plugin marketplace, so you can pull the skills into any project without cloning the vault:
-
-```bash
-/plugin marketplace add OpenCairn/OpenCairn
-/plugin install opencairn@opencairn
-```
-
-This installs the **skills only**. Most assume the NIPARAS folder structure and `VAULT_PATH` — `/park`, `/morning`, the review passes, and logging skills like `/oops` and `/de-ai-ify` (which read or write vault files). Others run in any project with no vault: `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, and `/book-stay` (the last two skip their vault-only extras when there's no vault), plus media utilities like `/ocr`, `/transcribe`, and `/podcast-digest`. For the full system, clone the template above.
-
-**Codex CLI (optional):** an expanded rendering of the skill library for OpenAI's Codex CLI lives under `codex/` — 30 skills covering the day/session loops, extended breaks, project lifecycle, structural hygiene, deadline scanners, provenance, migrations/updating, research/reply workflows, and the cross-model review panel. They include Codex metadata plus three shared support files and are invoked as `$name` rather than `/name`. To install:
+The `codex/` directory contains Codex-native renderings of the workflows. After cloning the repository, install them into your Codex home:
 
 ```bash
 CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"
 mkdir -p "$CODEX_ROOT/skills"
 cp -r codex/skills/* "$CODEX_ROOT/skills/"
-cat codex/AGENTS.md >> "$CODEX_ROOT/AGENTS.md"   # or cp if you have no AGENTS.md yet
 ```
 
-The vault-backed skills need the same `VAULT_PATH` export as above; `$audit`, `$second-opinion`, and `$thinking-partner` run without a vault. Shared runtime scripts remain under `.claude/scripts/` because both harnesses use them; Claude Code memory/internal-file maintenance in `$weekly-hygiene` is conditional and is skipped when that state is absent.
-
-Existing Codex installs created before `$update` shipped need one bootstrap copy after updating their checkout: copy `codex/skills/update/` and `codex/skills/migrate/` into `${CODEX_HOME:-$HOME/.codex}/skills/`, start a fresh Codex session, then run `$update`. The native updater can thereafter maintain the full live skill tree without overwriting differing local customisations silently.
-
-**Existing vault migration:** the shared agent archive now lives at `06 Archive/OpenCairn/`, replacing `06 Archive/Claude/`. Updated archive-backed workflows stop deterministically before writing against an unmigrated or split vault. The updater hands off to `/migrate` or `$migrate` when required; the migrator journals the source inventory, requires a link-aware rename inside Obsidian, repairs remaining live locators through locked writes, preserves immutable provenance files, and records completion only after live verification.
+Copy `codex/AGENTS.md` to `$CODEX_ROOT/AGENTS.md` if you do not have global instructions yet; otherwise merge its vault sections into your existing file. Start Codex from the vault and invoke skills with `$name`, for example `$pickup`. Vault-backed skills use the same `VAULT_PATH` and shared runtime scripts as Claude Code.
 
 ---
 
-## All Skills
+## What the full system adds
+
+| Capability | What it does |
+|---|---|
+| Session continuity | `/park` captures decisions, open loops, touched files, and pickup context; `/pickup` restores them. |
+| Daily execution | `/morning`, `/afternoon`, and `/goodnight` frame the day, catch drift, and close open loops. |
+| Periodic review | Weekly and quarterly passes surface stalled projects, maintenance debt, and priority drift. |
+| Context routing | A small top-level instruction file loads only the domain and project context relevant to the current task. |
+| Safe local writes | Locking and atomic-write scripts protect a vault used by concurrent agent sessions or synced machines. |
+| Independent review | `/audit` and `/second-opinion` can dispatch an optional Claude, Gemini, Codex, and Grok panel. |
+
+The core design is simple: the files are the context. Each session writes durable outcomes back to the vault, and the next session reads those files rather than relying on a model-generated memory of earlier conversations.
+
+---
+
+## Who this is for
+
+**Good fit:**
+
+- You manage several projects or life domains in parallel
+- You want an AI collaborator to retain useful state across sessions
+- You prefer local Markdown over a hosted, proprietary memory layer
+- You are comfortable working from a terminal and customising a system
+
+**Less good fit:**
+
+- You just want quick answers to quick questions
+- You want a turnkey GUI with no setup or maintenance
+
+---
+
+## Folder structure (NIPARAS)
+
+NIPARAS extends Tiago Forte's [PARA method](https://fortelabs.com/blog/para/) with **Now** (active working memory), **Inbox** (capture), and **System** (agent instructions and context).
+
+| Folder | Purpose | Examples |
+|--------|---------|----------|
+| **01 Now** | Active working memory | This Week, Tickler, scratch notes |
+| **02 Inbox** | Capture point for new stuff before it's organised | Quick notes, web clippings, ideas to process |
+| **03 Projects** | Discrete efforts with an end state ("done" looks like X) | "Plan Japan trip", "Launch website", "Learn Python" |
+| **04 Areas** | Domains of life you maintain indefinitely, with nested resources | Health (supplements, bloodwork), Photography (portfolios, gear), Finances (tax, investments) |
+| **05 Resources** | Generic reference material that doesn't belong to an Area yet | Journal entries, recipes, meeting notes, misc reference |
+| **06 Archive** | Immutable write-once records (logs, reports, snapshots) | OpenCairn session logs, daily/weekly reports, scans |
+| **07 System** | Agent instructions and system context | CLAUDE.md, context hubs, direction, decision/corrections/wins logs |
+
+Areas are domains you actively maintain, with their reference material nested inside them. Resources is a staging ground for material that does not belong to an Area yet.
+
+Context navigation is hierarchical: the agent reads the top-level instructions, loads the relevant domain hub, then follows links to project or detail files only when needed. The [blog series](https://hedwards.dev/hierarchical-context-navigation/) explains the pattern.
+
+---
+
+## Updating and migration
+
+Run `/update` in Claude Code or `$update` in Codex to pull current skills and scripts. The updater previews repository changes, protects local customisations, and hands incompatible vault layouts to `/migrate` or `$migrate` before continuing.
+
+Release tags from `v0.7.13` onward are SSH-signed annotated tags. Pinned updates verify the tag and fail closed if it is unsigned or cannot be verified. See [CONTRIBUTING.md](CONTRIBUTING.md#commit-signing) for local signature-verification setup.
+
+---
+
+## All skills
 
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two gracefully skip their vault-only extras — tickler backstop, booking fan-out), plus the media utilities `/ocr`, `/transcribe`, `/transcribecloud`, `/podcast-digest` (the media ones need their external tooling installed — each lists prerequisites at the top). Everything else — session chaining, the day/week/quarter loops, reviews, and logging skills like `/oops` — assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two skip their vault-only extras), plus `/ocr`, `/transcribe`, `/transcribecloud`, and `/podcast-digest` once their external tooling is installed. Everything else assumes the NIPARAS vault structure and a `VAULT_PATH`.
 >
-> **Codex CLI renderings** (installed from `codex/`, invoked as `$name`): `afternoon`, `audit`, `awaken`, `book-stay`, `checkpoint`, `complete-project`, `cornerstones`, `de-ai-ify`, `goodnight`, `guillotines`, `hibernate`, `inbox-processor`, `longpoles`, `migrate`, `morning`, `park`, `pickup`, `provenance`, `regroup`, `reply`, `research-assistant`, `second-opinion`, `shop`, `shutdown`, `start-project`, `thinking-partner`, `update`, `verify-provenance`, `weekly-hygiene`, `weekly-review`.
+> **Codex CLI:** Native renderings live in [`codex/skills/`](codex/skills/) and use `$name` rather than `/name`.
 
 **Daily rhythm:**
 
@@ -253,7 +208,7 @@ Existing Codex installs created before `$update` shipped need one bootstrap copy
 
 | Skill | What it does |
 |---------|-------------|
-| `/start-project` | Creates a new project doc (bucket frontmatter, Current Objective, Next Actions) in the `03 Projects/` root — creation is registration. Optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
+| `/start-project` | Creates a new project doc (bucket frontmatter, Current Objective, Next Actions) in the `03 Projects/` root, where creation is registration. Optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
 | `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves the project doc out of the `03 Projects/` root to the Area's `Archive/`, logs completion. Args: optional project name. |
 
 **Reviews:**
@@ -276,18 +231,18 @@ Existing Codex installs created before `$update` shipped need one bootstrap copy
 |---------|-------------|
 | `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
 | `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
-| `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, challenges framing — exploration through questions, not solutions. Stays in thinking mode until you explicitly request implementation. |
+| `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, and challenges framing through questions. Stays in thinking mode until you explicitly request implementation. |
 | `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. |
-| `/shop` | Purchase decision support. Clarifies what you actually need and why (open probing + a structured quiz), then researches current candidates and recommends — "don't buy" is a valid verdict. Args: optional item (e.g. `/shop standing desk`), `--quick` for low-stakes buys. |
+| `/shop` | Purchase decision support. Clarifies what you actually need and why (open probing + a structured quiz), then researches current candidates and recommends. "Don't buy" is a valid verdict. Args: optional item (e.g. `/shop standing desk`), `--quick` for low-stakes buys. |
 | `/landscape-scan` | Topic-parameterised scan + digest of curated sources (and/or a supplied URL pile). Default topic is the AI / Claude Code / PKM landscape, assessed against your current workflow; pass a topic (e.g. `cybersec`) to run a different profile. Run weekly or as needed. |
 
 **Prioritisation:**
 
 | Skill | What it does |
 |---------|-------------|
-| `/longpoles` | Surfaces all `[LP]` (longpole) tagged items across the vault — critical-path items that block other work. |
+| `/longpoles` | Surfaces all `[LP]` (longpole) tagged items across the vault: critical-path items that block other work. |
 | `/cornerstones` | Surfaces high-value foundational tasks tagged `[CS]` across the vault. |
-| `/guillotines` | Surfaces all `[GT]` (guillotine) tagged items across the vault — hard-deadline tasks that foreclose an option or cause irreversible loss if missed, sorted by how close the blade is. |
+| `/guillotines` | Surfaces all `[GT]` (guillotine) tagged items across the vault: hard-deadline tasks that foreclose an option or cause irreversible loss if missed, sorted by how close the blade is. |
 
 **Utilities:**
 
@@ -295,11 +250,11 @@ Existing Codex installs created before `$update` shipped need one bootstrap copy
 |---------|-------------|
 | `/de-ai-ify` | Voice restoration editor. Transforms AI-generated text into your authentic writing voice by stripping cliches, hedging, corporate-speak, and formulaic structure. |
 | `/reply` | Drafts a reply to an inbound message with voice matching and CRM context. Always writes drafts to scratchpad. |
-| `/transcribe` | Transcribes audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU — see `/transcribecloud` for the no-GPU path. |
-| `/transcribecloud` | Batch-transcribes audio/video on rented GPU cloud — for large jobs or when there's no local GPU. The cloud counterpart to `/transcribe`. |
-| `/podcast-digest` | Digests an informational podcast/talk episode from a URL into a cruxes-first written summary (with jump-to timestamps) so you can get the content without listening. Uses a published transcript when one exists, else transcribes the audio itself with WhisperX (the `/transcribe` core). Descriptive only — never rates the episode. |
-| `/archive-transcript` | Archives a podcast/talk transcript from a URL into the vault — verbatim body plus a synthesis header — without routing the full text through context or letting a formatting hook corrupt the verbatim quotes. The capture counterpart to `/podcast-digest`. |
-| `/archive-article` | Archives an article (research paper, clinical study, technical piece, or news report) into the vault as a structured reference note — synthesis, citation metadata with primary-source discovery, and verified wikilinks. The article counterpart to `/archive-transcript`. |
+| `/transcribe` | Transcribes audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation. Requires a local GPU; see `/transcribecloud` for the no-GPU path. |
+| `/transcribecloud` | Batch-transcribes audio/video on a rented cloud GPU for large jobs or when there is no local GPU. The cloud counterpart to `/transcribe`. |
+| `/podcast-digest` | Digests an informational podcast/talk episode from a URL into a cruxes-first written summary (with jump-to timestamps) so you can get the content without listening. Uses a published transcript when one exists, else transcribes the audio itself with WhisperX (the `/transcribe` core). It describes the episode without rating it. |
+| `/archive-transcript` | Archives a podcast/talk transcript from a URL into the vault with a verbatim body and synthesis header, without routing the full text through context or letting a formatting hook corrupt the quotes. The capture counterpart to `/podcast-digest`. |
+| `/archive-article` | Archives an article (research paper, clinical study, technical piece, or news report) into the vault as a structured reference note with synthesis, citation metadata, primary-source discovery, and verified wikilinks. The article counterpart to `/archive-transcript`. |
 | `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
 | `/process-wm` | Processes Working Memory fresh captures through a reviewable checklist, then routes or deletes every reviewed item. |
@@ -311,7 +266,7 @@ Existing Codex installs created before `$update` shipped need one bootstrap copy
 
 | Skill | What it does |
 |---------|-------------|
-| `/audit` | Rigorous six-layer evaluation of any implementation (code, config, plans, processes). Layers: problem framing → approach → environment → migration → implementation → execution. Iterates until clean. |
+| `/audit` | Layered evaluation of any implementation (code, config, plans, processes): problem framing → approach → environment → migration → implementation → execution. Iterates until clean. |
 | `/provenance` | Logs a SHA256 hash of the current session file to the AI Provenance Log. Optionally creates OpenTimestamps proofs anchored to the Bitcoin blockchain. For academic disclosure/audit defence. Verification is handled automatically by `/weekly-hygiene`. |
 | `/verify-provenance` | _Deprecated._ Provenance verification now lives in `/weekly-hygiene` (step 13b); this skill just redirects there. |
 
@@ -319,7 +274,7 @@ Existing Codex installs created before `$update` shipped need one bootstrap copy
 
 | Skill | What it does |
 |---------|-------------|
-| `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. Idempotent — safe to re-run. |
+| `/setup` | First-run onboarding. Detects OS, checks prerequisites (VAULT_PATH, bash version, git remote, python3), then runs a conversational interview to personalise CLAUDE.md and create context file stubs. It is idempotent and safe to re-run. |
 | `/update` | Pulls latest OpenCairn skills/scripts from the upstream GitHub template repo, gates incompatible vault layouts, previews changes, and reviews live Codex copies. Args: `--dry-run`, `--force`, `--tag VERSION`. Codex: `$update`. |
 | `/migrate` | Runs versioned vault migrations, including the resumable shared-archive namespace migration, then any outstanding legacy project-doc task components. Codex: `$migrate`. |
 | `/setup-hooks` | Opt in to OpenCairn's optional hooks, in two independent sets: `skill-edit` (a Stop hook nudging a sibling-skill review when you edit a skill) and `park` (a write-ledger for exact file enumeration, plus a mid-session snapshot that makes `/park` cheaper). Usage `/setup-hooks [skill-edit\|park\|all] [--remove]`; default `all`. Idempotently wires into `settings.json`. Needs `jq`. |
@@ -338,7 +293,7 @@ Scripts live in `.claude/scripts/` and require the `VAULT_PATH` environment vari
 
 ---
 
-## Already Have a System?
+## Already have a system?
 
 Don't adopt this wholesale. Cherry-pick:
 
@@ -367,4 +322,4 @@ Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidia
 
 ## Licence
 
-[CC BY-NC 4.0](LICENSE) - Free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licencing.
+[CC BY-NC 4.0](LICENSE): free for personal use. [Contact me](mailto:harrisonaedwards@gmail.com) for commercial licencing.
