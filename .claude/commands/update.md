@@ -10,7 +10,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 
 **Universal user route:** run `/update`; if it asks for `/migrate`, complete that migration and run `/update` again. Both commands are idempotent. The current updater performs the migration handoff and resumes automatically where the installed version permits; v0.8.0 must still make its first explicit handoff because it predates this bridge.
 
-**Two modes.** By default `/update` tracks the template's main branch (latest, possibly unreleased). Pass `--tag VERSION` to instead pin to a specific signed release and verify its tag signature before applying anything — the supply-chain-cautious path. The two modes differ only in *what* you compare against (Step 3b/3c); the per-file review and apply (Steps 4–6) are identical.
+**Two modes.** By default `/update` tracks the template's main branch (latest, possibly unreleased). Pass `--tag VERSION` to instead pin to a specific signed release and verify its tag signature before applying anything — the supply-chain-cautious path. The two modes differ only in *what* you compare against (Step 3b/3c); replacement review and apply (Steps 4–6) are identical.
 
 ## What Gets Updated
 
@@ -29,7 +29,7 @@ Do not use `git show ref:path` (colon syntax) — Windows Git Bash mangles the c
 
 ## Shell Variables Do Not Persist
 
-Each Bash call runs in a fresh shell, so a variable assigned in one fenced block is **empty** in the next. `$REMOTE`, `$BRANCH`, `$REF`, `$VERSION`, `$ASF`, `$LOCAL_FILES` and `$TEMPLATE_FILES` below are notation for values *you* resolve and then **substitute literally** into every later command — never carry them across blocks as shell state. An empty `$REF` is not a harmless no-op: `git checkout $REF -- <dirs>` with `$REF` unset silently discards the working tree against the index.
+Each Bash call runs in a fresh shell, so a variable assigned in one fenced block is **empty** in the next. `$REMOTE`, `$BRANCH`, `$REF`, `$TARGET`, `$VERSION`, `$ASF`, `$LOCAL_FILES` and `$TEMPLATE_FILES` below are notation for values *you* resolve and then **substitute literally** into every later command — never carry them across blocks as shell state. An empty ref is not a harmless no-op: `git checkout -- <path>` silently discards the working tree against the index.
 
 Where a block assigns a variable and consumes it, keep the assignment and its consumers in that **same** block. Where a value is needed in a later step, write the resolved literal (e.g. `origin/main`, `refs/tags/v1.2.3`) into the command you run.
 
@@ -70,7 +70,11 @@ Then run /update again.
 ```bash
 git rev-parse --verify HEAD >/dev/null 2>&1 && echo "HEAD_OK" || echo "NO_COMMITS_YET"
 ```
-If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked — the Step 4–6 diffs show the template as wholesale deletions (hiding local customisations right before checkout clobbers them) and Error Recovery has no pre-update HEAD to restore from.
+If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline before first /update"`, then re-run. Without a baseline commit, every local file is untracked and the Step 4–6 comparison cannot distinguish local customisation from a missing template file.
+
+### Step 1b: Guard the staged surface
+
+Before fetching, enumerate every staged path with `git diff --cached --name-only`. If any staged path is outside `.claude/commands/`, `.claude/scripts/`, or `codex/`, abort: the updater must not combine another session's staged work with its own commit. If managed paths are staged, do not write or unstage anything. Remember the exact list as a possible interrupted update and continue through the read-only fetch, signature decision, and immutable-target resolution only; the resume check immediately after Step 3c decides whether it is safe to proceed.
 
 ### Step 1c: Old-Format Vault Check
 
@@ -152,7 +156,7 @@ Note the branch name — like `$REMOTE`, substitute it literally below.
 
 ### Step 3b: Resolve the comparison ref (`$REF`)
 
-Every diff and checkout from here on targets a single ref, written below as `$REF` and substituted literally into each command you run. This is the **only** thing `--tag` changes — *what* you compare against, never *how* files are applied (Step 6's per-file review is identical in both modes).
+Every diff and checkout from here on targets a single ref, written below as `$REF` and substituted literally into each command you run. This is the **only** thing `--tag` changes — *what* you compare against, never *how* files are applied (Step 6's replacement review is identical in both modes).
 
 **Default — branch-follow:** `$REF` is `<remote>/<branch>` — the two names resolved in Steps 2 and 3, e.g. `origin/main`.
 
@@ -172,7 +176,7 @@ Verification differs by mode. **Branch-follow warns and continues** — an early
 
 #### Pinned mode (`--tag`) — fail closed
 
-Classify on **structured signals** — object type, verify exit code, config state — not on scraped stderr text (git's messages vary by version and locale, and don't reliably contain the config key name). `--force` is **not** consulted here: a requested pin that can't be verified aborts, full stop (matching `CONTRIBUTING.md`'s "unverifiable aborts"). `--force` only ever skips per-file review (Step 6).
+Classify on **structured signals** — object type, verify exit code, config state — not on scraped stderr text (git's messages vary by version and locale, and don't reliably contain the config key name). `--force` is **not** consulted here: a requested pin that can't be verified aborts, full stop (matching `CONTRIBUTING.md`'s "unverifiable aborts").
 
 Run this as one block, with the literal ref and version substituted in:
 
@@ -266,6 +270,24 @@ If the user chooses **n**, abort. If **y**, continue with a warning banner prepe
 
 **Why warn instead of hard-block:** Early adopters pulling older (pre-signing) commits would be locked out. Once all historical commits are superseded by signed ones, this can be tightened to a hard block.
 
+#### Freeze the verified target
+
+After the applicable signature decision, resolve the selected ref once:
+
+```bash
+TARGET=$(git rev-parse "$REF^{commit}")
+test -n "$TARGET" && git cat-file -e "$TARGET^{commit}"
+```
+
+Record the resulting full commit ID. From Step 3d onward, every `$REF` shown below means that **literal immutable commit ID**, not the mutable branch or tag name. Use it for every tree listing, grep, diff, checkout, hash, commit message, and completion receipt. If the named branch advances during the update, this run remains bound to the reviewed commit.
+
+If Step 1b found staged managed paths, classify them now. Require the staged set to contain no path outside the three managed trees and require each staged path to be a regular file (never a symlink or other type). Then:
+
+- If both index and worktree bytes/modes for every staged path equal the immutable target, show the staged path list and offer to commit this interrupted accepted replacement. On approval, commit those already-staged paths as one update, then restart the updater from Step 0 so recovery and the vault gate run normally; on refusal, abort without changing the index.
+- If staged bytes differ from the immutable target, show `git diff --cached` for the exact paths and identify them as a possible accepted replacement from an earlier target. Only explicit approval may commit those staged bytes as-is. Require the worktree to equal the index first; if approved, commit and restart the updater from Step 0; if it differs or approval is declined, abort without checkout, restore, or unstage.
+
+Because startup rejects every staged path outside the managed set, the approved resume commit cannot sweep in unrelated staged content. Never restore staged work from `HEAD`.
+
 ### Step 3d: Recover the Migration Bundle, Then Gate
 
 Fetching and signature verification are read-only and may run against an old vault. The only infrastructure allowed to apply before the gate is this backwards-compatible `archive-bundle-v3` recovery bundle:
@@ -284,7 +306,7 @@ codex/skills/migrate/SKILL.md
 
 This exception repairs a partial first transition: the old per-file updater may have accepted the new updater while skipping one of its paired helpers or Codex adapters. It must not strand `/update` permanently.
 
-Before trusting either the local bundle or an update/downgrade target, require the selected `$REF` to contain all nine exact paths and the `archive-bundle-v3` marker in every one. Run `git ls-tree -r --name-only $REF -- <the-nine-literal-paths>` and `git grep -l 'archive-bundle-v3' $REF -- <the-nine-literal-paths>`; each must identify all nine paths. Abort before migration or apply if either check fails. This validation is unconditional, including when the installed bundle is already complete and when `--tag` selects an older release. Increment the bundle revision whenever a future closure change is not backwards-compatible.
+Before trusting either the local bundle or an update/downgrade target, require the selected `$REF` to contain all nine exact paths as regular Git blobs with mode `100644` or `100755`, and the `archive-bundle-v3` marker in every one. Run `git ls-tree -r $REF -- <the-nine-literal-paths>` plus `git grep -l 'archive-bundle-v3' $REF -- <the-nine-literal-paths>`; each must identify all nine paths. Reject symlink mode `120000` or any unexpected object/mode. Abort before migration or apply if any check fails. This validation is unconditional, including when the installed bundle is already complete and when `--tag` selects an older release. Increment the bundle revision whenever a future closure change is not backwards-compatible.
 
 Then test the installed bundle:
 
@@ -308,11 +330,21 @@ test -x .claude/scripts/archive-namespace-migration.py
 Treat any failed line as an incomplete or mixed-version bundle. The shared marker mechanically binds the nine files to one compatible recovery protocol; helper presence alone is insufficient. This full write-engine closure is required for both pre-revamp installations (which lack `lib-session.sh`) and post-revamp mixed bundles. If the bundle is incomplete:
 
 1. Show `git diff $REF -- <the-nine-literal-paths>` as one atomic review. If `--dry-run` was passed, report that this recovery bundle is required and stop without writing.
-2. Unless `--force` was explicit, ask once: `Install the nine-file OpenCairn migration recovery bundle? (y/n)`. A refusal aborts without changing any file. Do not offer independent accept/skip choices inside this paired bundle.
-3. Record the pre-bootstrap `HEAD`, then apply exactly the nine literal paths together with `git checkout $REF -- <the-nine-literal-paths>`. Do not touch any other file. Assert the executable helpers remain executable, every path contains `archive-bundle-v3`, and all nine working-tree files now match `$REF`.
+2. Require every target member to be a regular Git blob. Capture each local path's full working-tree preimage identity: `MISSING`, or regular-file type, executable mode, and SHA-256 of the bytes. Reject symlinks and unexpected types. Show the exact nine-file diff and ask once: `Install the nine-file OpenCairn migration recovery bundle? (y/n)`. This review is mandatory even under `--force`; force never authorises overwriting an existing differing recovery file. A refusal aborts without changing any file. Do not offer independent accept/skip choices inside this paired bundle.
+3. Immediately before checkout, capture the same nine identities again and require byte-for-byte equality with the reviewed snapshot. A missing file becoming present, a type or mode change, or a hash change is a concurrent edit: abort before writing and restart review. Then apply exactly the nine literal paths together with `git checkout $REF -- <the-nine-literal-paths>`. Do not touch any other file. Assert the executable helpers remain executable, every path contains `archive-bundle-v3`, and all nine working-tree files now match `$REF`.
 4. Commit only those nine paths with `git commit --only -m "Install OpenCairn migration recovery bundle ($(git rev-parse --short $REF))" -- <the-nine-literal-paths>`. If the commit fails, report whether the nine files are nevertheless present and matching; never claim the recovery commit landed without checking it.
 
 If recovery was declined or could not be verified, stop with the exact nine paths above. This is the manual recovery surface; do not merely tell the user to rerun the same blocked updater.
+
+Before invoking the shell gate, compare `.claude/scripts/check-archive-layout.sh`, `.claude/scripts/archive-namespace-migration.py`, and `.claude/commands/migrate.md` with the immutable target on every run. If any differs, review the three as one all-or-nothing archive-core unit before the gate: show their combined exact diff, require target regular blobs, reject local symlinks/unexpected types, capture and recheck `MISSING` or regular-file/Git-mode/content-hash identities, require explicit approval even under `--force`, and then check out all three together. Verify the three target matches, then commit only those literal paths as the archive-core recovery unit; if verification or commit fails, leave the reviewed paths visible/staged and stop for the startup resume route. If the unit is declined, stop before the gate; a new helper paired with an old gate or migrator is not a supported partial update.
+
+With the unit identical to the immutable target, probe the installed helper directly with the exact new capability command:
+
+```bash
+python3 .claude/scripts/archive-namespace-migration.py gate --status "$VAULT_PATH"
+```
+
+Require exactly the three documented `ARCHIVE_LAYOUT`, `ACTIONABLE_LEGACY_FILES`, and `MIGRATION_JOURNAL_PHASE` lines. A missing command, non-zero status, malformed output, symlinked archive-core member, or helper that does not produce this contract is an archive-core compatibility failure—not a vault-layout result. Stop with `archive-core-mismatch`; never enter migration through a mismatched core.
 
 Before the vault gate, recover the live Codex adapters when a Codex install exists. Resolve the live root as `${CODEX_HOME:-$HOME/.codex}`. For each of `update/SKILL.md` and `migrate/SKILL.md`, compare the repository file with the live counterpart and show a unified diff when missing or different. Under `--dry-run`, report the required copies but do not write them. Otherwise ask before copying; `--force` does not bypass this outward-copy review. If the user declines `migrate/SKILL.md`, the gate may still block and must report that exact missing live recovery path rather than telling them to invoke an unavailable `$migrate`.
 
@@ -341,8 +373,10 @@ Interpret `ARCHIVE_LAYOUT` from the helper output:
   Run /migrate for explicit split-archive reconciliation; /update will not merge them.
 ```
 
-- `legacy-symlink-alias`, `legacy-symlink-unsafe`, or `new-symlink-unsafe` → abort before Step 4. `/migrate` must inspect the link without traversing it.
-- `indeterminate` or any unknown/malformed output → abort. A failed locator search or unreadable migration journal is never evidence that the vault is compatible.
+- `legacy-symlink-alias`, `legacy-symlink-unsafe`, `new-symlink-unsafe`, `legacy-path-unsafe`, or `new-path-unsafe` → abort before Step 4. `/migrate` must inspect the unexpected path without traversing or replacing it.
+- `complete-journal-topology-mismatch` or `complete-ledger-topology-mismatch` → abort with exit-state 25. Completion evidence contradicts the physical archive roots; do not recreate or move either root automatically.
+- `archive-core-mismatch` → abort with exit-state 26 and use the exact nine-file helper-first bridge above. Do not run the stale gate again before repairing its paired helper.
+- `indeterminate` or any unknown/malformed output → abort. An unreadable migration journal or malformed three-line helper contract is never evidence that the vault is compatible.
 
 Do not infer completion from `07 System/Migration Record.md`; the live helper output is the gate. For an otherwise clean layout, an absent journal is a fresh-install state and a `complete` journal passes; any other journal phase yields `pending-verification`. Recovery modifies only the nine infrastructure files above plus any separately approved live Codex adapter copies, never vault content, so `/update`'s infrastructure-only contract remains intact.
 
@@ -421,19 +455,13 @@ Dry run complete. Run /update to apply these changes.
 
 For each changed file, show a short diff and let the user decide. This prevents template updates from overwriting local improvements.
 
-**Before touching anything**, record two things you will need later:
-```bash
-git rev-parse HEAD    # pre-update HEAD — Error Recovery restores from this, not from HEAD-at-failure-time
-```
-and an **accepted-files list**: the paths you actually check out during this step (accepted files plus new files). Keep it explicitly — the commit and any rollback are scoped to those paths only, never to the directory roots.
+Build an **accepted-files list** without writing anything. The review phase and apply phase are separate: a crash during review leaves the tree untouched, and a resumed run restarts from the candidate inventory instead of guessing which immediate checkouts landed.
 
-**If `--force` was specified**, skip per-file review — accept all files and apply them in bulk (use the bulk checkout approach):
-```bash
-git checkout $REF -- .claude/commands/ .claude/scripts/ codex/
-```
-The accepted-files list for the commit is then the template's file list (`git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/`). Then skip ahead to the commit step below.
+`--force` may auto-accept files that are absent locally (pure additions). It does not bypass review for an existing path whose bytes, type, or executable mode differ, and it never performs a directory-root checkout.
 
-**Otherwise, iterate over each changed file:**
+Iterate over each changed existing file:
+
+First remove the archive-core unit from the per-file candidate list. If any of `.claude/scripts/check-archive-layout.sh`, `.claude/scripts/archive-namespace-migration.py`, or `.claude/commands/migrate.md` differs, show one combined exact replacement diff and accept or skip all three as a unit. An absent member may be added automatically only when the other existing members are already identical; otherwise explicit unit approval is required, including under `--force`.
 
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
@@ -460,22 +488,25 @@ For each file in this list:
    - **n** — skip: keep the local version unchanged
    - **d** — show full diff again (re-display, then re-ask)
 
-4. **If accepted**, apply immediately:
-   ```bash
-   git checkout $REF -- <file>
-   ```
+4. **If accepted**, add the literal path to the accepted-files list; do not check it out yet.
 
 5. **If skipped**, note it for the summary. Move to the next file.
 
-**New files** (in template but not local) don't need review — apply them automatically:
+**New files** (absent locally at review time) may be accepted automatically, including under `--force`; add them to the accepted-files list without writing.
+
+For every accepted path, first require the immutable target entry to be a regular Git blob with mode `100644` or `100755`. Record the reviewed local preimage identity: `MISSING`, or regular-file type, Git executable mode, and content SHA-256. Reject a symlink or any unexpected local type; never hash its target and continue. Immediately before apply, recalculate every identity. If any differs, abort before checkout and restart the affected review. Only after the entire accepted set passes this compare-and-swap check, apply each literal file from the immutable `$REF` commit. Never use directory roots:
+
 ```bash
-git checkout $REF -- <new-file>
+git checkout $REF -- <accepted-file-1> <accepted-file-2> ...
 ```
+
+After a crash or interrupted run, recompute the target diff and restart review. Files already equal to `$REF` naturally drop out; never restore them to a historical `HEAD` merely to recreate a previous staging state.
 
 **After all files are processed**, commit everything that was accepted:
 ```bash
-# Ensure scripts are executable and stage the permission change
-chmod +x .claude/scripts/*.sh 2>/dev/null
+# Restore executable mode only for accepted template scripts whose target Git mode is executable.
+# Name each literal accepted script; never chmod a glob, skipped file, or local-only script.
+chmod +x <accepted-executable-script-1> <accepted-executable-script-2> ... 2>/dev/null
 
 # Commit with template version hash for traceability.
 # Name every accepted file explicitly — NOT the directory roots. `--only` scopes
@@ -514,7 +545,7 @@ diff -q "codex/skills/<file>" "${CODEX_HOME:-$HOME/.codex}/skills/<file>" 2>/dev
 ```
 
 - **Identical** → nothing to do.
-- **Missing or differing** → show `diff -u "${CODEX_HOME:-$HOME/.codex}/skills/<file>" "codex/skills/<file>"` (a difference may be the user's own customisation, not just staleness) and ask before copying to the resolved Codex root. On accept: `mkdir -p` the parent, then copy. On skip: note it for the summary.
+- **Missing or differing** → reject a symlink or unexpected live-file type; show `diff -u "${CODEX_HOME:-$HOME/.codex}/skills/<file>" "codex/skills/<file>"` (a difference may be the user's own customisation, not just staleness) and ask before copying to the resolved Codex root. Record `MISSING`, or regular-file mode plus content SHA-256, before review. Immediately before an accepted copy, recalculate that identity and abort if missing/present, type, mode, or hash changed. `--force` never bypasses this check. On a clean recheck: `mkdir -p` the parent, then copy. On skip: note it for the summary.
 
 **`codex/AGENTS.md` is never auto-copied.** The install instructions *append* it to any existing `~/.codex/AGENTS.md`, so the live file may legitimately carry the user's own content on top. If the repo copy changed this run and differs from the live file, display instead:
 
@@ -524,7 +555,7 @@ diff -q "codex/skills/<file>" "${CODEX_HOME:-$HOME/.codex}/skills/<file>" 2>/dev
     diff ~/.codex/AGENTS.md codex/AGENTS.md
 ```
 
-These copies live **outside the git tree** — there is no VCS to recover an overwrite from. That is why every differing file shows its diff before copying, and why `--force` does **not** extend here: `--force` bulk-applies the in-repo checkout only; the outward copy always reviews per file.
+These copies live **outside the git tree** — there is no VCS to recover an overwrite from. That is why every differing file shows its diff before copying, and why `--force` does **not** extend here: the outward copy always reviews per file.
 
 ### Step 7: Post-Update Checks
 
@@ -639,30 +670,12 @@ git rev-parse --short $REF
 
 ## Error Recovery
 
-If anything goes wrong mid-update, restore **only the files this run checked out**, from the **pre-update HEAD** you recorded at the top of Step 6 — not from `HEAD`, which may already be this run's own update commit, and not from the directory roots, which would discard unrelated uncommitted work (including a concurrent session's):
-
-```bash
-# Undo this run's checkouts (restore previous state)
-git checkout <pre-update-HEAD> -- <accepted-file-1> <accepted-file-2> ...
-```
-
-If the failure landed **after** the Step 6 commit, that commit is still in history — say so rather than claiming nothing changed:
-```
-✗ Update failed after committing. Restored the affected files from <pre-update-HEAD>.
-  The update commit is still in history — `git revert` it if you want it gone.
-Error: [specific error message]
-```
-
-Otherwise:
-```
-✗ Update failed — rolled back the files this run touched. Nothing was committed.
-Error: [specific error message]
-```
+Do not restore files automatically from a historical `HEAD`: that can erase local edits made after the review snapshot. Before apply, a failure leaves the tree untouched. After apply, inspect the accepted literal paths against the immutable target and current index, report exactly which files match the target and whether the scoped commit exists, then resume by rerunning the updater. Already-matching files fall out of the next diff; skipped and concurrently edited files remain untouched. Any deliberate rollback is a separate, reviewed user decision with an exact diff.
 
 ## Guidelines
 
 - **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to the resolved Codex home (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch its `AGENTS.md`.
-- **Per-file review:** Each changed file is shown with its diff before applying. Users can skip files they've customised locally, preventing template regressions. `--force` bypasses review and accepts all.
+- **Per-file review:** Each changed existing file is shown with its diff before applying. Users can skip files they've customised locally. `--force` auto-accepts only true additions; it never bypasses review or the preimage compare-and-swap guard for an overwrite.
 - **Custom commands are preserved:** Only files that exist in the template are updated. User-created custom commands are never modified or deleted.
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.
 - **Scripts are cross-platform:** All template scripts use portable locking (flock on Linux, mkdir-based on macOS/Windows) and portable date handling. Updates won't break OS-specific functionality.
@@ -670,7 +683,7 @@ Error: [specific error message]
 - **Safe to re-run:** Running `/update` twice in a row never double-applies anything. It only shows "Already up to date" if nothing still differs — a second run re-offers any files you skipped, plus any local-only commands or scripts, because neither leaves a record that would suppress them.
 - **Offline-safe:** Fails cleanly if GitHub is unreachable. No partial updates.
 - **No force push:** This never pushes anything. It only fetches and applies locally.
-- **Pinned releases (`--tag VERSION`):** pin to a specific signed release instead of tracking the branch, and verify its tag signature before applying. Unlike branch-follow (which warns and continues), pinned mode **fails closed** — an unsigned, lightweight, or unverifiable tag aborts. The per-file review and apply are otherwise identical; `--tag` only changes what you diff against.
+- **Pinned releases (`--tag VERSION`):** pin to a specific signed release instead of tracking the branch, and verify its tag signature before applying. Unlike branch-follow (which warns and continues), pinned mode **fails closed** — an unsigned, lightweight, or unverifiable tag aborts. Replacement review and apply are otherwise identical; `--tag` only changes what you diff against.
 
 ## Skill Monitor
 

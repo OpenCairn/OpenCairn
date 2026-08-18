@@ -397,8 +397,26 @@ def main():
 
     vault_path = Path(sys.argv[1])
     locked_edit = Path(__file__).with_name("locked-edit.sh")
+    migration_helper = Path(__file__).with_name("archive-namespace-migration.py")
     if not locked_edit.is_file():
         print(f"Error: locking wrapper not found beside exporter: {locked_edit}", file=sys.stderr)
+        sys.exit(1)
+    if not migration_helper.is_file():
+        print(f"Error: archive helper not found beside exporter: {migration_helper}", file=sys.stderr)
+        sys.exit(1)
+    archive = subprocess.run(
+        [sys.executable, str(migration_helper), "archive-root", "--write", str(vault_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    archive_root = archive.stdout.strip()
+    if archive.returncode != 0 or archive_root not in {
+        "06 Archive/Claude",
+        "06 Archive/OpenCairn",
+    }:
+        detail = archive.stderr.strip() or "archive helper returned an invalid root"
+        print(f"Error: {detail}", file=sys.stderr)
         sys.exit(1)
     days = 7
     if "--days" in sys.argv:
@@ -440,7 +458,7 @@ def main():
     # stay on disk (still synced, provenance-hashable), just unindexed. Whether
     # they are also version-controlled is a per-vault .gitignore decision — do not
     # assume git is available as a recovery path; the merge below is the guarantee.
-    output_dir = vault_path / "06 Archive" / "OpenCairn" / ".Session Transcripts"
+    output_dir = vault_path / archive_root / ".Session Transcripts"
 
     cutoff = datetime.now() - timedelta(days=days)
     cutoff_ts = cutoff.timestamp()

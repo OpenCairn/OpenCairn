@@ -34,4 +34,4 @@ Use the canonical migrator stored in the OpenCairn checkout. This Codex skill is
    - Use Codex commentary for progress and concise plain-text questions for sync confirmation, split-archive collision decisions, or destructive approvals.
    - Read `${CODEX_HOME:-$HOME/.codex}/skills/_skill-monitor.md` for the final monitor step.
 
-4. Preserve the migration invariants: live state outranks the ledger; only verified `complete` unblocks workflows; vault prose writes use `locked-edit.sh`; linked structural moves follow shared-rules §24; raw `mv` is forbidden; split archives never auto-merge; immutable provenance files must retain their recorded hashes.
+4. Preserve the migration invariants: completed journal or canonical ledger evidence is terminal only with a real `06 Archive/OpenCairn` root; completed migrations are never re-audited against later archive growth; only verified `complete` unblocks workflows; vault prose writes use `locked-edit.sh`; linked structural moves follow shared-rules §24; raw `mv` is forbidden; and split archives never auto-merge.

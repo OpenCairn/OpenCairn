@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -8,6 +9,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/export-session-transcripts.py"
+SCRIPTS = SCRIPT.parent
 
 
 class ExportSessionTranscriptsTests(unittest.TestCase):
@@ -46,6 +48,15 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
         return rollout
 
     def run_exporter(self, home: Path, vault: Path, cwd: Path, *args: str):
+        vault_scripts = vault / ".claude/scripts"
+        vault_scripts.mkdir(parents=True, exist_ok=True)
+        for name in (
+            "locked-edit.sh",
+            "lib-lock.sh",
+            "lib-session.sh",
+            "archive-namespace-migration.py",
+        ):
+            shutil.copy2(SCRIPTS / name, vault_scripts / name)
         env = os.environ.copy()
         env["HOME"] = str(home)
         return subprocess.run(
@@ -95,6 +106,42 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("Session source: Codex rollouts", result.stdout)
             self.assert_codex_export(vault, rollout)
+
+    def test_old_only_vault_exports_to_legacy_root_without_migrating(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            vault = root / "vault"
+            cwd = root / "project"
+            cwd.mkdir(parents=True)
+            (vault / "06 Archive/Claude").mkdir(parents=True)
+            rollout = self.make_codex_rollout(home, cwd)
+
+            result = self.run_exporter(home, vault, cwd)
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            date_str = datetime.fromtimestamp(rollout.stat().st_mtime).strftime("%Y-%m-%d")
+            self.assertTrue(
+                (vault / "06 Archive/Claude/.Session Transcripts" / f"{date_str}.md").is_file()
+            )
+            self.assertFalse((vault / "06 Archive/OpenCairn").exists())
+
+    def test_split_vault_refuses_export_without_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            vault = root / "vault"
+            cwd = root / "project"
+            cwd.mkdir(parents=True)
+            (vault / "06 Archive/Claude").mkdir(parents=True)
+            (vault / "06 Archive/OpenCairn").mkdir()
+            self.make_codex_rollout(home, cwd)
+
+            result = self.run_exporter(home, vault, cwd)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("refused unsafe or contradictory archive state", result.stderr)
+            self.assertFalse((vault / "07 System/Migration Record.md").exists())
 
 
 if __name__ == "__main__":

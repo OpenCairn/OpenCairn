@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import fnmatch
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -104,68 +105,36 @@ def legacy_locator_exempt(path: Path) -> bool:
 
 
 def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
-    roots = [root_name for root_name in ROOT_NAMES if (vault / root_name).exists()]
-    if not roots:
-        return []
-    command = [
-        "rg",
-        "-l",
-        "--hidden",
-        "--no-ignore",
-        "-P",
-        "-e",
-        rf"{re.escape(OLD_TOKEN)}(?=/|$|[\"'\]\)\}}>,;:])",
-        "-e",
-        rf"{re.escape(OLD_WINDOWS_TOKEN)}(?=\\|$|[\"'\]\)\}}>,;:])",
-        *roots,
-    ]
-    for pattern in TEXT_GLOBS:
-        command.extend(("-g", pattern))
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=vault,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-    except FileNotFoundError as exc:
-        raise RuntimeError("legacy-locator search requires ripgrep (rg)") from exc
-    if completed.returncode not in (0, 1):
-        raise RuntimeError(completed.stderr.strip() or "legacy-locator search failed")
     matches: list[Path] = []
-    for line in completed.stdout.splitlines():
-        candidate = Path(line.removeprefix("./"))
-        path = candidate if candidate.is_absolute() else vault / candidate
-        try:
-            relative = path.resolve().relative_to(vault)
-        except ValueError:
-            raise RuntimeError(f"legacy-locator search escaped the vault: {line}")
-        if excluded(relative) != immutable or legacy_locator_exempt(path):
+    for root_name in ROOT_NAMES:
+        root = vault / root_name
+        if not root.exists():
             continue
-        if path.is_file():
-            matches.append(path)
-    for root_name in roots:
         for path in (vault / root_name).rglob("*"):
-            if not path.is_file() or path.suffix or path.name.endswith(".lock"):
+            if not path.is_file() or path.name.endswith(".lock"):
                 continue
             try:
                 relative = path.resolve().relative_to(vault)
             except ValueError as exc:
                 raise RuntimeError(
-                    f"extensionless locator search escaped the vault: {path}"
+                    f"legacy-locator search escaped the vault: {path}"
                 ) from exc
-            if excluded(relative) != immutable or legacy_locator_exempt(path):
+            if excluded(relative) != immutable:
+                continue
+            if path.suffix and not any(
+                fnmatch.fnmatch(path.name, pattern) for pattern in TEXT_GLOBS
+            ):
                 continue
             data = path.read_bytes()
             if b"\0" in data:
+                continue
+            if LEGACY_LOCATOR_EXEMPT_MARKER.encode() in data:
                 continue
             try:
                 text = data.decode("utf-8")
             except UnicodeDecodeError:
                 # Locator tokens are ASCII. Latin-1 preserves every byte so the
-                # helper and rg-based gate agree that this file is actionable;
-                # rewrite then reports the encoding problem explicitly.
+                # scan still reports the file and rewrite can fail explicitly.
                 text = data.decode("latin-1")
             if LOCATOR_PATTERN.search(text):
                 matches.append(path)
@@ -201,7 +170,7 @@ def protected_immutable_files(vault: Path) -> list[Path]:
     return sorted(files, key=lambda path: path.relative_to(vault).as_posix())
 
 
-def layout(vault: Path, actionable_count: int) -> str:
+def physical_topology(vault: Path) -> str:
     old_path = vault / OLD_TOKEN
     new_path = vault / NEW_TOKEN
     if new_path.is_symlink():
@@ -213,15 +182,239 @@ def layout(vault: Path, actionable_count: int) -> str:
         except OSError:
             pass
         return "legacy-symlink-unsafe"
+    if new_path.exists() and not new_path.is_dir():
+        return "new-path-unsafe"
+    if old_path.exists() and not old_path.is_dir():
+        return "legacy-path-unsafe"
     old_exists = old_path.is_dir()
     new_exists = new_path.is_dir()
     if old_exists and new_exists:
         return "split"
     if old_exists:
-        return "old-only"
+        return "old-root-only"
     if new_exists:
+        return "new-root-only"
+    return "no-root"
+
+
+def layout(vault: Path, actionable_count: int) -> str:
+    topology = physical_topology(vault)
+    if topology == "old-root-only":
+        return "old-only"
+    if topology == "new-root-only":
         return "new-with-legacy-locators" if actionable_count else "new-only"
-    return "empty-with-legacy-locators" if actionable_count else "empty-clean"
+    if topology == "no-root":
+        return "empty-with-legacy-locators" if actionable_count else "empty-clean"
+    return topology
+
+
+def migration_record_row(vault: Path) -> str | None:
+    path = vault / RECORD
+    if not path.is_file():
+        return None
+    rows = [
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith(f"| {MIGRATION_ID} |")
+    ]
+    if len(rows) > 1:
+        raise RuntimeError(f"ambiguous migration rows for {MIGRATION_ID}")
+    return rows[0] if rows else None
+
+
+def has_canonical_complete_row(vault: Path) -> bool:
+    row = migration_record_row(vault)
+    if row is None:
+        return False
+    match = re.fullmatch(
+        rf"\| {re.escape(MIGRATION_ID)} \| complete \| (\d{{4}}-\d{{2}}-\d{{2}}) \|",
+        row,
+    )
+    if not match:
+        return False
+    try:
+        dt.date.fromisoformat(match.group(1))
+    except ValueError:
+        return False
+    return True
+
+
+def gate_state(vault: Path) -> dict[str, object]:
+    topology = physical_topology(vault)
+    journal: dict[str, object] | None = None
+    journal_phase = "absent"
+    journal_error: str | None = None
+    try:
+        journal = load_journal(vault)
+        if journal:
+            journal_phase = str(journal["phase"])
+    except RuntimeError as exc:
+        journal_phase = "invalid"
+        journal_error = str(exc)
+
+    unsafe_topologies = {
+        "split",
+        "legacy-symlink-alias",
+        "legacy-symlink-unsafe",
+        "new-symlink-unsafe",
+        "legacy-path-unsafe",
+        "new-path-unsafe",
+    }
+    if topology in unsafe_topologies:
+        return {
+            "layout": topology,
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": None,
+        }
+    if journal_error:
+        return {
+            "layout": "indeterminate",
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": journal_error,
+        }
+    if journal and journal_phase == "in-progress":
+        return {
+            "layout": "pending-verification",
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": None,
+        }
+    if journal and journal_phase == "complete":
+        if topology == "new-root-only":
+            return {
+                "layout": "new-only",
+                "actionable": 0,
+                "journal_phase": journal_phase,
+                "diagnostic": None,
+            }
+        return {
+            "layout": "complete-journal-topology-mismatch",
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": (
+                f"complete migration journal conflicts with archive topology {topology}; "
+                "inspect the archive paths and do not recreate or move either root automatically"
+            ),
+        }
+
+    try:
+        ledger_complete = has_canonical_complete_row(vault)
+    except RuntimeError as exc:
+        return {
+            "layout": "indeterminate",
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": str(exc),
+        }
+    if ledger_complete:
+        if topology == "new-root-only":
+            return {
+                "layout": "new-only",
+                "actionable": 0,
+                "journal_phase": journal_phase,
+                "diagnostic": None,
+            }
+        return {
+            "layout": "complete-ledger-topology-mismatch",
+            "actionable": "unknown",
+            "journal_phase": journal_phase,
+            "diagnostic": (
+                f"complete migration ledger row conflicts with archive topology {topology}; "
+                "inspect the archive paths and do not recreate or move either root automatically"
+            ),
+        }
+
+    actionable = matching_files(vault, immutable=False)
+    return {
+        "layout": layout(vault, len(actionable)),
+        "actionable": len(actionable),
+        "journal_phase": journal_phase,
+        "diagnostic": None,
+    }
+
+
+def gate(vault: Path, mode: str) -> int:
+    state = gate_state(vault)
+    print(f"ARCHIVE_LAYOUT={state['layout']}")
+    print(f"ACTIONABLE_LEGACY_FILES={state['actionable']}")
+    print(f"MIGRATION_JOURNAL_PHASE={state['journal_phase']}")
+    if mode == "--status":
+        return 0
+
+    layout_name = str(state["layout"])
+    diagnostic = state.get("diagnostic")
+    if layout_name in {"new-only", "empty-clean"}:
+        return 0
+    if layout_name in {
+        "old-only",
+        "new-with-legacy-locators",
+        "empty-with-legacy-locators",
+    }:
+        print(
+            "OpenCairn archive migration required. Run /migrate in Claude Code or "
+            "$migrate in Codex before using this workflow.",
+            file=sys.stderr,
+        )
+        return 20
+    if layout_name == "pending-verification":
+        print(
+            "OpenCairn archive migration is awaiting journal-backed verification. "
+            "Run /migrate in Claude Code or $migrate in Codex before using this workflow.",
+            file=sys.stderr,
+        )
+        return 20
+    messages = {
+        "split": (
+            21,
+            "Both 06 Archive/Claude and 06 Archive/OpenCairn exist. Stop archive-backed "
+            "work and run /migrate or $migrate for split-archive reconciliation.",
+        ),
+        "legacy-symlink-alias": (
+            22,
+            "06 Archive/Claude is a compatibility symlink to OpenCairn. Stop archive-backed "
+            "work and run /migrate or $migrate to retire the alias without traversing it.",
+        ),
+        "legacy-symlink-unsafe": (
+            23,
+            "06 Archive/Claude is a symlink with an unsafe or unresolved target. Stop "
+            "archive-backed work and run /migrate or $migrate for inspection.",
+        ),
+        "new-symlink-unsafe": (
+            23,
+            "06 Archive/OpenCairn is a symlink. Stop archive-backed work and run /migrate "
+            "or $migrate for inspection; the active archive root must remain inside the vault.",
+        ),
+        "legacy-path-unsafe": (
+            23,
+            "06 Archive/Claude exists but is not a directory. Stop archive-backed work "
+            "and run /migrate or $migrate for inspection.",
+        ),
+        "new-path-unsafe": (
+            23,
+            "06 Archive/OpenCairn exists but is not a directory. Stop archive-backed work "
+            "and run /migrate or $migrate for inspection.",
+        ),
+    }
+    if layout_name in messages:
+        code, message = messages[layout_name]
+        print(message, file=sys.stderr)
+        return code
+    if layout_name in {
+        "complete-journal-topology-mismatch",
+        "complete-ledger-topology-mismatch",
+    }:
+        print(str(diagnostic), file=sys.stderr)
+        return 25
+    if diagnostic:
+        print(str(diagnostic), file=sys.stderr)
+    print(
+        "OpenCairn could not prove the archive layout safe. Run /migrate or $migrate "
+        "and inspect the reported journal/tool error.",
+        file=sys.stderr,
+    )
+    return 24
 
 
 def inspect(vault: Path) -> dict[str, object]:
@@ -279,6 +472,33 @@ def locked_whole(vault: Path, relative: Path, payload: str) -> None:
         hashlib.sha256(target.read_bytes()).hexdigest() if target.exists() else "MISSING"
     )
     locked_call(vault, target, "--replace-whole", payload, expected)
+
+
+def locked_whole_cas(vault: Path, relative: Path, transform) -> None:
+    target = vault / relative
+    for _ in range(8):
+        exists = target.exists()
+        before = target.read_bytes() if exists else b""
+        expected = hashlib.sha256(before).hexdigest() if exists else "MISSING"
+        try:
+            current = before.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RuntimeError(f"record is not UTF-8 text: {target}") from exc
+        payload = transform(current, exists)
+        completed = subprocess.run(
+            [str(editor(vault)), str(target), "--replace-whole", expected],
+            input=payload,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode == 0:
+            return
+        if completed.returncode != 2:
+            raise RuntimeError(
+                completed.stderr.strip() or f"locked edit failed: {target}"
+            )
+    raise RuntimeError(f"record changed repeatedly during locked update: {target}")
 
 
 def archive_members(root: Path) -> list[str]:
@@ -398,35 +618,64 @@ def save_journal(vault: Path, journal: dict[str, object]) -> None:
     locked_whole(vault, JOURNAL, json.dumps(journal, indent=2) + "\n")
 
 
-def record(vault: Path, state: str) -> None:
-    allowed = {"in-progress", "blocked", "deferred", "declined", "complete"}
-    if state not in allowed:
-        raise RuntimeError(f"invalid migration state: {state}")
-    path = vault / RECORD
-    row = f"| {MIGRATION_ID} | {state} | {dt.date.today().isoformat()} |"
+def render_record(current: str, exists: bool, row: str) -> str:
     section = (
         "## Versioned migrations\n\n"
         "| Migration | State | Last checked |\n"
         "|---|---|---|\n"
         f"{row}\n"
     )
-    if not path.exists():
-        locked_call(vault, path, "--append", f"# OpenCairn Migration Record\n\n{section}")
-        return
-    text = path.read_text(encoding="utf-8")
-    rows = [line for line in text.splitlines() if line.startswith(f"| {MIGRATION_ID} |")]
-    if len(rows) > 1:
-        raise RuntimeError(f"ambiguous migration rows for {MIGRATION_ID}")
+    if not exists:
+        return f"# OpenCairn Migration Record\n\n{section}"
+    rows = [
+        line for line in current.splitlines() if line.startswith(f"| {MIGRATION_ID} |")
+    ]
     if rows:
-        locked_call(vault, path, "--replace", f"{rows[0]}\n{SEP}\n{row}")
-    elif "## Versioned migrations" in text:
+        output: list[str] = []
+        inserted = False
+        for line in current.splitlines():
+            if line.startswith(f"| {MIGRATION_ID} |"):
+                if not inserted:
+                    output.append(row)
+                    inserted = True
+                continue
+            output.append(line)
+        return "\n".join(output) + ("\n" if current.endswith("\n") else "")
+    if "## Versioned migrations" in current:
         marker = "| Migration | State | Last checked |\n|---|---|---|"
-        if text.count(marker) != 1:
+        if current.count(marker) != 1:
             raise RuntimeError("versioned migration table header is missing or ambiguous")
-        locked_call(vault, path, "--replace", f"{marker}\n{SEP}\n{marker}\n{row}")
-    else:
-        prefix = "" if text.endswith("\n\n") else "\n" if text.endswith("\n") else "\n\n"
-        locked_call(vault, path, "--append", prefix + section)
+        return current.replace(marker, f"{marker}\n{row}", 1)
+    prefix = "" if current.endswith("\n\n") else "\n" if current.endswith("\n") else "\n\n"
+    return current + prefix + section
+
+
+def terminal_completion(vault: Path) -> bool:
+    if physical_topology(vault) != "new-root-only":
+        return False
+    journal = load_journal(vault)
+    if journal:
+        return journal["phase"] == "complete"
+    return has_canonical_complete_row(vault)
+
+
+def record(vault: Path, state: str) -> None:
+    allowed = {"in-progress", "blocked", "deferred", "declined", "complete"}
+    if state not in allowed:
+        raise RuntimeError(f"invalid migration state: {state}")
+    if state == "complete" and not terminal_completion(vault):
+        topology = physical_topology(vault)
+        if topology != "new-root-only":
+            raise RuntimeError(
+                f"complete record requires new-root-only topology; found {topology}"
+            )
+        journal = load_journal(vault)
+        if journal is not None:
+            raise RuntimeError("complete record requires a completed migration journal")
+        if matching_files(vault, immutable=False):
+            raise RuntimeError("complete record refused while actionable legacy locators remain")
+    row = f"| {MIGRATION_ID} | {state} | {dt.date.today().isoformat()} |"
+    locked_whole_cas(vault, RECORD, lambda current, exists: render_record(current, exists, row))
 
 
 def begin(vault: Path) -> int:
@@ -457,6 +706,9 @@ def begin(vault: Path) -> int:
 
 
 def rewrite(vault: Path) -> int:
+    if terminal_completion(vault):
+        print(json.dumps({"changed": [], "count": 0}, indent=2))
+        return 0
     state = inspect(vault)
     if state["layout"] not in {
         "new-only",
@@ -570,12 +822,33 @@ def verify_immutable(vault: Path) -> int:
     if journal is None:
         print("immutable verification requires a valid migration journal", file=sys.stderr)
         return 1
-    errors = immutable_verification_errors(vault, journal)
+    if journal["phase"] == "complete":
+        errors = [] if physical_topology(vault) == "new-root-only" else [
+            f"completed migration conflicts with archive topology {physical_topology(vault)}"
+        ]
+    else:
+        errors = immutable_verification_errors(vault, journal)
     print(json.dumps({"migration": MIGRATION_ID, "errors": errors}, indent=2))
     return 0 if not errors else 1
 
 
 def verify(vault: Path) -> int:
+    if terminal_completion(vault):
+        print(
+            json.dumps(
+                {
+                    "schema": 1,
+                    "migration": MIGRATION_ID,
+                    "layout": "new-only",
+                    "journal_phase": (
+                        load_journal(vault)["phase"] if load_journal(vault) else None
+                    ),
+                    "errors": [],
+                },
+                indent=2,
+            )
+        )
+        return 0
     state = inspect(vault)
     errors: list[str] = []
     journal = load_journal(vault)
@@ -600,14 +873,61 @@ def finish(vault: Path) -> int:
     if journal is None:
         print("finish requires a valid migration journal", file=sys.stderr)
         return 1
-    if verify(vault) != 0:
-        return 1
-    if journal.get("phase") != "complete":
+    if journal.get("phase") == "complete":
+        if physical_topology(vault) != "new-root-only":
+            print(
+                f"completed migration conflicts with archive topology {physical_topology(vault)}",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        if verify(vault) != 0:
+            return 1
         journal["phase"] = "complete"
         journal["completed_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
         save_journal(vault, journal)
     record(vault, "complete")
     return 0
+
+
+def archive_root(vault: Path, *, write: bool) -> int:
+    if not write:
+        print("archive-root requires --write", file=sys.stderr)
+        return 2
+    topology = physical_topology(vault)
+    journal = load_journal(vault)
+    ledger_complete = has_canonical_complete_row(vault)
+
+    if topology == "old-root-only" and journal is None and not ledger_complete:
+        (vault / OLD_TOKEN / ".Session Transcripts").mkdir(parents=True, exist_ok=True)
+        print(OLD_TOKEN)
+        return 0
+    if topology == "new-root-only":
+        if journal and journal["phase"] != "complete":
+            print("archive root is mid-migration; run /migrate or $migrate", file=sys.stderr)
+            return 2
+        if not journal and not ledger_complete:
+            record(vault, "complete")
+        (vault / NEW_TOKEN / ".Session Transcripts").mkdir(parents=True, exist_ok=True)
+        print(NEW_TOKEN)
+        return 0
+    if topology == "no-root" and journal is None and not ledger_complete:
+        if matching_files(vault, immutable=False):
+            print(
+                "archive-root refused empty archive topology with actionable legacy locators; "
+                "run /migrate or $migrate",
+                file=sys.stderr,
+            )
+            return 2
+        (vault / NEW_TOKEN / ".Session Transcripts").mkdir(parents=True, exist_ok=True)
+        record(vault, "complete")
+        print(NEW_TOKEN)
+        return 0
+    print(
+        f"archive-root refused unsafe or contradictory archive state: {topology}",
+        file=sys.stderr,
+    )
+    return 2
 
 
 def split_plan(vault: Path) -> int:
@@ -680,6 +1000,29 @@ def split_plan(vault: Path) -> int:
 
 
 def main() -> int:
+    if len(sys.argv) == 4 and sys.argv[1] == "gate" and sys.argv[2] in {"--status", "--enforce"}:
+        vault = Path(sys.argv[3]).resolve()
+        if not vault.is_dir():
+            print(f"vault does not exist: {vault}", file=sys.stderr)
+            return 2
+        try:
+            return gate(vault, sys.argv[2])
+        except RuntimeError as exc:
+            print("ARCHIVE_LAYOUT=indeterminate")
+            print("ACTIONABLE_LEGACY_FILES=unknown")
+            print("MIGRATION_JOURNAL_PHASE=unknown")
+            print(exc, file=sys.stderr)
+            return 24
+    if len(sys.argv) == 4 and sys.argv[1] == "archive-root" and sys.argv[2] == "--write":
+        vault = Path(sys.argv[3]).resolve()
+        if not vault.is_dir():
+            print(f"vault does not exist: {vault}", file=sys.stderr)
+            return 2
+        try:
+            return archive_root(vault, write=True)
+        except RuntimeError as exc:
+            print(exc, file=sys.stderr)
+            return 2
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
