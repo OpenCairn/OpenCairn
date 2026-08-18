@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "c22bb7a0fba731fdc2a0e89bdd36bafffe9457146372579292dd3bc12c0e61a6",
-      "render_sha256": "78e6b4b440426613d6397ec33e9475a5a6cf2a1d321fbee2feef275ac9824407"
+      "source_sha256": "75b11c390f16dc1dc5771c25344e3fdd174350a943d483b18a95327a40b4a931",
+      "render_sha256": "c3b81d4d8b79bafe16b11fe9e97b217c6a44a35fabe10c829837dbf4bad8841e"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -106,8 +106,8 @@
     "migrate": {
       "source": ".claude/commands/migrate.md",
       "render": "codex/skills/migrate/SKILL.md",
-      "source_sha256": "df4efe315cab05b822ed625c14439b05cd4daf99b79e889cc046f0180ceaa767",
-      "render_sha256": "92843c0ea80f4736da923accbcbaf9544784502dd5e9365054fec52623146d31"
+      "source_sha256": "3f563a0167405a81fc9fe1b21e1fcd16f913dc7f1a39cfc6fb0bc8f6812348fb",
+      "render_sha256": "a1d5aea69672a6f3b3ffd2b37e422b655a968ecc51d3cf3e10f1b87fd42caef4"
     },
     "map-day": {
       "source": ".claude/commands/map-day.md",
@@ -220,8 +220,8 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "bbf84113e15af57e44358a0f8887bc89b4ac63968a255d79c0ee830e8bc277b4",
-      "render_sha256": "28be100b34b542573131fd3a44270415d23b3e4a26e85ab3c6ef997ee3532720"
+      "source_sha256": "f7ae248d22f4cc0c6d5ee49b10b81354f89b48f71cad0f44809dc1d8736e1873",
+      "render_sha256": "784485742ef1768827e848336794672839cdd99d9583c463abb4f91f75364373"
     },
     "verify-provenance": {
       "source": ".claude/commands/verify-provenance.md",

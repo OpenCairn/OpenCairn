@@ -30,7 +30,6 @@ test -x "{VAULT}/.claude/scripts/locked-edit.sh"
 test -r "{VAULT}/.claude/scripts/lib-lock.sh"
 test -r "{VAULT}/.claude/scripts/lib-session.sh"
 command -v python3
-command -v rg
 ```
 
 If one is absent, stop: the installed migration bundle is incomplete. A full-clone user should rerun `/update` and accept the nine-file `archive-bundle-v3` recovery set; a Codex user should also accept the paired live `update` and `migrate` adapters from that checkout. Do not improvise the migration from partial instructions.
@@ -60,19 +59,22 @@ Allowed states: `in-progress`, `blocked`, `deferred`, `declined`, `complete`. On
 ### Inspect live state
 
 ```bash
+"{VAULT}/.claude/scripts/check-archive-layout.sh" --status "{VAULT}"
 python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" inspect "{VAULT}"
 ```
 
-The state vector includes both directory paths, actionable old-path files, excluded immutable/transcript hits, and the transaction-journal phase. Trust live state over a stale `complete` row.
+Read the three-line gate result first. A valid completed journal, or a canonical completed ledger row when no journal exists, is terminal only while the physical topology is `new-root-only`; the gate then reports `new-only` without rescanning live prose or re-hashing a historical inventory. Skip `inspect` in that terminal state. When the journal phase is `complete`, run `finish` once to repair a missing, stale, or duplicated secondary ledger row without scanning or hashing, then proceed to Doctor. With no journal, the already-canonical ledger row needs no repair. `complete-journal-topology-mismatch` or `complete-ledger-topology-mismatch` is contradictory evidence: stop and inspect the two archive paths manually. Do not recreate, move, or delete either root automatically.
+
+For non-terminal states, `inspect` reports both directory paths, actionable old-path files, excluded immutable/transcript hits, and the transaction-journal phase. The scanner is standard-library Python and does not depend on `rg`.
 
 If `journal_phase` is `invalid`, report `journal_error` and the journal path. The gate and mutating subcommands deliberately fail closed on an invalid journal. Ask the user to inspect and remove or quarantine that single journal in their file manager, then rerun `/migrate`; never delete it silently or treat it as absent without approval.
 
 #### `empty-clean`
 
-This is a fresh vault with neither archive tree nor actionable legacy locator. Record the verified no-op:
+This is a fresh vault with neither archive tree nor actionable legacy locator. Initialise the new archive root before recording completion:
 
 ```bash
-python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" record "{VAULT}" complete
+python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" archive-root --write "{VAULT}"
 ```
 
 Proceed to §2.
@@ -81,14 +83,14 @@ Proceed to §2.
 
 This is normally an interrupted journal-backed migration. Never infer completion from the directory name. If `journal_phase` is absent and the layout is `new-only`, treat it as an already-compatible/fresh layout: record the verified no-op with `record complete` and proceed to Doctor. If the journal is absent and the layout is `new-with-legacy-locators`, run `rewrite`, confirm the layout becomes `new-only`, record `complete`, and proceed to Doctor. Do not manufacture a pre-move journal after the fact.
 
-When a valid journal exists, run the remaining phases idempotently:
+When an `in-progress` journal exists, run the remaining phases idempotently:
 
 ```bash
 python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
 python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" finish "{VAULT}"
 ```
 
-`finish` verifies the folder state and actionable locator count; when a journal exists it also verifies the pre-move member inventory and byte identity of excluded provenance snapshots before recording `complete`. If it fails, record `blocked`, report the exact failed postcondition, and stop.
+`finish` verifies the folder state and actionable locator count, the pre-move member inventory, and byte identity of excluded provenance snapshots before atomically completing the journal and recording `complete`. A completed journal is terminal: repeated `rewrite`, `verify`, `verify-immutable`, and `finish` calls check only its compatibility with the physical `new-root-only` topology and never reinterpret later archive growth as migration corruption. If an in-progress finish fails, record `blocked`, report the exact failed postcondition, and stop.
 
 `pending-verification` is emitted by the shared gate when the directory/locator layout is otherwise safe but the transaction journal is not `complete`; only `finish` may clear it.
 
@@ -142,7 +144,7 @@ For `new-symlink-unsafe`, report the literal target and stop. The active OpenCai
 
 #### `empty-with-legacy-locators`
 
-No archive tree exists, but live files still carry legacy locators. Run `rewrite`, confirm the layout becomes `empty-clean`, record `complete`, and proceed. There is no folder inventory to migrate.
+No archive tree exists, but live files still carry legacy locators. Run `rewrite`, confirm the layout becomes `empty-clean`, then run `archive-root --write` so the real new root exists before the concurrency-safe ledger write. Proceed to Doctor. There is no folder inventory to migrate.
 
 #### `split`
 
@@ -201,7 +203,7 @@ ls "{VAULT}/01 Now/Tasks.md" "{VAULT}/01 Now/Works in Progress.md" 2>/dev/null
 for f in "{VAULT}/03 Projects/"*.md; do printf '%s: ' "$f"; rg -q '^bucket:' "$f" && rg -q '^## Current Objective' "$f" && rg -q '^## Next Actions' "$f" && echo OK || echo MISSING; done
 ```
 
-Report the archive migration from the live output: `complete`, `blocked`, `deferred`, or `declined`. Report each legacy component as `live`, `broken`, `declined`, `deferred`, or `stale`. A ledger row never overrides a failing live check.
+Report the archive migration from the gate and verification output: `complete`, `blocked`, `deferred`, or `declined`. Report each legacy component as `live`, `broken`, `declined`, `deferred`, or `stale`. Completion evidence is authoritative only with a real `06 Archive/OpenCairn` directory; either explicit topology-mismatch state is a hard failure.
 
 ## Integration
 
