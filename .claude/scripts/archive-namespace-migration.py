@@ -78,6 +78,7 @@ MIGRATION_ID = "archive-namespace-opencairn-v1"
 JOURNAL = Path("07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json")
 RECORD = Path("07 System/Migration Record.md")
 JOURNAL_PHASES = {"in-progress", "complete"}
+LEGACY_LOCATOR_EXEMPT_MARKER = "<!-- opencairn: legacy-locator-exempt -->"
 
 
 def excluded(relative: Path) -> bool:
@@ -96,6 +97,10 @@ def excluded(relative: Path) -> bool:
     ):
         return True
     return relative.name.endswith(".lock")
+
+
+def legacy_locator_exempt(path: Path) -> bool:
+    return LEGACY_LOCATOR_EXEMPT_MARKER.encode() in path.read_bytes()
 
 
 def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
@@ -136,7 +141,7 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
             relative = path.resolve().relative_to(vault)
         except ValueError:
             raise RuntimeError(f"legacy-locator search escaped the vault: {line}")
-        if excluded(relative) != immutable:
+        if excluded(relative) != immutable or legacy_locator_exempt(path):
             continue
         if path.is_file():
             matches.append(path)
@@ -150,7 +155,7 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
                 raise RuntimeError(
                     f"extensionless locator search escaped the vault: {path}"
                 ) from exc
-            if excluded(relative) != immutable:
+            if excluded(relative) != immutable or legacy_locator_exempt(path):
                 continue
             data = path.read_bytes()
             if b"\0" in data:

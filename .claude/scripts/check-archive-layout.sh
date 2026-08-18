@@ -31,6 +31,7 @@ OLD_LOCATOR_PATTERN='06 Archive/Claude(?=/|$|["'"'"'\]})>,;:])'
 OLD_WINDOWS_LOCATOR_PATTERN='06 Archive\\Claude(?=\\|$|["'"'"'\]})>,;:])'
 JOURNAL="$VAULT/07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
 MIGRATION_HELPER="$(dirname "$0")/archive-namespace-migration.py"
+LEGACY_LOCATOR_EXEMPT_MARKER='<!-- opencairn: legacy-locator-exempt -->'
 
 legacy_files() {
     local roots=()
@@ -82,7 +83,12 @@ legacy_files() {
         if [[ $primary_rc -ne 0 && $primary_rc -ne 1 ]]; then
             exit "$primary_rc"
         fi
-        [[ -n "$primary_output" ]] && printf '%s\n' "$primary_output"
+        while IFS= read -r candidate; do
+            [[ -z "$candidate" ]] && continue
+            if ! rg -qF -- "$LEGACY_LOCATOR_EXEMPT_MARKER" "$candidate"; then
+                printf '%s\n' "$candidate"
+            fi
+        done <<< "$primary_output"
         while IFS= read -r -d '' candidate; do
             set +e
             rg -q --text -U '\x00' -- "$candidate"
@@ -97,7 +103,9 @@ legacy_files() {
             fi
             set -e
             if [[ $candidate_rc -eq 0 ]]; then
-                printf '%s\n' "$candidate"
+                if ! rg -qF -- "$LEGACY_LOCATOR_EXEMPT_MARKER" "$candidate"; then
+                    printf '%s\n' "$candidate"
+                fi
             elif [[ $candidate_rc -ne 1 ]]; then
                 exit "$candidate_rc"
             fi

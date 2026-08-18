@@ -63,6 +63,25 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(state["layout"], "new-with-legacy-locators")
         self.assertEqual(state["actionable_legacy_files"], ["03 Projects/Example.md"])
 
+    def test_legacy_locator_exemption_preserves_historical_diagnostics(self):
+        (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
+        note = self.vault / "03 Projects/Archive migration incident.md"
+        note.write_text(
+            "<!-- opencairn: legacy-locator-exempt -->\n"
+            "Historical example: 06 Archive/Claude/Session Logs/2026-01-01\n"
+        )
+
+        self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-only")
+        self.assertEqual(self.inspect()["actionable_legacy_files"], [])
+        result = subprocess.run(
+            [str(MIGRATE), "rewrite", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(json.loads(result.stdout)["count"], 0)
+        self.assertIn("06 Archive/Claude", note.read_text())
+
     def test_locator_scan_covers_text_artefacts_and_ignores_binary_data(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
         binary = self.vault / "04 Areas/Photos/example.jpg"
