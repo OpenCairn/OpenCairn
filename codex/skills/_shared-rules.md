@@ -276,14 +276,22 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   ```bash
   RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
   printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
+  if command -v timeout >/dev/null 2>&1; then
+    PANEL_TIMEOUT=(timeout 1500s)
+  elif command -v gtimeout >/dev/null 2>&1; then
+    PANEL_TIMEOUT=(gtimeout 1500s)
+  else
+    echo 'Panel despatch requires timeout (GNU coreutils: timeout or gtimeout).' >&2
+    exit 1
+  fi
   # Each CLI call below runs 2-5 min: under Codex, retain its yielded session_id and poll with write_stdin (see above)
-  cat <brief> | gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
-  cat <brief> | codex exec --sandbox read-only --skip-git-repo-check -C <root> -
+  cat <brief> | "${PANEL_TIMEOUT[@]}" gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
+  cat <brief> | "${PANEL_TIMEOUT[@]}" codex exec --sandbox read-only --skip-git-repo-check -C <root> -
   # Claude seat, when Claude Code is available (jq: .session_id for Mode B resume, .result = the review):
-  cat <brief> | claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
+  cat <brief> | "${PANEL_TIMEOUT[@]}" claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
   # Mode B round 2 (re-pass the flags; the resumed session keeps its prior context):
-  # cat <round2> | claude -p --resume <session_id> --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
-  "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...]
+  # cat <round2> | "${PANEL_TIMEOUT[@]}" claude -p --resume <session_id> --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
+  "${PANEL_TIMEOUT[@]}" "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...]
   ```
 
   `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion/SKILL.md` Phase 2A.
