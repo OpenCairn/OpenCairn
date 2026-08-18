@@ -178,7 +178,7 @@ Release tags from `v0.7.13` onward are SSH-signed annotated tags. Pinned updates
 <details>
 <summary><strong>Click to expand the full skill reference</strong></summary>
 
-> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (the last two skip their vault-only extras), plus `/ocr`, `/transcribe`, `/transcribecloud`, and `/podcast-digest` once their external tooling is installed. Everything else assumes the NIPARAS vault structure and a `VAULT_PATH`.
+> **Standalone (no vault needed):** `/audit`, `/second-opinion`, `/thinking-partner`, `/shop`, `/book-stay` (`/shop` and `/book-stay` skip their vault-only extras), plus `/ocr`, `/transcribe`, `/transcribecloud`, and `/podcast-digest` once their external tooling is installed. Everything else assumes the NIPARAS vault structure and a `VAULT_PATH`.
 >
 > **Codex CLI:** Native renderings live in [`codex/skills/`](codex/skills/) and use `$name` rather than `/name`.
 
@@ -316,7 +316,7 @@ Clone it, run `claude`, ask: *"Analyse this template. I have [your system]. What
 
 ## Credits
 
-Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm), [The Neuron](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant). Built with Claude Code.
+Inspired by [claudesidian](https://github.com/heyitsnoah/claudesidian), [obsidian-claude-pkm](https://github.com/ballred/obsidian-claude-pkm), [The Neuron](https://www.theneuron.ai/explainer-articles/how-to-turn-claude-code-into-your-personal-ai-assistant). Built with Claude Code and Codex.
 
 ---
 
