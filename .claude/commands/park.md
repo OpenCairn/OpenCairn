@@ -1,13 +1,16 @@
 ---
 name: park
 description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, and a fresh-context audit.
+argument-hint: "[--quick]"
 ---
 
 # Park - Session Capture
 
-Capture a work session: quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, audit. Every session gets the full pass — a trivial session just produces a sparse log entry naturally.
+Capture a work session: quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, audit.
 
-**The propagation agent is despatched at Step 4b and collected at Step 8** — it runs in the background across Steps 4, 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 5 and 7 also write. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction. The saving is bounded by however long Steps 4, 5 and 7 actually take; it does not remove the agent's runtime, it hides as much of it as those steps cover.
+**Args:** `/park --quick` requests the fail-closed quick path below. Quick mode activates only when the complete argument string is exactly `--quick`; bare `/park` and every other argument string, including `--quick foo`, run the full protocol. Never infer quick mode from a quiet-looking session.
+
+**On the full path, the propagation agent is despatched at Step 4b and collected at Step 8** — it runs in the background across Steps 4, 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 5 and 7 also write. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction. The saving is bounded by however long Steps 4, 5 and 7 actually take; it does not remove the agent's runtime, it hides as much of it as those steps cover.
 
 **Concurrent parks are safe.** All shared-file writes go through the locking scripts (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`, `write-tickler.sh` — `_shared-rules.md` §5; exit 2/3 = a parallel writer changed the region: re-read and recompute, don't loop-retry; lock timeouts are §5 Failure mode B — kill the hung script, never fall back to the Edit tool). After each `locked-edit.sh` call, grep the target for the full padded separator line `========OPENCAIRN-LOCKED-EDIT-SEP========`, not the bare fragment, which also matches any doc discussing the token (§5). `/goodnight` uses the same machinery; parking before goodnight keeps its daily report coherent.
 
@@ -40,11 +43,11 @@ S="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/${CLAUDE_CODE_SESSION_ID:-
 
 Compare the draft's `SNAPSHOT-LEDGER-LINES: K` against `LEDGER NOW`. K is the exact `wc -l < "$S.tsv"` line count captured by the hook, not a count of bullets, files, or sections in the draft. **An equal count does not mean nothing changed** — the ledger records file writes only, so decisions taken, messages sent, bookings made and shell-mediated work all move the session on without moving the number. Equal count licenses adopting the *Files* sections, not the narrative: re-check Summary, Key Insights, Next Steps and the enumeration against what happened after the snapshot regardless. Higher → adopt as the base, and **read the delta paths** before extending the enumeration; a draft enumeration carried forward unread becomes the Step 6 agent's grep list, so an error there is a silent reference-graph miss, not a cosmetic one.
 
-Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses, and Steps 2, 4–5 and 8–11 run in full regardless — they verify current state, which no snapshot can stand in for. A parboil trigger that fires after this park has begun is satisfied by the active park; do not write or refresh a shadow snapshot mid-park.
+Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses. Bare and escalated parks run Steps 2, 4–5 and 8–11 in full; an eligible explicit quick park follows the checked branch below. A parboil trigger that fires after this park has begun is satisfied by the active park; do not write or refresh a shadow snapshot mid-park.
 
 ### 1. Merge-continuation check
 
-If this session directly continues a just-parked session (a `/pickup` loaded it and the work finishes its loose end), don't create a new entry — update the existing one via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), then run Steps 2 and 4–11 against the merged session's N. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
+If this session directly continues a just-parked session (a `/pickup` loaded it and the work finishes its loose end), `--quick` is ineligible: print `↪ --quick escalated to full park: merge-continuation`, then update the existing entry via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), and run Steps 2 and 4–11 against the merged session's N. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
 
 ### 2. Quality gate
 
@@ -58,6 +61,41 @@ If this session directly continues a just-parked session (a `/pickup` loaded it 
 The ledger is exact where it reaches — it records the session id at write time, so §20 attribution comes free rather than being inferred — but it only sees Write and Edit tool calls. The mtime sweep stays as the backstop for everything that bypasses them: shell redirection, scripts, formatting-hook collateral. Two distinct failure observables, both meaning "fall back to park-files.sh alone and say so": `NOTE: no ledger` (hook unwired, `jq` missing, or no Write/Edit yet), and `ERROR: no session id` (no harness session id resolvable — see lib-session.sh) with **exit 1** — that exit 1 is expected here and is not the invocation error Step 3 warns about. A sub-agent's writes ledger under **this** session's id, tagged in the `agents` column (`main` vs an agent id) — so the agent boundary §20 turns on is recorded, not inferred, and the Step 4b propagation agent's edits appear inline in your own list rather than somewhere else. `# CONCURRENT-SESSION` lines are therefore genuinely other sessions: exclude per §20 and say so. The `# ledger begins` line is the coverage window — writes that predate the hook being wired are not in it, which is one more reason park-files.sh stays.
 
 Reconcile park-files.sh's candidate lines (sync-receipt, config-tree mtimes, repo status, transient surfaces) against the ledger and your own list; anything either returns that you were about to omit gets added. Files another session wrote are not yours — the file list is the attribution boundary (§20); exclude and say so. Display the list.
+
+#### Explicit `--quick` gate
+
+Run this gate only when the complete argument string is exactly `--quick`, after inventory and before any full reads, persistence, routing, or agent despatch. Supply every repository touched during the session to `park-files.sh`.
+
+1. Review the session's actual tool calls and shell commands. Display one row per filesystem-mutating action as `tool/action | resolved path | ledger/park-files/repo coverage`. Every action must resolve to an inventoried path; print `none` only when there were no such actions. Any attributed creation, update, or deletion fails the gate, as does a mutation outside inventory coverage or an action whose target or ownership is uncertain.
+2. Check the at-risk surfaces before Step 4: the inventory's `[transient]` hits, each recent `~/.claude/plans` file, and assistant-authored drafts that exist only in the conversation. Any candidate fails the gate.
+3. Display checked results for external mutations (messages sent, bookings, purchases, pushes, remote edits); decisions, project-state changes, changed identifiers, or factual corrections requiring durable reconciliation; and resumable next steps or open loops. Read-only queries are non-mutating. Any positive or uncertain category fails the gate.
+4. Display the evidence before branching: attributed-file count and inventory sources; mutation rows; transient and plan-file counts; conversation-only draft result; and world-state, project/identifier, and open-loop results. Nil must be a checked result, never a default.
+
+If any condition fails, print `↪ --quick escalated to full park: [reasons]` and continue at Step 2(b), without rerunning setup or inventory. Otherwise follow the quick success path immediately; do not enter the remaining full-path steps.
+
+#### Quick success path
+
+1. Apply Step 3's metadata and locked `write-session.sh --auto-number` mechanics once. Write a sparse entry containing every normal heading, including `Files Created`, `Files Updated`, and `Files Deleted`, with bare `None` under each Files heading; `None` under Key Insights; `None — work completed` under Next Steps and `**For next session:**`; and the normal `**Project:**` line.
+2. Immediately rerun the same ledger, `park-files.sh`, and local-mutation census. This second inventory—not `park-verify.sh`—detects late files. Permit only the exact assigned session-log mutation. Any new or ambiguously attributed non-bookkeeping delta prints an escalation reason and retains the assigned N: never rerun Step 3; classify and fully read every late created or updated artefact; record late deleted paths from ledger, pre-state, or tool evidence without reading them; replace every affected `Summary`, `Key Insights / Decisions`, `Next Steps / Open Loops`, `Files Created`, `Files Updated`, `Files Deleted`, and `Pickup Context` section via `update-session-section.sh --replace`; complete Step 2(b–d); then resume the full path at Step 4.
+3. With the second inventory still nil, run `park-verify.sh` with no `--ident` or `--touched` arguments. It does not discover omitted files. Repair and rerun only failures confined to the newly assigned session block. A failure involving another file, a pre-existing entry, or any correction outside that block escalates before remediation: retain N, convert every affected sparse section through the same `update-session-section.sh --replace` contract in item 2, and resume the full path at Step 4. Triage any unexpected REVIEW rather than treating it as file discovery.
+4. Run the Step 10 skill monitor against the quick execution, then perform Step 11 transcript export. These outputs are Park-owned bookkeeping and do not invalidate eligibility. Skip project-doc mutation, reference-graph propagation and Step 8 collection, open-loop routing, semantic file review/classification, and the independent audit because their inputs were checked nil.
+5. Finish with the quick completion contract below and stop:
+
+```text
+✓ Quick eligibility: PASS — 0 attributed files; no at-risk work; no changed world/project/identifier state; no open loops
+✓ Session N saved: 06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md
+✓ Quality check: no attributed files
+✓ park-verify: PASS
+✓ Reference graph: skipped (--quick; no changed identifiers or world state)
+✓ Open loops: none (quick eligibility)
+✓ Audit: skipped (--quick)
+✓ Skill monitor: [no gaps | N logged]
+✓ Transcript exported: N sessions
+
+Quick parked.
+
+[Short session summary.]
+```
 
 (b) **Read each edited file IN FULL** (mid-session direction changes leave stale residue in *unedited* regions) and fix: broken syntax/links/paths, stale interim state, redundancy, typos and spelling per the user's locale, filename still carrying a draft-era prefix after a terminal status change (rename via link-healing move, not raw `mv`), and hook collateral on verbatim external text (§14 — repair via shell, never Edit/Write). If a locale-lint script exists (`.claude/scripts/locale-lint.sh`), run it once over the ledger's Write/Edit rows only — never the mtime backstop's output, which can include other sessions' files — and fold its candidates into this fix pass: apply accepted ones as ordinary edits, and always skip candidates inside URLs, quoted spans, or capitalised runs (the lint is report-only and context-blind; those are the classes where blind application corrupts). Record the lint outcome in the session log — candidate count, applied vs skipped, with zero recorded as zero rather than omitted: later reviews of the lint need a data series, and an absent record is indistinguishable from a lint that never ran. A durable doc created this session must be linked from a durable parent (hub/`_index`), not only from rolling-window files. When an override suspends a protocol or routine for a stated interval, enumerate every imperative in that interval from the linked SSOT and mark each suspended or retained; disabling one named mechanism does not implicitly disable adjacent instructions. Don't auto-revert changes you didn't make — surface them.
 
@@ -203,7 +241,7 @@ Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited 
 
 ### 10. Skill monitor
 
-Per §8: review this park execution including the audit — an audit catch that a documented step should have made is a skill gap, the highest-signal kind. Log observations per `_skill-monitor.md`, else `✓ Skill monitor: No gaps detected`.
+Per §8: on the full path, review this park execution including the audit — an audit catch that a documented step should have made is a skill gap, the highest-signal kind. On the quick path, review the checked quick execution without inventing an audit input. Log observations per `_skill-monitor.md`, else `✓ Skill monitor: No gaps detected`.
 
 ### 11. Export transcript (last, so it captures the audit)
 
@@ -213,7 +251,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 
 `--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count.
 
-### 12. Completion message
+### 12. Full-path completion message
 
 ```
 ✓ Quality check: N files, [no issues | M fixed]

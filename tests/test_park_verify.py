@@ -8,6 +8,51 @@ SCRIPT = Path(__file__).parents[1] / ".claude/scripts/park-verify.sh"
 
 
 class ParkVerifyTests(unittest.TestCase):
+    def test_sparse_quick_entry_with_all_none_file_sections_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            (vault / "01 Now").mkdir(parents=True)
+            (vault / "01 Now/This Week.md").write_text("# This Week\n", encoding="utf-8")
+            (vault / "01 Now/Tickler.md").write_text("# Tickler\n", encoding="utf-8")
+            log = vault / "06 Archive/OpenCairn/Session Logs/2026-08-19.md"
+            log.parent.mkdir(parents=True)
+            log.write_text(
+                "\n".join(
+                    [
+                        "## Session 1 - Read-only discussion",
+                        "### Summary",
+                        "Discussion completed without durable changes.",
+                        "### Key Insights / Decisions",
+                        "None",
+                        "### Next Steps / Open Loops",
+                        "None — work completed",
+                        "### Files Created",
+                        "None",
+                        "### Files Updated",
+                        "None",
+                        "### Files Deleted",
+                        "None",
+                        "### Pickup Context",
+                        "**For next session:** None — work completed",
+                        "**Project:** None",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [str(SCRIPT), str(vault), str(log), "1"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("PASS closure: no idents supplied", result.stdout)
+            self.assertIn("RESULT: PASS", result.stdout)
+            self.assertNotIn("REVIEW backfill", result.stdout)
+
     def test_large_session_block_does_not_false_fail_early_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)
