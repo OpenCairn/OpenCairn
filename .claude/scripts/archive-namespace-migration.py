@@ -459,9 +459,7 @@ def editor(vault: Path) -> Path:
 def run_locked_edit(argv: list, payload: str) -> subprocess.CompletedProcess:
     """Run locked-edit.sh with `payload` on stdin, without newline translation.
 
-    subprocess text mode rewrites "
-" as "
-" on Windows, which corrupts the
+    Subprocess text mode rewrites ``\n`` as ``\r\n`` on Windows, which corrupts the
     separator line locked-edit.sh splits on and makes every call fail with
     "No separator line found in stdin". Writing bytes keeps the payload exact."""
     completed = subprocess.run(
