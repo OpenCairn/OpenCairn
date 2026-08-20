@@ -268,6 +268,50 @@ class ParkReviewTests(unittest.TestCase):
             self.assertEqual(digest, park_review.sha256(snapshot))
             self.assertEqual(snapshot.read_text(encoding="utf-8"), "reviewed\n")
 
+    def test_artifact_preparation_uses_cross_session_cross_lane_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config = base / "config"
+            vault = base / "vault"
+            source = base / "source.txt"
+            source.write_text("reference\n", encoding="utf-8")
+            receipt = {
+                "source_sha256": park_review.sha256(source),
+                "source_snapshot": str(source),
+                "media_type": "text/plain",
+                "review_path": str(source),
+                "review_sha256": park_review.sha256(source),
+                "text_status": "available",
+            }
+            completed = SimpleNamespace(
+                returncode=0, stdout=json.dumps(receipt), stderr=""
+            )
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "CLAUDE_CONFIG_DIR": str(config),
+                    "OPENCAIRN_PARK_ARTIFACT_HELPER": str(
+                        Path(__file__).parents[1] / ".claude/scripts/park-artifact.py"
+                    ),
+                },
+            ), mock.patch.object(
+                park_review.subprocess, "run", return_value=completed
+            ) as run:
+                park_review.prepare_artifact(
+                    base / "first-session.park-review", vault, source, source
+                )
+                park_review.prepare_artifact(
+                    base / "second-session.park-review", vault, source, source
+                )
+
+            state_dirs = [
+                call.args[0][call.args[0].index("--state-dir") + 1]
+                for call in run.call_args_list
+            ]
+            expected = str(config / ".session-state/.park-artifacts")
+            self.assertEqual(state_dirs, [expected, expected])
+
     def test_append_receipt_without_new_text_survives_later_line_shift(self) -> None:
         appended = "existing\nsession append\n"
         snapshot = "intro\nexisting\nsession append\n"
@@ -488,8 +532,95 @@ class ParkReviewTests(unittest.TestCase):
             target.write_text("changed live\n", encoding="utf-8")
             self.assertEqual(snapshot.read_text(encoding="utf-8"), "reviewed target\n")
             brief = (root / "review-brief.md").read_text(encoding="utf-8")
-            self.assertIn(f"Read immutable snapshot once: `{snapshot}`", brief)
-            self.assertNotIn(f"Read immutable snapshot once: `{target}`", brief)
+            self.assertIn(f"Read immutable review copy once: `{snapshot}`", brief)
+            self.assertNotIn(f"Read immutable review copy once: `{target}`", brief)
+
+    def test_build_keeps_large_reference_out_of_full_read(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config = base / "config"
+            state = config / ".session-state"
+            root = state / "session.park-review"
+            vault = base / "vault"
+            textbook = vault / "textbook.pdf"
+            log = vault / "log.md"
+            textbook.parent.mkdir(parents=True)
+            textbook.write_bytes(b"%PDF-1.4\nfixture\n%%EOF\n")
+            digest = park_review.sha256(textbook)
+            source_snapshot = root / "artifacts/sources" / f"{digest}.snapshot"
+            review_copy = root / "artifacts/reviews" / f"{digest}.pdf.txt"
+            source_snapshot.parent.mkdir(parents=True)
+            review_copy.parent.mkdir(parents=True)
+            source_snapshot.write_bytes(textbook.read_bytes())
+            review_copy.write_text("chapter excerpt\n", encoding="utf-8")
+            log.write_text(
+                "# Sessions\n\n"
+                "## Session 1 - Fixture\n\n"
+                "### Summary\nSaved a reference.\n\n"
+                "### Key Insights / Decisions\n- None\n\n"
+                "### Next Steps / Open Loops\n- None\n\n"
+                f"### Files Created\n- {textbook} - reference\n\n"
+                f"### Files Updated\n- {log} - recorded\n\n"
+                "### Pickup Context\n**For next session:** None.\n**Project:** None\n",
+                encoding="utf-8",
+            )
+            captures = root / "captures"
+            captures.mkdir(parents=True)
+            park_review.atomic_json(
+                root / "files.json",
+                {
+                    str(textbook): {
+                        "mode": "reference",
+                        "inspection_scope": "targeted",
+                        "inspection_targets": ["chapter 12 claim used in the note"],
+                        "reason": "imported textbook",
+                        "artifact": {
+                            "source_sha256": digest,
+                            "source_snapshot": str(source_snapshot),
+                            "media_type": "application/pdf",
+                            "bytes": textbook.stat().st_size,
+                            "pages": 1000,
+                            "review_path": str(review_copy),
+                            "review_sha256": park_review.sha256(review_copy),
+                            "review_lines": 1,
+                            "text_status": "available",
+                        },
+                    },
+                    str(log): {"mode": "semantic", "reason": "fixture session log"},
+                },
+            )
+            park_review.atomic_json(
+                captures / "propagation.json",
+                {"kind": "propagation", "captured_at": "1", "text": "checked"},
+            )
+            park_review.atomic_json(
+                captures / "verifier.json",
+                {
+                    "kind": "verifier",
+                    "captured_at": "2",
+                    "text": "RESULT: PASS",
+                    "returncode": 0,
+                },
+            )
+            args = SimpleNamespace(
+                session_id="session",
+                vault=str(vault),
+                session_log=str(log),
+                number=1,
+                out=None,
+            )
+
+            with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(config)}):
+                self.assertEqual(park_review.cmd_build(args), 0)
+
+            manifest = json.loads(
+                (root / "review-brief-manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertNotIn(str(textbook), {item["path"] for item in manifest["full_read"]})
+            self.assertEqual(manifest["targeted_review"][0]["pages"], 1000)
+            brief = (root / "review-brief.md").read_text(encoding="utf-8")
+            self.assertIn("Do not read the whole artefact merely", brief)
+            self.assertIn("chapter 12 claim used in the note", brief)
 
     def test_traceable_disjoint_live_edit_keeps_snapshot_audit_nonreusable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
