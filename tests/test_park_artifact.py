@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from pathlib import Path
+import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -19,6 +21,28 @@ SPEC.loader.exec_module(park_artifact)
 
 
 class ParkArtifactTests(unittest.TestCase):
+    def test_atomic_bytes_uses_umask_mode_for_missing_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "new.json"
+            previous_umask = os.umask(0o027)
+            try:
+                park_artifact.atomic_bytes(target, b"new\n")
+            finally:
+                os.umask(previous_umask)
+
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o640)
+
+    def test_atomic_bytes_preserves_existing_target_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "existing.json"
+            target.write_bytes(b"old\n")
+            target.chmod(0o604)
+
+            park_artifact.atomic_bytes(target, b"new\n")
+
+            self.assertEqual(target.read_bytes(), b"new\n")
+            self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o604)
+
     def test_pdf_receipt_binds_source_metadata_and_review_copy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

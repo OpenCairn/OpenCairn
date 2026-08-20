@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import tempfile
 
@@ -24,8 +25,15 @@ def sha256_bytes(data: bytes) -> str:
 
 def atomic_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        target_mode = stat.S_IMODE(path.stat().st_mode)
+    else:
+        current_umask = os.umask(0)
+        os.umask(current_umask)
+        target_mode = 0o666 & ~current_umask
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
+        os.fchmod(fd, target_mode)
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
         os.replace(tmp_name, path)
