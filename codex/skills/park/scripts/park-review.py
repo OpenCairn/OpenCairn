@@ -107,6 +107,85 @@ def write_snapshot(root: Path, data: bytes) -> tuple[str, Path]:
     return digest, path
 
 
+def artifact_helper(vault: Path) -> Path:
+    candidates = []
+    override = os.environ.get("OPENCAIRN_PARK_ARTIFACT_HELPER")
+    if override:
+        candidates.append(Path(override).expanduser())
+    candidates.extend(
+        [
+            vault / ".claude/scripts/park-artifact.py",
+            Path(__file__).resolve().parents[4] / ".claude/scripts/park-artifact.py",
+        ]
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    die("park-artifact.py is required for local reference and PDF artefacts")
+
+
+def prepare_artifact(root: Path, vault: Path, source: Path, original: Path) -> dict:
+    helper = artifact_helper(vault)
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
+    shared_state = config / ".session-state" / ".park-artifacts"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(helper),
+            "--source",
+            str(source),
+            "--original",
+            str(original),
+            "--state-dir",
+            str(shared_state),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        die(f"cannot prepare local artefact {original}: {detail}")
+    try:
+        receipt = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        die(f"invalid park-artifact receipt for {original}: {exc}")
+    if not isinstance(receipt, dict):
+        die(f"invalid park-artifact receipt for {original}")
+    return receipt
+
+
+def semantic_review_copy(
+    root: Path, vault: Path, source: Path, data: bytes, classification: dict | None
+) -> tuple[str, Path, Path, str, str, str]:
+    """Return immutable source/review paths for a session-authored semantic file."""
+    digest, snapshot_path = write_snapshot(root, data)
+    if not data.startswith(b"%PDF-"):
+        review_text = decode_utf8(data, source)
+        return digest, snapshot_path, snapshot_path, digest, review_text, "text/plain"
+    receipt = classification.get("artifact") if isinstance(classification, dict) else None
+    if not isinstance(receipt, dict) or receipt.get("source_sha256") != digest:
+        receipt = prepare_artifact(root, vault, snapshot_path, source)
+    if receipt.get("text_status") != "available":
+        die(
+            f"semantic PDF has no extractable text: {source}; use format-specific authored-output "
+            "review or classify an imported source as --reference"
+        )
+    review_path = Path(str(receipt["review_path"]))
+    review_digest = str(receipt["review_sha256"])
+    if not review_path.is_file() or sha256(review_path) != review_digest:
+        die(f"semantic PDF review copy missing or corrupt: {review_path}")
+    review_text = decode_utf8(review_path.read_bytes(), review_path)
+    return (
+        digest,
+        Path(str(receipt["source_snapshot"])),
+        review_path,
+        review_digest,
+        review_text,
+        "application/pdf",
+    )
+
+
 def is_within(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -444,17 +523,40 @@ def cmd_classify(args: argparse.Namespace) -> int:
         print(f"NONLOCAL {args.path}")
         return 0
     path = canonical_path(args.path, vault)
-    if args.semantic:
+    if args.semantic or args.reference:
         if not path.is_file():
-            die(f"semantic file missing: {path}")
+            die(f"local file missing: {path}")
+        if args.targeted and not args.semantic:
+            die("--targeted is valid only with --semantic")
+        if args.targeted and not args.inspection_target:
+            die("targeted semantic review requires at least one --inspection-target")
+        inspection_scope = "targeted" if args.reference or args.targeted else "full"
+        artifact = None
+        if path.read_bytes().startswith(b"%PDF-") or inspection_scope == "targeted":
+            artifact = prepare_artifact(root, vault, path, path)
         manifest[str(path)] = {
-            "mode": "semantic",
-            "reason": args.reason or "meaning-bearing change",
+            "mode": "reference" if args.reference else "semantic",
+            "inspection_scope": inspection_scope,
+            "inspection_targets": args.inspection_target or [],
+            "reason": args.reason
+            or (
+                "imported local reference artefact"
+                if args.reference
+                else "meaning-bearing change"
+            ),
             "classified_at": now(),
             "sha256_at_classification": sha256(path),
+            **({"artifact": artifact} if artifact else {}),
         }
         atomic_json(manifest_path, manifest)
-        print(f"SEMANTIC {path}")
+        label = "REFERENCE" if args.reference else "SEMANTIC"
+        detail = ""
+        if artifact:
+            detail = (
+                f" ({artifact.get('media_type')}; pages={artifact.get('pages')}; "
+                f"text={artifact.get('text_status')}; lines={artifact.get('review_lines')})"
+            )
+        print(f"{label} {path}{detail}")
         return 0
 
     if not args.replace:
@@ -981,7 +1083,9 @@ def group_full_reads(files: list[dict]) -> list[dict]:
             order.append(digest)
             groups[digest] = {
                 "sha256": digest,
-                "read_path": item["snapshot_path"],
+                "read_path": item.get("review_path", item["snapshot_path"]),
+                "review_sha256": item.get("review_sha256", digest),
+                "hash_path": item["snapshot_path"],
                 "paths": [],
                 "reasons": [],
             }
@@ -991,6 +1095,27 @@ def group_full_reads(files: list[dict]) -> list[dict]:
         if reason not in group["reasons"]:
             group["reasons"].append(reason)
     return [groups[digest] for digest in order]
+
+
+def validated_artifact_receipt(path: Path, digest: str, classification: dict) -> dict:
+    """Validate the immutable source and optional review copy recorded at classification."""
+    artifact = classification.get("artifact")
+    if not isinstance(artifact, dict) or artifact.get("source_sha256") != digest:
+        die(f"artefact classification is stale for {path}; rerun classify")
+    source_snapshot = Path(str(artifact.get("source_snapshot", "")))
+    if not source_snapshot.is_file() or sha256(source_snapshot) != digest:
+        die(f"artefact source snapshot missing or corrupt: {source_snapshot}")
+    review_raw = artifact.get("review_path")
+    review_digest = artifact.get("review_sha256")
+    if review_raw is not None or review_digest is not None:
+        review_path = Path(str(review_raw))
+        if (
+            not isinstance(review_digest, str)
+            or not review_path.is_file()
+            or sha256(review_path) != review_digest
+        ):
+            die(f"artefact review copy missing or corrupt: {review_path}")
+    return artifact
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -1032,6 +1157,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             local_paths.append(path)
 
     full_read: list[dict] = []
+    targeted_review: list[dict] = []
     mechanical: list[dict] = []
     reused: list[dict] = []
     warnings: list[str] = []
@@ -1048,16 +1174,55 @@ def cmd_build(args: argparse.Namespace) -> int:
         snapshot_at = snapshot_times[path]
         digest = sha256_bytes(data)
         classification = classifications.get(str(path))
+        if isinstance(classification, dict) and (
+            classification.get("mode") == "reference"
+            or (
+                classification.get("mode") == "semantic"
+                and classification.get("inspection_scope") == "targeted"
+            )
+        ):
+            artifact = validated_artifact_receipt(path, digest, classification)
+            targeted_review.append(
+                {
+                    "path": str(path),
+                    "sha256": digest,
+                    "kind": classification.get("mode"),
+                    "reason": classification.get("reason", "bounded inspection"),
+                    "inspection_targets": classification.get("inspection_targets", []),
+                    "source_snapshot": artifact["source_snapshot"],
+                    "media_type": artifact.get("media_type"),
+                    "bytes": artifact.get("bytes"),
+                    "pages": artifact.get("pages"),
+                    "review_path": artifact.get("review_path"),
+                    "review_sha256": artifact.get("review_sha256"),
+                    "review_lines": artifact.get("review_lines"),
+                    "text_status": artifact.get("text_status"),
+                    "receipt_path": artifact.get("receipt_path"),
+                }
+            )
+            continue
         if path in created:
-            snapshot_digest, snapshot_path = write_snapshot(root, data)
+            (
+                snapshot_digest,
+                snapshot_path,
+                review_path,
+                review_digest,
+                review_text,
+                media_type,
+            ) = (
+                semantic_review_copy(root, vault, path, data, classification)
+            )
             full_read.append(
                 {
                     "path": str(path),
                     "sha256": snapshot_digest,
                     "snapshot_path": str(snapshot_path),
+                    "review_path": str(review_path),
+                    "review_sha256": review_digest,
+                    "media_type": media_type,
                     "snapshot_at": snapshot_at,
                     "reason": "created this session",
-                    "owned_locators": [decode_utf8(data, path)] if data else [],
+                    "owned_locators": [review_text] if review_text else [],
                     "owned_locators_complete": True,
                 }
             )
@@ -1101,8 +1266,16 @@ def cmd_build(args: argparse.Namespace) -> int:
                 reason = classification.get("reason", reason)
             else:
                 warnings.append(f"defaulted unclassified file to semantic: {path}")
-            snapshot_digest, snapshot_path = write_snapshot(root, data)
-            snapshot_text = decode_utf8(data, path)
+            (
+                snapshot_digest,
+                snapshot_path,
+                review_path,
+                review_digest,
+                snapshot_text,
+                media_type,
+            ) = (
+                semantic_review_copy(root, vault, path, data, classification)
+            )
             locators, locators_complete = owned_locator_evidence(
                 load_locked_receipts(receipt_root, path), snapshot_digest, snapshot_text
             )
@@ -1113,6 +1286,9 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "path": str(path),
                     "sha256": snapshot_digest,
                     "snapshot_path": str(snapshot_path),
+                    "review_path": str(review_path),
+                    "review_sha256": review_digest,
+                    "media_type": media_type,
                     "snapshot_at": snapshot_at,
                     "reason": reason,
                     "owned_locators": locators,
@@ -1168,18 +1344,54 @@ def cmd_build(args: argparse.Namespace) -> int:
         "The modes below are mechanically derived from the post-backfill Files lists, "
         "immutable snapshots, locked-edit receipts, and prior clean audit receipts.",
         "",
-        "### Full-read semantic files",
+        "### Bounded semantic files — full coherence read",
         "",
     ]
     if read_groups:
         for group in read_groups:
             reasons = "; ".join(group["reasons"])
             lines.append(
-                f"- Read immutable snapshot once: `{group['read_path']}` — `{group['sha256']}` — {reasons}"
+                f"- Read immutable review copy once: `{group['read_path']}` — "
+                f"review-copy SHA-256 `{group['review_sha256']}` — "
+                f"verify source bytes at `{group['hash_path']}` → `{group['sha256']}` — {reasons}"
             )
             lines.append("  - Original path(s) covered by this snapshot:")
             for path in group["paths"]:
                 lines.append(f"    - `{path}`")
+    else:
+        lines.append("None")
+
+    lines.extend(
+        [
+            "",
+            "### Reference and large semantic artefacts — bounded inspection only",
+            "",
+        ]
+    )
+    if targeted_review:
+        for item in targeted_review:
+            lines.extend(
+                [
+                    f"#### `{item['path']}`",
+                    "",
+                    f"Kind: `{item['kind']}`; reason: {item['reason']}",
+                    f"Source snapshot: `{item['source_snapshot']}`; SHA-256 `{item['sha256']}`",
+                    f"Media type: `{item['media_type']}`; bytes: `{item['bytes']}`; "
+                    f"pages: `{item['pages']}`; extracted text: `{item['text_status']}`; "
+                    f"review lines: `{item['review_lines']}`",
+                    f"Review copy: `{item['review_path']}`; review SHA-256 `{item['review_sha256']}`",
+                    "Inspection target(s):",
+                ]
+            )
+            targets = item.get("inspection_targets") or []
+            if targets:
+                for target in targets:
+                    lines.append(f"- {target}")
+            else:
+                lines.append(
+                    "- Identity and metadata only; no session claim requires source-content review."
+                )
+            lines.append("")
     else:
         lines.append("None")
 
@@ -1309,14 +1521,19 @@ def cmd_build(args: argparse.Namespace) -> int:
             "",
             "- Review the embedded Session N block; do not open the live full session log. If its immutable "
             "snapshot is a full-read row, emit only Session N from that snapshot.",
-            "- Each `Read immutable snapshot once` row under **Full-read semantic files** is one byte-identity group. "
-            "Read only the snapshot path in that row, in its own tool call; do not open the live original. "
+            "- Each `Read immutable review copy once` row under **Bounded semantic files — full coherence read** is one byte-identity group. "
+            "Read only the review-copy path in that row, in its own tool call; do not open the live original. "
             "If it truncates, continue only from its "
-            "first unread line. Return the SHA-256 printed by your command.",
+            "first unread line. Run `sha256sum` on the listed source-bytes path and return that SHA-256.",
             "- Include exactly one machine-readable attestation line for every original path represented "
             "by those groups: `ATTEST <sha256> <absolute-original-path>`. Byte-identical aliases are attested but "
             "not reread. Do not wrap either field in backticks and do not leave trailing whitespace.",
             "- Do not reread files backed by a matching clean audit receipt.",
+            "- For **Reference and large semantic artefacts**, verify the immutable source hash and, when present, the review-copy hash, "
+            "then inspect only the listed targets needed to test session claims. Do not read the whole artefact merely "
+            "because it was copied, downloaded, indexed, or touched. A complete text extraction is an index, not evidence "
+            "that every page was reviewed. `empty` or `unsupported` text status proves no text coverage; use bounded "
+            "format-specific rendering or OCR only when a listed target depends on it.",
             "- For mechanical-only files, review only the embedded locked-edit receipts, exact checks, "
             "and changed spans. Do not open or full-read those files.",
             "- Treat non-local paths only through embedded evidence. Use the propagation report for "
@@ -1354,6 +1571,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         "session_log": str(log),
         "session_number": args.number,
         "full_read": full_read,
+        "targeted_review": targeted_review,
         "mechanical": [{"path": item["path"], "sha256": item["sha256"]} for item in mechanical],
         "reused": reused,
         "external": external_files,
@@ -1365,7 +1583,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         f"Out-of-band evidence: sources drawn on {len(sources)} → excerpts embedded {len(sources)}"
     )
     print(
-        f"Review modes: full-read {len(full_read)} path(s) in {len(read_groups)} read(s) | mechanical {len(mechanical)} | "
+        f"Review modes: bounded-full {len(full_read)} path(s) in {len(read_groups)} read(s) | targeted {len(targeted_review)} | mechanical {len(mechanical)} | "
         f"receipt-reuse {len(reused)} | non-local {len(external_files)} | deleted {len(deleted_raw)}"
     )
     for warning in warnings:
@@ -1426,6 +1644,10 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             snapshot = Path(snapshot_raw)
             if not snapshot.is_file() or sha256(snapshot) != item["sha256"]:
                 die(f"review snapshot missing or corrupt: {snapshot}")
+            review_path = Path(item.get("review_path", snapshot))
+            review_digest = item.get("review_sha256", item["sha256"])
+            if not review_path.is_file() or sha256(review_path) != review_digest:
+                die(f"review copy missing or corrupt: {review_path}")
             current = sha256(path)
             if current == item["sha256"]:
                 reusable.append({"path": str(path), "sha256": item["sha256"]})
@@ -1513,9 +1735,20 @@ def build_parser() -> argparse.ArgumentParser:
     classify.add_argument("--path", required=True)
     mode = classify.add_mutually_exclusive_group(required=True)
     mode.add_argument("--semantic", action="store_true")
+    mode.add_argument("--reference", action="store_true")
     mode.add_argument("--mechanical", action="store_true")
     mode.add_argument("--nonlocal", dest="non_local", action="store_true")
     classify.add_argument("--reason")
+    classify.add_argument(
+        "--targeted",
+        action="store_true",
+        help="use bounded target inspection for a large semantic artefact",
+    )
+    classify.add_argument(
+        "--inspection-target",
+        action="append",
+        help="page, section, line range, or claim to inspect; repeat as needed",
+    )
     classify.add_argument("--replace", nargs=2, action="append", metavar=("OLD", "NEW"))
     classify.add_argument("--target", action="append")
     classify.add_argument(

@@ -138,6 +138,20 @@ class ParkQuickContractTests(unittest.TestCase):
                 with self.subTest(lane=lane, scenario=scenario):
                     self.assertIn(marker, text)
 
+    def test_proportional_artefact_policy_is_mirrored(self) -> None:
+        for lane, text in (("claude", self.claude), ("codex", self.codex)):
+            with self.subTest(lane=lane):
+                self.assertIn("Large semantic artefact", text)
+                self.assertIn("Local reference artefact", text)
+                self.assertIn("index, not evidence every page", text)
+                self.assertNotIn("Read each edited file IN FULL", text)
+
+        self.assertIn("park-artifact.py", self.claude)
+        self.assertIn(".session-state/.park-artifacts", self.claude)
+        self.assertIn("--reference", self.codex)
+        self.assertIn("--targeted --inspection-target", self.codex)
+        self.assertIn("cross-session/cross-lane `.park-artifacts` cache", self.codex)
+
 
 if __name__ == "__main__":
     unittest.main()
