@@ -68,9 +68,9 @@ case "$MODE" in
 esac
 
 if command -v python3 &>/dev/null; then
-    PYTHON_BIN="$(command -v python3)"
+    PYTHON_BIN="python3"
 elif command -v python &>/dev/null; then
-    PYTHON_BIN="$(command -v python)"
+    PYTHON_BIN="python"
 else
     echo "locked-edit.sh requires Python 3 (python3 or python)" >&2
     exit 1
