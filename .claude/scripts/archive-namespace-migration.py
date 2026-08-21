@@ -661,14 +661,21 @@ def save_journal(vault: Path, journal: dict[str, object]) -> None:
 
 
 def render_record(current: str, exists: bool, row: str) -> str:
-    section = (
-        "## Versioned migrations\n\n"
-        "| Migration | State | Last checked |\n"
-        "|---|---|---|\n"
-        f"{row}\n"
+    newline = "\r\n" if "\r\n" in current else "\n"
+    section = newline.join(
+        (
+            "## Versioned migrations",
+            "",
+            "| Migration | State | Last checked |",
+            "|---|---|---|",
+            row,
+            "",
+        )
     )
     if not exists:
-        return f"# OpenCairn Migration Record\n\n{section}"
+        return f"# OpenCairn Migration Record{newline}{newline}{section}"
+    if not current:
+        return section
     rows = [
         line for line in current.splitlines() if line.startswith(f"| {MIGRATION_ID} |")
     ]
@@ -682,7 +689,7 @@ def render_record(current: str, exists: bool, row: str) -> str:
                     inserted = True
                 continue
             output.append(line)
-        return "\n".join(output) + ("\n" if current.endswith("\n") else "")
+        return newline.join(output) + (newline if current.endswith("\n") else "")
     if "## Versioned migrations" in current:
         marker_pattern = re.compile(
             r"\| Migration \| State \| Last checked \|\r?\n\|---\|---\|---\|"
@@ -691,9 +698,14 @@ def render_record(current: str, exists: bool, row: str) -> str:
         if len(markers) != 1:
             raise RuntimeError("versioned migration table header is missing or ambiguous")
         marker = markers[0]
-        newline = "\r\n" if "\r\n" in marker.group(0) else "\n"
         return current[: marker.end()] + newline + row + current[marker.end() :]
-    prefix = "" if current.endswith("\n\n") else "\n" if current.endswith("\n") else "\n\n"
+    prefix = (
+        ""
+        if current.endswith(newline * 2)
+        else newline
+        if current.endswith(newline)
+        else newline * 2
+    )
     return current + prefix + section
 
 
@@ -776,7 +788,8 @@ def rewrite(vault: Path) -> int:
     for relative in state["actionable_legacy_files"]:
         target = vault / str(relative)
         try:
-            text = target.read_text(encoding="utf-8")
+            with target.open("r", encoding="utf-8", newline="") as handle:
+                text = handle.read()
         except UnicodeDecodeError:
             print(f"legacy locator is in non-UTF-8 text: {relative}", file=sys.stderr)
             return 2
