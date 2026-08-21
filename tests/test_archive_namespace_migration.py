@@ -116,6 +116,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 "ACTIONABLE_LEGACY_FILES=0",
                 "MIGRATION_JOURNAL_PHASE=absent",
             ],
+            f"unexpected gate output\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
         )
 
     def test_gate_accepts_crlf_helper_status(self):
@@ -170,7 +171,11 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             env=dict(os.environ, PATH=str(fake_bin)),
         )
         self.assert_command_ok(result)
-        self.assertIn("ARCHIVE_LAYOUT=empty-clean", result.stdout)
+        self.assertIn(
+            "ARCHIVE_LAYOUT=empty-clean",
+            result.stdout,
+            f"unexpected gate output\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}",
+        )
 
     def test_mixed_gate_and_helper_report_archive_core_mismatch(self):
         install = self.vault / "mixed"
