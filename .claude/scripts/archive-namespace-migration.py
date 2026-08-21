@@ -661,7 +661,9 @@ def save_journal(vault: Path, journal: dict[str, object]) -> None:
 
 
 def render_record(current: str, exists: bool, row: str) -> str:
-    newline = "\r\n" if "\r\n" in current else "\n"
+    crlf_count = current.count("\r\n")
+    lf_count = current.count("\n") - crlf_count
+    newline = "\r\n" if crlf_count > lf_count else "\n"
     section = newline.join(
         (
             "## Versioned migrations",
@@ -682,14 +684,20 @@ def render_record(current: str, exists: bool, row: str) -> str:
     if rows:
         output: list[str] = []
         inserted = False
-        for line in current.splitlines():
+        for raw_line in current.splitlines(keepends=True):
+            if raw_line.endswith("\r\n"):
+                line, ending = raw_line[:-2], "\r\n"
+            elif raw_line.endswith("\n"):
+                line, ending = raw_line[:-1], "\n"
+            else:
+                line, ending = raw_line, ""
             if line.startswith(f"| {MIGRATION_ID} |"):
                 if not inserted:
-                    output.append(row)
+                    output.append(row + ending)
                     inserted = True
                 continue
-            output.append(line)
-        return newline.join(output) + (newline if current.endswith("\n") else "")
+            output.append(raw_line)
+        return "".join(output)
     if "## Versioned migrations" in current:
         marker_pattern = re.compile(
             r"\| Migration \| State \| Last checked \|\r?\n\|---\|---\|---\|"
@@ -698,7 +706,8 @@ def render_record(current: str, exists: bool, row: str) -> str:
         if len(markers) != 1:
             raise RuntimeError("versioned migration table header is missing or ambiguous")
         marker = markers[0]
-        return current[: marker.end()] + newline + row + current[marker.end() :]
+        marker_newline = "\r\n" if "\r\n" in marker.group(0) else "\n"
+        return current[: marker.end()] + marker_newline + row + current[marker.end() :]
     prefix = (
         ""
         if current.endswith(newline * 2)
