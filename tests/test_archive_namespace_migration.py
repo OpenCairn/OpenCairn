@@ -13,6 +13,34 @@ CHECK = REPO / ".claude/scripts/check-archive-layout.sh"
 MIGRATE = REPO / ".claude/scripts/archive-namespace-migration.py"
 
 
+def find_bash():
+    candidates = []
+    if sys.platform == "darwin":
+        candidates.extend((Path("/opt/homebrew/bin/bash"), Path("/usr/local/bin/bash")))
+    if os.name == "nt":
+        for root in (
+            os.environ.get("PROGRAMFILES"),
+            os.environ.get("PROGRAMFILES(X86)"),
+            os.environ.get("LOCALAPPDATA"),
+        ):
+            if root:
+                candidates.extend(
+                    (Path(root) / "Git/bin/bash.exe", Path(root) / "Programs/Git/bin/bash.exe")
+                )
+    found = shutil.which("bash")
+    if found:
+        candidates.append(Path(found))
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    raise RuntimeError("archive migration tests require Bash")
+
+
+BASH = find_bash()
+CHECK_COMMAND = [BASH, str(CHECK)]
+MIGRATE_COMMAND = [sys.executable, str(MIGRATE)]
+
+
 class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -28,7 +56,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
 
     def check_state(self):
         result = subprocess.run(
-            [str(CHECK), "--status", str(self.vault)],
+            [*CHECK_COMMAND, "--status", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -37,7 +65,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
 
     def inspect(self):
         result = subprocess.run(
-            [str(MIGRATE), "inspect", str(self.vault)],
+            [*MIGRATE_COMMAND, "inspect", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -57,7 +85,35 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
 
     def test_gate_status_contract_is_exactly_three_lines(self):
         result = subprocess.run(
-            [str(CHECK), "--status", str(self.vault)],
+            [*CHECK_COMMAND, "--status", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "ARCHIVE_LAYOUT=empty-clean",
+                "ACTIONABLE_LEGACY_FILES=0",
+                "MIGRATION_JOURNAL_PHASE=absent",
+            ],
+        )
+
+    def test_gate_accepts_crlf_helper_status(self):
+        install = self.vault / "crlf-helper"
+        install.mkdir()
+        shutil.copy2(CHECK, install / "check-archive-layout.sh")
+        helper = install / "archive-namespace-migration.py"
+        helper.write_bytes(
+            b"#!/usr/bin/env bash\n"
+            b"printf 'ARCHIVE_LAYOUT=empty-clean\\r\\n"
+            b"ACTIONABLE_LEGACY_FILES=0\\r\\n"
+            b"MIGRATION_JOURNAL_PHASE=absent\\r\\n'\n"
+        )
+        helper.chmod(0o755)
+
+        result = subprocess.run(
+            [BASH, str(install / "check-archive-layout.sh"), "--status", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -79,7 +135,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         helper.write_text("#!/bin/sh\necho old-helper\nexit 2\n")
         helper.chmod(0o755)
         status = subprocess.run(
-            [str(install / "check-archive-layout.sh"), "--status", str(self.vault)],
+            [BASH, str(install / "check-archive-layout.sh"), "--status", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -93,7 +149,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             ],
         )
         enforce = subprocess.run(
-            [str(install / "check-archive-layout.sh"), "--enforce", str(self.vault)],
+            [BASH, str(install / "check-archive-layout.sh"), "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -120,7 +176,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-only")
         self.assertEqual(self.inspect()["actionable_legacy_files"], [])
         result = subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -175,7 +231,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "9")
 
         subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             check=True,
             capture_output=True,
         )
@@ -201,7 +257,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "1")
         result = subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -214,7 +270,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         note.write_text("[[06 Archive/Claude/Session Logs/2026-01-01]]\n")
 
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "empty-with-legacy-locators")
-        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "rewrite", str(self.vault)], check=True, capture_output=True)
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "empty-clean")
 
     def test_locator_search_does_not_depend_on_ripgrep(self):
@@ -224,10 +280,19 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         fake_rg = fake_bin / "rg"
         fake_rg.write_text("#!/bin/sh\nexit 2\n")
         fake_rg.chmod(0o755)
-        env = dict(os.environ, PATH=f"{fake_bin}:/usr/bin:/bin")
+        restricted_path = os.pathsep.join(
+            (
+                str(fake_bin),
+                str(Path(sys.executable).parent),
+                str(Path(BASH).parent),
+                "/usr/bin",
+                "/bin",
+            )
+        )
+        env = dict(os.environ, PATH=restricted_path)
 
         status = subprocess.run(
-            [str(CHECK), "--status", str(self.vault)],
+            [*CHECK_COMMAND, "--status", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -235,7 +300,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertIn("ARCHIVE_LAYOUT=new-only", status.stdout)
         enforce = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -268,7 +333,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-with-legacy-locators")
 
         first = subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -280,7 +345,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-only")
 
         second = subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -290,7 +355,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def test_old_only_enforcement_fails_with_migration_route(self):
         (self.vault / "06 Archive/Claude").mkdir(parents=True)
         result = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -313,14 +378,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             "| 2 | Project-doc schema | never | 2026-08-01 |\n"
         )
 
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         self.assertIn("| 2 | Project-doc schema | never | 2026-08-01 |", record.read_text())
         self.assertIn("| archive-namespace-opencairn-v1 | in-progress |", record.read_text())
 
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
-        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "rewrite", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         text = record.read_text()
         self.assertIn("| 2 | Project-doc schema | never | 2026-08-01 |", text)
         self.assertEqual(text.count("| archive-namespace-opencairn-v1 | complete |"), 1)
@@ -334,7 +399,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ACTIONABLE_LEGACY_FILES"], "0")
 
         begin = subprocess.run(
-            [str(MIGRATE), "begin", str(self.vault)],
+            [*MIGRATE_COMMAND, "begin", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -350,8 +415,8 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json",
             self.inspect()["actionable_legacy_files"],
         )
-        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "rewrite", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         self.assertEqual((new / ".Session Transcripts/2026-01-01.md").read_text(), original)
 
     def test_transcript_without_legacy_locator_is_still_byte_verified(self):
@@ -361,7 +426,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         transcript.write_text("immutable transcript without a path locator\n")
 
         begin = subprocess.run(
-            [str(MIGRATE), "begin", str(self.vault)],
+            [*MIGRATE_COMMAND, "begin", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -376,7 +441,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         (new / ".Session Transcripts/raw.txt").write_text("mutated\n")
 
         result = subprocess.run(
-            [str(MIGRATE), "verify", str(self.vault)],
+            [*MIGRATE_COMMAND, "verify", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -392,24 +457,25 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         note = old / "Session Logs/2026-01-01.md"
         note.parent.mkdir(parents=True)
         note.write_text("Locator: 06 Archive/Claude/Session Logs/2026-01-01\n")
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        (note.parent / ".2026-01-01.md.lock").write_text("")
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
 
-        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "rewrite", str(self.vault)], check=True, capture_output=True)
         self.assertTrue((new / "Session Logs/.2026-01-01.md.lock").is_file())
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
 
     def test_empty_source_inventory_still_rejects_new_destination_member(self):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
         (new / "unexpected.md").write_text("unexpected\n")
 
         result = subprocess.run(
-            [str(MIGRATE), "verify", str(self.vault)],
+            [*MIGRATE_COMMAND, "verify", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -424,21 +490,21 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         (old / "Session Logs/2026-01-01.md").write_text("session\n")
         note = self.vault / "03 Projects/Example.md"
         note.write_text("[[06 Archive/Claude/Session Logs/2026-01-01]]\n")
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         old.rename(self.vault / "06 Archive/OpenCairn")
 
         verify_before = subprocess.run(
-            [str(MIGRATE), "verify", str(self.vault)], capture_output=True, text=True
+            [*MIGRATE_COMMAND, "verify", str(self.vault)], capture_output=True, text=True
         )
         self.assertNotEqual(verify_before.returncode, 0)
-        subprocess.run([str(MIGRATE), "rewrite", str(self.vault)], check=True, capture_output=True)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "rewrite", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         self.assertIn("06 Archive/OpenCairn", note.read_text())
 
     def test_unfinished_journal_blocks_locator_clean_layouts_until_finish(self):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
 
@@ -446,7 +512,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(state["ARCHIVE_LAYOUT"], "pending-verification")
         self.assertEqual(state["MIGRATION_JOURNAL_PHASE"], "in-progress")
         enforce = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -454,9 +520,9 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(enforce.returncode, 20)
         self.assertIn("awaiting journal-backed verification", enforce.stderr)
 
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-only")
-        subprocess.run([str(CHECK), "--enforce", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*CHECK_COMMAND, "--enforce", str(self.vault)], check=True, capture_output=True)
 
         journal_path = self.vault / "07 System/.OpenCairn Migration/archive-namespace-opencairn-v1.json"
         journal = json.loads(journal_path.read_text())
@@ -470,21 +536,21 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
         (old / "existing.md").write_text("existing\n")
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         (new / "later.md").write_text("later\n")
 
-        subprocess.run([str(MIGRATE), "verify", str(self.vault)], check=True, capture_output=True)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "verify", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
 
     def test_completed_journal_repairs_missing_or_duplicated_ledger_row(self):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         old.rename(self.vault / "06 Archive/OpenCairn")
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         record = self.vault / "07 System/Migration Record.md"
         lines = [
             line
@@ -492,7 +558,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             if not line.startswith("| archive-namespace-opencairn-v1 |")
         ]
         record.write_text("\n".join(lines) + "\n")
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         row = next(
             line
             for line in record.read_text().splitlines()
@@ -500,7 +566,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         with record.open("a") as handle:
             handle.write(row + "\n")
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         self.assertEqual(
             record.read_text().count("| archive-namespace-opencairn-v1 | complete |"),
             1,
@@ -510,14 +576,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         transcript = old / ".Session Transcripts/raw.txt"
         transcript.parent.mkdir(parents=True)
         transcript.write_text("immutable\n")
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         (new / ".Session Transcripts/raw.txt").write_text("changed\n")
 
         result = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -525,7 +591,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("ARCHIVE_LAYOUT=new-only", result.stdout)
         rewrite = subprocess.run(
-            [str(MIGRATE), "rewrite", str(self.vault)],
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -535,14 +601,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def test_completed_journal_requires_open_cairn_root(self):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
-        subprocess.run([str(MIGRATE), "begin", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "begin", str(self.vault)], check=True, capture_output=True)
         new = self.vault / "06 Archive/OpenCairn"
         old.rename(new)
-        subprocess.run([str(MIGRATE), "finish", str(self.vault)], check=True, capture_output=True)
+        subprocess.run([*MIGRATE_COMMAND, "finish", str(self.vault)], check=True, capture_output=True)
         new.rmdir()
 
         verify = subprocess.run(
-            [str(MIGRATE), "verify", str(self.vault)],
+            [*MIGRATE_COMMAND, "verify", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -550,7 +616,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertNotEqual(verify.returncode, 0)
         self.assertIn("unsafe live layout: empty-clean", verify.stdout)
         enforce = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -563,7 +629,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         new = self.vault / "06 Archive/OpenCairn"
         new.mkdir(parents=True)
         subprocess.run(
-            [str(MIGRATE), "record", str(self.vault), "complete"],
+            [*MIGRATE_COMMAND, "record", str(self.vault), "complete"],
             check=True,
             capture_output=True,
         )
@@ -572,7 +638,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-only")
         new.rmdir()
         result = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -582,7 +648,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
 
     def test_archive_root_initialises_empty_vault_before_recording(self):
         result = subprocess.run(
-            [str(MIGRATE), "archive-root", "--write", str(self.vault)],
+            [*MIGRATE_COMMAND, "archive-root", "--write", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -595,7 +661,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def test_archive_root_preserves_old_only_consumer(self):
         (self.vault / "06 Archive/Claude").mkdir(parents=True)
         result = subprocess.run(
-            [str(MIGRATE), "archive-root", "--write", str(self.vault)],
+            [*MIGRATE_COMMAND, "archive-root", "--write", str(self.vault)],
             text=True,
             capture_output=True,
             check=True,
@@ -607,7 +673,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         (self.vault / "06 Archive/Claude").mkdir(parents=True)
         (self.vault / "06 Archive/OpenCairn").mkdir()
         result = subprocess.run(
-            [str(MIGRATE), "archive-root", "--write", str(self.vault)],
+            [*MIGRATE_COMMAND, "archive-root", "--write", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -621,7 +687,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             "06 Archive/Claude/Session Logs/example\n"
         )
         result = subprocess.run(
-            [str(MIGRATE), "archive-root", "--write", str(self.vault)],
+            [*MIGRATE_COMMAND, "archive-root", "--write", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -632,7 +698,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertFalse((self.vault / "07 System/Migration Record.md").exists())
 
     def test_concurrent_first_archive_roots_leave_one_ledger_row(self):
-        command = [str(MIGRATE), "archive-root", "--write", str(self.vault)]
+        command = [*MIGRATE_COMMAND, "archive-root", "--write", str(self.vault)]
         processes = [
             subprocess.Popen(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             for _ in range(4)
@@ -708,14 +774,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 self.assertEqual(inspection["journal_phase"], "invalid")
                 self.assertTrue(inspection["journal_error"])
                 enforce = subprocess.run(
-                    [str(CHECK), "--enforce", str(self.vault)],
+                    [*CHECK_COMMAND, "--enforce", str(self.vault)],
                     text=True,
                     capture_output=True,
                     check=False,
                 )
                 self.assertEqual(enforce.returncode, 24)
                 verify = subprocess.run(
-                    [str(MIGRATE), "verify", str(self.vault)],
+                    [*MIGRATE_COMMAND, "verify", str(self.vault)],
                     text=True,
                     capture_output=True,
                     check=False,
@@ -725,7 +791,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def test_finish_requires_a_valid_journal(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
         result = subprocess.run(
-            [str(MIGRATE), "finish", str(self.vault)],
+            [*MIGRATE_COMMAND, "finish", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -737,7 +803,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         old = self.vault / "06 Archive/Claude"
         old.mkdir(parents=True)
         begin = subprocess.run(
-            [str(MIGRATE), "begin", str(self.vault)],
+            [*MIGRATE_COMMAND, "begin", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -756,14 +822,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(state["ARCHIVE_LAYOUT"], "indeterminate")
         self.assertEqual(state["MIGRATION_JOURNAL_PHASE"], "invalid")
         enforce = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
         )
         self.assertEqual(enforce.returncode, 24)
         verify = subprocess.run(
-            [str(MIGRATE), "verify", str(self.vault)],
+            [*MIGRATE_COMMAND, "verify", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -781,7 +847,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "legacy-symlink-alias")
         self.assertEqual(self.inspect()["layout"], "legacy-symlink-alias")
         result = subprocess.run(
-            [str(MIGRATE), "split-plan", str(self.vault)],
+            [*MIGRATE_COMMAND, "split-plan", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -801,7 +867,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
 
         self.assertEqual(self.check_state()["ARCHIVE_LAYOUT"], "new-symlink-unsafe")
         enforce = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -809,7 +875,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(enforce.returncode, 23)
         self.assertIn("active archive root must remain inside the vault", enforce.stderr)
         plan = subprocess.run(
-            [str(MIGRATE), "split-plan", str(self.vault)],
+            [*MIGRATE_COMMAND, "split-plan", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -824,7 +890,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         state = self.check_state()
         self.assertEqual(state["ARCHIVE_LAYOUT"], "new-path-unsafe")
         result = subprocess.run(
-            [str(CHECK), "--enforce", str(self.vault)],
+            [*CHECK_COMMAND, "--enforce", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,
@@ -843,7 +909,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         (new / "different.md").write_text("new\n")
 
         result = subprocess.run(
-            [str(MIGRATE), "split-plan", str(self.vault)],
+            [*MIGRATE_COMMAND, "split-plan", str(self.vault)],
             text=True,
             capture_output=True,
             check=False,

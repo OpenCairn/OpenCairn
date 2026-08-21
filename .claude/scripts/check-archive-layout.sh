@@ -40,6 +40,9 @@ OUTPUT=$("$MIGRATION_HELPER" gate "$MODE" "$VAULT" 2> >(cat >&2))
 HELPER_RC=$?
 set -e
 
+# Python writes CRLF on Windows; strip the transport CR before validating the
+# helper's exact three-line protocol.
+OUTPUT="${OUTPUT//$'\r'/}"
 mapfile -t LINES <<< "$OUTPUT"
 [[ ${#LINES[@]} -eq 3 ]] || mismatch
 [[ "${LINES[0]}" =~ ^ARCHIVE_LAYOUT=[a-z0-9-]+$ ]] || mismatch
