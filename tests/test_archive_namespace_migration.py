@@ -156,11 +156,14 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         shutil.copy2(MIGRATE, install / "archive-namespace-migration.py")
         fake_bin = self.vault / "python-only-bin"
         fake_bin.mkdir()
-        for name, source in (
-            ("python", sys.executable),
-            ("dirname", shutil.which("dirname")),
-            ("cat", shutil.which("cat")),
-        ):
+        fake_python = fake_bin / "python"
+        fake_python.write_text(
+            "#!/bin/bash\n"
+            "printf '%s\\n' 'ARCHIVE_LAYOUT=empty-clean' "
+            "'ACTIONABLE_LEGACY_FILES=0' 'MIGRATION_JOURNAL_PHASE=absent'\n"
+        )
+        fake_python.chmod(0o755)
+        for name, source in (("dirname", shutil.which("dirname")), ("cat", shutil.which("cat"))):
             self.assertIsNotNone(source)
             (fake_bin / name).symlink_to(source)
 
