@@ -30,14 +30,16 @@ LOCATOR_REPLACEMENTS = (
     (OLD_WINDOWS_LOCATOR, NEW_WINDOWS_LOCATOR),
     *((OLD_TOKEN + delimiter, NEW_TOKEN + delimiter) for delimiter in BARE_DELIMITERS),
     *((OLD_WINDOWS_TOKEN + delimiter, NEW_WINDOWS_TOKEN + delimiter) for delimiter in BARE_DELIMITERS),
+    (OLD_TOKEN + "\r\n", NEW_TOKEN + "\r\n"),
+    (OLD_WINDOWS_TOKEN + "\r\n", NEW_WINDOWS_TOKEN + "\r\n"),
     (OLD_TOKEN + "\n", NEW_TOKEN + "\n"),
     ("\n" + OLD_TOKEN, "\n" + NEW_TOKEN),
     (OLD_WINDOWS_TOKEN + "\n", NEW_WINDOWS_TOKEN + "\n"),
     ("\n" + OLD_WINDOWS_TOKEN, "\n" + NEW_WINDOWS_TOKEN),
 )
 LOCATOR_PATTERN = re.compile(
-    rf"(?:{re.escape(OLD_TOKEN)}(?=/|$|[\"'\]\)\}}>,;:])|"
-    rf"{re.escape(OLD_WINDOWS_TOKEN)}(?=\\|$|[\"'\]\)\}}>,;:]))",
+    rf"(?:{re.escape(OLD_TOKEN)}(?=/|\r?$|[\"'\]\)\}}>,;:])|"
+    rf"{re.escape(OLD_WINDOWS_TOKEN)}(?=\\|\r?$|[\"'\]\)\}}>,;:]))",
     flags=re.MULTILINE,
 )
 ARCHIVE_BUNDLE_VERSION = 3  # archive-bundle-v3
@@ -682,10 +684,15 @@ def render_record(current: str, exists: bool, row: str) -> str:
             output.append(line)
         return "\n".join(output) + ("\n" if current.endswith("\n") else "")
     if "## Versioned migrations" in current:
-        marker = "| Migration | State | Last checked |\n|---|---|---|"
-        if current.count(marker) != 1:
+        marker_pattern = re.compile(
+            r"\| Migration \| State \| Last checked \|\r?\n\|---\|---\|---\|"
+        )
+        markers = list(marker_pattern.finditer(current))
+        if len(markers) != 1:
             raise RuntimeError("versioned migration table header is missing or ambiguous")
-        return current.replace(marker, f"{marker}\n{row}", 1)
+        marker = markers[0]
+        newline = "\r\n" if "\r\n" in marker.group(0) else "\n"
+        return current[: marker.end()] + newline + row + current[marker.end() :]
     prefix = "" if current.endswith("\n\n") else "\n" if current.endswith("\n") else "\n\n"
     return current + prefix + section
 
