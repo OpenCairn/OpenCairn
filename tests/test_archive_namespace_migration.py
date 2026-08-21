@@ -125,6 +125,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         shutil.copy2(CHECK, install / "check-archive-layout.sh")
         helper = install / "archive-namespace-migration.py"
         helper.write_bytes(
+            b"#!/usr/bin/env python3\n"
             b"import sys\n"
             b"sys.stdout.buffer.write("
             b"b'ARCHIVE_LAYOUT=empty-clean\\r\\n"
