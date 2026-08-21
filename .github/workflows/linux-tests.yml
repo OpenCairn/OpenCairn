@@ -1,0 +1,37 @@
+name: Linux tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Repository and rendering tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Run repository tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Validate acknowledged renderings
+        run: python .github/scripts/validate_codex_renderings.py --check
+
+      - name: Test rendering validator failure modes
+        run: python .github/scripts/test_validate_codex_renderings.py
