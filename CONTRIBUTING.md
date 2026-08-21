@@ -1,5 +1,11 @@
 # Contributing to OpenCairn
 
+## External Contributions
+
+Issues and proposals are welcome. A pull request containing code, documentation or media will not be merged until every contributor has signed the [OpenCairn Contributor Licence Agreement](CONTRIBUTOR_LICENSE_AGREEMENT.md) and the project owner has confirmed acceptance.
+
+The agreement leaves ownership with the contributor while granting the project the rights needed to distribute the contribution under OpenCairn's public licence and commercial or proprietary licences. Identify any third-party material before submitting it. Opening a pull request does not by itself grant additional rights or confirm acceptance of the agreement.
+
 ## Development Workflow
 
 **Template repo:** `~/repos/OpenCairn/` ([GitHub](https://github.com/OpenCairn/OpenCairn))
