@@ -8,8 +8,10 @@ import datetime as dt
 import fnmatch
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import subprocess
 import sys
 
@@ -454,16 +456,57 @@ def editor(vault: Path) -> Path:
     return result
 
 
-def locked_call(vault: Path, target: Path, mode: str, payload: str, *extra: str) -> None:
-    completed = subprocess.run(
-        [str(editor(vault)), str(target), mode, *extra],
-        input=payload,
-        text=True,
+def bash_executable() -> str:
+    """Return Bash, including Git for Windows installations not on PATH."""
+    if os.name == "nt":
+        roots = (
+            os.environ.get("PROGRAMFILES"),
+            os.environ.get("PROGRAMFILES(X86)"),
+            os.environ.get("LOCALAPPDATA"),
+        )
+        suffixes = ("Git/bin/bash.exe", "Programs/Git/bin/bash.exe")
+        for root in roots:
+            if not root:
+                continue
+            for suffix in suffixes:
+                candidate = Path(root) / suffix
+                if candidate.is_file():
+                    return str(candidate)
+    found = shutil.which("bash")
+    if found:
+        return found
+    raise RuntimeError("Bash is required to run the locked editor")
+
+
+def shell_path(path: Path) -> str:
+    """Use separators understood by Bash while retaining native drive paths."""
+    return path.as_posix() if os.name == "nt" else str(path)
+
+
+def run_locked_editor(
+    vault: Path, target: Path, mode: str, payload: str, *extra: str
+) -> subprocess.CompletedProcess[bytes]:
+    # Bytes preserve the locked-edit protocol's LF separator on Windows. Text
+    # mode would translate it to CRLF before Git Bash reads stdin.
+    return subprocess.run(
+        [
+            bash_executable(),
+            shell_path(editor(vault)),
+            shell_path(target),
+            mode,
+            *extra,
+        ],
+        input=payload.encode("utf-8"),
         capture_output=True,
         check=False,
     )
+
+
+def locked_call(vault: Path, target: Path, mode: str, payload: str, *extra: str) -> None:
+    completed = run_locked_editor(vault, target, mode, payload, *extra)
     if completed.returncode != 0:
-        raise RuntimeError(completed.stderr.strip() or f"locked edit failed: {target}")
+        stderr = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(stderr or f"locked edit failed: {target}")
 
 
 def locked_whole(vault: Path, relative: Path, payload: str) -> None:
@@ -485,18 +528,15 @@ def locked_whole_cas(vault: Path, relative: Path, transform) -> None:
         except UnicodeDecodeError as exc:
             raise RuntimeError(f"record is not UTF-8 text: {target}") from exc
         payload = transform(current, exists)
-        completed = subprocess.run(
-            [str(editor(vault)), str(target), "--replace-whole", expected],
-            input=payload,
-            text=True,
-            capture_output=True,
-            check=False,
+        completed = run_locked_editor(
+            vault, target, "--replace-whole", payload, expected
         )
         if completed.returncode == 0:
             return
         if completed.returncode != 2:
+            stderr = completed.stderr.decode("utf-8", errors="replace").strip()
             raise RuntimeError(
-                completed.stderr.strip() or f"locked edit failed: {target}"
+                stderr or f"locked edit failed: {target}"
             )
     raise RuntimeError(f"record changed repeatedly during locked update: {target}")
 
@@ -737,15 +777,9 @@ def rewrite(vault: Path) -> int:
         if text in {OLD_TOKEN, OLD_WINDOWS_TOKEN}:
             exact_new = NEW_TOKEN if text == OLD_TOKEN else NEW_WINDOWS_TOKEN
             payload = f"{text}\n{SEP}\n{exact_new}"
-            completed = subprocess.run(
-                [str(edit_script), str(target), "--replace-all"],
-                input=payload,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            completed = run_locked_editor(vault, target, "--replace-all", payload)
             if completed.returncode != 0:
-                sys.stderr.write(completed.stderr)
+                sys.stderr.write(completed.stderr.decode("utf-8", errors="replace"))
                 print(f"locked rewrite failed: {relative}", file=sys.stderr)
                 return completed.returncode or 1
             text = exact_new
@@ -755,15 +789,9 @@ def rewrite(vault: Path) -> int:
             payload = f"{old}\n{SEP}\n{new}"
             if new.endswith("\n"):
                 payload += "\n"
-            completed = subprocess.run(
-                [str(edit_script), str(target), "--replace-all"],
-                input=payload,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            completed = run_locked_editor(vault, target, "--replace-all", payload)
             if completed.returncode != 0:
-                sys.stderr.write(completed.stderr)
+                sys.stderr.write(completed.stderr.decode("utf-8", errors="replace"))
                 print(f"locked rewrite failed: {relative}", file=sys.stderr)
                 return completed.returncode or 1
             text = text.replace(old, new)
@@ -774,15 +802,9 @@ def rewrite(vault: Path) -> int:
             old_line = text[line_start:]
             new_line = old_line[: -len(old)] + new
             payload = f"{old_line}\n{SEP}\n{new_line}"
-            completed = subprocess.run(
-                [str(edit_script), str(target), "--replace-all"],
-                input=payload,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            completed = run_locked_editor(vault, target, "--replace-all", payload)
             if completed.returncode != 0:
-                sys.stderr.write(completed.stderr)
+                sys.stderr.write(completed.stderr.decode("utf-8", errors="replace"))
                 print(f"locked EOF rewrite failed: {relative}", file=sys.stderr)
                 return completed.returncode or 1
             text = text.replace(old_line, new_line)
