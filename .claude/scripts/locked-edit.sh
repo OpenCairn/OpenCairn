@@ -67,8 +67,12 @@ case "$MODE" in
     *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --append, or --replace-whole)" >&2; exit 1 ;;
 esac
 
-if ! command -v python3 &>/dev/null; then
-    echo "locked-edit.sh requires python3 (literal string engine)" >&2
+if command -v python3 &>/dev/null; then
+    PYTHON_BIN="$(command -v python3)"
+elif command -v python &>/dev/null; then
+    PYTHON_BIN="$(command -v python)"
+else
+    echo "locked-edit.sh requires Python 3 (python3 or python)" >&2
     exit 1
 fi
 
@@ -98,7 +102,7 @@ export _LE_EXPECTED_SNAPSHOT="$EXPECTED_SNAPSHOT"
 export _LE_RECEIPT_FILE="$RECEIPT_TMP"
 
 set +e
-python3 - <<'PY'
+"$PYTHON_BIN" - <<'PY'
 import datetime, difflib, hashlib, json, os, re, sys, tempfile
 
 target = os.environ["_LE_TARGET"]
@@ -111,8 +115,9 @@ def atomic_write(path, data):
     d = os.path.dirname(path) or "."
     fd, tmp = tempfile.mkstemp(dir=d, prefix=".le-", suffix=".tmp")
     try:
-        write_mode = "wb" if isinstance(data, bytes) else "w"
-        with os.fdopen(fd, write_mode) as f:
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        with os.fdopen(fd, "wb") as f:
             f.write(data)
         # Preserve the target's existing mode: mkstemp creates the temp file
         # 0600, so without this every locked edit would silently reset the
@@ -268,13 +273,10 @@ if mode == "--replace-whole":
     atomic_write(target, stdin_bytes)
     sys.exit(0)
 
-stdin = stdin_bytes.decode()
+stdin = stdin_bytes.decode("utf-8")
 
 if mode == "--append":
-    existing = ""
-    if os.path.exists(target):
-        with open(target) as f:
-            existing = f.read()
+    existing = before_bytes.decode("utf-8")
     # Append verbatim; ensure exactly one newline boundary before the new block.
     if existing and not existing.endswith("\n"):
         existing += "\n"
@@ -284,7 +286,7 @@ if mode == "--append":
     # onto the last line.
     if stdin and not stdin.endswith("\n"):
         stdin += "\n"
-    after = existing + stdin
+    after = (existing + stdin).encode("utf-8")
     write_receipt(before_bytes, after)
     atomic_write(target, after)
     sys.exit(0)
@@ -306,8 +308,7 @@ if new.endswith("\n"):
 if not os.path.exists(target):
     sys.stderr.write("Target file does not exist: %s\n" % target)
     sys.exit(2)
-with open(target) as f:
-    content = f.read()
+content = before_bytes.decode("utf-8")
 
 count = content.count(old)
 if count == 0:
@@ -322,8 +323,9 @@ if mode == "--replace":
 else:
     content = content.replace(old, new)
 
-write_receipt(before_bytes, content, old, new, count)
-atomic_write(target, content)
+after_bytes = content.encode("utf-8")
+write_receipt(before_bytes, after_bytes, old, new, count)
+atomic_write(target, after_bytes)
 sys.exit(0)
 PY
 RC=$?

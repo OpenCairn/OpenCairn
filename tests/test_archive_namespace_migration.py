@@ -124,10 +124,11 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         shutil.copy2(CHECK, install / "check-archive-layout.sh")
         helper = install / "archive-namespace-migration.py"
         helper.write_bytes(
-            b"#!/usr/bin/env bash\n"
-            b"printf 'ARCHIVE_LAYOUT=empty-clean\\r\\n"
+            b"import sys\n"
+            b"sys.stdout.buffer.write("
+            b"b'ARCHIVE_LAYOUT=empty-clean\\r\\n"
             b"ACTIONABLE_LEGACY_FILES=0\\r\\n"
-            b"MIGRATION_JOURNAL_PHASE=absent\\r\\n'\n"
+            b"MIGRATION_JOURNAL_PHASE=absent\\r\\n')\n"
         )
         helper.chmod(0o755)
 
@@ -145,6 +146,31 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 "MIGRATION_JOURNAL_PHASE=absent",
             ],
         )
+
+    def test_gate_uses_python_when_python3_command_is_absent(self):
+        install = self.vault / "python-fallback"
+        install.mkdir()
+        shutil.copy2(CHECK, install / "check-archive-layout.sh")
+        shutil.copy2(MIGRATE, install / "archive-namespace-migration.py")
+        fake_bin = self.vault / "python-only-bin"
+        fake_bin.mkdir()
+        for name, source in (
+            ("python", sys.executable),
+            ("dirname", shutil.which("dirname")),
+            ("cat", shutil.which("cat")),
+        ):
+            self.assertIsNotNone(source)
+            (fake_bin / name).symlink_to(source)
+
+        result = subprocess.run(
+            [BASH, str(install / "check-archive-layout.sh"), "--status", str(self.vault)],
+            text=True,
+            capture_output=True,
+            check=False,
+            env=dict(os.environ, PATH=str(fake_bin)),
+        )
+        self.assert_command_ok(result)
+        self.assertIn("ARCHIVE_LAYOUT=empty-clean", result.stdout)
 
     def test_mixed_gate_and_helper_report_archive_core_mismatch(self):
         install = self.vault / "mixed"
@@ -256,7 +282,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertIn("06 Archive/OpenCairn/Session Logs", script.read_text(encoding="utf-8"))
         self.assertIn("06 Archive/OpenCairn/Session Logs", extensionless.read_text(encoding="utf-8"))
-        self.assertEqual(hidden_extensionless.read_text(encoding="utf-8"), "06 Archive/OpenCairn\n")
+        self.assertEqual(hidden_extensionless.read_bytes(), b"06 Archive/OpenCairn\r\n")
         self.assertIn('archive="06 Archive/OpenCairn"', exact_root.read_text(encoding="utf-8"))
         self.assertEqual(parenthesised_root.read_text(encoding="utf-8"), "(see 06 Archive/OpenCairn)\n")
         self.assertEqual(eof_root.read_text(encoding="utf-8"), "archive_root=06 Archive/OpenCairn")
@@ -264,6 +290,25 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         self.assertIn("06 Archive/OpenCairn/Session Logs", backup.read_text(encoding="utf-8"))
         self.assertIn("06 Archive/Claude Sessions", unrelated.read_text(encoding="utf-8"))
         self.assertEqual(binary_extensionless.read_bytes(), b"06 Archive/Claude\x00binary")
+
+    def test_rewrite_preserves_crlf_and_utf8_content(self):
+        (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
+        target = self.vault / "03 Projects/Unicode.md"
+        target.write_bytes(
+            "Café 😀\r\n06 Archive/Claude/Session Logs/example\r\n尾声\r\n".encode("utf-8")
+        )
+
+        subprocess.run(
+            [*MIGRATE_COMMAND, "rewrite", str(self.vault)],
+            check=True,
+            capture_output=True,
+        )
+        self.assertEqual(
+            target.read_bytes(),
+            "Café 😀\r\n06 Archive/OpenCairn/Session Logs/example\r\n尾声\r\n".encode(
+                "utf-8"
+            ),
+        )
 
     def test_non_utf8_extensionless_locator_is_consistently_reported(self):
         (self.vault / "06 Archive/OpenCairn").mkdir(parents=True)
@@ -590,6 +635,9 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             record.read_text(encoding="utf-8").count("| archive-namespace-opencairn-v1 | complete |"),
             1,
         )
+        record_bytes = record.read_bytes()
+        self.assertNotIn(b"\n", record_bytes.replace(b"\r\n", b""))
+
     def test_completed_journal_is_terminal_after_archive_growth(self):
         old = self.vault / "06 Archive/Claude"
         transcript = old / ".Session Transcripts/raw.txt"

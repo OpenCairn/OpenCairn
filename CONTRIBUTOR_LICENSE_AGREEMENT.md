@@ -87,20 +87,28 @@ TO THE MAXIMUM EXTENT PERMITTED BY LAW, YOU WILL NOT BE LIABLE TO US FOR LOSS OF
 
 ### Contributor
 
-Name or legal entity:  
-GitHub username:  
-Email:  
-Address:  
-Authorised signatory and title, if signing for an entity:  
-Signature:  
-Date:  
+Name or legal entity:
+
+GitHub username:
+
+Email:
+
+Address:
+
+Authorised signatory and title, if signing for an entity:
+
+Signature:
+
+Date:
 
 ### OpenCairn
 
-Name: Harrison Edwards  
-Signature:  
-Date:  
+Name: Harrison Edwards
+
+Signature:
+
+Date:
 
 ## Template provenance
 
-This Agreement is based on the Harmony Individual and Entity Contributor Licence Agreement, Version 1.0, with the copyright-licence and unrestricted outbound-licensing options selected and project-specific changes. The Harmony template is licensed under Creative Commons Attribution 3.0 Unported. This Agreement is not endorsed by Project Harmony.
+This Agreement is based on the [Harmony Individual and Entity Contributor Licence Agreement, Version 1.0](https://www.harmonyagreements.org/docs/ha-combined-v1), with the copyright-licence and unrestricted outbound-licensing options selected and project-specific changes. The Harmony template is licensed under [Creative Commons Attribution 3.0 Unported](https://creativecommons.org/licenses/by/3.0/). This Agreement is not endorsed by Project Harmony.

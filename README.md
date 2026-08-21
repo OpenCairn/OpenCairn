@@ -72,7 +72,7 @@ This installs the skills only. Vault-backed skills such as `/park`, `/morning`, 
 
 ### Full vault
 
-**Prerequisites:** [Git](https://git-scm.com/downloads), Python 3, [ripgrep](https://github.com/BurntSushi/ripgrep), and either [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex CLI](https://developers.openai.com/codex/cli/). Obsidian is optional but recommended.
+**Prerequisites:** [Git](https://git-scm.com/downloads), Python 3, Bash 4 or later, [ripgrep](https://github.com/BurntSushi/ripgrep), and either [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex CLI](https://developers.openai.com/codex/cli/). On macOS, install Bash with Homebrew; on Windows, use the Bash included with Git for Windows. Obsidian is optional but recommended.
 
 ```bash
 # Choose where the vault will live

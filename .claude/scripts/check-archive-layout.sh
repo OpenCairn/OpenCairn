@@ -34,9 +34,27 @@ mismatch() {
     exit 26
 }
 
+python_missing() {
+    printf '%s\n' \
+        'ARCHIVE_LAYOUT=indeterminate' \
+        'ACTIONABLE_LEGACY_FILES=unknown' \
+        'MIGRATION_JOURNAL_PHASE=unknown'
+    [[ "$MODE" == "--status" ]] && exit 0
+    echo 'OpenCairn archive migration requires Python 3 available as python3 or python.' >&2
+    exit 24
+}
+
+if command -v python3 &>/dev/null; then
+    PYTHON_BIN="$(command -v python3)"
+elif command -v python &>/dev/null; then
+    PYTHON_BIN="$(command -v python)"
+else
+    python_missing
+fi
+
 [[ -x "$MIGRATION_HELPER" ]] || mismatch
 set +e
-OUTPUT=$("$MIGRATION_HELPER" gate "$MODE" "$VAULT" 2> >(cat >&2))
+OUTPUT=$("$PYTHON_BIN" "$MIGRATION_HELPER" gate "$MODE" "$VAULT" 2> >(cat >&2))
 HELPER_RC=$?
 set -e
 
