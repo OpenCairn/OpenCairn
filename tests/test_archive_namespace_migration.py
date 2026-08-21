@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -154,6 +155,7 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         install.mkdir()
         shutil.copy2(CHECK, install / "check-archive-layout.sh")
         shutil.copy2(MIGRATE, install / "archive-namespace-migration.py")
+        (install / "archive-namespace-migration.py").chmod(0o644)
         fake_bin = self.vault / "python-only-bin"
         fake_bin.mkdir()
         fake_python = fake_bin / "python"
@@ -646,6 +648,29 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         )
         record_bytes = record.read_bytes()
         self.assertNotIn(b"\n", record_bytes.replace(b"\r\n", b""))
+
+    def test_record_replacement_preserves_mixed_line_endings(self):
+        record = self.vault / "07 System/Migration Record.md"
+        record.parent.mkdir(parents=True)
+        before = (
+            "# OpenCairn Migration Record\r\n"
+            "\r\n"
+            "## Versioned migrations\n"
+            "\n"
+            "| Migration | State | Last checked |\r\n"
+            "|---|---|---|\n"
+            "| archive-namespace-opencairn-v1 | deferred | 2000-01-01 |\r\n"
+            "Tail\n"
+        )
+        record.write_bytes(before.encode("utf-8"))
+
+        self.run_migrate("record", self.vault, "blocked")
+
+        expected = before.replace(
+            "| archive-namespace-opencairn-v1 | deferred | 2000-01-01 |",
+            f"| archive-namespace-opencairn-v1 | blocked | {dt.date.today().isoformat()} |",
+        )
+        self.assertEqual(record.read_bytes(), expected.encode("utf-8"))
 
     def test_completed_journal_is_terminal_after_archive_growth(self):
         old = self.vault / "06 Archive/Claude"

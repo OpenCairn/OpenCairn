@@ -45,14 +45,15 @@ python_missing() {
 }
 
 if command -v python3 &>/dev/null; then
+    [[ -x "$MIGRATION_HELPER" ]] || mismatch
     HELPER_COMMAND=("$MIGRATION_HELPER")
 elif command -v python &>/dev/null; then
+    [[ -f "$MIGRATION_HELPER" && -r "$MIGRATION_HELPER" ]] || mismatch
     HELPER_COMMAND=(python "$MIGRATION_HELPER")
 else
     python_missing
 fi
 
-[[ -x "$MIGRATION_HELPER" ]] || mismatch
 set +e
 OUTPUT=$("${HELPER_COMMAND[@]}" gate "$MODE" "$VAULT" 2> >(cat >&2))
 HELPER_RC=$?
