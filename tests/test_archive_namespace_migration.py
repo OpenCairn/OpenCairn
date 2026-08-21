@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -7,21 +6,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest import mock
 
 
 REPO = Path(__file__).resolve().parents[1]
 CHECK = REPO / ".claude/scripts/check-archive-layout.sh"
 MIGRATE = REPO / ".claude/scripts/archive-namespace-migration.py"
-
-
-def load_migration_module():
-    spec = importlib.util.spec_from_file_location("archive_namespace_migration", MIGRATE)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"could not load migration helper: {MIGRATE}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 class ArchiveNamespaceMigrationTests(unittest.TestCase):
@@ -79,77 +68,6 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
                 "ARCHIVE_LAYOUT=empty-clean",
                 "ACTIONABLE_LEGACY_FILES=0",
                 "MIGRATION_JOURNAL_PHASE=absent",
-            ],
-        )
-
-    def test_gate_accepts_crlf_helper_output(self):
-        install = self.vault / "crlf-helper"
-        install.mkdir()
-        shutil.copy2(CHECK, install / "check-archive-layout.sh")
-        helper = install / "archive-namespace-migration.py"
-        helper.write_text(
-            "#!/bin/sh\n"
-            "printf 'ARCHIVE_LAYOUT=empty-clean\\r\\n'\n"
-            "printf 'ACTIONABLE_LEGACY_FILES=0\\r\\n'\n"
-            "printf 'MIGRATION_JOURNAL_PHASE=absent\\r\\n'\n"
-        )
-        helper.chmod(0o755)
-
-        result = subprocess.run(
-            [str(install / "check-archive-layout.sh"), "--status", str(self.vault)],
-            text=True,
-            capture_output=True,
-            check=True,
-        )
-
-        self.assertEqual(
-            result.stdout.splitlines(),
-            [
-                "ARCHIVE_LAYOUT=empty-clean",
-                "ACTIONABLE_LEGACY_FILES=0",
-                "MIGRATION_JOURNAL_PHASE=absent",
-            ],
-        )
-
-    def test_locked_edit_payload_is_passed_as_bytes(self):
-        migration = load_migration_module()
-        completed = subprocess.CompletedProcess(
-            ["locked-edit.sh"], 0, stdout=b"ok\n", stderr=b""
-        )
-
-        with mock.patch.object(migration.subprocess, "run", return_value=completed) as run:
-            result = migration.run_locked_edit(
-                ["locked-edit.sh", "target", "--replace-all"],
-                f"old\n{migration.SEP}\nnew\n",
-            )
-
-        self.assertEqual(
-            run.call_args.kwargs["input"],
-            f"old\n{migration.SEP}\nnew\n".encode("utf-8"),
-        )
-        self.assertNotIn("text", run.call_args.kwargs)
-        self.assertEqual(result.stdout, "ok\n")
-
-    def test_windows_shell_argv_uses_bash_from_path(self):
-        migration = load_migration_module()
-        script = Path("locked-edit.sh")
-
-        with (
-            mock.patch.object(migration.os, "name", "nt"),
-            mock.patch.object(
-                migration.shutil, "which", return_value="C:/Program Files/Git/bin/bash.exe"
-            ) as which,
-        ):
-            argv = migration.sh_argv(script, "target", "--replace-all")
-
-        which.assert_called_once_with("bash")
-        self.assertEqual(
-            argv,
-            [
-                "C:/Program Files/Git/bin/bash.exe",
-                "locked-edit.sh",
-                "target",
-                "--replace-all",
             ],
         )
 

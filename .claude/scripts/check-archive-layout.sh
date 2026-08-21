@@ -40,10 +40,6 @@ OUTPUT=$("$MIGRATION_HELPER" gate "$MODE" "$VAULT" 2> >(cat >&2))
 HELPER_RC=$?
 set -e
 
-# Windows python3 terminates stdout lines with CRLF. The trailing CR makes every
-# $-anchored check below reject otherwise-valid helper output, so the gate reports
-# archive-core-mismatch - a release-bundle mismatch - for a healthy install.
-OUTPUT=${OUTPUT//$'\r'/}
 mapfile -t LINES <<< "$OUTPUT"
 [[ ${#LINES[@]} -eq 3 ]] || mismatch
 [[ "${LINES[0]}" =~ ^ARCHIVE_LAYOUT=[a-z0-9-]+$ ]] || mismatch

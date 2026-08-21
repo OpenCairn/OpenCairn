@@ -8,10 +8,8 @@ import datetime as dt
 import fnmatch
 import hashlib
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
-import shutil
 import subprocess
 import sys
 
@@ -456,48 +454,13 @@ def editor(vault: Path) -> Path:
     return result
 
 
-def run_locked_edit(argv: list, payload: str) -> subprocess.CompletedProcess:
-    """Run locked-edit.sh with `payload` on stdin, without newline translation.
-
-    Subprocess text mode rewrites ``\n`` as ``\r\n`` on Windows, which corrupts the
-    separator line locked-edit.sh splits on and makes every call fail with
-    "No separator line found in stdin". Writing bytes keeps the payload exact."""
+def locked_call(vault: Path, target: Path, mode: str, payload: str, *extra: str) -> None:
     completed = subprocess.run(
-        argv,
-        input=payload.encode("utf-8"),
+        [str(editor(vault)), str(target), mode, *extra],
+        input=payload,
+        text=True,
         capture_output=True,
         check=False,
-    )
-    return subprocess.CompletedProcess(
-        completed.args,
-        completed.returncode,
-        completed.stdout.decode("utf-8", "replace"),
-        completed.stderr.decode("utf-8", "replace"),
-    )
-
-
-def sh_argv(script: Path, *args: str) -> list:
-    """Build an argv that runs a shell script on this platform.
-
-    Windows cannot execute a .sh directly - CreateProcess raises
-    OSError [WinError 193] "%1 is not a valid Win32 application" - so every
-    subcommand that shells out to locked-edit.sh dies before doing any work.
-    Invoke the interpreter explicitly there."""
-    if os.name == "nt":
-        bash = shutil.which("bash")
-        if bash is None:
-            raise RuntimeError(
-                "bash was not found on PATH. The archive migration drives "
-                "locked-edit.sh, which needs bash; install Git for Windows "
-                "(which provides it) or run from a shell that has it."
-            )
-        return [bash, str(script), *args]
-    return [str(script), *args]
-
-
-def locked_call(vault: Path, target: Path, mode: str, payload: str, *extra: str) -> None:
-    completed = run_locked_edit(
-        sh_argv(editor(vault), str(target), mode, *extra), payload
     )
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or f"locked edit failed: {target}")
@@ -522,8 +485,12 @@ def locked_whole_cas(vault: Path, relative: Path, transform) -> None:
         except UnicodeDecodeError as exc:
             raise RuntimeError(f"record is not UTF-8 text: {target}") from exc
         payload = transform(current, exists)
-        completed = run_locked_edit(
-            sh_argv(editor(vault), str(target), "--replace-whole", expected), payload
+        completed = subprocess.run(
+            [str(editor(vault)), str(target), "--replace-whole", expected],
+            input=payload,
+            text=True,
+            capture_output=True,
+            check=False,
         )
         if completed.returncode == 0:
             return
@@ -770,8 +737,12 @@ def rewrite(vault: Path) -> int:
         if text in {OLD_TOKEN, OLD_WINDOWS_TOKEN}:
             exact_new = NEW_TOKEN if text == OLD_TOKEN else NEW_WINDOWS_TOKEN
             payload = f"{text}\n{SEP}\n{exact_new}"
-            completed = run_locked_edit(
-                sh_argv(edit_script, str(target), "--replace-all"), payload
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
             )
             if completed.returncode != 0:
                 sys.stderr.write(completed.stderr)
@@ -784,8 +755,12 @@ def rewrite(vault: Path) -> int:
             payload = f"{old}\n{SEP}\n{new}"
             if new.endswith("\n"):
                 payload += "\n"
-            completed = run_locked_edit(
-                sh_argv(edit_script, str(target), "--replace-all"), payload
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
             )
             if completed.returncode != 0:
                 sys.stderr.write(completed.stderr)
@@ -799,8 +774,12 @@ def rewrite(vault: Path) -> int:
             old_line = text[line_start:]
             new_line = old_line[: -len(old)] + new
             payload = f"{old_line}\n{SEP}\n{new_line}"
-            completed = run_locked_edit(
-                sh_argv(edit_script, str(target), "--replace-all"), payload
+            completed = subprocess.run(
+                [str(edit_script), str(target), "--replace-all"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=False,
             )
             if completed.returncode != 0:
                 sys.stderr.write(completed.stderr)
