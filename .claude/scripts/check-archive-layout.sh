@@ -45,9 +45,9 @@ python_missing() {
 }
 
 if command -v python3 &>/dev/null; then
-    PYTHON_BIN="$(command -v python3)"
+    PYTHON_BIN="python3"
 elif command -v python &>/dev/null; then
-    PYTHON_BIN="$(command -v python)"
+    PYTHON_BIN="python"
 else
     python_missing
 fi
