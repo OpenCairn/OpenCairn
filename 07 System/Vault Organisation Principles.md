@@ -59,7 +59,7 @@ Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
 
 ## Project Doc Format
 
-Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it), a `## Current Objective` (1-2 sentences), and a scannable `## Next Actions`. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. For the active landscape, list the root and read the docs — there is no rendered dashboard (the root listing is the view).
+Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it). `## Current Objective` and `## Next Actions` are useful defaults for substantial projects, not required schema; preserve a project's existing structure when it expresses current state and actions another way. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. For the active landscape, list the root and read the docs — there is no rendered dashboard (the root listing is the view).
 
 **This Week cap: 30/week binding, 10/day shape** (defaults — tune here; skills treat this section as the SSOT).
 

@@ -325,9 +325,9 @@ Session number assigned: N
 
 ### 14a. Update project docs
 
-If a project's state materially changed today, update that project's doc in `03 Projects/` — rewrite its `## Current Objective` / `## Next Actions` to match reality, via `locked-edit.sh` (see `_shared-rules.md` §5). No change, no edit.
+If a project's state materially changed today, update that project's doc in `03 Projects/` — rewrite its existing current-state/action content to match reality, preserving the document's structure, via `locked-edit.sh` (see `_shared-rules.md` §5). No change, no edit.
 
-**Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected Current Objective / Next Actions in the relevant project doc *and* any matching area hub in `04 Areas/`. A stale "awaiting X" line will mislead the next `$morning` or `$pickup` into expecting something that has already happened.
+**Also propagate state changes disclosed during goodnight conversation, not just session-file outcomes.** State updates revealed in the Pre-Verification Debrief (Step 3) or Additional Captures (Step 7) are authoritative even when session logs don't yet reflect them. When the user discloses that a waited-on event has landed (a reply received, a decision made, an external action completed), rewrite the affected current-state/action content in the relevant project doc *and* any matching area hub in `04 Areas/`. A stale "awaiting X" line will mislead the next `$morning` or `$pickup` into expecting something that has already happened.
 
 **Why this step is here (not at the end):** project-doc edits ahead of the audit means the audit's Layer 3 propagation check covers them, and provenance hashing in Step 17 captures the final state.
 

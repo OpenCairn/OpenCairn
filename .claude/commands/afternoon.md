@@ -43,7 +43,7 @@ Note what's left of the day. Only state a number of hours if an end time is give
 
 Read:
 - **This Week.md:** `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range in the heading) — find today's day section (`## [Day] [DD] [Mon]`). What tasks are checked? What's still open? If today falls outside the date range, it's stale — skip it and note: "This Week.md is stale — run /morning to refresh or ignore."
-- **Active projects:** list `{VAULT}/03 Projects/*.md` (root only — folder location is status) and read each doc's `## Current Objective` - what's meant to be priority? Read the full root doc when a project's detail is needed.
+- **Active projects:** list `{VAULT}/03 Projects/*.md` (root only — folder location is status) and read each doc's available current-state/action cues. Read the full root doc when a project's detail is needed.
 - **Today's sessions:** `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` (skip if file doesn't exist — no log yet just means no session has parked today) - what's been done so far?
 - **This morning's intention:** Derive from today's day section in This Week.md — the first scheduled/bolded item (or the top unchecked item) is the de-facto intention. There is no separate "one thing" artefact written by /morning; if the day section is empty or missing, report "None set".
 
@@ -128,7 +128,7 @@ Consider:
 
 **If This Week.md needs updating:** Mark completed tasks `[x]` in today's day section, add new tasks that emerged — via `locked-edit.sh --replace` per the write-mechanism note above. Include project/area links on new items (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists. This keeps the week plan current without rebuilding from scratch.
 
-**If actionable decisions made:** Route them to the SSOT they belong to (the project doc's Current Objective / Next Actions, or a This Week.md day section) — not the session log. Session logs are written by /park and /goodnight; a decision reaches the log when the owning session parks. If anything was written, show a one-line receipt: `✓ [item] → [file]`.
+**If actionable decisions made:** Route them to the SSOT they belong to (the project doc's existing current-state/action section, or a This Week.md day section) — not the session log. Session logs are written by /park and /goodnight; a decision reaches the log when the owning session parks. If anything was written, show a one-line receipt: `✓ [item] → [file]`.
 
 ### 7. Close
 

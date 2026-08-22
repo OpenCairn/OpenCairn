@@ -10,9 +10,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into a project doc's `## Next Actions`, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, never a raw edit — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
+**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into an existing project task/action section, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, never a raw edit — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
-**Disengage routing — applies to every "user disengages" branch below.** A finding the user declines to resolve in-session routes to the relevant project/area doc's `## Next Actions` where one is identifiable, else to the Tickler dated 7 days out — always with a hygiene-report back-reference, never to the Whimsy sink, never silently dropped. Write formats and mechanisms: step 17.
+**Disengage routing — applies to every "user disengages" branch below.** A finding the user declines to resolve in-session routes to an existing task/action section in the relevant project/area doc where one is identifiable, else to the Tickler dated 7 days out — always with a hygiene-report back-reference, never to the Whimsy sink, never silently dropped. Write formats and mechanisms: step 17.
 
 0. **Resolve Vault Path**
 
@@ -25,19 +25,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 1. **Project-Doc Health**
 
-   Project docs in `03 Projects/` are the task SSOT: root = active, `Cold/` = paused, `Backlog/` = someday — the folder is the status. Each root doc carries `bucket:` frontmatter plus `## Current Objective` and `## Next Actions`.
+   Project docs in `03 Projects/` are the task SSOT: root = active, `Cold/` = paused, `Backlog/` = someday — the folder is the status. Each root doc carries `bucket:` frontmatter. `## Current Objective` and `## Next Actions` are optional conventions, not required schema.
 
    **Gather:**
    - List root docs: `ls "{VAULT}/03 Projects/"*.md`
-   - For each root doc, check for `bucket:` in the frontmatter, a `## Current Objective` heading, and a `## Next Actions` heading — list violations
+   - For each root doc, check for `bucket:` in the frontmatter — list violations. Do not flag missing `## Current Objective` or `## Next Actions` headings.
    - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `grep -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
-   - Staleness candidates: flag root docs whose `## Next Actions` are all ticked (no open `- [ ]`), or whose `## Current Objective` reads as completed — candidates for `Cold/` or `$complete-project` (moves are executed in step 2's folder audit)
+   - Staleness candidates: where a root doc has an explicit task/action section, flag it when all tasks are ticked (no open `- [ ]`); also flag explicit current-state text that reads as completed. Missing conventional sections are not a staleness signal. Candidates may belong in `Cold/` or `$complete-project` (moves are executed in step 2's folder audit).
 
    **Confirm with user:**
-   - Structure violations: fix in-session (add the missing frontmatter key or section via `locked-edit.sh`) with the user's confirmation
+   - Structure violations: fix a missing `bucket:` frontmatter key in-session via `locked-edit.sh`, with the user's confirmation
    - Staleness candidates: recommend `Cold/` or `$complete-project`
 
-   **If not resolved in-session:** route each finding per the disengage-routing rule — a structure violation or staleness flag goes under that doc's own `## Next Actions`; a doc lacking that section (itself a violation) goes to the Tickler dated 7 days out via `write-tickler.sh`.
+   **If not resolved in-session:** route each finding per the disengage-routing rule — use the doc's existing task/action section where one is identifiable; otherwise use the Tickler dated 7 days out via `write-tickler.sh`.
 
 2. **Projects Folder Audit**
 
@@ -51,7 +51,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Move mismatched docs to the folder matching their actual state (dead-looking root doc → `Cold/` or `$complete-project`; active-looking Cold/ doc → root)
    - Completed/abandoned projects with reference value → `04 Areas/[Area]/Archive/`; revivable-someday → `03 Projects/Cold/`. `06 Archive/` holds immutable write-once records only — never park project files there.
 
-   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move?` under the doc's own `## Next Actions`, else Tickler +7 days.
+   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move?` under an existing task/action section, else Tickler +7 days.
 
    **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Triage each hit per `_shared-rules.md §12` (grep-hit triage): fix stale wikilinks/locators in non-archive files; leave archive/session-log references as historical records; for a hash/provenance-log path, update the locator on the move, never the content hash/timestamp/proof.
 
@@ -66,7 +66,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Resolve in-session:**
    - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
    - For each completed (`- [x]`) item: confirm it's genuinely done, then remove it during the sweep (per the Tickler "delete if done" convention). When removing a mid-list item, match its **trailing** newline (not a leading one) so its neighbours don't join onto one line; re-grep for a join defect after. Struck-through items are not in this set — leave them.
-   - **If user disengages:** route each unresolved past-due item per the disengage-routing rule (its project/area doc's `## Next Actions` where identifiable, else re-date it in the Tickler 7 days out via `write-tickler.sh`).
+   - **If user disengages:** route each unresolved past-due item per the disengage-routing rule (an existing task/action section in its project/area doc where identifiable, else re-date it in the Tickler 7 days out via `write-tickler.sh`).
 
 4. **Working Memory Sweep**
 
@@ -74,7 +74,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Read `{VAULT}/01 Now/Working memory.md`
    - Count items in each section (Fresh Captures, To Review, etc.)
    - Flag sections with 10+ unprocessed items
-   - Identify any items that appear to be actionable tasks that should be in a project doc's `## Next Actions`
+   - Identify any items that appear to be actionable tasks that should be in an existing project task/action section
    - Note items that have routing guidance but haven't been moved yet
 
    **If not resolved in-session:** For oversized sections (10+ items), add `⚠ Hygiene Wnn: N items, 10+ unprocessed — triage needed` at the top of that section in Working Memory.
@@ -578,8 +578,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Project-Doc Health
    - Root docs: N against the active project cap M (flag if over; Cold/: N, Backlog/: N)
-   - Structure violations (missing bucket / Current Objective / Next Actions): [list or "none"]
-   - Staleness candidates (Next Actions all ticked / objective reads completed): [list or "none"]
+   - Structure violations (missing bucket): [list or "none"]
+   - Staleness candidates (explicit tasks all ticked / current-state text reads completed): [list or "none"]
 
    ## Projects Folder
    - Folder mismatches: [list or "none"]
@@ -691,7 +691,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    ## Actions Routed
    - [For each routed item: description → destination file]
-   - Routed to project docs (Next Actions): N
+   - Routed to project docs (task/action sections): N
    - Routed to SSOT files (Working Memory, scratchpads, terminology): N
    - Routed to Tickler (+7d): N
    ```
@@ -700,9 +700,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
     For each finding not resolved during the sweep:
 
-    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — appended under `## Next Actions` (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
+    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — appended under an existing task/action section (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
     - **Tier 2 items the user declined to engage with** (the disengage-routing rule) — two destinations:
-      - **Project/area doc identifiable:** append `- [ ] [Description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under the doc's `## Next Actions` via `locked-edit.sh`.
+      - **Project/area doc with an existing task/action section identifiable:** append `- [ ] [Description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` there via `locked-edit.sh`.
       - **No doc identifiable:** write a Tickler entry dated 7 days out via `write-tickler.sh`, same line format.
       Findings never go to the Whimsy sink and are never silently dropped.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent.
@@ -723,7 +723,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 ## Guidelines
 
 - **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `$weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
-- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale project docs, folder mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route per the disengage-routing rule — the relevant project/area doc's `## Next Actions` where one exists, else the Tickler dated 7 days out — never to Whimsy, never dropped silently.
+- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale project docs, folder mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route per the disengage-routing rule — an existing task/action section in the relevant project/area doc where one exists, else the Tickler dated 7 days out — never to Whimsy, never dropped silently.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run removes struck **`⚠ Hygiene` markers only** — never struck user content, which is left in place (see the Tickler step's strikethrough rule).
 - **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
 - **Report is consumable.** `$weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.

@@ -31,7 +31,7 @@ This is the **strategic half**, the reflective companion to `$quarterly-hygiene`
    - **Boundary rule:** if today falls in the first 2 weeks of a quarter, ask the user once whether this run reviews the just-ended quarter or the current one — a review run 2 Jul almost always covers Q2, and keying it to Q3 mislabels the output file and falsely stales a days-old hygiene report. Use the answer for the hygiene-report lookup, every "current quarter" test, and the output filename. (`$quarterly-hygiene` carries the same rule; keep the two runs on the same quarter.)
 
 2. **Gather quarterly data:**
-   - Read the `03 Projects/` root docs — the SSOT for active-project state (`bucket:` frontmatter, Current Objective, Next Actions), scanned in detail below
+   - Read the `03 Projects/` root docs — the SSOT for active-project state (`bucket:` frontmatter plus whatever current-state/action structure each doc uses), scanned in detail below
    - **Read the previous quarterly review:** `ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null | sort -r | head -1`. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. Skip any file for the quarter under review (a mid-quarter first run leaves one) and take the newest older-quarter file. If none exists, note it and continue.
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
@@ -164,7 +164,7 @@ Projects to explicitly abandon rather than let linger:
 When listing weekly reviews, preserve each file's exact name including any collision suffix (`YYYY-Wnnb` etc. — weekly-review writes suffixed files when two reviews land in one ISO week); a bare `YYYY-Wnn` link to a suffixed review is broken.
 
    **Route the forward-looking outputs — the review file is an archive record, not a planning surface:**
-   - **Big Rocks / Long Poles / priorities** → write each into the relevant project doc's Next Actions (via `locked-edit.sh` per `_shared-rules.md` §5), or as a dated Tickler item where no project doc exists yet.
+   - **Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc (via `locked-edit.sh` per `_shared-rules.md` §5), or as a dated Tickler item where no suitable section exists.
    - **Kill List / Stop Doing** → act on in-session: propose the `03 Projects/Cold/` moves and list `$complete-project` candidates for the user to confirm. Don't leave them as prose commitments that route nowhere.
 
 12. **Skill self-review (explicit instantiation of `_shared-rules.md` §8 / `_skill-monitor.md`).**

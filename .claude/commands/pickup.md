@@ -78,10 +78,10 @@ You are helping the user resume previous work with full context.
 
 6. **Read the project-doc root:**
 
-   - List `{VAULT}/03 Projects/*.md` (root only — root = active; folder location is status). For each doc, read its `bucket:` frontmatter and the first line under `## Current Objective`.
+   - List `{VAULT}/03 Projects/*.md` (root only — root = active; folder location is status). For each doc, read its `bucket:` frontmatter and a one-line cue from its existing current-state content.
    - Count `Cold/` and `Backlog/` docs for the collapsed line — only tiers that exist.
 
-7. **Display a numbered project list**, grouped by bucket, with Current Objective one-liners:
+7. **Display a numbered project list**, grouped by bucket, with available current-state one-liners:
 
    ```
    Active projects (03 Projects root):
@@ -99,12 +99,12 @@ You are helping the user resume previous work with full context.
    ```
 
    - Bucket order: per the vault's bucket taxonomy (Project Doc Format in `07 System/Vault Organisation Principles.md`) — group by `bucket:` value, skip empty buckets; docs with no `bucket:` go last under "(no bucket)"
-   - Truncate Current Objective lines to one glanceable clause; never synthesise one for a doc that lacks the section — leave the slot blank
+   - Truncate the selected current-state cue to one glanceable clause; if the doc contains no clear cue, leave the slot blank rather than synthesising one
    - If the `03 Projects/` root is empty, suggest starting fresh (`/start-project`) or running `/awaken`
 
 8. **Wait for user response:**
 
-   - **Number** → Follow the project doc directly: read it in full (Current Objective, Next Actions, Current Status), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/OpenCairn/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per the routing rule above. Present as in Step 5.
+   - **Number** → Follow the project doc directly: read it in full (using whatever current-state/action structure it carries), then read the newest session link found in it — its `## Session History` wikilinks (`[[06 Archive/OpenCairn/Session Logs/...]]`), or via `pickup-scan.sh` filtered on the project name if the doc carries none — and load relevant context files per the routing rule above. Present as in Step 5.
    - **"show all"** → Redisplay including `Cold/` and `Backlog/` docs (grouped under their tier headings)
    - **Topic/keyword** → Treat as targeted pickup (Step 4)
    - **Anything else** → Respond naturally

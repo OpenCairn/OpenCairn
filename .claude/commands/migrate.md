@@ -177,12 +177,12 @@ If none exists and the legacy component table has no `later` item, skip to Docto
 | # | Component | What it does |
 |---|---|---|
 | 1 | Whimsy sink | Create `04 Areas/Whimsy/_notes.md` if absent |
-| 2 | Project-doc schema | Add `bucket:` plus `## Current Objective` and `## Next Actions`; remove `**Status:**` tokens |
+| 2 | Project-doc metadata | Add `bucket:`; remove `**Status:**` tokens |
 | 3 | Tasks.md triage + kill | Propose a route for every item, execute unvetoed routes, then delete Tasks.md |
 | 4 | WIP demotion + delete | Absorb unique state into project docs, then delete Works in Progress.md |
 | 5 | Archive re-sort | Optionally move living docs from `06 Archive/` to their Area or Area archive |
 
-Components 3 and 4 require 2. Component 5 is independent and defaults to `later`. Use `locked-edit.sh` for planning/hub writes, `write-tickler.sh` for Tickler writes, and `_shared-rules.md` §24 for every linked-file move. Draft project objectives/actions only from the document's own content. A finished-looking project requires the user's call rather than an invented objective.
+Component 5 is independent and defaults to `later`. Use `locked-edit.sh` for planning/hub writes, `write-tickler.sh` for Tickler writes, and `_shared-rules.md` §24 for every linked-file move. Preserve each project document's existing structure. A finished-looking project requires the user's call rather than an invented state.
 
 Record rows exactly as before:
 
@@ -200,7 +200,7 @@ Verify live state:
 "{VAULT}/.claude/scripts/check-archive-layout.sh" --status "{VAULT}"
 python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" verify "{VAULT}"
 ls "{VAULT}/01 Now/Tasks.md" "{VAULT}/01 Now/Works in Progress.md" 2>/dev/null
-for f in "{VAULT}/03 Projects/"*.md; do printf '%s: ' "$f"; rg -q '^bucket:' "$f" && rg -q '^## Current Objective' "$f" && rg -q '^## Next Actions' "$f" && echo OK || echo MISSING; done
+for f in "{VAULT}/03 Projects/"*.md; do printf '%s: ' "$f"; rg -q '^bucket:' "$f" && echo OK || echo MISSING_BUCKET; done
 ```
 
 Report the archive migration from the gate and verification output: `complete`, `blocked`, `deferred`, or `declined`. Report each legacy component as `live`, `broken`, `declined`, `deferred`, or `stale`. Completion evidence is authoritative only with a real `06 Archive/OpenCairn` directory; either explicit topology-mismatch state is a hard failure.

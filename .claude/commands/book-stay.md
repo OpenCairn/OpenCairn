@@ -152,7 +152,7 @@ User pastes confirmation # back; agent captures it.
 
 - The accommodation doc for this trip leg, already written at Step 8 — update it: mark booked, confirmation #, booking URL, free-cancel deadline.
 - The trip's timeline / overview docs, if the trip has them.
-- The `03 Projects/` doc of the project that drove the trip (event prep, work engagement), if distinct from the trip hub below — update its status/Next Actions where the booking changes them.
+- The `03 Projects/` doc of the project that drove the trip (event prep, work engagement), if distinct from the trip hub below — update its existing current-state/action content where the booking changes it.
 - `01 Now/This Week.md`, if it exists (mark task done, update the Status banner if the booking changes it)
 - Any project-specific doc that referenced "where am I sleeping" (e.g. event prep, retreat hub)
 - **Booking References file** for the trip, if the trip keeps one. If it doesn't and the user wants one, the minimal structure is one section per booking: confirmation #, channel + URL, total paid, cancellation deadline, property contact.
