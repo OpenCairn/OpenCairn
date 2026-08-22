@@ -147,6 +147,58 @@ class ParkVerifyTests(unittest.TestCase):
             self.assertNotIn("//tmp/", result.stdout)
             self.assertNotIn("--touched None", result.stdout)
 
+    def test_verbatim_transcript_export_skips_separator_and_lint_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            (vault / "01 Now").mkdir(parents=True)
+            (vault / "01 Now/This Week.md").write_text("# This Week\n", encoding="utf-8")
+            (vault / "01 Now/Tickler.md").write_text("# Tickler\n", encoding="utf-8")
+            transcript = vault / "06 Archive/OpenCairn/.Session Transcripts/2026-08-22.md"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                "source shell snippet\n========OPENCAIRN-LOCKED-EDIT-SEP========\n\n\n\n",
+                encoding="utf-8",
+            )
+            log = vault / "06 Archive/OpenCairn/Session Logs/2026-08-22.md"
+            log.parent.mkdir(parents=True)
+            log.write_text(
+                "\n".join(
+                    [
+                        "## Session 1 - Transcript export",
+                        "### Summary",
+                        "Exported verbatim source turns.",
+                        "### Files Created",
+                        "None",
+                        "### Files Updated",
+                        "- 06 Archive/OpenCairn/.Session Transcripts/2026-08-22.md - rolling export",
+                        "### Pickup Context",
+                        "**For next session:** None",
+                        "**Project:** None",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    str(SCRIPT),
+                    str(vault),
+                    str(log),
+                    "1",
+                    "--touched",
+                    str(transcript),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("RESULT: PASS", result.stdout)
+            self.assertNotIn("FAIL separator", result.stdout)
+            self.assertNotIn("FAIL lint", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
