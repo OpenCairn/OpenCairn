@@ -107,7 +107,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
      ---
      ```
    - **Legacy docs only:** if the file carries a pre-cutover body `**Status:**` line (the old template wrote one; new-format docs have none — folder location is status), rewrite it to `COMPLETED` with a second `locked-edit.sh --replace` so the body doesn't still read as live. New-format docs: skip — the prepended block is the only status marker.
-   - **Then close out the template's `## Current Objective` block** (older files: `## Current Status`) with a third `locked-edit.sh --replace`: replace its body with one line stating the end state, and bump the co-located `**Last update:**` stamp to today's date (Step 1). Skipped, the file reads a live objective under a COMPLETED header, and every status scanner believes the body.
+   - **If the document has an explicit current-state section**, close out that existing section with another `locked-edit.sh --replace`: replace its body with one line stating the end state, and bump any co-located `**Last update:**` stamp to today's date (Step 1). Recognise `## Current Objective`, legacy `## Current Status`, or another clearly equivalent current-state heading; do not invent a section when none exists.
    - This preserves project history while marking completion
 
 6. **Session record:**

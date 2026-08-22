@@ -160,12 +160,12 @@ For the rest, say which are completed and which are dropped.
 9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md and Whimsy, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
    - For each action in "Immediate Next Actions" (plus actionable "what changed" items from step 7):
      - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists.
-     - If This Week.md is stale/missing → dated items go to the Tickler via `write-tickler.sh`; undated items go to `04 Areas/Whimsy/_notes.md` as a plain line (no checkbox) — unless they belong to a project, in which case add to that project doc's `## Next Actions`.
+     - If This Week.md is stale/missing → dated items go to the Tickler via `write-tickler.sh`; undated items go to `04 Areas/Whimsy/_notes.md` as a plain line (no checkbox) — unless they belong to a project with an existing task/action section, in which case add them there.
    - Dedup check before each write: grep the target file and Tickler.md. Already present somewhere → skip the write; if the new placement supersedes a Tickler copy, delete the Tickler copy per §4 (Tickler SSOT transfer).
    - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes (Whimsy lines stay plain).
 
 10. **Update project docs** (via `locked-edit.sh`, not the Edit tool — project docs are shared planning files, see `_shared-rules.md` §5):
-   - For each still-active project, update its `03 Projects/[name].md` doc — `## Current Objective` / status and the co-located `**Last update:**` stamp — with post-break reality
+   - For each still-active project, update its existing current-state content and any co-located `**Last update:**` stamp with post-break reality; if it has no explicit current-state section, preserve its structure
    - Remove 🛌 hibernation markers from active project docs
    - Completed/dropped projects: `/complete-project` (step 8) moves the doc out of the root itself. Only touch docs here for projects it did not process — it was deferred, aborted, or the user declined — and don't bare-move project files
 

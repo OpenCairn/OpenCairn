@@ -206,7 +206,7 @@ Output: `✓ Quality check: B bounded semantic files full-read; T large/referenc
 
 ### 5. Project doc update
 
-If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its `## Current Objective` / `## Next Actions` to match reality, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
+If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its existing current-state/action content to match reality, preserving the document's structure, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
 
 ### 6. Reference-graph propagation
 
@@ -224,7 +224,7 @@ Route every open loop to exactly one canonical target — no per-item prompting:
 
 1. **Explicit future date** → Tickler: `"{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] text → [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N - Topic)"`
 2. **No date, actionable this week** → This Week.md day section (tomorrow's; today's if parking before noon) via `locked-edit.sh --replace` on the day section — never `--append`, which lands outside any section. Format: `- [ ] text → [[project/area doc]]`. Trigger-contingent loops ("next time X runs, check Y") are not day-bound — use rule 3, or the Tickler at +10 days if no project doc exists.
-3. **No date, has a project** → that project doc's `## Next Actions` (prefer existing `## Next Actions`, then `## Open Loops`; if neither, create `## Next Actions` above `## Session History` or at EOF — no improvised section names).
+3. **No date, has a project** → that project doc's existing task/action section (prefer `## Next Actions`, then `## Open Loops`, then another clearly equivalent section). If none exists, route to the Tickler at +10 days instead of creating a section.
 4. **Undated, low-priority, no project home** → Whimsy: append a plain line (no checkbox) to `{VAULT}/04 Areas/Whimsy/_notes.md`. There is no undated catch-all task list.
 
 **§18 applies:** an item carrying a deadline/expiry/window token MUST land on a dated surface — for this skill the disallowed sinks are the project doc and Whimsy. Derive the date (`date -d`) if it isn't written as one.
