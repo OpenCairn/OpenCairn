@@ -196,6 +196,10 @@ class ParkVerifyTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("RESULT: PASS", result.stdout)
+            self.assertIn(
+                "PASS separator: no leftover separator tokens (3 scanned, 1 skipped)",
+                result.stdout,
+            )
             self.assertNotIn("FAIL separator", result.stdout)
             self.assertNotIn("FAIL lint", result.stdout)
 
