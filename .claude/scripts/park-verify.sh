@@ -129,8 +129,13 @@ SEP_TARGETS=("$LOG" "$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
 for t in "${TOUCHED[@]:-}"; do [ -n "$t" ] && SEP_TARGETS+=("$t"); done
 mapfile -t SEP_TARGETS < <(printf '%s\n' "${SEP_TARGETS[@]}" | awk '!seen[$0]++')
 SEP_HITS=""
+SEP_SCANNED=0
+SEP_SKIPPED=0
 for t in "${SEP_TARGETS[@]}"; do
-    [ -f "$t" ] || continue
+    if [ ! -f "$t" ]; then
+        SEP_SKIPPED=$((SEP_SKIPPED + 1))
+        continue
+    fi
     # Skill/command/script files legitimately QUOTE the separator token (park.md
     # documents the post-locked-edit grep; locked-edit.sh defines it). Same
     # carve-out the lint check below makes, and for the same reason: a file that
@@ -138,9 +143,10 @@ for t in "${SEP_TARGETS[@]}"; do
     # writes planning files, so harness instruction/skill/command surfaces cannot
     # carry a real leak.
     case "$t" in
-        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim transcript exports preserve source shell snippets
-        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
+        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # verbatim transcript exports preserve source shell snippets
+        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;;
     esac
+    SEP_SCANNED=$((SEP_SCANNED + 1))
     # Match the leaked ARTEFACT, not the token. What locked-edit.sh can strand in
     # a file is its padded stdin delimiter alone on a line; a vault doc that
     # merely names the token in prose (this repo's own monitor log does, in the
@@ -153,7 +159,7 @@ done
 if [ -n "$SEP_HITS" ]; then
     fail separator "leftover locked-edit separator token(s): $SEP_HITS"
 else
-    pass separator "no leftover separator tokens (${#SEP_TARGETS[@]} files checked)"
+    pass separator "no leftover separator tokens ($SEP_SCANNED scanned, $SEP_SKIPPED skipped)"
 fi
 
 # --- lint on touched .md files ----------------------------------------------
