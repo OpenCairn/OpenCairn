@@ -138,6 +138,7 @@ for t in "${SEP_TARGETS[@]}"; do
     # writes planning files, so harness instruction/skill/command surfaces cannot
     # carry a real leak.
     case "$t" in
+        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim transcript exports preserve source shell snippets
         */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
     esac
     # Match the leaked ARTEFACT, not the token. What locked-edit.sh can strand in
@@ -161,6 +162,7 @@ for t in "${TOUCHED[@]:-}"; do
     [ -n "$t" ] && [ -f "$t" ] || continue
     case "$t" in *.md) ;; *) continue ;; esac
     case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
+        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim exports retain source formatting by design
         */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
     esac
     case "$t" in "$VAULT"/*) ;; *) continue ;; esac   # lint vault content files only
