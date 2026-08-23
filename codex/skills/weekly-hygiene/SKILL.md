@@ -567,7 +567,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 16. **Write Hygiene Report**
 
    Determine the current ISO week: `date +%G-W%V` (e.g., `2026-W10`).
-   Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/OpenCairn/Hygiene Reports"` — prevents first-run failures), then render all findings for `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md`. If the report exists, replace its exact prior content through `locked-edit.sh --replace`; otherwise create it through `locked-edit.sh --append`. Never redirect or edit the report directly.
+   Ensure the directory exists (`mkdir -p "{VAULT}/06 Archive/OpenCairn/Hygiene Reports"` — prevents first-run failures), then render all findings for `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md`. Draft the complete report outside the vault and write it through `"{VAULT}/.claude/scripts/locked-edit.sh"`. When missing, immediately confirm the path is absent and create it with `--replace-whole MISSING`; exit 2 means another writer created it, so re-read that file and continue through the existing-report path. When it already exists, preserve every unresolved routed action in the new draft, re-read the old report, and use its complete contents as literal OLD with `--replace`. Never create the report with `--append` or write it directly.
 
    **⛔ Cite report/flag items by stable identifier, not line number** — see `_shared-rules.md` §13. Acute here: step 7's completed-`[x]` purge mutates This Week.md *within this same run*, so any `This Week.md Lnn` written into the report or a routed `⚠ Hygiene Wnn:` flag afterward is stale on write. Name items by title/heading/content.
 

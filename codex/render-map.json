@@ -160,14 +160,14 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "3a4803cbc7115912242c3d017544960fd31805e897590cdb98818ba07e353063",
-      "render_sha256": "6e6f5679c6c3b9ace50ccb982a7298672d495deddba9d415ab169ed228e02509"
+      "source_sha256": "12e38425b129459d7acdd624ceba61432e042fc3660abd5daa6408843721914a",
+      "render_sha256": "566ce55646c7c7028ea9e9262a0ac1ae1119994e3a0a73b38fb23647ec09027c"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
       "render": "codex/skills/quarterly-review/SKILL.md",
-      "source_sha256": "27a4ddf1b708973eb6d0ca3d20175d28cb4ae6dd0b18607d7a6b1190d0f194a7",
-      "render_sha256": "0353202d02489477be13e0b4a7e8bd5c46968d44fe244198c765c8d3235af3e6"
+      "source_sha256": "d19c283687da8b342d070f46cc3b579694ebba61aa8ad2cda5d2416ce2e9525c",
+      "render_sha256": "006836d78926ae15692fee560c69f1c7b2b03780b874e970e3153f3240186f37"
     },
     "regroup": {
       "source": ".claude/commands/regroup.md",
@@ -232,14 +232,14 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "fbae208c8745ce6c66a00f77c4dea6ade84a40719cc91427be52c31e0dc3d7bc",
-      "render_sha256": "e31e240166c9ad3da21e553d0bbe2b96b7232c91496a51c262832e088fdc065d"
+      "source_sha256": "ffd1fafb937bd0ba2ec99353dce0322c0d6e55a6c1632d05dbf6ef78fe7e3780",
+      "render_sha256": "5a622b766152c695e6b074fe03b2f040b3cd9e3dd502e9d101810973f6ccad41"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
       "render": "codex/skills/weekly-review/SKILL.md",
-      "source_sha256": "c67aeda50fe39e0ca4972a3b3eb359d556c1d43b49095f99281211fd67a99915",
-      "render_sha256": "8798d212307a34eb3e3e21370eed4a2cba41c6f037f5f72972a08c6ccf38c23c"
+      "source_sha256": "c6606df5178eb75403f6259d4cfb331fc072344905576db4a47c622b802504b0",
+      "render_sha256": "c0e649d8f739c1363e1b13b769789c9afb90966388acfd3b2c84f8182d3805fb"
     }
   }
 }
