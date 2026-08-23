@@ -67,24 +67,27 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      ```
    - **Dry-run first:** present the `MOVE` list grouped by destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. Get explicit confirmation before moving anything. **Unattended runs (cron, headless automation) stop here** — report both lists and move nothing; the confirmation gate cannot be waived.
    - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `/weekly-hygiene` holds for duplicate detection). If the user does ask for a resolution, the safe order is: byte-compare the pair and **refuse on any difference**, delete the *archived* copy, then move the flat copy into place with a link-aware move — the flat copy is the one inbound links resolve to, so it must be the survivor. Treat a refusal per `_shared-rules.md` §24 before calling it genuine. The user decides.
-   - **Move per file with `obsidian move` (primary path — it heals inbound wikilinks).** Drive it per **`_shared-rules.md` §24**, which owns this CLI's behaviour and its preconditions. Create one year folder per destination year in the `MOVE` list (`mkdir -p ".../Session Logs/2025"` etc.), then move each file:
+   - **Move each file through `locked-edit.sh --move`.** Drive it per **`_shared-rules.md` §24**, which owns the locks, Obsidian CLI behaviour and verification. Create each required destination-year folder in the `MOVE` list, then move each file; treat the first as a canary and abort the batch on any refusal:
      ```bash
-     pgrep -f '[o]bsidian' >/dev/null || echo "ABORT: Obsidian is not running — the CLI drives the running app"
      CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
      LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
-     REL="06 Archive/OpenCairn/Session Logs"   # vault-relative form the CLI expects
      ls -1 "$LOGS" | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
        [ "${f%.md}" \< "$CUTOFF" ] || continue
        y=${f%%-*}
        mkdir -p "$LOGS/$y"
        if [ -e "$LOGS/$y/$f" ]; then echo "SKIP (exists): $f"; continue; fi
-       obsidian move path="$REL/$f" to="$REL/$y/$f" >/dev/null 2>&1 </dev/null
-       sleep 2.5
-       if [ ! -e "$LOGS/$f" ] && [ -e "$LOGS/$y/$f" ]; then echo "MOVED: $f -> $y/"
-       else echo "FAIL: $f"; fi
+       source_path="$LOGS/$f"
+       destination_path="$LOGS/$y/$f"
+       source_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$source_path")"
+       if "{VAULT}/.claude/scripts/locked-edit.sh" "$source_path" --move "$destination_path" "$source_sha256"; then
+         echo "MOVED: $f -> $y/"
+       else
+         echo "ABORT: verified move failed for $f"
+         exit 1
+       fi
      done
      ```
-     The `</dev/null`, the settle delay, and the verify-by-result check are all load-bearing, and each fails silently if dropped — see **`_shared-rules.md` §24** for why (it is the single source of truth for this CLI's behaviour; do not restate it here).
+     The wrapper's expected hash is the source snapshot for that invocation. See **`_shared-rules.md` §24** for the failure contract; do not reproduce its internal CLI mechanics here.
    - **Obsidian GUI drag-and-drop is an equivalent alternative** if the user would rather do it by hand: have them multi-select **only the `MOVE` files** and drag each year's batch into its folder — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Report the count once the user confirms the drag is done.
    - **⛔ Never fall back to raw `mv`** — per **`_shared-rules.md` §24**, which also explains why a "globally unique basename" exception does not exist. If a link-aware move is unavailable, **move nothing**: report the `MOVE` list and defer the roll. Session logs cross-link each other densely, so one moved date can strand dozens of inbound links, and a roll that relocates the files while orphaning their links is worse than a roll not run.
      Count the `SKIP (exists)` lines and carry the number into the report's skipped bullet — a silent skip is how duplication survives a pass that claims to be clean.
@@ -202,4 +205,4 @@ Quarterly (last week of March, June, September, December), or as a precursor to 
 
 - **Feeds `/quarterly-review`:** the strategic review consumes this report for its Vault Health section.
 - **Consumes `/weekly-hygiene`:** carries forward unresolved structural findings rather than re-scanning.
-- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, then per-file `obsidian move` so inbound links are healed — never raw `mv`; unattended runs stop at the dry-run); keeps the flat directory to ~one quarter of logs.
+- **Archives session logs:** rolls logs older than 90 days into `Session Logs/YYYY/` each quarter (dry-run-then-confirm, then per-file `locked-edit.sh --move`; unattended runs stop at the dry-run); keeps the flat directory to ~one quarter of logs.
