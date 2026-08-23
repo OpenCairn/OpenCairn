@@ -75,6 +75,8 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/03 Projects/Pro
 EOF
 # Other modes: --replace-all (every occurrence), --append (stdin appended at EOF),
 # --replace-whole <expected-sha256|MISSING> (atomic compare-and-swap from stdin).
+# --move <destination> <expected-source-sha256> (link-healing compare-and-move;
+# both paths must be inside VAULT_PATH and the destination directory must exist).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace).
 # For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
 # For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
@@ -95,10 +97,10 @@ EOF
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/OpenCairn/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
-| `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A single target file's atomic mutation | locked-edit.sh (planning edits and generated whole-file CAS), write-tickler.sh |
+| `<dir>/.<basename>.lock` (canonical, via `lib-lock.sh`'s `_lock_path_for`) | A file's atomic mutation or participation in a structural move | locked-edit.sh (planning edits, generated whole-file CAS and link-healing moves), write-tickler.sh |
 | (retired 2026-06-12) `07 System/.provenance-lock` | — | AI Provenance Log writes now use `locked-edit.sh`'s canonical per-file lock, like every planning file (B9) |
 
-**Lock ordering:** Canonical per-file locks — including the AI Provenance Log's lock — are held only for the duration of one `locked-edit.sh` write (auto-released on script exit), so they never overlap with the session lock. Never wrap multiple lock acquisitions in one another.
+**Lock ordering:** Ordinary edits hold one canonical per-file lock. `locked-edit.sh --move` holds the source and destination locks together in lexical path order, preventing two overlapping moves from deadlocking. Never wrap these operations in another file or session lock.
 
 ### Failure modes for in-place file edits
 
@@ -723,11 +725,13 @@ A seat owes every row its reach covers, not one of them. **Paste this table into
 
 Canonical rule and **single source of truth** for every skill that moves, renames, or deletes vault files through the `obsidian` CLI — `quarterly-hygiene` Step 6, `complete-project` Step 4, `inbox-processor` Step 4. Those skills point here and carry no copy to drift. The procedure below was last exercised end-to-end against **Obsidian 1.13.4** (link-healing move, async settle, verify-by-result); the older behaviour notes date from **1.12.7** and not every one has been re-tested since. Treat the version stamp as a staleness marker, not a guarantee, and re-verify rather than trusting it indefinitely.
 
-**The durable rule, independent of any tool version.** A path-qualified wikilink (`[[folder/note]]`) does not survive the file moving unless something rewrites it. Only a link-aware move does that, so raw `mv` on a linked note is never correct — not as a fallback, not for a batch, not "just this once". Where a link-aware move is unavailable, **move nothing and defer**: relocating files and orphaning their links is worse than not running.
+**The durable rule, independent of any tool version.** A path-qualified wikilink (`[[folder/note]]`) does not survive the file moving unless something rewrites it. Vault-note moves therefore go through `locked-edit.sh <source> --move <destination> <expected-source-sha256>`. That wrapper holds both canonical locks, checks the source snapshot and destination collision, delegates to the live Obsidian CLI, and verifies the final paths, content hash and old path-qualified links. Raw `mv` is never a fallback. If the wrapper refuses, **move nothing else and defer**.
+
+The caller reads and hashes the source before invoking the wrapper. A source or destination may be absolute or vault-relative, but both must resolve inside `VAULT_PATH`; the destination parent must already exist. Exit 2 is a stale snapshot or a path that changed while waiting for locks. Exit 1 is a precondition, CLI or result-verification failure. Neither is permission to retry blindly or move the file directly.
 
 **Do not rely on basename fallback to cover a raw `mv`.** Two independent reasons, and the second holds regardless of resolver behaviour: a path-qualified link is a path, not a name; and vault filenames are far less unique than they look — date-keyed conventions (`YYYY-MM-DD.md`) collide exactly across folders, so a bare-name resolution can bind a different note entirely. Any skill claiming a "globally unique basename" exception is asserting something the vault's own naming conventions contradict.
 
-**Current CLI behaviour (the volatile half — this is the only place it is stated).**
+**Current CLI behaviour (the volatile half — this is the only place it is stated).** The wrapper owns these mechanics; skills invoke the wrapper rather than recreating them.
 
 - It drives the **already-running app**; it does not boot an instance per call. So a batch is fine, and it is fast. It also heals inbound wikilinks including `#heading` anchors.
 - **It requires the app to be running.** With no app, calls silently do nothing and every item appears to fail. Probe before writing anything (`obsidian version`), and treat a whole-batch failure as the app being down rather than a per-file problem.
@@ -744,7 +748,7 @@ Canonical rule and **single source of truth** for every skill that moves, rename
 
 **Structural moves need the sync client ON.** Moves made while a vault's sync client is off never reach the remote, so the remote keeps the pre-move tree; the next merge-on-reconnect pushes it back down and **resurrects a copy of everything just moved**. The resurrection is silent, and because the resurrected copies absorb the inbound links, nothing looks broken while duplication accumulates. This is not shell-checkable — confirm with the user before a structural batch, and record which way it went.
 
-**Checkable:** no skill executes a raw `mv` on a linked vault note, no skill keys a move's success on the CLI's exit status, every CLI call inside a loop carries `</dev/null`, and every structural batch reports a before/after unresolved-link count. A skill restating this section's CLI behaviour instead of pointing at it is the drift this section exists to prevent.
+**Checkable:** no skill executes raw `mv` or direct `obsidian move` on a linked vault note; every structural move uses `locked-edit.sh --move`, and every structural batch reports a before/after unresolved-link count. A skill restating this section's CLI behaviour instead of pointing at it is the drift this section exists to prevent.
 
 ---
 

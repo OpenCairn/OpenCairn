@@ -14,6 +14,7 @@
 #   locked-edit.sh <file> --append        (stdin appended verbatim at end of file)
 #   locked-edit.sh <file> --replace-whole <expected-sha256|MISSING>
 #                                            (stdin: complete replacement file)
+#   locked-edit.sh <source> --move <destination> <expected-source-sha256>
 #
 # For --replace/--replace-all, stdin is the old string, then a separator LINE
 # equal to exactly:
@@ -27,9 +28,15 @@
 # replacement on stdin. If another writer changed the target after that read,
 # the hash no longer matches and the write fails safely with exit 2.
 #
-# Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace)
+# --move is a compare-and-move operation for an existing vault note. Both paths
+# must resolve inside VAULT_PATH, the destination must not exist, and the source
+# hash must match. It holds both canonical file locks while asking the live
+# Obsidian CLI to perform the move, then verifies the resulting paths, content
+# hash, and path-qualified links. It never falls back to a raw filesystem move.
 #
-# With a harness session id, every successful operation also writes one JSON
+# Exit codes: 0 ok · 1 usage/lock/CLI/result error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace)
+#
+# With a harness session id, every successful content-edit operation writes one JSON
 # receipt under $CLAUDE_CONFIG_DIR/.session-state/<id>.locked-edit-receipts/.
 # It carries pre/post hashes, exact replace payloads and bounded changed spans;
 # $park uses those receipts to review mechanical locator edits without rereading
@@ -47,13 +54,14 @@ source "$(dirname "$0")/lib-session.sh"
 SEP='========OPENCAIRN-LOCKED-EDIT-SEP========'
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <file> --replace|--replace-all|--append|--replace-whole [expected-sha256|MISSING]" >&2
+    echo "Usage: $0 <file> --replace|--replace-all|--append|--replace-whole|--move [argument]" >&2
     exit 1
 fi
 
 TARGET="$1"
 MODE="$2"
 EXPECTED_SNAPSHOT=""
+MOVE_DESTINATION=""
 
 case "$MODE" in
     --replace|--replace-all|--append) ;;
@@ -64,7 +72,15 @@ case "$MODE" in
         fi
         EXPECTED_SNAPSHOT="$3"
         ;;
-    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --append, or --replace-whole)" >&2; exit 1 ;;
+    --move)
+        if [ $# -ne 4 ]; then
+            echo "--move requires destination and expected source SHA-256" >&2
+            exit 1
+        fi
+        MOVE_DESTINATION="$3"
+        EXPECTED_SNAPSHOT="$4"
+        ;;
+    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --append, --replace-whole, or --move)" >&2; exit 1 ;;
 esac
 
 if command -v python3 &>/dev/null; then
@@ -74,6 +90,348 @@ elif command -v python &>/dev/null; then
 else
     echo "locked-edit.sh requires Python 3 (python3 or python)" >&2
     exit 1
+fi
+
+if [ "$MODE" = "--move" ]; then
+    if [ -z "${VAULT_PATH:-}" ]; then
+        echo "--move requires VAULT_PATH" >&2
+        exit 1
+    fi
+
+    MOVE_META="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move.XXXXXX")"
+    MOVE_REFS="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-refs.XXXXXX")"
+    _MOVE_LOCK_MODE=""
+    _MOVE_LOCK_DIR_1=""
+    _MOVE_LOCK_DIR_2=""
+
+    _move_unlock_pair() {
+        if [ "${_MOVE_LOCK_MODE:-}" = "flock" ]; then
+            exec 8>&- 2>/dev/null || true
+            exec 9>&- 2>/dev/null || true
+        elif [ "${_MOVE_LOCK_MODE:-}" = "mkdir" ]; then
+            [ -z "${_MOVE_LOCK_DIR_2:-}" ] || rmdir "$_MOVE_LOCK_DIR_2" 2>/dev/null || true
+            [ -z "${_MOVE_LOCK_DIR_1:-}" ] || rmdir "$_MOVE_LOCK_DIR_1" 2>/dev/null || true
+        fi
+        _MOVE_LOCK_MODE=""
+    }
+
+    _move_cleanup() {
+        _move_unlock_pair
+        rm -f "$MOVE_META" "$MOVE_REFS"
+    }
+    trap '_move_cleanup' EXIT
+
+    export _LE_MOVE_VAULT="$VAULT_PATH"
+    export _LE_MOVE_SOURCE="$TARGET"
+    export _LE_MOVE_DESTINATION="$MOVE_DESTINATION"
+    export _LE_MOVE_EXPECTED="$EXPECTED_SNAPSHOT"
+    export _LE_MOVE_META="$MOVE_META"
+
+    "$PYTHON_BIN" - <<'PY'
+import hashlib, os, pathlib, re, sys
+
+def fail(message, code=1):
+    sys.stderr.write(message + "\n")
+    raise SystemExit(code)
+
+for name in ("_LE_MOVE_VAULT", "_LE_MOVE_SOURCE", "_LE_MOVE_DESTINATION"):
+    if "\n" in os.environ[name] or "\r" in os.environ[name]:
+        fail("Vault move paths cannot contain newlines")
+
+expected = os.environ["_LE_MOVE_EXPECTED"]
+if not re.fullmatch(r"[0-9a-f]{64}", expected):
+    fail("Invalid expected source hash: use a lowercase SHA-256")
+
+vault = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).expanduser().resolve(strict=True)
+if not vault.is_dir():
+    fail("VAULT_PATH is not a directory: %s" % vault)
+
+def input_path(raw):
+    path = pathlib.Path(raw).expanduser()
+    return path if path.is_absolute() else vault / path
+
+source_input = input_path(os.environ["_LE_MOVE_SOURCE"])
+if source_input.is_symlink():
+    fail("Move source must not be a symbolic link: %s" % source_input)
+try:
+    source = source_input.resolve(strict=True)
+except FileNotFoundError:
+    fail("Move source does not exist: %s" % source_input, 2)
+if not source.is_file():
+    fail("Move source must be a regular file: %s" % source)
+
+destination_input = input_path(os.environ["_LE_MOVE_DESTINATION"])
+if destination_input.exists() or destination_input.is_symlink():
+    fail("Move destination already exists: %s" % destination_input)
+try:
+    destination_parent = destination_input.parent.resolve(strict=True)
+except FileNotFoundError:
+    fail("Move destination directory does not exist: %s" % destination_input.parent)
+destination = destination_parent / destination_input.name
+
+try:
+    source_rel = source.relative_to(vault)
+    destination_rel = destination.relative_to(vault)
+except ValueError:
+    fail("Move source and destination must both be inside VAULT_PATH")
+if source == destination:
+    fail("Move source and destination are the same path")
+
+actual = hashlib.sha256(source.read_bytes()).hexdigest()
+if actual != expected:
+    fail("Source changed since snapshot read: %s (expected %s, found %s)" %
+         (source, expected, actual), 2)
+
+with open(os.environ["_LE_MOVE_META"], "w", encoding="utf-8", newline="\n") as handle:
+    for value in (vault, source, destination, source_rel.as_posix(), destination_rel.as_posix()):
+        handle.write(str(value) + "\n")
+PY
+
+    {
+        IFS= read -r MOVE_VAULT
+        IFS= read -r MOVE_SOURCE_ABS
+        IFS= read -r MOVE_DESTINATION_ABS
+        IFS= read -r MOVE_SOURCE_REL
+        IFS= read -r MOVE_DESTINATION_REL
+    } < "$MOVE_META"
+
+    MOVE_SOURCE_LOCK="$(_lock_path_for "$MOVE_SOURCE_ABS")"
+    MOVE_DESTINATION_LOCK="$(_lock_path_for "$MOVE_DESTINATION_ABS")"
+    if [ "$MOVE_SOURCE_LOCK" \< "$MOVE_DESTINATION_LOCK" ]; then
+        MOVE_LOCK_1="$MOVE_SOURCE_LOCK"
+        MOVE_LOCK_2="$MOVE_DESTINATION_LOCK"
+    else
+        MOVE_LOCK_1="$MOVE_DESTINATION_LOCK"
+        MOVE_LOCK_2="$MOVE_SOURCE_LOCK"
+    fi
+
+    if command -v flock &>/dev/null; then
+        _MOVE_LOCK_MODE="flock"
+        exec 8>"$MOVE_LOCK_1"
+        flock -w 10 8 || { echo "Failed to acquire lock for $MOVE_LOCK_1" >&2; exit 1; }
+        exec 9>"$MOVE_LOCK_2"
+        flock -w 10 9 || { echo "Failed to acquire lock for $MOVE_LOCK_2" >&2; exit 1; }
+    else
+        _MOVE_LOCK_MODE="mkdir"
+        _MOVE_LOCK_DIR_1="${MOVE_LOCK_1}.d"
+        _MOVE_LOCK_DIR_2="${MOVE_LOCK_2}.d"
+        MOVE_DEADLINE=$(( $(date +%s) + 10 ))
+        while ! mkdir "$_MOVE_LOCK_DIR_1" 2>/dev/null; do
+            [ "$(date +%s)" -lt "$MOVE_DEADLINE" ] || { echo "Failed to acquire lock for $MOVE_LOCK_1" >&2; exit 1; }
+            sleep 1
+        done
+        while ! mkdir "$_MOVE_LOCK_DIR_2" 2>/dev/null; do
+            [ "$(date +%s)" -lt "$MOVE_DEADLINE" ] || { echo "Failed to acquire lock for $MOVE_LOCK_2" >&2; exit 1; }
+            sleep 1
+        done
+    fi
+
+    # Re-check every compare-and-move precondition under both locks. This is
+    # the check that closes the race between the caller's snapshot and the CLI.
+    export _LE_MOVE_SOURCE_ABS="$MOVE_SOURCE_ABS"
+    export _LE_MOVE_DESTINATION_ABS="$MOVE_DESTINATION_ABS"
+    export _LE_MOVE_SOURCE_REL="$MOVE_SOURCE_REL"
+    export _LE_MOVE_DESTINATION_REL="$MOVE_DESTINATION_REL"
+    "$PYTHON_BIN" - <<'PY'
+import hashlib, os, pathlib, sys
+source = pathlib.Path(os.environ["_LE_MOVE_SOURCE_ABS"])
+destination = pathlib.Path(os.environ["_LE_MOVE_DESTINATION_ABS"])
+expected = os.environ["_LE_MOVE_EXPECTED"]
+if source.is_symlink() or not source.is_file():
+    sys.stderr.write("Move source disappeared or changed type while waiting for locks: %s\n" % source)
+    raise SystemExit(2)
+if source.resolve(strict=True) != source:
+    sys.stderr.write("Move source changed identity while waiting for locks: %s\n" % source)
+    raise SystemExit(2)
+if destination.exists() or destination.is_symlink():
+    sys.stderr.write("Move destination appeared while waiting for locks: %s\n" % destination)
+    raise SystemExit(2)
+actual = hashlib.sha256(source.read_bytes()).hexdigest()
+if actual != expected:
+    sys.stderr.write("Source changed while waiting for locks: %s (expected %s, found %s)\n" %
+                     (source, expected, actual))
+    raise SystemExit(2)
+PY
+
+    if [ -n "${OBSIDIAN_CLI:-}" ]; then
+        OBSIDIAN_BIN="$OBSIDIAN_CLI"
+        [ -x "$OBSIDIAN_BIN" ] || { echo "Obsidian CLI is unavailable: $OBSIDIAN_BIN" >&2; exit 1; }
+    else
+        OBSIDIAN_BIN="$(command -v obsidian || true)"
+        [ -n "$OBSIDIAN_BIN" ] || { echo "Obsidian CLI is unavailable" >&2; exit 1; }
+    fi
+
+    OBSIDIAN_CALL_TIMEOUT_SECONDS="${LOCKED_EDIT_OBSIDIAN_CALL_TIMEOUT_SECONDS:-5}"
+    case "$OBSIDIAN_CALL_TIMEOUT_SECONDS" in
+        ''|*[!0-9]*) echo "LOCKED_EDIT_OBSIDIAN_CALL_TIMEOUT_SECONDS must be an integer" >&2; exit 1 ;;
+    esac
+    if [ "$OBSIDIAN_CALL_TIMEOUT_SECONDS" -lt 1 ] || [ "$OBSIDIAN_CALL_TIMEOUT_SECONDS" -gt 30 ]; then
+        echo "LOCKED_EDIT_OBSIDIAN_CALL_TIMEOUT_SECONDS must be between 1 and 30" >&2
+        exit 1
+    fi
+
+    _obsidian_read_nonempty() {
+        "$PYTHON_BIN" - "$OBSIDIAN_CALL_TIMEOUT_SECONDS" "$@" <<'PY'
+import subprocess, sys, time
+timeout = int(sys.argv[1])
+command = sys.argv[2:]
+for attempt in range(3):
+    try:
+        result = subprocess.run(
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, timeout=timeout, check=False,
+        )
+        if result.stdout:
+            sys.stdout.write(result.stdout.rstrip("\n"))
+            raise SystemExit(0)
+    except subprocess.TimeoutExpired:
+        pass
+    if attempt < 2:
+        time.sleep(1)
+raise SystemExit(1)
+PY
+    }
+
+    MOVE_HELP="$(_obsidian_read_nonempty "$OBSIDIAN_BIN" help move || true)"
+    case "$MOVE_HELP" in *'path=<path>'*'to=<path>'*) ;; *) echo "Obsidian CLI move syntax is unsupported" >&2; exit 1 ;; esac
+    OBSIDIAN_VERSION="$(_obsidian_read_nonempty "$OBSIDIAN_BIN" version || true)"
+    [ -n "$OBSIDIAN_VERSION" ] || { echo "Obsidian app is not responding to the CLI" >&2; exit 1; }
+    ACTIVE_VAULT="$(_obsidian_read_nonempty "$OBSIDIAN_BIN" vault info=path || true)"
+    [ -n "$ACTIVE_VAULT" ] || { echo "Obsidian app did not report an active vault" >&2; exit 1; }
+    export _LE_MOVE_ACTIVE_VAULT="$ACTIVE_VAULT"
+    "$PYTHON_BIN" - <<'PY'
+import os, pathlib, sys
+try:
+    active = pathlib.Path(os.environ["_LE_MOVE_ACTIVE_VAULT"].strip()).expanduser().resolve(strict=True)
+except (FileNotFoundError, OSError):
+    sys.stderr.write("Obsidian reported an invalid active vault path\n")
+    raise SystemExit(1)
+expected = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).expanduser().resolve(strict=True)
+if active != expected:
+    sys.stderr.write("Obsidian active vault does not match VAULT_PATH: %s != %s\n" % (active, expected))
+    raise SystemExit(1)
+PY
+
+    # Obsidian's exit status is not a reliable indication of whether its
+    # asynchronous move landed. Verification below is the authority.
+    "$PYTHON_BIN" - "$OBSIDIAN_CALL_TIMEOUT_SECONDS" "$OBSIDIAN_BIN" \
+        move "path=$MOVE_SOURCE_REL" "to=$MOVE_DESTINATION_REL" <<'PY'
+import subprocess, sys
+timeout = int(sys.argv[1])
+command = sys.argv[2:]
+try:
+    subprocess.run(
+        command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, timeout=timeout, check=False,
+    )
+except subprocess.TimeoutExpired:
+    pass
+PY
+
+    MOVE_SETTLE_TIMEOUT_SECONDS="${LOCKED_EDIT_MOVE_TIMEOUT_SECONDS:-10}"
+    case "$MOVE_SETTLE_TIMEOUT_SECONDS" in
+        ''|*[!0-9]*) echo "LOCKED_EDIT_MOVE_TIMEOUT_SECONDS must be an integer" >&2; exit 1 ;;
+    esac
+    if [ "$MOVE_SETTLE_TIMEOUT_SECONDS" -lt 1 ] || [ "$MOVE_SETTLE_TIMEOUT_SECONDS" -gt 60 ]; then
+        echo "LOCKED_EDIT_MOVE_TIMEOUT_SECONDS must be between 1 and 60" >&2
+        exit 1
+    fi
+    MOVE_DEADLINE=$(( $(date +%s) + MOVE_SETTLE_TIMEOUT_SECONDS ))
+    MOVE_COMPLETE=false
+    while [ "$(date +%s)" -le "$MOVE_DEADLINE" ]; do
+        if [ ! -e "$MOVE_SOURCE_ABS" ] && [ -f "$MOVE_DESTINATION_ABS" ]; then
+            export _LE_MOVE_REFS="$MOVE_REFS"
+            set +e
+            "$PYTHON_BIN" - <<'PY'
+import hashlib, os, pathlib, posixpath, re, sys
+from urllib.parse import unquote, urlsplit
+
+vault = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).resolve(strict=True)
+source_rel = os.environ["_LE_MOVE_SOURCE_REL"]
+source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
+destination = pathlib.Path(os.environ["_LE_MOVE_DESTINATION_ABS"])
+expected = os.environ["_LE_MOVE_EXPECTED"]
+refs_file = os.environ["_LE_MOVE_REFS"]
+
+if hashlib.sha256(destination.read_bytes()).hexdigest() != expected:
+    raise SystemExit(5)
+
+def normalise_wiki(target):
+    target = unquote(target.split("|", 1)[0].split("#", 1)[0].strip()).lstrip("/")
+    return target[:-3] if target.lower().endswith(".md") else target
+
+def normalise_markdown(target, note_rel):
+    target = target.strip()
+    if target.startswith("<") and ">" in target:
+        target = target[1:target.index(">")]
+    else:
+        target = target.split(None, 1)[0]
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc:
+        return None
+    path = unquote(parsed.path).replace("\\", "/")
+    if path.startswith("/"):
+        resolved = posixpath.normpath(path.lstrip("/"))
+    else:
+        resolved = posixpath.normpath(posixpath.join(posixpath.dirname(note_rel), path))
+    return resolved
+
+hits = []
+for note in vault.rglob("*.md"):
+    try:
+        note_rel = note.relative_to(vault).as_posix()
+    except ValueError:
+        continue
+    if any(part.startswith(".") for part in pathlib.PurePosixPath(note_rel).parts):
+        continue
+    try:
+        text = note.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        continue
+    for match in re.finditer(r"\[\[([^\]]+)\]\]", text):
+        target = normalise_wiki(match.group(1))
+        if "/" in target and target == source_no_ext:
+            hits.append((note_rel, text.count("\n", 0, match.start()) + 1))
+    for match in re.finditer(r"\]\(([^)]+)\)", text):
+        target = normalise_markdown(match.group(1), note_rel)
+        if target in (source_rel, source_no_ext):
+            hits.append((note_rel, text.count("\n", 0, match.start()) + 1))
+
+with open(refs_file, "w", encoding="utf-8") as handle:
+    for path, line in hits:
+        handle.write("%s:%d\n" % (path, line))
+raise SystemExit(4 if hits else 0)
+PY
+            MOVE_VERIFY_RC=$?
+            set -e
+            if [ "$MOVE_VERIFY_RC" -eq 0 ]; then
+                MOVE_COMPLETE=true
+                break
+            fi
+            if [ "$MOVE_VERIFY_RC" -ne 4 ] && [ "$MOVE_VERIFY_RC" -ne 5 ]; then
+                echo "Could not verify Obsidian move result" >&2
+                exit 1
+            fi
+        fi
+        sleep 1
+    done
+
+    if [ "$MOVE_COMPLETE" != true ]; then
+        echo "Obsidian move did not reach a verified complete state" >&2
+        [ -e "$MOVE_SOURCE_ABS" ] && echo "Source still exists: $MOVE_SOURCE_ABS" >&2
+        [ -e "$MOVE_DESTINATION_ABS" ] || echo "Destination is absent: $MOVE_DESTINATION_ABS" >&2
+        if [ -s "$MOVE_REFS" ]; then
+            echo "Old path-qualified links remain:" >&2
+            sed -n '1,20p' "$MOVE_REFS" >&2
+        fi
+        exit 1
+    fi
+
+    _move_unlock_pair
+    trap - EXIT
+    rm -f "$MOVE_META" "$MOVE_REFS"
+    echo "Locked move applied: $MOVE_SOURCE_ABS -> $MOVE_DESTINATION_ABS"
+    exit 0
 fi
 
 # Payload goes through a temp FILE, not "$(cat)": command substitution strips ALL
