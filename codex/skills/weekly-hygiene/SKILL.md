@@ -30,7 +30,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Gather:**
    - List root docs: `ls "{VAULT}/03 Projects/"*.md`
    - For each root doc, check for `bucket:` in the frontmatter — list violations. Do not flag missing `## Current Objective` or `## Next Actions` headings.
-   - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `grep -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
+   - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
    - Staleness candidates: where a root doc has an explicit task/action section, flag it when all tasks are ticked (no open `- [ ]`); also flag explicit current-state text that reads as completed. Missing conventional sections are not a staleness signal. Candidates may belong in `Cold/` or `$complete-project` (moves are executed in step 2's folder audit).
 
    **Confirm with user:**
@@ -51,7 +51,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Move mismatched docs to the folder matching their actual state (dead-looking root doc → `Cold/` or `$complete-project`; active-looking Cold/ doc → root)
    - Completed/abandoned projects with reference value → `04 Areas/[Area]/Archive/`; revivable-someday → `03 Projects/Cold/`. `06 Archive/` holds immutable write-once records only — never park project files there.
 
-   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move?` under an existing task/action section, else Tickler +7 days.
+   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move? → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under an existing task/action section, else Tickler +7 days.
 
    **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Triage each hit per `_shared-rules.md §12` (grep-hit triage): fix stale wikilinks/locators in non-archive files; leave archive/session-log references as historical records; for a hash/provenance-log path, update the locator on the move, never the content hash/timestamp/proof.
 
@@ -77,7 +77,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Identify any items that appear to be actionable tasks that should be in an existing project task/action section
    - Note items that have routing guidance but haven't been moved yet
 
-   **If not resolved in-session:** For oversized sections (10+ items), add `⚠ Hygiene Wnn: N items, 10+ unprocessed — triage needed` at the top of that section in Working Memory.
+   **If not resolved in-session:** For oversized sections (10+ items), add `⚠ Hygiene Wnn: N items, 10+ unprocessed — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of that section in Working Memory.
 
 5. **Scratchpad Sweep**
 
@@ -95,7 +95,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session (non-draft content):**
    - After draft sections are resolved above, present remaining non-empty scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
-   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed` at the top of each non-empty scratchpad file.
+   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of each non-empty scratchpad file.
 
    **⛔ Never derive the staleness figure from mtime** (`_shared-rules.md` §22 — this is its marker-specific case). Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
 
@@ -113,17 +113,18 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      # Self-contained block: shell vars don't survive between tool calls, so derive and use in one go.
      # Window = since the LAST hygiene run, by the log's OWN date (its filename). Never -mtime. See notes below.
      REPORTS="{VAULT}/06 Archive/OpenCairn/Hygiene Reports"
-     LAST=$(ls -1 "$REPORTS"/*.md 2>/dev/null | sort | tail -1)     # sort by NAME (ISO week sorts correctly), not -t
-     CUTOFF=$(grep -m1 '^\*\*Generated:\*\*' "$LAST" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+     LAST=$(ls -1 "$REPORTS" 2>/dev/null | rg '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1)
+     [ -n "$LAST" ] && LAST="$REPORTS/$LAST"
+     CUTOFF=$(rg -m1 '^\*\*Generated:\*\*' "$LAST" 2>/dev/null | rg -o '[0-9]{4}-[0-9]{2}-[0-9]{2}')
      [ -z "$CUTOFF" ] && CUTOFF=$(date -d '7 days ago' +%Y-%m-%d)   # BSD/macOS: date -v-7d +%Y-%m-%d
      echo "CRM scan window: sessions dated ${CUTOFF}..today | source: ${LAST:-none — 7-day fallback}"
      find "{VAULT}/06 Archive/OpenCairn/Session Logs/" -name '[0-9]*-[0-9]*-[0-9]*.md' \
        | awk -v c="$CUTOFF" -F/ '{d=$NF; sub(/\.md$/,"",d); if (d >= c) print}' \
        | awk -F/ '!seen[$NF]++' \
        | tr '\n' '\0' | xargs -0 cat \
-       | grep -vE '^[[:space:]]*#' \
-       | grep -oEh '[A-Z][a-z]+ [A-Z][a-z]+' \
-       | grep -vxE 'This Week|Pickup Context|Open Loops|Key Insights|Next Steps|Files Updated|Files Created|Files Deleted|Session History|Resumption Brief|Session Logs|Daily Reports|Working Memory' \
+       | rg -v '^[[:space:]]*#' \
+       | rg -o '[A-Z][a-z]+ [A-Z][a-z]+' \
+       | rg -v -x 'This Week|Pickup Context|Open Loops|Key Insights|Next Steps|Files Updated|Files Created|Files Deleted|Session History|Resumption Brief|Session Logs|Daily Reports|Working Memory' \
        | sort | uniq -c | sort -rn | head -20
      ```
 
@@ -174,8 +175,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Orphan check — topic files missing from the index.** Every `.md` in the memory directory except `MEMORY.md` must have an index line; a topic file with none is invisible to relevance matching and can never fire, however good the rule is. Nothing warns about this, and it survives every sweep that only reads the index.
      ```bash
      M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory   # re-derive: shell state doesn't persist between calls
-     for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; grep -q "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
-     grep -oP '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
+     for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; rg -q -F "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
+     rg -o -P '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
      ```
      An `ORPHAN` is triaged like any entry — index it if the fact is still live, delete the file if it isn't. A `DANGLING` index line points at a file that no longer exists: drop the line. Run both directions after any index rewrite.
 
@@ -226,7 +227,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
      base=$(basename "$f")
-     if grep -qrF "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
+     if rg -q -F "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
        echo "RETAINED (referenced): $base"
      else
        rm "$f" && echo "DELETED: $base"
@@ -267,9 +268,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    HYGIENE_EXCLUDES="{VAULT}/.claude/hygiene-excludes"
    EXC=$(mktemp)
-   [ -f "$HYGIENE_EXCLUDES" ] && grep -v '^#' "$HYGIENE_EXCLUDES" | grep -v '^$' > "$EXC"
+   [ -f "$HYGIENE_EXCLUDES" ] && rg -v '^#' "$HYGIENE_EXCLUDES" | rg -v '^$' > "$EXC"
    if [ -s "$EXC" ]; then
-     filter() { grep -vf "$EXC" ; }
+     filter() { command grep -vf "$EXC"; }
    else
      filter() { cat ; }
    fi
@@ -287,9 +288,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
      | xargs -0 -n1 basename | sed 's/\.md$//' | sort -u > "$NOTES"
    find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -not -path '*/06 Archive/*' -print0 \
-     | xargs -0 grep -ohE '\[\[[^]]*\]\]' 2>/dev/null \
+     | xargs -0 rg -o --no-filename '\[\[[^]]*\]\]' 2>/dev/null \
      | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
-     | grep -v '^$' | sort -u > "$LINKS"
+     | rg -v '^$' | sort -u > "$LINKS"
    comm -23 "$LINKS" "$NOTES" | filter    # link targets with no matching note = unresolved
    rm -f "$NOTES" "$LINKS"
    ```
@@ -297,24 +298,24 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Orphaned files** (no incoming links):
    ```bash
    # CLI (preferred)
-   obsidian orphans 2>/dev/null | filter | grep -E "^(03 Projects|04 Areas)/"
+   obsidian orphans 2>/dev/null | filter | rg "^(03 Projects|04 Areas)/"
    ```
    If CLI unavailable, fall back to the same basename index — a note whose basename appears in no wikilink anywhere in the vault is an orphan:
    ```bash
    # define `filter` in this same shell call first, per the excludes block above
    LINKED=$(mktemp)
    find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
-     | xargs -0 grep -ohE '\[\[[^]]*\]\]' 2>/dev/null \
+     | xargs -0 rg -o --no-filename '\[\[[^]]*\]\]' 2>/dev/null \
      | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
      | sort -u > "$LINKED"
    find "{VAULT}/03 Projects" "{VAULT}/04 Areas" -name '*.md' -type f 2>/dev/null \
-     | while read -r f; do grep -qxF "$(basename "$f" .md)" "$LINKED" || echo "$f"; done | filter
+     | while read -r f; do rg -q -x -F "$(basename "$f" .md)" "$LINKED" || echo "$f"; done | filter
    rm -f "$LINKED"
    ```
 
    **Dead-end files** (no outgoing links — CLI only, skip if unavailable):
    ```bash
-   obsidian deadends 2>/dev/null | filter | grep -E "^(03 Projects|04 Areas)/" | head -20
+   obsidian deadends 2>/dev/null | filter | rg "^(03 Projects|04 Areas)/" | head -20
    ```
    Files with content but no links to anything else — may need connecting to the graph.
 
@@ -359,7 +360,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      while read -r s; do
        n=$((n+1))
        [ -f "$CMDS/$s.md" ] || { echo "  STALE pointer: $s (no $CMDS/$s.md)"; bad=$((bad+1)); }
-     done < <(awk '/^## Patterns/{f=1;next} f' "$PF" | grep -oP '.*→ \K[^→]*$' | grep -oP '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u)
+     done < <(awk '/^## Patterns/{f=1;next} f' "$PF" | rg -o -P '.*→ \K[^→]*$' | rg -o -P '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u)
      echo "Pointer check [$CMDS]: $n pointers, $bad stale"
    done
    ```
@@ -402,7 +403,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    Item removals can eat the separator newline and join two list items onto one line — a leading-`\n` deletion that consumes the preceding line's terminator. Scan the planning docs:
    ```bash
    for f in "This Week.md" "Tickler.md"; do
-     grep -nHE '[^[:space:]]- \[[ x]\]' "{VAULT}/01 Now/$f" 2>/dev/null
+     rg -n --with-filename '[^[:space:]]- \[[ x]\]' "{VAULT}/01 Now/$f" 2>/dev/null
    done
    ```
    Any non-space immediately before a `- [ ]`/`- [x]` is a join defect (legit nested items are space- or tab-indented, so they don't match). Split the two items onto separate lines via `locked-edit.sh` and report each fix.
@@ -420,13 +421,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
      **Category A — Explicit dates:**
      ```bash
-     grep -nE "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+20[2-3][0-9]|20[2-3][0-9]-(0[1-9]|1[0-2])" "$FILE"
+     rg -n "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+20[2-3][0-9]|20[2-3][0-9]-(0[1-9]|1[0-2])" "$FILE"
      ```
      Claude flags lines where the date is past AND the framing is forward-looking ("upcoming", "planned", "starting", "will"). Historical references ("Started September 2025") are not flagged.
 
      **Category B — Relative-time markers:**
      ```bash
-     grep -niE "\b(currently|right now|at the moment|these days|lately|recently|about to|planning to|transitioning|in progress|waiting for|not yet|haven't yet|still [a-z]+ing|upcoming|soon)\b" "$FILE"
+     rg -n -i "\b(currently|right now|at the moment|these days|lately|recently|about to|planning to|transitioning|in progress|waiting for|not yet|haven't yet|still [a-z]+ing|upcoming|soon)\b" "$FILE"
      ```
      Flag all matches every week as a low-priority verification checklist — no file-age threshold. Present as: "These claims exist in your context files — still true?"
 
@@ -531,11 +532,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    # User-level AI-assistant configs (fixed paths — no recursive vault walk)
    for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.codex/config.toml ~/.cursor/*.json ~/.gemini/settings.json; do
-     [ -e "$f" ] && grep -lEi 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
+     [ -e "$f" ] && rg -l -i 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
    done
    # Vault-local assistant configs, if present (fixed files, not a tree walk)
    for f in "{VAULT}/.claude/settings.json" "{VAULT}/.claude/settings.local.json" "{VAULT}/.codex/config.toml"; do
-     [ -e "$f" ] && grep -lEi 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
+     [ -e "$f" ] && rg -l -i 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
    done
    # Python interpreter-startup hooks (the .pth vector): files that run code on import
    python3 -c "import site,glob,os; [print(p) for d in site.getsitepackages()+[site.getusersitepackages()] for p in glob.glob(os.path.join(d,'*.pth'))]" 2>/dev/null
@@ -700,13 +701,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
     For each finding not resolved during the sweep:
 
-    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description]` — appended under an existing task/action section (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
+    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` — under an existing task/action section (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
     - **Tier 2 items the user declined to engage with** (the disengage-routing rule) — two destinations:
       - **Project/area doc with an existing task/action section identifiable:** append `- [ ] [Description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` there via `locked-edit.sh`.
       - **No doc identifiable:** write a Tickler entry dated 7 days out via `write-tickler.sh`, same line format.
       Findings never go to the Whimsy sink and are never silently dropped.
-    - Update the hygiene report's "Actions Routed" section to note where each item was sent.
-    - **Idempotent:** Before writing, check if a `⚠ Hygiene Wnn:` marker for the same week number already exists in the target file. If so, replace it rather than duplicating.
+    - Update the hygiene report's "Actions Routed" section to note where each item was sent. Re-read the report, then update that section through `locked-edit.sh --replace`; never mutate it directly.
+    - **Routing is an upsert.** Key each routed item by its destination plus normalised finding identity; ignore volatile week numbers, counts and first-flagged metadata during matching. Its provenance marker must be the exact current hygiene-report backlink. Search the destination first; a match carrying any `Hygiene Reports/YYYY-Wnn` backlink is the same recurring finding, so update its text/backlink through the owning locked writer rather than appending. Otherwise create it once. The week number alone is not a key — several distinct findings may route to the same file in one run.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `$weekly-hygiene` run removes struck markers in every routing destination (project docs, Working Memory, scratchpads, Tickler) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
 18. **Display confirmation:**
@@ -725,9 +726,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 - **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `$weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
 - **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale project docs, folder mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route per the disengage-routing rule — an existing task/action section in the relevant project/area doc where one exists, else the Tickler dated 7 days out — never to Whimsy, never dropped silently.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run removes struck **`⚠ Hygiene` markers only** — never struck user content, which is left in place (see the Tickler step's strikethrough rule).
-- **Idempotent.** Running twice should produce the same result. The report overwrites each run. `⚠ Hygiene Wnn:` markers for the same week are replaced, not duplicated.
+- **Idempotent.** Running twice should produce the same result. The report overwrites each run. Routed markers are upserted by destination plus normalised finding identity, with the backlink refreshed to the current hygiene report, so distinct findings coexist and reruns do not duplicate them.
 - **Report is consumable.** `$weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
-- **Portability note.** Code snippets assume GNU coreutils (`stat -c`, `grep -P`, `sha256sum`, GNU `date`) — same caveat as `_shared-rules.md` §5's Linux-specific diagnostics. On macOS/BSD, substitute equivalents (`stat -f`, `perl -ne`/`sed -E` for `-P` extractions, `shasum -a 256`, `date -v`/`-j`).
+- **Portability note.** Code snippets assume GNU coreutils (`stat -c`, `sha256sum`, GNU `date`) and ripgrep with PCRE2 support for `rg -P` — same caveat as `_shared-rules.md` §5's Linux-specific diagnostics. On macOS/BSD, substitute equivalents (`stat -f`, `shasum -a 256`, `date -v`/`-j`) and use `perl` if the installed ripgrep lacks PCRE2.
 
 ## Integration
 

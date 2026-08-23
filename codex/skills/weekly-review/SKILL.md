@@ -25,7 +25,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 1. **Check current date and calculate review boundaries** using bash `date` command:
    - Get current date: `date +"%Y-%m-%d"`
    - Get ISO week number: `date +"%G-W%V"` (for file naming: YYYY-Wnn.md). `%G` (ISO year), not `%Y` — they differ in the 29 Dec–3 Jan boundary window, and `%Y-W%V` there produces a nonexistent week key that corrupts the latest-file sort.
-   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Reviews/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
+   - Find the previous weekly review: `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Reviews/" 2>/dev/null | rg '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1`. Both filters are load-bearing: the pattern drops any free-named file that would otherwise outrank the reviews, and `LC_ALL=C` is what makes the collision-guard suffix (step 5's `YYYY-Wnnb.md`) sort *after* the bare `YYYY-Wnn.md` — locale collation ignores the `.` and reverses that order, selecting the older review and re-covering days already closed out.
    - **Review period starts** at the day after the previous review's last covered date. Parse the end date from the `## Daily Reports` section (which has explicit `YYYY-MM-DD` dated links) — this is more reliable than parsing the free-text title. **The last covered date is the latest of: the dated links AND any "*(no report for [date] …)*" notes in that section** — a review can end on days that produced no daily report (travel/offline days), and taking only the last dated link would make the next review re-cover them. If the review's title date range ends later still, prefer the title's end date and note the discrepancy. If no previous review exists, fall back to Monday of the current ISO week. Store as `PERIOD_START`.
    - **Review period ends** at the current date.
    - Get date range for display: e.g., "Week 11, Mar 9-11" or "Weeks 10-11, Mar 2-11" if the period spans multiple ISO weeks.
@@ -34,7 +34,7 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 2. **Check for Hygiene Report and gather the week's data:**
 
    **Hygiene report:**
-   - Look for the latest file in `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/` (sorted by filename descending)
+   - Look for the latest file in `{VAULT}/06 Archive/OpenCairn/Hygiene Reports/`, filtering to `^[0-9]{4}-W[0-9]{2}\.md$` and using `LC_ALL=C sort -r`. Preserve the exact returned basename. Free-named files in the directory are not hygiene reports.
    - If a report exists, parse the week number from its filename (e.g., `2026-W10.md` → W10) and compare to the current ISO week (`date +%G-W%V`):
      - **Current week:** Read and incorporate — no warning
      - **Previous week or older:** Warn: "Latest hygiene report is from [week] — vault state may have changed. Consider re-running `$weekly-hygiene` before continuing. Proceeding with stale data." Continue with the review but flag staleness in the output.
@@ -44,8 +44,8 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - Read daily reports from `{VAULT}/06 Archive/OpenCairn/Daily Reports/` for dates from `PERIOD_START` to current date
    - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
    - Read session summaries from `{VAULT}/06 Archive/OpenCairn/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
-   - **Session count:** Use `grep -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
-   - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter; use `## Current Objective` and `## Next Actions` when present, but do not require them. Folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds the **active project cap** (resolve it first: `grep -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent) — flag it and ask which project moves to `Cold/`
+   - **Session count:** Use `rg -c "^## Session" <session-log-file>` as the canonical session count per day. Daily report self-reported counts may disagree due to merge addendums creating sub-entries under existing session headers. When counts disagree, use the `^## Session` header count and note the discrepancy.
+   - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter; use `## Current Objective` and `## Next Actions` when present, but do not require them. Folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent) — flag it and ask which project moves to `Cold/`
 
    **Schedule-vs-Execution data (Alignment Check input):**
    - **Cadence gate.** Run `cd "{VAULT}" && git rev-list --count --since="$PERIOD_START 00:00" HEAD` (count over the *actual review period*, so the window and the threshold measure the same span; `rev-list --count` also avoids the `wc -l` missing-final-newline undercount). If `git` errors (no vault repo) or the count is <24 × days_in_review_period (suggests autocommit hook isn't running at ~1/hr+), skip this data-gather entirely — the Schedule-vs-Execution subsection in step 5 degrades gracefully to a one-line note.
@@ -74,10 +74,10 @@ The weekly review creates the crucial link between tactical execution (daily/ses
    - **Schema-drift sanity check.** If a day has non-zero attention-profile commits but zero parsed scheduled items, mark that day for a warning line in step 5.
 
    **Sweep for tagged tasks:**
-   - Long Poles [LP]: `grep -r "\[LP\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
-   - Cornerstones [CS]: `grep -r "\[CS\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
-   - Guillotines [GT]: `grep -r "\[GT\]" "{VAULT}" --include="*.md" --exclude-dir=".stversions" --exclude-dir="06 Archive" -l | grep -v -e '/\.stversions/' -e '/06 Archive/'`
-   - The trailing `| grep -v` is the correctness backstop, not belt-and-braces: `--exclude-dir` is a silent no-op when `grep` resolves to a drop-in replacement, and without the filter the sweep returns archived items as if live. Never drop it.
+   - Long Poles [LP]: `rg -l '\[LP\]' "{VAULT}" -g '*.md' -g '!**/06 Archive/**' -g '!**/.stversions/**' -g '!**/.Provenance/**' -g '!**/.trash/**' -g '!**/.Trash-1000/**'`
+   - Cornerstones [CS]: `rg -l '\[CS\]' "{VAULT}" -g '*.md' -g '!**/06 Archive/**' -g '!**/.stversions/**' -g '!**/.Provenance/**' -g '!**/.trash/**' -g '!**/.Trash-1000/**'`
+   - Guillotines [GT]: `rg -l '\[GT\]' "{VAULT}" -g '*.md' -g '!**/06 Archive/**' -g '!**/.stversions/**' -g '!**/.Provenance/**' -g '!**/.trash/**' -g '!**/.Trash-1000/**'`
+   - The explicit full-tree exclusion globs are load-bearing: an include glob can re-admit ignored paths, and archived, trashed or provenance-snapshot items are not live planning commitments.
    - Read the matched files and extract the tagged items for review (for [GT], note each hard deadline and whether it's overdue/imminent)
 
    **Direction (strategic layer):**
@@ -93,7 +93,10 @@ The weekly review creates the crucial link between tactical execution (daily/ses
 
 3. **Run the weekly review interview:**
 
-Before diving into the lenses below, ask the user once whether they want interactive mode (walk through each lens together) or auto-generate mode (compile answers from data, present for validation). One question upfront — don't re-ask per section.
+Before diving into the lenses below, ask the user once whether they want interactive mode (walk through each lens together) or auto-generate mode (compile answers from data, present once for validation). One question upfront.
+
+- **Interactive mode:** use the lenses below as a sequential interview.
+- **Auto-generate mode:** use the lenses as a completeness checklist, not as separate prompts. Compile the evidence-supported synthesis, accomplishments, project movement, time allocation, patterns and alignment findings into one proposed review. Do not invent first-person reflections, correction-log promotion decisions or forward commitments. Present one consolidated validation block containing the draft plus only unresolved decision-bearing questions — always including next week's Big Rocks, course corrections, Stop/Delegate items and any proposed correction promotion. Apply the user's corrections, then continue to step 4.
 
 **Collect - What happened:**
 - "What were the major accomplishments this week?"
@@ -127,7 +130,9 @@ Before diving into the lenses below, ask the user once whether they want interac
 
 5. **Generate weekly review:**
 
-Create a file at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md` (using the ISO week of the current date for the filename, per step 1's `%G-W%V`). **Collision guard:** at 4-6 day cadence two reviews can land in the same ISO week — if `YYYY-Wnn.md` already exists, do NOT overwrite it (it's a dated reflective record, unlike the hygiene report's by-design overwrite); write `YYYY-Wnnb.md` instead (then `c`, …). The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r` — a plain `sort -r` ranks `YYYY-Wnn.md` first and the next review re-covers days this one already closed. Carry the actual basename you wrote (suffix included) into step 5a.
+Resolve the output basename once. Start with `REVIEW_BASENAME=YYYY-Wnn` using the current ISO week from step 1. If the bare file exists, list `YYYY-Wnn[a-z].md`, choose the first unused letter from `b` onward under byte collation, and set `REVIEW_BASENAME` to it; never overwrite or reuse an existing weekly review because each is a dated reflective record. Carry this exact basename through the output path, step 5a's reminder/backlink and the final confirmation.
+
+Draft the complete review outside the vault, then install it at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/<REVIEW_BASENAME>.md` through `"{VAULT}/.claude/scripts/locked-edit.sh" --replace-whole MISSING`. Immediately before the call, confirm the chosen path is still absent. Exit 2 means another writer claimed the basename: re-list, choose the next unused suffix, update `REVIEW_BASENAME` and retry; never append to or replace an existing weekly review. The letter suffix only outranks the bare name under byte collation, which is why step 1's previous-review lookup pins `LC_ALL=C sort -r`.
 
 **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. A hygiene report consumed in the same pass may have already reshuffled This Week.md or a project doc, so any `This Week.md Lnn` carried into this durable review is stale on write. Name items (tasks, project-doc actions, Tickler lines, aged open loops) by title/heading/content.
 
@@ -278,16 +283,16 @@ Create a file at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md` (usin
 
    **(c) Dedup, then write one line** (§5 — `write-tickler.sh`, never a raw edit). A review re-run in the same ISO week would otherwise add a second line.
 
-   **Use the basename step 5 actually wrote**, collision-guard letter suffix included (`SLUG` below = `YYYY-Wnn` or `YYYY-Wnnb`, …), in **both** the grep and the wikilink. A bare `YYYY-Wnn` is a *prefix* of the suffixed sibling: as a dedup key it matches the earlier review's line and silently suppresses this review's backstop, and as a wikilink it points the reminder at the wrong review. Anchor the grep with the closing `]]` so the match is exact rather than prefix-wise.
+   **Use `<REVIEW_BASENAME>` from step 5** in both the search and the wikilink. A bare `YYYY-Wnn` is a *prefix* of the suffixed sibling: as a dedup key it matches the earlier review's line and silently suppresses this review's backstop, and as a wikilink it points the reminder at the wrong review. Anchor the search with the closing `]]` so the match is exact rather than prefix-wise.
 
    ```bash
    # 0 → write. Non-zero → a reminder for this review already exists (a re-run of the same
-   # review file); skip the write and report it. Absent Tickler is fine: grep says 0,
+   # review file); skip the write and report it. Absent Tickler is fine: rg says 0,
    # write-tickler.sh creates it.
-   grep -cF "Weekly Reviews/SLUG]]" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
+   rg -c -F "Weekly Reviews/<REVIEW_BASENAME>]]" "{VAULT}/01 Now/Tickler.md" 2>/dev/null || echo 0
 
    "{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" \
-     "- [ ] Weekly review SLUG flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/OpenCairn/Weekly Reviews/SLUG]]"
+     "- [ ] Weekly review <REVIEW_BASENAME> flagged N deadline-bearing items (earliest: <short gloss>, <date>) — place them → [[06 Archive/OpenCairn/Weekly Reviews/<REVIEW_BASENAME>]]"
    ```
 
    **This step's disallowed sink is the review file itself** (§18 requires each caller to name its own): a deadline-bearing correction left only in "Course Corrections Needed" or "Big Rocks" is the failure this exists to prevent. One dated pointer discharges the whole set.
@@ -332,7 +337,7 @@ Create a file at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md` (usin
    - Read `{VAULT}/01 Now/This Week.md` — the day-level SSOT for live status. **Every dynamic-section status fact (a deadline, review date, deferral, "next step", or current-state claim) must reconcile against This Week.md before it goes in the context doc**, because project docs and weekly-review prose can lag the day plan by a session or two. The trap is sourcing a date or status from a *secondary* surface — a session-log "Files Updated" line, a project doc's Next Actions entry, a prior context doc — and stating it as current without confirming it against the day SSOT. A date that appears in a session log as a window-roll/relocation artefact is not automatically the status it superficially resembles; if This Week.md says the underlying item is deferred/closed/moved, the day plan wins. Per "Never fabricate a specific value": if a status fact can't be traced to This Week.md (or another primary source confirmed this run), generalise it or omit it — do not promote a plausible-looking secondary-surface value to current state.
 
    **Read previous context version** to carry forward stable sections:
-   - Find the latest file in `{VAULT}/06 Archive/OpenCairn/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Context/" 2>/dev/null | grep -E '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
+   - Find the latest file in `{VAULT}/06 Archive/OpenCairn/Weekly Context/`, constrained to the week-keyed naming — `ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Context/" 2>/dev/null | rg '^[0-9]{4}-W[0-9]{2}\.md$' | LC_ALL=C sort -r | head -1`. The directory also holds one-off exports and other free-named files; an unconstrained reverse sort can select one of those and carry stable sections forward from a stale foreign artefact.
    - The file has two kinds of sections:
      - **Stable sections** (Background, Photography, Technical Setup, Health & Medications, Interests & Worldview, How He/She Likes to Work): Carry forward from the previous version BUT see "Stable section verification" below — carry-forward does not mean blind copy.
      - **Dynamic sections** (Active threads, Recent Context, Active Research Interests, and any active personal threads from the project docs): Regenerate fully from the `03 Projects/` root docs, recent weekly reviews, and this week's review data.
@@ -419,20 +424,20 @@ Create a file at `{VAULT}/06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md` (usin
    - **Travel/itinerary framing:** write as a date-anchored timeline ("Trip 2 finished 14 May → leg 1 city 20 May – 2 Jun → leg 2 city 5-19 Jun → home ~20 Jun"), not as present location ("Currently in [city], day 5 of 6"). The reader infers location from the date stamp + timeline.
    - **Present-tense state about transient things** (location, TZ, weight, med dose if changing, flight, claim/portal status that's days from resolution) must either include "as of doc date" or be reframed to past-tense with an action date ("Insurance claim lodged Thu 7 May" — the wait is implicit; "Medication X on-stack since 1 May 2026" — durable until restated).
 
-   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md`, run a literal Bash grep to verify the banned vocabulary is absent:
+   **Post-write staleness scrub (mandatory).** After writing the file to `{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md`, run a literal search to verify the banned vocabulary is absent:
 
    ```bash
-   grep -niE '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md"
+   rg -n -i '\b(today|tonight|tomorrow|yesterday|currently|right now|now in|this week|next week|as of today|upcoming|imminent|shortly|soon|in flight|at present|of late|in the next|day [0-9]+ of [0-9]+|week [0-9]+ of [0-9]+)\b' "{VAULT}/06 Archive/OpenCairn/Weekly Context/YYYY-Wnn.md"
    ```
 
-   Acceptable hits: banned terms inside quoted text (someone else's email phrasing, e.g. a cited email saying "end of next week") that the doc is faithfully citing. Every other hit must be revised. Re-run grep after each revision. Iterate until clean (no hits or only quoted-citation hits remain). Report the final scrub result in the confirmation step (e.g. "Banned-vocab scan: 0 hits" or "Banned-vocab scan: 1 hit, in quoted email citation — acceptable").
+   Acceptable hits: banned terms inside quoted text (someone else's email phrasing, e.g. a cited email saying "end of next week") that the doc is faithfully citing. Every other hit must be revised. Re-run the search after each revision. Iterate until clean (no hits or only quoted-citation hits remain). Report the final scrub result in the confirmation step (e.g. "Banned-vocab scan: 0 hits" or "Banned-vocab scan: 1 hit, in quoted email citation — acceptable").
 
-   After the grep is clean, re-read the file end-to-end with the test question: "would this read sensibly on [doc date + 4 weeks]?" If any line fails, fix it. The `Last updated:` stamp is a fallback, not a licence to write stale prose.
+   After the search is clean, re-read the file end-to-end with the test question: "would this read sensibly on [doc date + 4 weeks]?" If any line fails, fix it. The `Last updated:` stamp is a fallback, not a licence to write stale prose.
 
 9. **Display confirmation with pre-paste review gate:**
 
 ```
-✓ Weekly review saved to: 06 Archive/OpenCairn/Weekly Reviews/YYYY-Wnn.md
+✓ Weekly review saved to: 06 Archive/OpenCairn/Weekly Reviews/<REVIEW_BASENAME>.md
 ✓ Projects reviewed: N active, M completed, P stalled
 ✓ Deadline backstop: N items flagged, Tickler reminder set YYYY-MM-DD [OR "no resolvable deadlines"]
 ✓ Hygiene report: [Incorporated / Not found — run $weekly-hygiene]
@@ -459,7 +464,7 @@ Recommended: Skim the weekly review itself at the start of next week to set the 
 - **Connect timescales:** Link weekly patterns to monthly/quarterly goals (if tracked)
 - **Quantify when useful:** Time allocation, completed tasks, etc. - numbers reveal patterns
 - **Natural language:** Write in the user's voice - analytical, outcome-focused, honest
-- **This Week load** (resolve the thresholds first: `grep -F '**This Week cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the two values found — the `N/week` window figure and the `N/day` day figure, tuned there to the user's observed completion throughput. The line's key is historically named `cap`; the values are **advisory flags, not limits**. **`-F` is required** — a leading `**` is a repetition operator to some greps, which error out instead of matching. Exit 1, or a line that does not yield both values, means state `threshold line unreadable — using defaults 30/week, 10/day` and proceed on those, so a failed read is never mistaken for a vault that states none. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the defaults): count the unchecked items in the forward window of `01 Now/This Week.md` (today + the 6 forward days) and per day, and **report both figures against their thresholds** as a load reading in the review. Route What's Next items into This Week.md on their merits; the count is reported, never used to block a write or to ask which items drop. **This is the review's honest-mirror surface, not a gate** — a window persistently over its figure is the finding worth naming in the synthesis (throughput is below intake, so either the threshold is mistuned or the week is overcommitted), and that observation is worth more than a refusal would have been.
+- **This Week load** (resolve the thresholds first: `rg -F '**This Week cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the two values found — the `N/week` window figure and the `N/day` day figure, tuned there to the user's observed completion throughput. The line's key is historically named `cap`; the values are **advisory flags, not limits**. **`-F` is required** — the needle is literal. Exit 1, or a line that does not yield both values, means state `threshold line unreadable — using defaults 30/week, 10/day` and proceed on those, so a failed read is never mistaken for a vault that states none. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the defaults): count the unchecked items in the forward window of `01 Now/This Week.md` (today + the 6 forward days) and per day, and **report both figures against their thresholds** as a load reading in the review. Route What's Next items into This Week.md on their merits; the count is reported, never used to block a write or to ask which items drop. **This is the review's honest-mirror surface, not a gate** — a window persistently over its figure is the finding worth naming in the synthesis (throughput is below intake, so either the threshold is mistuned or the week is overcommitted), and that observation is worth more than a refusal would have been.
 
 ## Frequency
 
