@@ -144,6 +144,7 @@ for t in "${SEP_TARGETS[@]}"; do
     # carry a real leak.
     case "$t" in
         */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # verbatim transcript exports preserve source shell snippets
+        */07\ System/.Provenance/*.snapshot.*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # immutable provenance snapshots preserve exact source bytes
         */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;;
     esac
     SEP_SCANNED=$((SEP_SCANNED + 1))
@@ -169,6 +170,7 @@ for t in "${TOUCHED[@]:-}"; do
     case "$t" in *.md) ;; *) continue ;; esac
     case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
         */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim exports retain source formatting by design
+        */07\ System/.Provenance/*.snapshot.*) continue ;; # immutable provenance snapshots retain exact source formatting
         */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
     esac
     case "$t" in "$VAULT"/*) ;; *) continue ;; esac   # lint vault content files only

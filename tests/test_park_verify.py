@@ -203,6 +203,63 @@ class ParkVerifyTests(unittest.TestCase):
             self.assertNotIn("FAIL separator", result.stdout)
             self.assertNotIn("FAIL lint", result.stdout)
 
+    def test_provenance_snapshot_skips_separator_and_lint_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp)
+            (vault / "01 Now").mkdir(parents=True)
+            (vault / "01 Now/This Week.md").write_text("# This Week\n", encoding="utf-8")
+            (vault / "01 Now/Tickler.md").write_text("# Tickler\n", encoding="utf-8")
+            snapshot = vault / "07 System/.Provenance/2026-08-22-transcript.snapshot.md"
+            snapshot.parent.mkdir(parents=True)
+            snapshot.write_text(
+                "source shell snippet\nsource- [ ] literal source list\n"
+                "========OPENCAIRN-LOCKED-EDIT-SEP========\n\n\n\n",
+                encoding="utf-8",
+            )
+            log = vault / "06 Archive/OpenCairn/Session Logs/2026-08-23.md"
+            log.parent.mkdir(parents=True)
+            log.write_text(
+                "\n".join(
+                    [
+                        "## Session 1 - Provenance snapshot",
+                        "### Summary",
+                        "Preserved exact source bytes.",
+                        "### Files Created",
+                        "- 07 System/.Provenance/2026-08-22-transcript.snapshot.md - frozen preimage",
+                        "### Files Updated",
+                        "None",
+                        "### Pickup Context",
+                        "**For next session:** None",
+                        "**Project:** None",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    str(SCRIPT),
+                    str(vault),
+                    str(log),
+                    "1",
+                    "--touched",
+                    str(snapshot),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("RESULT: PASS", result.stdout)
+            self.assertIn(
+                "PASS separator: no leftover separator tokens (3 scanned, 1 skipped)",
+                result.stdout,
+            )
+            self.assertNotIn("FAIL separator", result.stdout)
+            self.assertNotIn("FAIL lint", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
