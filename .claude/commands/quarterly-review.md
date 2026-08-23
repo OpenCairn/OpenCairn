@@ -106,10 +106,14 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 10. **Resolve the output basename once.** Start with `REVIEW_BASENAME=YYYY-QN` for the quarter under review.
    - If the bare file is absent, keep that basename.
-   - If it exists, read it and ask whether to overwrite it, append an update section to it, or write a new letter-suffixed record. Overwrite and append keep the bare basename. For a new record, list `YYYY-QN[a-z].md`, choose the first unused letter from `b` onward, and set `REVIEW_BASENAME` to that value; never reuse an existing suffix.
+   - If it exists, read it and ask whether to overwrite it, append an update section to it, or write a new letter-suffixed record. Overwrite and append keep the bare basename. For a new record, list `YYYY-QN[a-z].md` under `LC_ALL=C`, then choose the successor of the greatest existing suffix (`b` if none exists). Never fill a suffix gap: a later review must sort ahead of every earlier one. If `z` already exists, stop and ask the user to archive or rename records; never wrap or reuse a suffix.
    - Letter suffixes sort *after* the bare name under byte collation, so all filename-descending lookups use `LC_ALL=C sort -r`; a `-2` suffix would sort before the bare name and invert the idiom. Carry the resolved basename through every path, source line, backlink and confirmation below.
 
-11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/<REVIEW_BASENAME>.md`:
+11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/<REVIEW_BASENAME>.md`. Draft the complete report outside the vault, then install it through `"{VAULT}/.claude/scripts/locked-edit.sh"`:
+   - For a new bare or suffixed record, immediately confirm the chosen path is absent and use `--replace-whole MISSING`. Exit 2 means another writer claimed it. If the bare path was claimed, read it and repeat step 10's user choice; if a suffix was claimed, re-list and recompute the successor of the greatest suffix before retrying.
+   - For an approved overwrite, re-read the current file and use its complete contents as literal OLD with `--replace`.
+   - For an approved update section, use `--append` only against the existing file.
+   Never create a report with `--append`, reuse a claimed basename, or write the vault file directly.
 
    **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. Name any project-doc / `Tickler.md` item by title/heading/content, never by line number, in this durable record.
 
