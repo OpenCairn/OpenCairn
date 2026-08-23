@@ -32,7 +32,15 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 2. **Gather quarterly data:**
    - Read the `03 Projects/` root docs — the SSOT for active-project state (`bucket:` frontmatter plus whatever current-state/action structure each doc uses), scanned in detail below
-   - **Read the previous quarterly review:** `ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null | sort -r | head -1`. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. Skip any file for the quarter under review (a mid-quarter first run leaves one) and take the newest older-quarter file. If none exists, note it and continue.
+   - **Read the previous quarterly review:** filter to quarterly-review filenames, keep only quarters lexically older than the quarter under review, byte-sort them, then take the newest:
+     ```bash
+     ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null \
+       | rg '^[0-9]{4}-Q[1-4][a-z]?\.md$' \
+       | while read -r f; do if [ "${f%.md}" \< "YYYY-QN" ]; then printf '%s\n' "$f"; fi; done \
+       | LC_ALL=C sort -r \
+       | head -1
+     ```
+     Substitute the quarter under review for `YYYY-QN`. Preserve the exact returned basename, including a suffix. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. If none exists, note it and continue.
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
    - Read weekly reviews from `06 Archive/OpenCairn/Weekly Reviews/` for the quarter. **Boundary selection:** include any weekly review whose covered date range (from its `## Daily Reports` section) intersects the quarter; label partial-quarter reviews in the output. **Extraction guidance:** for each review, extract the Synthesis section, Projects Active, Time Allocation, Key Insights & Patterns, Alignment Check findings, and Course Corrections. Skip session counts, daily report links, and vault maintenance details (those are in the hygiene report).
@@ -44,11 +52,14 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 ### Part 1: Strategic Review
 
-3. **Mode choice.** Before the interview, ask the user once: interactive mode (walk through each section together) or auto-generate mode (compile answers from gathered data, present for validation). One question upfront — don't re-ask per section.
+3. **Mode choice.** Before the interview, ask the user once: interactive mode (walk through each section together) or auto-generate mode (compile answers from gathered data, present once for validation). One question upfront.
 
-4. **Synthesise and present.** Before asking questions, present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned (from the project docs), recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. This primes the user for the interview — they confirm, correct, and reflect rather than recall from memory.
+   - **Interactive mode:** use steps 4–6 as a sequential interview.
+   - **Auto-generate mode:** use the questions in steps 5–6 as a completeness checklist, not as fourteen separate prompts. Compile the evidence-supported retrospective, commitment scores, patterns and alignment findings into one proposed review. Do not invent first-person reflections, Direction changes or forward-looking commitments. Present one consolidated validation block containing the draft plus only the unresolved decision-bearing questions — always including Big Rocks, Long Poles, Stop Doing, and any exact Direction replacement text still needed. Apply the user's corrections, then continue to step 7.
 
-5. **Run the quarterly strategic interview:**
+4. **Synthesise and present.** Present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned, recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. In interactive mode this primes the interview; in auto-generate mode it becomes the opening of the single validation block.
+
+5. **Run the quarterly strategic interview in interactive mode.** In auto-generate mode, answer what the evidence supports and carry only unresolved questions into step 3's single validation block:
 
    **Retrospective — What happened this quarter:**
 
@@ -75,12 +86,12 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 
 6. **Direction.md overhaul (if Direction.md exists):**
    - Review these sections with the user: career strategic plan, personal strategic plan, anti-goals, disciplines, plus any section the user explicitly flags.
-   - **Always ask — and collect only, don't edit yet.** Direction.md is high-trust, like context files. Gather the user's exact replacement text (or explicit approval of your proposed text) per section here; **step 8 is the single writer** — no edits happen in this step. (Direction.md is a context file, not a shared planning file — the Edit tool is fine there, `locked-edit.sh` not required.)
+   - **Always collect approval — and collect only, don't edit yet.** Direction.md is high-trust, like context files. In interactive mode, ask section by section. In auto-generate mode, include the proposed status and any replacement text in the consolidated validation block. Gather the user's exact replacement text (or explicit approval of your proposed text); **step 8 is the single writer** — no edits happen in this step.
 
 ### Part 2: Vault Health (from quarterly-hygiene)
 
 7. **Fold in the quarterly-hygiene findings.**
-   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its findings (carried weekly-hygiene structural items, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed) into the output's Vault Health section. A stale (older-quarter) report is folded with its stale label per step 2; only if no report exists at all, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
+   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its carried weekly findings, context/CRM status, corrections-log fold (including pending approvals), session-log archiving, flywheel proposals, panel-model currency and routed actions into the output's Vault Health section. A stale report is folded with its stale label; only if no report exists, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
 
 8. **Execute strategic edits (user-confirmed only):**
    - Apply Direction.md updates the user approved during step 6 (user-provided text only). Re-read Direction.md immediately before each edit to avoid stale writes.
@@ -93,9 +104,12 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    mkdir -p "{VAULT}/06 Archive/Quarterly Reviews"
    ```
 
-10. **Check for existing review.** If `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md` already exists (e.g. a mid-quarter first run), read it and ask whether to overwrite, append an update section, or write with a letter suffix (`YYYY-QNb.md`, then `c`, …). Letter suffixes sort *after* the bare name, so filename-descending latest-file lookups still find the newest run — a `-2` suffix would sort before it and invert the idiom (same reasoning as `/weekly-review`'s collision guard).
+10. **Resolve the output basename once.** Start with `REVIEW_BASENAME=YYYY-QN` for the quarter under review.
+   - If the bare file is absent, keep that basename.
+   - If it exists, read it and ask whether to overwrite it, append an update section to it, or write a new letter-suffixed record. Overwrite and append keep the bare basename. For a new record, list `YYYY-QN[a-z].md`, choose the first unused letter from `b` onward, and set `REVIEW_BASENAME` to that value; never reuse an existing suffix.
+   - Letter suffixes sort *after* the bare name under byte collation, so all filename-descending lookups use `LC_ALL=C sort -r`; a `-2` suffix would sort before the bare name and invert the idiom. Carry the resolved basename through every path, source line, backlink and confirmation below.
 
-11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/YYYY-QN.md`:
+11. **Generate quarterly review** at `{VAULT}/06 Archive/Quarterly Reviews/<REVIEW_BASENAME>.md`:
 
    **⛔ Cite review items by stable identifier, not line number** — see `_shared-rules.md` §13. Name any project-doc / `Tickler.md` item by title/heading/content, never by line number, in this durable record.
 
@@ -105,7 +119,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 ## Quarter in Review
 
 ### Last Quarter's Commitments
-*Source: Quarterly Reviews/YYYY-QN (or: no previous review)*
+*Source: Quarterly Reviews/<EXACT_PREVIOUS_BASENAME> (or: no previous review)*
 - [Big Rock / Long Pole / Kill List / Stop Doing item] — shipped / slipped / dropped — [one line]
 
 ### Projects Completed
@@ -141,7 +155,7 @@ Projects to explicitly abandon rather than let linger:
 ## Vault Health
 *Source: Quarterly Hygiene Reports/YYYY-QN (current / stale — from YYYY-QN, re-run recommended / not found — run /quarterly-hygiene)*
 
-[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed. Not re-derived here.]
+[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, corrections-log fold and pending approvals, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed. Not re-derived here.]
 
 ## Next Quarter
 
@@ -164,8 +178,11 @@ Projects to explicitly abandon rather than let linger:
 When listing weekly reviews, preserve each file's exact name including any collision suffix (`YYYY-Wnnb` etc. — weekly-review writes suffixed files when two reviews land in one ISO week); a bare `YYYY-Wnn` link to a suffixed review is broken.
 
    **Route the forward-looking outputs — the review file is an archive record, not a planning surface:**
-   - **Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc (via `locked-edit.sh` per `_shared-rules.md` §5), or as a dated Tickler item where no suitable section exists.
+   - Before routing, ensure each Big Rock / Long Pole / priority has either an existing project action section or a user-supplied surfacing date. In auto-generate mode, unresolved dates belong in the consolidated validation block; never invent one.
+   - **Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc via `locked-edit.sh`. If no suitable project section exists, write it to the user-supplied date in Tickler via `write-tickler.sh`. If the text carries a deadline token, `_shared-rules.md` §18 applies: the project doc alone is an undated sink, so also create a dated Tickler backstop.
    - **Kill List / Stop Doing** → act on in-session: propose the `03 Projects/Cold/` moves and list `/complete-project` candidates for the user to confirm. Don't leave them as prose commitments that route nowhere.
+
+   **Routing is an upsert.** Key every routed line by its normalised description. Its provenance marker must be the exact `[[06 Archive/Quarterly Reviews/<REVIEW_BASENAME>]]` backlink. Search the destination first; a match carrying any backlink in the same `YYYY-QN[a-z]?` review family is the same action, so update its text/backlink through the owning locked writer rather than appending. Otherwise create it once. A same-quarter rerun never appends a duplicate action.
 
 12. **Skill self-review (explicit instantiation of `_shared-rules.md` §8 / `_skill-monitor.md`).**
     This command runs ~4×/year, so the implicit skill-monitor watch is easy to skip. Before the final display, run the §8 / `_skill-monitor.md` review against this run end-to-end — did any step misfire, produce noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.
@@ -173,7 +190,7 @@ When listing weekly reviews, preserve each file's exact name including any colli
 13. **Display confirmation:**
 
 ```
-✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/YYYY-QN.md
+✓ Quarterly review saved to: 06 Archive/Quarterly Reviews/<REVIEW_BASENAME>.md
 ✓ Quarterly-hygiene report: [folded in / folded in (stale — YYYY-QN) / not found — run /quarterly-hygiene]
 ✓ Direction.md: [N sections updated / no changes]
 ✓ Skill self-review: [no gaps / N observations logged]
