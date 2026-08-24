@@ -61,8 +61,6 @@ Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
 
 Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it). `## Current Objective` and `## Next Actions` are useful defaults for substantial projects, not required schema; preserve a project's existing structure when it expresses current state and actions another way. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. For the active landscape, list the root and read the docs — there is no rendered dashboard (the root listing is the view).
 
-**This Week cap: 30/week binding, 10/day shape** (defaults — tune here; skills treat this section as the SSOT).
-
 **Active project cap: 5** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
 
 **Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
