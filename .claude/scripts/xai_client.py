@@ -47,7 +47,7 @@ FAST = "grok-4.20-0309-non-reasoning"   # hot paths: fastest, zero reasoning tok
 WORKHORSE = "grok-4.3"                  # high-volume analysis, 1M ctx
 DEEP = "grok-4.6"                       # best reasoning, 500k ctx (verified on /v1/models 2026-08-14)
 
-DEFAULT_TIMEOUT = 300.0   # xhigh reasoning can think >90s before the first byte
+DEFAULT_TIMEOUT = 1200.0   # xhigh reasoning can think >90s before the first byte
 MAX_RETRIES = 3           # 429 / 5xx only; never retry a 4xx that isn't 429
 
 # Cap the inlined appendix well under the >200k-token tier, where xAI doubles the
