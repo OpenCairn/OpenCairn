@@ -97,7 +97,7 @@ Quick parked.
 [Short session summary.]
 ```
 
-(b) **Classify first; inspect proportionally.** Display one class and its coverage for every created or edited artefact:
+(b) **Classify first; inspect proportionally.** Display one class and its coverage for every created or edited artefact. Before classifying, inspect any schema-2 JSON files under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/${CLAUDE_CODE_SESSION_ID}.project-move-receipts/`: add every `affected_files[].path` and `unverified_files[]` path to the inventory. Treat an affected file as mechanical only when its current hash matches `post_sha256`, its pre/post lint fingerprints match, its diff is complete, and the receipt records an exact link-target-only heal. Classify unverified or later-edited files ordinarily. This applies inside `06 Archive/`; never repair unrelated archive prose or inherited lint.
 
 - **Bounded semantic text** — session-authored prose/config/code of ordinary reviewable size: read it in full once. Mid-session direction changes can leave stale residue outside the edited span.
 - **Large semantic artefact** — a session-authored output where a full read is disproportionate: inspect the session delta, the surrounding structure needed to judge coherence, and outcome-specific rendered/tested regions. State exact pages, sections, line ranges or checks; do not claim whole-file coverage.

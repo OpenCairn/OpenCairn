@@ -146,7 +146,7 @@ Project completion complete. Well done.
 - Project stalled for 30+ days with no intent to resume
 
 **Don't use when:**
-- Project just on hold temporarily or revivable → move it to `03 Projects/Cold/` instead (folder is status; Cold = paused, not dead)
+- Project just on hold temporarily or revivable → use `$set-project-status [Project Name] cold` (folder is status; Cold = paused, not dead)
 - Waiting for external dependency
 - Will resume within weeks
 

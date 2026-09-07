@@ -590,6 +590,120 @@ def cmd_classify(args: argparse.Namespace) -> int:
     return 0
 
 
+def verify_move_heal(path: Path, vault: Path, proof: dict) -> dict:
+    failures: list[str] = []
+    if not path.is_file():
+        return {"ok": False, "failures": [f"file missing: {path}"]}
+    current_hash = sha256(path)
+    if current_hash != proof.get("post_sha256"):
+        failures.append("current file hash does not match the move-healing receipt")
+    if proof.get("diff_truncated"):
+        failures.append("move-healing receipt has a truncated diff")
+    destination = canonical_path(str(proof.get("destination", "")), vault)
+    target = target_check(str(destination), vault)
+    if not target["exists"]:
+        failures.append(f"move destination missing: {destination}")
+    if proof.get("pre_lint") != proof.get("post_lint"):
+        failures.append("link healing changed the file's lint fingerprint")
+    text = path.read_text(encoding="utf-8")
+    separator_clean = not SEP_RE.search(text)
+    if not separator_clean:
+        failures.append("stranded locked-edit separator line")
+    lint = lint_errors(text)
+    accepted_lint = lint if proof.get("pre_lint") == proof.get("post_lint") else []
+    return {
+        "ok": not failures,
+        "failures": failures,
+        "current_sha256": current_hash,
+        "replacements": [
+            {
+                "old": proof.get("source_locator"),
+                "new": proof.get("destination_locator"),
+                "old_count": 0,
+                "new_count": proof.get("healed_links", 0),
+            }
+        ],
+        "targets": [target],
+        "separator_clean": separator_clean,
+        "lint_clean": not lint,
+        "accepted_inherited_lint": accepted_lint,
+        "receipts": [
+            {
+                "path": proof.get("receipt_path"),
+                "mode": "obsidian-link-heal",
+                "pre_sha256": proof.get("pre_sha256"),
+                "post_sha256": proof.get("post_sha256"),
+                "pre_lint": proof.get("pre_lint"),
+                "post_lint": proof.get("post_lint"),
+                "changed_ranges": [],
+                "ranges_truncated": False,
+                "unified_diff": proof.get("unified_diff", ""),
+                "diff_truncated": proof.get("diff_truncated", False),
+            }
+        ],
+    }
+
+
+def cmd_import_move_heals(args: argparse.Namespace) -> int:
+    """Import link-target-only rewrites proved by locked Obsidian moves."""
+    sid, root, _, _ = state_paths(args.session_id)
+    vault = canonical_path(args.vault)
+    receipt_dir = root.parent / f"{sid}.project-move-receipts"
+    if not receipt_dir.is_dir():
+        print("MOVE_HEALS none")
+        return 0
+    manifest_path = root / "files.json"
+    manifest = load_json(manifest_path, {})
+    if not isinstance(manifest, dict):
+        die(f"invalid file manifest: {manifest_path}")
+
+    imported = 0
+    moves = 0
+    unverified = 0
+    for move_path in sorted(receipt_dir.glob("*.json")):
+        receipt = load_json(move_path, None)
+        if not isinstance(receipt, dict) or receipt.get("schema") != 2:
+            die(f"invalid project-move receipt: {move_path}")
+        if canonical_path(str(receipt.get("vault", ""))) != vault:
+            die(f"project-move receipt belongs to another vault: {move_path}")
+        destination = canonical_path(str(receipt.get("destination", "")), vault)
+        if not destination.is_file():
+            die(f"project-move destination is missing: {destination}")
+        moves += 1
+        unverified += len(receipt.get("unverified_files", []))
+        for item in receipt.get("affected_files", []):
+            if not isinstance(item, dict):
+                die(f"malformed affected-file row: {move_path}")
+            path = canonical_path(str(item.get("path", "")), vault)
+            proof = {
+                **item,
+                "receipt_path": str(move_path),
+                "destination": str(destination),
+                "source_locator": receipt.get("source_locator"),
+                "destination_locator": receipt.get("destination_locator"),
+            }
+            result = verify_move_heal(path, vault, proof)
+            if not result["ok"]:
+                die(
+                    f"move-healing proof failed for {path}: "
+                    + "; ".join(result["failures"])
+                )
+            manifest[str(path)] = {
+                "mode": "mechanical",
+                "mechanical_kind": "obsidian-link-heal",
+                "classified_at": now(),
+                "proof": proof,
+                "verification": result,
+            }
+            imported += 1
+    atomic_json(manifest_path, manifest)
+    print(
+        f"MOVE_HEALS imported {moves} move(s), {imported} link-healed file(s), "
+        f"{unverified} file(s) left for semantic review"
+    )
+    return 0
+
+
 def capture_record(
     root: Path,
     *,
@@ -1240,18 +1354,23 @@ def cmd_build(args: argparse.Namespace) -> int:
             )
             continue
         if isinstance(classification, dict) and classification.get("mode") == "mechanical":
-            verification = verify_mechanical(
-                path,
-                vault,
-                classification.get("replacements", []),
-                classification.get("targets", []),
-                receipt_root,
-                allow_inherited_lint=bool(
-                    classification.get("verification", {}).get(
-                        "accepted_inherited_lint"
-                    )
-                ),
-            )
+            if classification.get("mechanical_kind") == "obsidian-link-heal":
+                verification = verify_move_heal(
+                    path, vault, classification.get("proof", {})
+                )
+            else:
+                verification = verify_mechanical(
+                    path,
+                    vault,
+                    classification.get("replacements", []),
+                    classification.get("targets", []),
+                    receipt_root,
+                    allow_inherited_lint=bool(
+                        classification.get("verification", {}).get(
+                            "accepted_inherited_lint"
+                        )
+                    ),
+                )
             if not verification["ok"]:
                 die(
                     f"mechanical verification is stale for {path}: "
@@ -1760,6 +1879,13 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     classify.set_defaults(func=cmd_classify)
+
+    import_heals = subparsers.add_parser(
+        "import-move-heals",
+        help="verify and import link healing from current-session move receipts",
+    )
+    import_heals.add_argument("--vault", required=True)
+    import_heals.set_defaults(func=cmd_import_move_heals)
 
     capture = subparsers.add_parser("capture", help="capture review evidence immediately")
     capture.add_argument(

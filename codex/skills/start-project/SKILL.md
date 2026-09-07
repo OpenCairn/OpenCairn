@@ -61,11 +61,10 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 - Check if `{VAULT}/03 Projects/Backlog/[Project Name].md` already exists
 - Check if `{VAULT}/03 Projects/Cold/[Project Name].md` already exists
 - Glob the vault for any other `[Project Name].md` — a completed project of the same name may live in `04 Areas/.../Archive/` or `06 Archive/`, and a basename collision breaks basename wikilinks elsewhere in the vault. Warn on any hit.
-- If exists, warn and ask if they want to:
-  - Resume existing project
-  - Create with different name
-  - **Finish a half-done creation** — hub file exists but the initiative backlink or resources folder is missing, the signature of an earlier run that failed partway. Create only the missing artefacts; don't rewrite what's there.
-  - Abort
+- If an exact-name project exists, make the choices location-sensitive:
+  - Root → continue the active project; if its initiative backlink or resources folder is missing, offer to finish only those missing artefacts.
+  - `Cold/` or `Backlog/` → offer to activate it via `$set-project-status [Project Name] active`.
+  - Elsewhere in the vault → offer a different name or abort. Restoring a completed project is a separate workflow.
 
 ### 4. Create project file
 
@@ -205,4 +204,3 @@ If unsure whether something is a project or a task: if it needs multiple session
 - **Initiatives:** Linked bidirectionally for navigation
 - **Session summaries:** Session History section captures all work
 - **complete-project:** Eventual counterpart to route the doc out of the root when done
-

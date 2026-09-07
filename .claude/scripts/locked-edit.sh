@@ -74,7 +74,7 @@ case "$MODE" in
         ;;
     --move)
         if [ $# -ne 4 ]; then
-            echo "--move requires destination and expected source SHA-256" >&2
+            echo "$MODE requires destination and expected source SHA-256" >&2
             exit 1
         fi
         MOVE_DESTINATION="$3"
@@ -100,6 +100,7 @@ if [ "$MODE" = "--move" ]; then
 
     MOVE_META="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move.XXXXXX")"
     MOVE_REFS="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-refs.XXXXXX")"
+    MOVE_SNAPSHOT="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-snapshot.XXXXXX")"
     _MOVE_LOCK_MODE=""
     _MOVE_LOCK_DIR_1=""
     _MOVE_LOCK_DIR_2=""
@@ -117,7 +118,7 @@ if [ "$MODE" = "--move" ]; then
 
     _move_cleanup() {
         _move_unlock_pair
-        rm -f "$MOVE_META" "$MOVE_REFS"
+        rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT"
     }
     trap '_move_cleanup' EXIT
 
@@ -163,10 +164,7 @@ if not source.is_file():
 destination_input = input_path(os.environ["_LE_MOVE_DESTINATION"])
 if destination_input.exists() or destination_input.is_symlink():
     fail("Move destination already exists: %s" % destination_input)
-try:
-    destination_parent = destination_input.parent.resolve(strict=True)
-except FileNotFoundError:
-    fail("Move destination directory does not exist: %s" % destination_input.parent)
+destination_parent = destination_input.parent.resolve(strict=False)
 destination = destination_parent / destination_input.name
 
 try:
@@ -195,6 +193,7 @@ PY
         IFS= read -r MOVE_DESTINATION_REL
     } < "$MOVE_META"
 
+    mkdir -p "$(dirname "$MOVE_DESTINATION_ABS")"
     MOVE_SOURCE_LOCK="$(_lock_path_for "$MOVE_SOURCE_ABS")"
     MOVE_DESTINATION_LOCK="$(_lock_path_for "$MOVE_DESTINATION_ABS")"
     if [ "$MOVE_SOURCE_LOCK" \< "$MOVE_DESTINATION_LOCK" ]; then
@@ -312,6 +311,64 @@ if active != expected:
     raise SystemExit(1)
 PY
 
+    # Snapshot only Markdown files that currently link to the source. After
+    # the move, this lets $park prove Obsidian changed link targets and nothing
+    # else without rereading every healed file as semantic work.
+    export _LE_MOVE_SNAPSHOT="$MOVE_SNAPSHOT"
+    "$PYTHON_BIN" - <<'PY'
+import base64, json, os, pathlib, posixpath, re
+from urllib.parse import unquote, urlsplit
+
+vault = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).resolve(strict=True)
+source_rel = os.environ["_LE_MOVE_SOURCE_REL"]
+source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
+
+def normalise_wiki(target):
+    target = unquote(target.split("|", 1)[0].split("#", 1)[0].strip()).lstrip("/")
+    return target[:-3] if target.lower().endswith(".md") else target
+
+def normalise_markdown(target, note_rel):
+    target = target.strip()
+    if target.startswith("<") and ">" in target:
+        target = target[1:target.index(">")]
+    else:
+        target = target.split(None, 1)[0]
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc:
+        return None
+    path = unquote(parsed.path).replace("\\", "/")
+    if path.startswith("/"):
+        return posixpath.normpath(path.lstrip("/"))
+    return posixpath.normpath(posixpath.join(posixpath.dirname(note_rel), path))
+
+items = []
+for note in vault.rglob("*.md"):
+    note_rel = note.relative_to(vault).as_posix()
+    if any(part.startswith(".") for part in pathlib.PurePosixPath(note_rel).parts):
+        continue
+    try:
+        raw = note.read_bytes()
+        text = raw.decode("utf-8")
+    except (OSError, UnicodeError):
+        continue
+    found = any(
+        "/" in normalise_wiki(match.group(1))
+        and normalise_wiki(match.group(1)) == source_no_ext
+        for match in re.finditer(r"\[\[([^\]]+)\]\]", text)
+    )
+    if not found:
+        found = any(
+            normalise_markdown(match.group(1), note_rel) in (source_rel, source_no_ext)
+            for match in re.finditer(r"\]\(([^)]+)\)", text)
+        )
+    if found:
+        items.append({"path": note_rel, "bytes": base64.b64encode(raw).decode("ascii")})
+
+with open(os.environ["_LE_MOVE_SNAPSHOT"], "w", encoding="utf-8", newline="\n") as handle:
+    json.dump(items, handle, ensure_ascii=False)
+    handle.write("\n")
+PY
+
     # Obsidian's exit status is not a reliable indication of whether its
     # asynchronous move landed. Verification below is the authority.
     "$PYTHON_BIN" - "$OBSIDIAN_CALL_TIMEOUT_SECONDS" "$OBSIDIAN_BIN" \
@@ -427,9 +484,178 @@ PY
         exit 1
     fi
 
+    # Structural moves bypass the ordinary content-edit tail below. Record the
+    # endpoints plus each file whose observed delta is provably link healing.
+    _LE_SID="$(_session_id)"
+    if [ -n "$_LE_SID" ]; then
+        _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
+        mkdir -p "$_LEDGER_DIR" 2>/dev/null || true
+        {
+            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-source" "$MOVE_SOURCE_ABS" "?"
+            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-destination" "$MOVE_DESTINATION_ABS" "?"
+        } >> "$_LEDGER_DIR/$_LE_SID.tsv" 2>/dev/null || true
+        _MOVE_RECEIPT_DIR="$_LEDGER_DIR/$_LE_SID.project-move-receipts"
+        mkdir -p "$_MOVE_RECEIPT_DIR" 2>/dev/null || true
+        export _LE_MOVE_RECEIPT_DIR="$_MOVE_RECEIPT_DIR"
+        export _LE_MOVE_LEDGER="$_LEDGER_DIR/$_LE_SID.tsv"
+        _LE_MOVE_RECEIPT_PATH="$("$PYTHON_BIN" - <<'PY' 2>/dev/null || true
+import base64, datetime, difflib, hashlib, json, os, pathlib, posixpath, re, tempfile
+from urllib.parse import unquote, urlsplit
+
+root = pathlib.Path(os.environ["_LE_MOVE_RECEIPT_DIR"])
+vault = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).resolve(strict=True)
+source_abs = pathlib.Path(os.environ["_LE_MOVE_SOURCE_ABS"])
+destination_abs = pathlib.Path(os.environ["_LE_MOVE_DESTINATION_ABS"])
+source_rel = os.environ["_LE_MOVE_SOURCE_REL"]
+destination_rel = os.environ["_LE_MOVE_DESTINATION_REL"]
+source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
+destination_no_ext = destination_rel[:-3] if destination_rel.lower().endswith(".md") else destination_rel
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def lint_fingerprint(text):
+    joined = len(re.findall(r"[^\s=`]- \[[ x]\]", text))
+    blank_runs = 0
+    blanks = 0
+    for line in text.splitlines():
+        if line.strip():
+            blanks = 0
+        else:
+            blanks += 1
+            if blanks == 3:
+                blank_runs += 1
+    return [f"joined-list-count:{joined}", f"blank-run-count:{blank_runs}"]
+
+def normalise_wiki(target):
+    target = unquote(target.strip()).lstrip("/")
+    return target[:-3] if target.lower().endswith(".md") else target
+
+def normalise_markdown(target, note_rel):
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc:
+        return None
+    path = unquote(parsed.path).replace("\\", "/")
+    if path.startswith("/"):
+        return posixpath.normpath(path.lstrip("/"))
+    return posixpath.normpath(posixpath.join(posixpath.dirname(note_rel), path))
+
+LINK_RE = re.compile(r"\[\[([^\]]+)\]\]|(!?\[[^\]\n]*\]\()([^)\n]+)(\))")
+
+def skeleton(text, note_rel, wanted):
+    pieces = []
+    cursor = 0
+    healed = 0
+    for match in LINK_RE.finditer(text):
+        pieces.append(text[cursor:match.start()])
+        if match.group(1) is not None:
+            inner = match.group(1)
+            locator, marker, alias = inner.partition("|")
+            path, anchor_mark, anchor = locator.partition("#")
+            if normalise_wiki(path) == wanted:
+                path = "<OPENCAIRN-MOVED-TARGET>"
+                healed += 1
+            rebuilt = path + (anchor_mark + anchor if anchor_mark else "")
+            if marker:
+                rebuilt += marker + alias
+            pieces.append("[[" + rebuilt + "]]" )
+        else:
+            raw = match.group(3)
+            if raw.startswith("<") and ">" in raw:
+                end = raw.index(">")
+                target, prefix, suffix = raw[1:end], "<", raw[end:]
+            else:
+                token = re.match(r"(\S+)(.*)", raw, re.DOTALL)
+                target, prefix, suffix = token.group(1), "", token.group(2)
+            if normalise_markdown(target, note_rel) in (wanted, wanted + ".md"):
+                parsed = urlsplit(target)
+                target = "<OPENCAIRN-MOVED-TARGET>"
+                if parsed.query:
+                    target += "?" + parsed.query
+                if parsed.fragment:
+                    target += "#" + parsed.fragment
+                healed += 1
+            pieces.append(match.group(2) + prefix + target + suffix + match.group(4))
+        cursor = match.end()
+    pieces.append(text[cursor:])
+    return "".join(pieces), healed
+
+snapshots = json.loads(pathlib.Path(os.environ["_LE_MOVE_SNAPSHOT"]).read_text(encoding="utf-8"))
+verified = []
+unverified = []
+ledger_paths = []
+for item in snapshots:
+    before_rel = item["path"]
+    after_rel = destination_rel if before_rel == source_rel else before_rel
+    after_path = vault / after_rel
+    ledger_paths.append(str(after_path))
+    try:
+        before_bytes = base64.b64decode(item["bytes"], validate=True)
+        after_bytes = after_path.read_bytes()
+        before_text = before_bytes.decode("utf-8")
+        after_text = after_bytes.decode("utf-8")
+    except (OSError, UnicodeError, ValueError):
+        unverified.append(after_rel)
+        continue
+    before_shape, before_count = skeleton(before_text, before_rel, source_no_ext)
+    after_shape, after_count = skeleton(after_text, after_rel, destination_no_ext)
+    if before_count < 1 or before_count != after_count or before_shape != after_shape:
+        unverified.append(after_rel)
+        continue
+    unified = "".join(difflib.unified_diff(
+        before_text.splitlines(keepends=True),
+        after_text.splitlines(keepends=True),
+        fromfile=before_rel,
+        tofile=after_rel,
+        n=2,
+    ))
+    verified.append({
+        "path": after_rel,
+        "pre_sha256": sha(before_bytes),
+        "post_sha256": sha(after_bytes),
+        "healed_links": before_count,
+        "pre_lint": lint_fingerprint(before_text),
+        "post_lint": lint_fingerprint(after_text),
+        "unified_diff": unified[:65536],
+        "diff_truncated": len(unified) > 65536,
+    })
+
+payload = {
+    "schema": 2,
+    "captured_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
+    "mode": "--move",
+    "vault": str(vault),
+    "source": str(source_abs),
+    "destination": str(destination_abs),
+    "source_locator": source_no_ext,
+    "destination_locator": destination_no_ext,
+    "content_sha256": os.environ["_LE_MOVE_EXPECTED"],
+    "affected_files": verified,
+    "unverified_files": unverified,
+}
+fd, tmp = tempfile.mkstemp(prefix=".move.", dir=root)
+with os.fdopen(fd, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, ensure_ascii=False, indent=2)
+    handle.write("\n")
+path = root / ("move-" + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:20] + ".json")
+os.replace(tmp, path)
+stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+with open(os.environ["_LE_MOVE_LEDGER"], "a", encoding="utf-8") as ledger:
+    for affected in ledger_paths:
+        ledger.write(f"{stamp}\tobsidian-link-heal\t{affected}\t?\n")
+print(path)
+PY
+        )"
+        if [ -n "$_LE_MOVE_RECEIPT_PATH" ]; then
+            echo "Move receipt: $_LE_MOVE_RECEIPT_PATH"
+        fi
+        unset _LE_MOVE_RECEIPT_DIR
+        unset _LE_MOVE_LEDGER
+    fi
+
     _move_unlock_pair
     trap - EXIT
-    rm -f "$MOVE_META" "$MOVE_REFS"
+    rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT"
     echo "Locked move applied: $MOVE_SOURCE_ABS -> $MOVE_DESTINATION_ABS"
     exit 0
 fi

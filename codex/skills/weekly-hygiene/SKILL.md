@@ -48,12 +48,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - A project's tier IS its folder — there is no separate dashboard to reconcile. Flag folder mismatches: root docs that look dead (step 1's staleness candidates), and Cold/ docs that look active (open dated commitments, or content contradicting "paused")
 
    **Confirm with user:**
-   - Move mismatched docs to the folder matching their actual state (dead-looking root doc → `Cold/` or `$complete-project`; active-looking Cold/ doc → root)
+   - Route confirmed pauses and resumptions through `$set-project-status`; route completed or abandoned projects through `$complete-project`
    - Completed/abandoned projects with reference value → `04 Areas/[Area]/Archive/`; revivable-someday → `03 Projects/Cold/`. `06 Archive/` holds immutable write-once records only — never park project files there.
 
    **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move? → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under an existing task/action section, else Tickler +7 days.
-
-   **After any file moves:** Grep for the old path (`[[03 Projects/Old Name]]`) in live vault files (exclude `06 Archive/` and `.stversions/`). Triage each hit per `_shared-rules.md §12` (grep-hit triage): fix stale wikilinks/locators in non-archive files; leave archive/session-log references as historical records; for a hash/provenance-log path, update the locator on the move, never the content hash/timestamp/proof.
 
 3. **Tickler Hygiene**
 

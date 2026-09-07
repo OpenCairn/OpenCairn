@@ -318,7 +318,7 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
 
 7. **Update project docs** (if needed):
    - **Write mechanism (F1):** apply these edits through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5).
-   - Status changes from the review go to the relevant project doc in `03 Projects/` — update its existing current-state/action content, preserving the document's structure; a pause or resume is a folder move (root ↔ `Cold/`), not a status line
+   - Status changes from the review go to the relevant project doc in `03 Projects/` — update its existing current-state/action content, preserving the document's structure; route a confirmed pause or resume through `/set-project-status`, not a status line
    - New projects that emerged this week get a doc (via `/start-project`)
 
 8. **Generate Claude Web context summary:**

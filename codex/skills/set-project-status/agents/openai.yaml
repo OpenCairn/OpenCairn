@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set Project Status"
+  short_description: "Move a project between active, Cold, and Backlog"
+  default_prompt: "Use $set-project-status to change this project’s lifecycle state."

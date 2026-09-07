@@ -209,6 +209,7 @@ Release tags from `v0.7.13` onward are SSH-signed annotated tags. Pinned updates
 | Skill | What it does |
 |---------|-------------|
 | `/start-project` | Creates a new project doc (bucket frontmatter, Current Objective, Next Actions) in the `03 Projects/` root, where creation is registration. Optionally links to initiatives. Args: project name, `--initiative=NAME`, `--backlog`. |
+| `/set-project-status` | Moves an existing project among active, Cold and Backlog through Obsidian's link-healing move. Args: project name and `active`, `cold` or `backlog`. |
 | `/complete-project` | Formally archives a completed/abandoned/superseded project. Moves the project doc out of the `03 Projects/` root to the Area's `Archive/`, logs completion. Args: optional project name. |
 
 **Reviews:**
