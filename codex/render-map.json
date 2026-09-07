@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "55b5c831575d9611a5025217cc5238bace6b6bb8ca626c684950ea41896aed1f",
-      "render_sha256": "534e2a94db6b3bc44871d7496daee2744679412a2a4a3a09a0f32e3b034d62cd"
+      "source_sha256": "322c96b81bf66ff4433026fe02b40f4e0de0ca2ce60a7fe6c558a815ad8861c4",
+      "render_sha256": "aed583706fc775e28fa1870c8e1720c04771a0fcd0776da81e253f89f978d8eb"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
