@@ -113,6 +113,14 @@ Quick parked.
 
 (b) **Classify each attributed file before reading it again:**
 
+First import link-healing receipts from any locked Obsidian move in this session:
+
+```bash
+python3 "$PARK_REVIEW" import-move-heals --vault "{VAULT}"
+```
+
+This validates each receipt's exact link-target-only delta and current hash, then pre-classifies healed files as mechanical, including files under `06 Archive/`. Inherited lint is accepted only when its fingerprint is unchanged. Mixed or later-edited files remain subject to ordinary classification; the move destination itself does too unless its only content delta was link healing. Treat an import failure as a quality-gate failure and never repair unrelated archive prose or lint.
+
 - `semantic` — session-authored, substantively rewritten, or otherwise meaning-bearing. A bounded file uses `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --semantic --reason "<created|substantive>"` and receives one full coherence read at Step 4c. For a large artefact where that is disproportionate, add `--targeted --inspection-target "<page/section/line range or outcome-specific check>"` (repeat as needed); Step 4c reviews only that delta-plus-context coverage.
 - `reference` — a local manual, textbook, paper, dataset or other source copied/downloaded but not authored this session. Register it with `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --reference --reason "<why retained>"`, adding `--inspection-target "<passage or claim actually used>"` for each source-dependent claim. The shared `park-artifact.py` helper creates a hash-bound source snapshot, metadata and text index in the cross-session/cross-lane `.park-artifacts` cache; extraction is not a whole-source read attestation. A reference with no source-dependent session claim needs identity/metadata verification only.
 - `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic; choose bounded-full or targeted coverage by the artefact rules above. If and only if lint predates an otherwise exact mechanical delta, rerun that classification with `--allow-inherited-lint`; the receipt records the exception for the verifier's exact-path gate.

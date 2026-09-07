@@ -1,6 +1,7 @@
 import hashlib
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import textwrap
@@ -13,9 +14,12 @@ SCRIPT = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
 
 MOCK_OBSIDIAN = r"""#!/usr/bin/env python3
 import os
+import posixpath
 from pathlib import Path
+import re
 import sys
 import time
+from urllib.parse import quote, unquote, urlsplit
 
 args = sys.argv[1:]
 vault = Path(os.environ["VAULT_PATH"])
@@ -37,6 +41,9 @@ if args == ["version"]:
 if args == ["vault", "info=path"]:
     print(os.environ.get("MOCK_ACTIVE_VAULT", str(vault)))
     raise SystemExit(0)
+if args == ["unresolved", "total"]:
+    print("0")
+    raise SystemExit(0)
 if args and args[0] == "move":
     values = dict(item.split("=", 1) for item in args[1:])
     source_rel = values["path"]
@@ -56,8 +63,40 @@ if args and args[0] == "move":
     old_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
     new_no_ext = destination_rel[:-3] if destination_rel.lower().endswith(".md") else destination_rel
     for note in vault.rglob("*.md"):
+        note_rel = note.relative_to(vault).as_posix()
         text = note.read_text(encoding="utf-8")
-        updated = text.replace(old_no_ext, new_no_ext).replace(source_rel, destination_rel)
+        def wiki(match):
+            inner = match.group(1)
+            locator, marker, alias = inner.partition("|")
+            path, anchor_mark, anchor = locator.partition("#")
+            normalised = unquote(path).removeprefix("/")
+            if normalised.lower().endswith(".md"):
+                normalised = normalised[:-3]
+            if normalised != old_no_ext:
+                return match.group(0)
+            suffix = (anchor_mark + anchor if anchor_mark else "") + (marker + alias if marker else "")
+            return "[[" + new_no_ext + suffix + "]]"
+        updated = re.sub(r"\[\[([^\]]+)\]\]", wiki, text)
+        def markdown(match):
+            raw = match.group(1)
+            token = re.match(r"(\S+)(.*)", raw, re.DOTALL)
+            target, suffix = token.group(1), token.group(2)
+            parsed = urlsplit(target)
+            resolved = posixpath.normpath(
+                posixpath.join(posixpath.dirname(note_rel), unquote(parsed.path))
+            )
+            if resolved != source_rel:
+                return match.group(0)
+            replacement = quote(
+                posixpath.relpath(destination_rel, posixpath.dirname(note_rel) or "."),
+                safe="/.",
+            )
+            if parsed.query:
+                replacement += "?" + parsed.query
+            if parsed.fragment:
+                replacement += "#" + parsed.fragment
+            return "](" + replacement + suffix + ")"
+        updated = re.sub(r"\]\(([^)]+)\)", markdown, updated)
         if updated != text:
             note.write_text(updated, encoding="utf-8")
     raise SystemExit(0)
@@ -78,6 +117,7 @@ class LockedEditMoveTests(unittest.TestCase):
         self.obsidian = self.bin_dir / "obsidian"
         self.obsidian.write_text(textwrap.dedent(MOCK_OBSIDIAN), encoding="utf-8")
         self.obsidian.chmod(0o755)
+        self.config = self.root / "config"
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
@@ -88,6 +128,8 @@ class LockedEditMoveTests(unittest.TestCase):
             {
                 "VAULT_PATH": str(self.vault),
                 "OBSIDIAN_CLI": str(self.obsidian),
+                "CLAUDE_CONFIG_DIR": str(self.config),
+                "OPENCAIRN_SESSION_ID": "locked-move-test",
                 "LOCKED_EDIT_MOVE_TIMEOUT_SECONDS": "1",
                 "LOCKED_EDIT_OBSIDIAN_CALL_TIMEOUT_SECONDS": "1",
             }
@@ -100,13 +142,18 @@ class LockedEditMoveTests(unittest.TestCase):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
     def run_move(
-        self, source: Path, destination: Path, expected: str | None = None, **env: str
+        self,
+        source: Path,
+        destination: Path,
+        expected: str | None = None,
+        mode: str = "--move",
+        **env: str,
     ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [
                 str(SCRIPT),
                 str(source),
-                "--move",
+                mode,
                 str(destination),
                 expected or self.digest(source),
             ],
@@ -135,6 +182,28 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertEqual(
             reference.read_text(encoding="utf-8"),
             "[[New/Incident]]\n[incident](New/Incident.md)\n",
+        )
+
+    def test_heals_encoded_wikilinks_and_relative_markdown_links(self) -> None:
+        source = self.vault / "Old" / "My Incident.md"
+        destination = self.vault / "New" / "My Incident.md"
+        source.write_text("incident body\n", encoding="utf-8")
+        notes = self.vault / "Notes"
+        notes.mkdir()
+        reference = notes / "Reference.md"
+        reference.write_text(
+            "[[Old/My%20Incident#Heading|case]]\n"
+            "[case](../Old/My%20Incident.md#Heading)\n",
+            encoding="utf-8",
+        )
+
+        result = self.run_move(source, destination)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            reference.read_text(encoding="utf-8"),
+            "[[New/My Incident#Heading|case]]\n"
+            "[case](../New/My%20Incident.md#Heading)\n",
         )
 
     def test_refuses_destination_collision(self) -> None:

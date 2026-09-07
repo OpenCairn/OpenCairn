@@ -15,7 +15,7 @@ This vault uses a seven-folder structure called NIPARAS:
 | **03 Projects** | Discrete sprints with end states | "Launch website", "Plan trip", "Learn X" |
 | **04 Areas** | Domains of life (with nested resources). Each area has `Archive/` subfolder for completed area-owned projects | Health, Finances, Photography, Worldview |
 | **05 Resources** | Generic scrapbook, pre-emergence staging | Journal, recipes, screenshots, misc |
-| **06 Archive** | Immutable write-once records only — dated, append-only, never edited after writing | Session transcripts/logs, daily/weekly reports, scans, snapshots |
+| **06 Archive** | Immutable records — dated, append-only, with automatic link-target healing allowed | Session transcripts/logs, daily/weekly reports, scans, snapshots |
 | **07 System** | Meta-documentation | This file, context files, vault config |
 
 ### The Key Distinction: Projects vs Areas
@@ -53,9 +53,13 @@ Related files live in the relevant Area folder (e.g., travel files in `04 Areas/
 ```
 Idea emerges     → 03 Projects/Backlog/Project Name.md
 Becomes active   → 03 Projects/Project Name.md
+Paused           → 03 Projects/Cold/Project Name.md
+Reactivated      → 03 Projects/Project Name.md
 Completes        → 04 Areas/<area>/Archive/Project Name.md   (if area-owned)
                     04 Areas/<dominant area>/Archive/         (if cross-cutting: pick the dominant area)
 ```
+
+Use `$set-project-status` to move among Backlog, active and Cold. Obsidian heals navigational links in non-hidden Markdown notes throughout the vault; completion uses `$complete-project`.
 
 ## Project Doc Format
 
@@ -64,6 +68,8 @@ Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonom
 **Active project cap: 5** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
 
 **Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
+
+**Archive immutability is semantic, not byte-for-byte.** Never deliberately revise archived prose, decisions, formatting or timestamps. Automatic Obsidian link-target healing after a move is allowed because it preserves navigation rather than changing the historical record. If an old path is itself evidence, write it as plain text or code rather than as a navigational link.
 
 **Project page threshold:** If it'll take more than one session, it gets a project page. Single-session tasks live as This Week / Tickler items without a dedicated page.
 
