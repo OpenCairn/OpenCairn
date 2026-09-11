@@ -58,7 +58,10 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`$weekly-hygiene` 13b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
    - **Identify candidates once, partitioned by collision** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat log whose destination year folder already holds that basename is a **duplicate**, not a move candidate. Persist the exact result outside the vault and reuse it for the dry-run, confirmation, move/drag set and report — never recompute after confirmation. Keep the snippet free of bare dollar-digit awk fields so its Claude sibling is not mangled by the slash-command loader; ISO date names make plain string comparison correct:
      ```bash
-     CUTOFF=$(date -d "90 days ago" +%F)   # BSD/macOS: date -v-90d +%F
+     CUTOFF=$(date -d "90 days ago" +%F 2>/dev/null \
+       || date -v-90d +%F 2>/dev/null \
+       || python3 -c "from datetime import datetime,timedelta; print((datetime.now()-timedelta(days=90)).strftime('%Y-%m-%d'))")
+     [ -n "$CUTOFF" ] || { echo "ABORT: could not derive the 90-day cutoff" >&2; exit 1; }
      LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
      ARCHIVE_PLAN=$(mktemp -t quarterly-hygiene-archive.XXXXXX)
      ls -1 "$LOGS" | rg '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
@@ -204,7 +207,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 - **No re-doing weekly-hygiene.** Broken links, orphans, dead-ends, tier reconciliation, temporal context-staleness — all weekly's job. This command reads weekly's report; it does not re-scan.
 - **User confirmation for context files and CRM.** High-trust; wrong corrections beat stale content only if the user supplied them. Never infer an update.
 - **Bound tree-walk cost on the vault — don't ban tools by name.** The expensive case is reading *content* across untracked mass (an unbounded `--no-ignore` sweep at the vault root, an unfiltered `grep -r`); an ignore-respecting `rg` or a metadata-only `find` usually is not. Structural queries still route to the Obsidian CLI. Check the vault's search-routing doc for the permitted/prohibited split before assuming any tool is barred outright.
-- **Portability note.** `date -d` is GNU-only — on macOS/BSD substitute `date -v-90d +%F` (same caveat family as weekly-hygiene's Guidelines).
+- **Portability note.** `date -d` is GNU-only. Date arithmetic must use an explicit GNU → BSD → Python fallback chain and abort if every implementation fails; a commented alternative beside a failing command is not a fallback (same caveat family as weekly-hygiene's Guidelines).
 - **Report is consumable.** `$quarterly-review` reads this report so findings flow into the strategic review without re-gathering — the same contract `$weekly-review` has with `$weekly-hygiene`.
 
 ## Frequency
