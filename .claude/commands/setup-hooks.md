@@ -72,16 +72,20 @@ so never assign it once and reference it later.
    Accepted tokens are a set name (`skill-edit`, `park`, `all`) and/or `--remove`, in either
    order, nothing else; absent set name means `all`. Anything else — stop, tell the user the
    usage is `/setup-hooks [skill-edit|park|all] [--remove]`, and run nothing. Then check only
-   the scripts the selected set needs — checking all six would make `/setup-hooks park` fail
+   the scripts the selected set needs — checking every shipped hook script would make `/setup-hooks park` fail
    because a *skill-edit* script is missing, which defeats the point of independent sets.
-   They ship via `/update`; if absent, the user hasn't synced yet:
+   Each wiring script also sources `lib-lock.sh` so both sets serialise their
+   shared `settings.json` mutation. They ship via `/update`; if absent, the user
+   hasn't synced yet:
    ```bash
    # skill-edit set (run only if that set is selected)
    CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/skill-edit-marker.sh" \
-         "$CD/scripts/skill-edit-survey.sh" "$CD/scripts/wire-skill-edit-hook.sh" 2>&1
+         "$CD/scripts/skill-edit-survey.sh" "$CD/scripts/wire-skill-edit-hook.sh" \
+         "$CD/scripts/lib-lock.sh" 2>&1
    # park set (run only if that set is selected)
    CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/session-ledger.sh" \
-         "$CD/scripts/parboil-check.sh" "$CD/scripts/wire-park-hooks.sh" 2>&1
+         "$CD/scripts/parboil-check.sh" "$CD/scripts/wire-park-hooks.sh" \
+         "$CD/scripts/lib-lock.sh" 2>&1
    ```
    If any are missing, instruct the user to run `/update` first, then re-run `/setup-hooks`.
 
@@ -97,11 +101,10 @@ so never assign it once and reference it later.
    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-park-hooks.sh"
    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-park-hooks.sh" --remove
    ```
-   ⛔ **When both sets are selected, run the two scripts SEQUENTIALLY in one Bash call —
-   never as two parallel tool calls.** Neither script locks `settings.json`; each does
-   read → merge → atomic `mv`. Run concurrently they race, and the loser's hooks are lost
-   while **both** scripts print `Updated … Backup: …`, so step 4's reporting table cannot
-   detect it. Sequential execution is the whole mitigation.
+   **When both sets are selected, keep the documented sequential order.** Both scripts
+   now take the same canonical `settings.json` lock across read → merge → atomic `mv`, so
+   an accidental concurrent invocation waits instead of losing one set's hooks. Sequential
+   execution avoids needless lock contention and keeps the output order deterministic.
 
    Each script makes a timestamped backup, merges idempotently (no duplicates on re-run),
    validates the JSON before replacing, and prints the resulting `.hooks` block.

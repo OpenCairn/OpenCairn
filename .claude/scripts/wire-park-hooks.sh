@@ -23,6 +23,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+source "$SCRIPT_DIR/lib-lock.sh"
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "Error: jq is required but not found." >&2
   echo "Install: Debian/Ubuntu 'sudo apt install jq' | macOS 'brew install jq' | Fedora 'sudo dnf install jq'" >&2
@@ -42,12 +45,22 @@ SETTINGS="$CONFIG_DIR/settings.json"
 LEDGER_CMD="$CONFIG_DIR/scripts/session-ledger.sh"
 PARBOIL_CMD="$CONFIG_DIR/scripts/parboil-check.sh"
 
+# Both hook-wiring scripts mutate the same settings file. Hold its canonical
+# lock across creation, read, merge, validation, backup and atomic replacement.
+mkdir -p "$CONFIG_DIR"
+_lock "$(_lock_path_for "$SETTINGS")" 10
+TMP=""
+cleanup() {
+  [ -z "$TMP" ] || rm -f "$TMP"
+  _unlock
+}
+trap cleanup EXIT
+
 if [ ! -f "$SETTINGS" ]; then
   if [ "$MODE" = "remove" ]; then
     echo "No settings file at $SETTINGS — nothing to remove."
     exit 0
   fi
-  mkdir -p "$CONFIG_DIR"
   echo '{}' > "$SETTINGS"
   chmod 600 "$SETTINGS"
 fi
@@ -58,7 +71,6 @@ if ! jq -e . "$SETTINGS" >/dev/null 2>&1; then
 fi
 
 TMP=$(mktemp "${SETTINGS}.tmp.XXXXXX")
-trap 'rm -f "$TMP"' EXIT
 
 if [ "$MODE" = "add" ]; then
   jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" '
@@ -106,7 +118,7 @@ BACKUP="${SETTINGS}.bak-$(date +%Y%m%d-%H%M%S)"
 cp -p "$SETTINGS" "$BACKUP"
 chmod 600 "$TMP"
 mv "$TMP" "$SETTINGS"
-trap - EXIT
+TMP=""
 
 echo "Updated $SETTINGS ($MODE). Backup: $BACKUP"
 echo "--- hooks now: ---"
