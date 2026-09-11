@@ -172,7 +172,7 @@ Likely causes: the harness kills commands that exceed its execution timeout; und
 
 **Diagnostic:** re-run the failing command alone with a generous window; if it is a sandbox denial, the error names the blocked operation.
 
-**Remediation:** for a timeout, re-run and let it complete; for a sandbox denial, confirm the target path sits inside the workspace (launch Codex from `$HOME` — or any directory containing the vault — so the vault is covered) rather than working around the sandbox. A script killed mid-`locked-edit.sh` cannot half-write the target (the write is atomic via `os.replace`), and the lock releases with the dying process (flock is fd-scoped; the mkdir fallback's stale-lock recovery clears the rest) — so recovery is simply re-running the edit.
+**Remediation:** for a timeout, re-run and let it complete; for a sandbox denial, confirm the target path sits inside the workspace (launch Codex from `$HOME` — or any directory containing the vault — so the vault is covered) rather than working around the sandbox. A script killed mid-`locked-edit.sh` cannot half-write the target (the write is atomic via `os.replace`). `flock` releases with the dying process; the mkdir fallback deliberately does not auto-reap, so an abandoned directory must be verified against its `owner` metadata and removed by an operator before retrying.
 
 #### Section-targeted append patterns (when scripts are unavailable)
 

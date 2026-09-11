@@ -11,7 +11,7 @@
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
       "source_sha256": "c8cbfd67c17919a8d7f730ffd7c067d53bf3c58f0ba5acbd3213fee6c8b90d8d",
-      "render_sha256": "4b70ca68496bb9fb69f380d6ffc568aebdbda656353fa2dcbba0b406a340bab2"
+      "render_sha256": "d35f321b3dbbe073a435088df3581d3c7c28eebdd6031e2e92c478e49911996a"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
