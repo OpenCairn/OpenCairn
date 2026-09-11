@@ -160,9 +160,18 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'cat > /workspace/setup.sh' <<'SETUP'
 set -e
 apt-get update -qq && apt-get install -y -qq ffmpeg
 pip install -q 'numpy<2.0'
+# torch FIRST, from the PyTorch index. pyannote-audio depends on torch; if torch isn't already
+# satisfied, pip resolves the newest torch (multi-GB, plus nvidia-* libs) from PyPI — and PyPI's
+# CDN is slow from some pod hosts (~100-300 KB/s observed while download.pytorch.org gave 40 MB/s
+# on the same pod). With 2.4.1 pre-installed the constraint is satisfied and nothing is fetched.
+pip install -q torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124
+echo "TORCH_STAGE_OK $(python3 -c 'import torch; print(torch.__version__)')"
 pip install -q yt-dlp 'whisperx==3.4.2' --no-deps
 pip install -q 'faster-whisper==1.2.1' 'transformers==4.40.2' 'huggingface_hub==0.24.7' pandas nltk omegaconf 'pyannote-audio==3.3.2' matplotlib
-pip install -q torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-cache-dir
+echo "DEPS_STAGE_OK $(python3 -c 'import torch; print(torch.__version__)')"
+# Guard: if the dependency step bumped torch anyway, restore the pinned cu124 build (fast index).
+python3 -c 'import torch; assert torch.__version__.startswith("2.4.1")' 2>/dev/null || \
+  pip install -q torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall --no-cache-dir
 pip install -q 'ctranslate2>=4.5.0'
 echo INSTALL_OK
 SETUP
@@ -176,8 +185,9 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
 ```bash
 ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/setup.log; tail -n 20 /workspace/setup.log'
 ```
-- Final line `INSTALL_OK` → continue to step 2.
-- Log frozen with no `INSTALL_OK` → check the process is actually gone (`pgrep -af 'bash setup.sh'`) before calling it dead; a large wheel download is legitimately quiet for minutes. Process gone + no `INSTALL_OK` → read the tail for the failing line. `set -e` aborts on the first failure and pip re-runs are idempotent, so relaunching the same script after a kill or a fixed error resumes safely.
+- Final line `INSTALL_OK` → continue to step 2. `TORCH_STAGE_OK` / `DEPS_STAGE_OK` mark the stages; the torch stage should finish in ~1–2 min (fast index) and the deps stage is the one that varies with the host's PyPI throughput.
+- Log frozen with no `INSTALL_OK` → check the process is actually gone before calling it dead — `ps -eo pid,etime,args | grep 'bash setup.sh' | grep -v grep` (**not** `pgrep -f` / `pkill -f`: inside an SSH command the remote shell's own cmdline contains the pattern, so `pgrep -f` always "finds" a process and `pkill -f` kills your session with exit 255 while the target survives). `pip -q` is legitimately quiet for minutes on a large wheel. Process gone + no `INSTALL_OK` → read the tail for the failing line. `set -e` aborts on the first failure and pip re-runs are idempotent, so relaunching the same script after a kill or a fixed error resumes safely.
+- Deps stage slow → measure rather than guess: `du -sb /tmp /root/.cache/pip` twice, 30 s apart, gives the effective download rate, and `ls -t /tmp/pip-unpack-*/` shows which wheel is in flight. Under ~500 KB/s is a slow-PyPI host; the remaining deps are ~200 MB, so budget ~10–15 min and let it run — re-provisioning costs about the same with no guarantee of a better host. If a `torch*.whl` or `nvidia_*.whl` appears in the in-flight list, the torch-first ordering above was lost — kill pip by PID and relaunch.
 
 Over proxy SSH, wrap each call in the Phase 2 step 5 PTY form; a stdin-piped heredoc doesn't survive that wrapper, so transfer `setup.sh` with `runpodctl send` (Phase 4 pattern) instead of piping it.
 
@@ -258,13 +268,13 @@ The VAD load exercises the whisperx×pyannote×huggingface_hub glue that bare `i
 
 ### Phase 4: Get audio onto pod
 
-**For YouTube URLs (source type `youtube` or `mixed`):** run these **on the pod** via SSH (same transport as Phase 3) — not locally; downloading on the pod is the whole point (datacenter bandwidth, no transfer step):
+**For URLs (source type `youtube` or `mixed` — YouTube or any other yt-dlp-supported site, e.g. LinkedIn event replays, Vimeo):** run these **on the pod** via SSH (same transport as Phase 3) — not locally; downloading on the pod is the whole point (datacenter bandwidth, no transfer step):
 ```bash
 mkdir -p /workspace/audio
-yt-dlp -f "bestaudio[ext=m4a]/bestaudio" -x --audio-format mp3 --audio-quality 5 \
+yt-dlp -f "bestaudio[ext=m4a]/bestaudio/best" -x --audio-format mp3 --audio-quality 5 \
   -o "/workspace/audio/%(id)s.%(ext)s" [URLS...]
 ```
-**Critical:** the `-f "bestaudio[ext=m4a]/bestaudio"` flag is mandatory — without it, yt-dlp selects the best *video* stream and extracts audio afterwards, downloading e.g. 1.2 GB of video just to produce a 50 MB MP3. The `-x --audio-format mp3` alone does NOT constrain the download format.
+**Critical:** the `-f "bestaudio[ext=m4a]/bestaudio/best"` flag is mandatory — without it, yt-dlp selects the best *video* stream and extracts audio afterwards, downloading e.g. 1.2 GB of video just to produce a 50 MB MP3. The `-x --audio-format mp3` alone does NOT constrain the download format. The trailing `/best` is the fallback for sites that publish only muxed streams (LinkedIn event replays are HLS video+audio with no audio-only rendition): without it yt-dlp aborts with "Requested format is not available" instead of taking the muxed stream. YouTube still resolves to the audio-only rendition first.
 
 **Filename convention:** use `%(id)s.%(ext)s` (video ID), not `%(title)s.%(ext)s`. Titles often contain characters that break shell globs or are clickbait — the video ID is a stable identifier that makes post-processing easier. Preserve the original title in the output markdown metadata instead — and **persist the `id → title → URL → duration` mapping from Phase 1's inventory to a local file now** (e.g. `/tmp/yt-sources.json`): Phase 8's headers need the titles, and conversation context may not reliably carry them that far.
 
@@ -282,7 +292,7 @@ scp -i ~/.ssh/id_ed25519 -P PORT /tmp/yt-cookies.txt root@IP:/workspace/yt-cooki
 Then on the pod:
 ```bash
 yt-dlp --cookies /workspace/yt-cookies.txt --sleep-interval 3 --max-sleep-interval 8 \
-  -f "bestaudio[ext=m4a]/bestaudio" -x --audio-format mp3 -o "/workspace/audio/%(id)s.%(ext)s" [URLS...]
+  -f "bestaudio[ext=m4a]/bestaudio/best" -x --audio-format mp3 -o "/workspace/audio/%(id)s.%(ext)s" [URLS...]
 ```
 This keeps the "download on pod" architecture (fast datacenter bandwidth) while authenticating the requests.
 
@@ -306,6 +316,8 @@ If pod has exposed TCP SSH, use SCP (simpler, one-shot; the glob matches every e
 ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /workspace/audio'
 scp -i ~/.ssh/id_ed25519 -P PORT /path/to/audio/*.{mp3,m4a,wav,flac,ogg,opus} root@IP:/workspace/audio/
 ```
+
+**Measure the transfer before trusting it.** Residential uplinks can be two orders of magnitude slower than the pod's ingress (12 KB/s observed against a pod that downloaded at 40 MB/s). Sample the destination size on the pod twice, ~20 s apart (`stat -c %s /workspace/audio/<file>`), and compute the rate. If the ETA exceeds a few minutes and the file was itself downloaded from a URL, kill the scp and switch to the URL branch above — the pod fetches from the origin instead. For a login-gated origin, export cookies locally and **filter to that site's domain** before uploading (the Option 1 grep below with the site's domain in place of `youtube|google` — keep the `#HttpOnly_` alternate, the auth cookies are HttpOnly); the filtered file is a few KB, so its upload is instant. Without a URL, shrink the payload first (`ffmpeg -vn -ac 1 -ar 16000 -b:a 32k` — Whisper resamples to 16 kHz mono anyway) and accept the wait.
 
 Otherwise use `runpodctl send/receive` (works over proxy SSH too). `send` prints a one-time pairing code and **blocks until the receiver connects** — so run it detached, capture the code, then run `receive <code>` on the other side (don't try to hold two blocking foreground commands at once):
 ```bash
@@ -346,7 +358,7 @@ ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/transcrib
 The leading `wc -l` is the line count — compare it across consecutive polls to tell a *running* log (advancing) from a *dead* one (frozen). Classify each poll — **do not proceed to Phase 6 until you reach Success:**
 - **Success** — the log's final line is `Done.` → continue to Phase 6.
 - **Failure (crash)** — the log contains `Traceback (most recent call last)` → an unhandled exception (includes the diarisation `AssertionError`); stop, diagnose, don't retrieve. Match this specific marker, **not** a bare `Error` / `None` substring — benign output ("0 errors", "language: None") contains those and would false-trigger. On diarisation runs, if the traceback names a gated model / HF-auth / `401` / `403` / `None` pipeline, it's the missing-token failure — re-do Phase 3 steps 2 & 4 (the failure the Phase 3 note warns is easy to miss under `nohup`).
-- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. **Before declaring death, check the process is actually gone:** `pgrep -af 'python3 transcribe.py'` in the same SSH call — a live process + frozen log is *still running*, not dead. Two legitimate quiet windows: the first-run `large-v3` weight download (~3 GB, tqdm disabled) after the `Loading ASR model` line, and any single file's transcription, which emits nothing between its `[i/N] name...` line and its elapsed-time line. Process gone + stalled count = died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
+- **Failure (silent death)** — no `Traceback`, no `Done.`, but the line count has **not advanced** across ~2 consecutive polls. A SIGKILL/OOM (`Killed` prints to the now-exited launch shell, never the redirected log), a `SystemExit` abort (e.g. the no-audio-files guard), or an upstream-tool fatal all present as a *frozen* log with no marker. **Before declaring death, check the process is actually gone:** `ps -eo pid,etime,args | grep 'python3 transcribe.py' | grep -v grep` in the same SSH call (not `pgrep -f` — see the Phase 3 poll note on self-matching) — a live process + frozen log is *still running*, not dead. Two legitimate quiet windows: the first-run `large-v3` weight download (~3 GB, tqdm disabled) after the `Loading ASR model` line, and any single file's transcription, which emits nothing between its `[i/N] name...` line and its elapsed-time line. Process gone + stalled count = died → pull `tail -n 200`, diagnose; don't wait the full ceiling.
 - **Still running** — line count is **still advancing**, no `Done.` → keep polling. Hard ceiling `max(30 min, ~2× the Phase 1 runtime estimate)` as a final backstop.
 
 The script itself:
@@ -820,7 +832,8 @@ First real-use of the untested pieces will likely surface minor issues — trust
 - **YouTube anti-bot on batches:** >5 sequential URLs from one IP will trigger "Sign in to confirm you're not a bot." Use `--cookies-from-browser <browser>` and `--sleep-interval N` to mitigate. Match the proxy the cookies were issued through if the browser is behind one.
 - **`stockStatus` is not availability:** most of the fleet commonly reads `Low` while still carrying `available: true` and deploying without issue. Select on `available`; use stock as a tiebreaker and escalate only on a real capacity error at create time. Always `runpodctl gpu list` first and pick from the priority tier (A4000 → RTX 3090 → A5000 → RTX 4090 → A40 secure-only → L40S; Phase 1 step 5 is canonical). Unreachable datacenter IPs (common from GFW-restricted networks) are a separate failure mode — check `ssh.runpod.io` reachability as a fallback signal.
 - **Community-cloud allocation can stall:** if `uptimeSeconds` stays 0 for >5 min with `desiredStatus: RUNNING`, the pod is stuck in an allocation queue. Delete and retry on secure cloud (more expensive but provisions immediately). Don't burn >10 min on a stuck pod.
-- **WhisperX install order is critical:** `--no-deps` prevents torch breakage. The torch reinstall after pyannote-audio is mandatory — pyannote-audio pulls a newer torch that breaks CUDA on the cu124-based pod image, so the final `pip install torch==2.4.1 --force-reinstall` restores the matching build.
+- **WhisperX install order is critical:** `--no-deps` prevents torch breakage, and torch 2.4.1 goes in **first** from the PyTorch index so the pyannote-audio step finds its torch dependency already satisfied — otherwise pip pulls a newer torch from PyPI, which both breaks CUDA on the cu124 image and, on hosts with slow PyPI peering, stalls the install for an hour or more. The trailing guard force-reinstalls the pinned build only if the version drifted.
+- **Never `pkill -f` / `pgrep -f` inside an SSH command.** The remote shell's own cmdline contains your pattern: `pgrep -f` reports a phantom match and `pkill -f` kills the session (exit 255) while the target keeps running. List with `ps -eo pid,args | grep <pattern> | grep -v grep`, then `kill <PID>`.
 - **yt-dlp on pod vs local:** For YouTube URLs, always download directly on the pod — datacenter bandwidth is faster and eliminates the transfer step. Only use local download + `runpodctl send` for files that are already on disk.
 - **`runpodctl send/receive`:** P2P transfer. Both sides must be running at once — `send` blocks and prints a one-time pairing code; use the detached-send pattern (Phase 4 / Phase 6) rather than trying to hold two blocking foreground commands. Works for both files and directories.
 - **Pod lifecycle:** Always destroy the pod when done. `runpodctl pod delete <POD_ID>`. Stopped pods still incur disk charges.
