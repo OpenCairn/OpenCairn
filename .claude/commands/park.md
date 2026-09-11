@@ -110,7 +110,7 @@ Across the applicable semantic coverage, fix broken syntax/links/paths, stale in
 
 (d) **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
 
-Output: `✓ Quality check: N files checked, no issues` or `🔧 Quality check: fixed M issues — [file: fix]`.
+Output: `✓ Quality check: N files checked, no issues`, `🔧 Quality check: fixed M issues — [file: fix]`, or — when (a)'s checked inventory is empty — `✓ Quality check: no attributed files (writes deferred to Steps 3–7)`. The empty case is a result, not a skip: planning and research sessions can legitimately make their first writes during Park, and the later writes still pass their step contracts, Step 8 verification, and Step 9 audit.
 
 ### 3. Write the session log
 
@@ -262,7 +262,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ### 12. Full-path completion message
 
 ```
-✓ Quality check: N files, [no issues | M fixed]
+✓ Quality check: N files, [no issues | M fixed]   (or “no attributed files” when Step 2(a)'s checked inventory was empty)
 ✓ Session N saved: 06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md
 ✓ At-risk work product: [none | persisted N]
 ✓ Project doc: [updated [[Name]] | no material change]
