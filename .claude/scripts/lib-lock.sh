@@ -15,7 +15,9 @@
 # explicitly and manage cleanup yourself.
 #
 # Platform: Linux, macOS, Windows (Git Bash).
-# Uses flock where available, mkdir-based fallback otherwise.
+# Uses flock where available, mkdir-based fallback otherwise. The fallback
+# fails closed on an abandoned directory; it never auto-reaps a lock whose
+# owner cannot be proved dead without a race.
 # Migration recovery compatibility: archive-bundle-v3.
 
 # Canonical lock path for a target file. EVERY writer of a given file must lock
@@ -40,21 +42,19 @@ _lock() {
         local waited=0
         while ! mkdir "$_LOCK_DIR" 2>/dev/null; do
             if [ "$waited" -ge "$timeout" ]; then
-                echo "Lock timeout after ${timeout}s" >&2
+                local owner="unknown"
+                if [ -r "$_LOCK_DIR/owner" ]; then
+                    owner="$(sed -n '1p' "$_LOCK_DIR/owner" 2>/dev/null || echo unknown)"
+                fi
+                echo "Lock timeout after ${timeout}s (mkdir fallback; owner: $owner; no automatic stale-lock removal)" >&2
                 return 1
-            fi
-            # Stale lock recovery: if the lock dir is older than the timeout,
-            # the holder likely crashed (kill -9). Remove and retry.
-            local lock_mtime
-            lock_mtime=$(stat -c '%Y' "$_LOCK_DIR" 2>/dev/null || stat -f '%m' "$_LOCK_DIR" 2>/dev/null || echo 0)
-            local now
-            now=$(date +%s)
-            if [ $(( now - lock_mtime )) -gt "$timeout" ]; then
-                rmdir "$_LOCK_DIR" 2>/dev/null || true
             fi
             sleep 1
             waited=$((waited + 1))
         done
+        printf 'pid=%s host=%s acquired=%s\n' \
+            "$$" "${HOSTNAME:-$(uname -n 2>/dev/null || echo unknown)}" "$(date +%s)" \
+            > "$_LOCK_DIR/owner" 2>/dev/null || true
         trap '_unlock' EXIT
     fi
 }
