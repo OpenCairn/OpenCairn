@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "c8cbfd67c17919a8d7f730ffd7c067d53bf3c58f0ba5acbd3213fee6c8b90d8d",
-      "render_sha256": "d35f321b3dbbe073a435088df3581d3c7c28eebdd6031e2e92c478e49911996a"
+      "source_sha256": "931137c1ebe7bd3d14459f703ed1e32fdd101774bab26182b4ef029a6f08edd1",
+      "render_sha256": "61bd9d4aa430e43cdd055a5d028b918577b224dfb07a9fa8f806611f10e06f3d"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -118,8 +118,8 @@
     "morning": {
       "source": ".claude/commands/morning.md",
       "render": "codex/skills/morning/SKILL.md",
-      "source_sha256": "1a8d24d0503ca589c56497a5c5d329b2fede64001bc22a60f44d7892b51fc38e",
-      "render_sha256": "37c6f6f666419347556063bc4d2d15e91c2ac2380553085a53962ab20b111610"
+      "source_sha256": "b37e22ba5f893c4363c1f9eb157545197685342c0f17ea620cc5b9910e5b559e",
+      "render_sha256": "1e4686ac50f7aa568e9e5423e014d682a7b22ff70c3e516d483bd3a9296ba062"
     },
     "ocr": {
       "source": ".claude/commands/ocr.md",
@@ -136,8 +136,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "a4f8e52941a3fc9df4949d3e5d79a58b2818b16ee3652557dd18ee65fc046d4f",
-      "render_sha256": "89c847323e159c9ca4ec15d546c2907cf3d1a870c187cc13b1a4d53b0208e2b9"
+      "source_sha256": "ed10b89c88f54de7bc11b0774892869a764985674988be9f427eeec65b28cb51",
+      "render_sha256": "05e9bc672901889f157b1126ad8f0496f457e0e68ba174e69b673dc6fea53ac2"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
@@ -160,8 +160,8 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "12e38425b129459d7acdd624ceba61432e042fc3660abd5daa6408843721914a",
-      "render_sha256": "566ce55646c7c7028ea9e9262a0ac1ae1119994e3a0a73b38fb23647ec09027c"
+      "source_sha256": "c527efc49b6406329707916904269b33468506cadac53fe7ce7467dd9a497675",
+      "render_sha256": "944e9cb210484fdeb24cb9d5b916a0b7fd4be3973a92d3964739278b7cde1477"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
