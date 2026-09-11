@@ -41,6 +41,12 @@ BASH = find_bash()
 CHECK_COMMAND = [BASH, str(CHECK)]
 MIGRATE_COMMAND = [sys.executable, str(MIGRATE)]
 
+try:
+    from session_isolation import isolated_os_environ
+except ImportError:  # `python -m unittest tests.<module>` from the repo root
+    from tests.session_isolation import isolated_os_environ
+
+
 
 class ArchiveNamespaceMigrationTests(unittest.TestCase):
     def setUp(self):
@@ -51,8 +57,17 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
         scripts.mkdir(parents=True)
         for name in ("locked-edit.sh", "lib-lock.sh", "lib-session.sh"):
             shutil.copy2(REPO / ".claude/scripts" / name, scripts / name)
+        # Most subprocesses below inherit the parent environment, so the
+        # isolation has to sit on os.environ itself, not on an env= argument.
+        self.state_temp = tempfile.TemporaryDirectory()
+        self._isolation = isolated_os_environ(
+            self.state_temp.name, "archive-namespace-migration-test"
+        )
+        self._isolation.__enter__()
 
     def tearDown(self):
+        self._isolation.__exit__(None, None, None)
+        self.state_temp.cleanup()
         self.temp.cleanup()
 
     def assert_command_ok(self, result):

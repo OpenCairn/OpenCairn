@@ -11,6 +11,12 @@ import unittest
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
 
+try:
+    from session_isolation import isolate_session
+except ImportError:  # `python -m unittest tests.<module>` from the repo root
+    from tests.session_isolation import isolate_session
+
+
 
 MOCK_OBSIDIAN = r"""#!/usr/bin/env python3
 import os
@@ -123,7 +129,9 @@ class LockedEditMoveTests(unittest.TestCase):
         self.tempdir.cleanup()
 
     def environment(self, **extra: str) -> dict[str, str]:
-        environment = os.environ.copy()
+        environment = isolate_session(
+            os.environ.copy(), self.root / "config", "locked-edit-move-test"
+        )
         environment.update(
             {
                 "VAULT_PATH": str(self.vault),

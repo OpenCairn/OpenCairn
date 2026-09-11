@@ -11,6 +11,11 @@ from pathlib import Path
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/export-session-transcripts.py"
 SCRIPTS = SCRIPT.parent
 
+try:
+    from session_isolation import isolate_session
+except ImportError:  # `python -m unittest tests.<module>` from the repo root
+    from tests.session_isolation import isolate_session
+
 
 class ExportSessionTranscriptsTests(unittest.TestCase):
     def make_codex_rollout(self, home: Path, cwd: Path) -> Path:
@@ -57,7 +62,9 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
             "archive-namespace-migration.py",
         ):
             shutil.copy2(SCRIPTS / name, vault_scripts / name)
-        env = os.environ.copy()
+        env = isolate_session(
+            os.environ.copy(), home / ".claude", "export-transcripts-test"
+        )
         env["HOME"] = str(home)
         return subprocess.run(
             ["python3", str(SCRIPT), str(vault), "--days", "7", *args],
