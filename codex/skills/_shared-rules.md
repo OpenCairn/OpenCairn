@@ -135,7 +135,7 @@ This performs an atomic read-modify-write under the file's canonical lock, immun
 
 Symptom: `write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, or `add-forward-link.sh` exits with code 1 and "Lock timeout after 10s / Failed to acquire lock."
 
-Likely cause: **a prior invocation of the same script is still running and holds the flock.** This happens when the harness backgrounded an earlier invocation and the script got stuck — most commonly, scripts fed via heredoc (`cat <<EOF | script.sh ... EOF`) can block forever in `read` from their stdin pipe if the harness backgrounded the shell before the pipe writer finished. The script is blocked in `anon_pipe_read` on fd 0, still holding fd 9 on the `.lock` file.
+Likely cause: **a prior invocation of the same script is still running and holds the flock.** Current stdin-consuming session scripts use `lib-lock.sh`'s bounded `_read_stdin_content` helper *before* locking, so a backgrounded heredoc whose writer never closes now exits 2 with `Timed out ... waiting for stdin to close`. A lock timeout can still identify an older deployed script, a legitimate concurrent writer, or another failure after acquisition; diagnose the holder instead of killing by name.
 
 **Diagnostic — find the hung process, don't work around it:**
 ```bash
@@ -147,13 +147,10 @@ ps -ef | grep -E "write-session|update-session-section|backfill-files|add-forwar
 cat /proc/<PID>/wchan
 ```
 
-**Remediation — kill the hung processes:**
+**Remediation — kill only the proven hung holder:**
 ```bash
 # Kill specific PIDs reported by fuser
 kill <PID1> <PID2> ...
-# Or nuclear option
-pkill -f backfill-files-updated
-pkill -f update-session-section
 ```
 
 After killing, the lock releases and subsequent script invocations work normally.
@@ -161,7 +158,7 @@ After killing, the lock releases and subsequent script invocations work normally
 **Why Python+flock is only a partial fallback here.** The scripts lock a *separate* `.lock` sibling file (e.g. `06 Archive/OpenCairn/Session Logs/.lock`), while Python+flock locks the *target* session log file directly. These are two different inodes, two different locks — they do not coordinate at all. Python "works" not because it's stronger than the shell `flock(1)` command (both use `flock(2)` under the hood), but because it's locking a different file entirely and therefore doesn't contend with the hung script. This means:
 
 - **The dual-lock bypass is unsafe against a genuine concurrent writer.** If another agent session legitimately has the `.lock` held via one of the scripts, a Python fallback that locks the target file won't see the `.lock` and could race.
-- **The correct fix is to kill the hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying Bash-tool-heredoc failure mode.
+- **The correct fix is to kill the specific proven hung process, not to route around it.** Routing around it leaves zombies accumulating and disguises the underlying failure mode; pattern-wide `pkill -f` can terminate a legitimate writer from another session.
 - **Use Python+flock only after killing the hung scripts**, and only when a dedicated script would be the normal path. This Week/Tickler/project-doc/hub edits are no longer "ad-hoc with no dedicated script" — `locked-edit.sh` is their dedicated path (Section 5); use it rather than inline Python+flock.
 
 #### Failure mode C: command killed by the harness timeout or blocked by the sandbox

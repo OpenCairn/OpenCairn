@@ -74,8 +74,9 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# Read content from stdin into a variable (before acquiring lock)
-CONTENT="$(cat)"
+# Read before acquiring the lock, bounded against an orphaned heredoc writer.
+CONTENT=""
+_read_stdin_content CONTENT || exit $?
 
 if [ -z "$CONTENT" ]; then
     echo "No content provided on stdin" >&2

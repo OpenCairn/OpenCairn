@@ -45,8 +45,9 @@ if [ "${4:-}" = "--replace" ]; then
     REPLACE_MODE=true
 fi
 
-# Read content from stdin into a variable (before acquiring lock)
-CONTENT="$(cat)"
+# Read before acquiring the lock, bounded against an orphaned heredoc writer.
+CONTENT=""
+_read_stdin_content CONTENT || exit $?
 
 if [ -z "$CONTENT" ]; then
     echo "No content provided on stdin"

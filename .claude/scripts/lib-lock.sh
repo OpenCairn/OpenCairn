@@ -28,6 +28,40 @@ _lock_path_for() {
     printf '%s/.%s.lock' "$(dirname "$target")" "$(basename "$target")"
 }
 
+# Read a complete text payload from stdin without trusting the caller to close
+# its pipe forever. A backgrounded heredoc wrapper can retain the writer end;
+# an unbounded `cat` then waits indefinitely. EOF is normal for `read -d ''`,
+# while a timeout returns >128 and fails before any lock is acquired.
+_read_stdin_content() {
+    local destination="$1"
+    local timeout="${OPENCAIRN_STDIN_TIMEOUT_SECONDS:-30}"
+    local content=""
+    local status=0
+
+    case "$timeout" in
+        ''|*[!0-9]*)
+            echo "Invalid stdin timeout: $timeout" >&2
+            return 2
+            ;;
+    esac
+    if [ "$timeout" -le 0 ]; then
+        echo "Invalid stdin timeout: $timeout" >&2
+        return 2
+    fi
+
+    IFS= read -r -d '' -t "$timeout" content || status=$?
+    if [ "$status" -gt 128 ]; then
+        echo "Timed out after ${timeout}s waiting for stdin to close" >&2
+        return 2
+    fi
+    # Match the former $(cat) behaviour: command substitution removed trailing
+    # newlines, and the session writers already add their own structural seams.
+    while [ "${content%$'\n'}" != "$content" ]; do
+        content="${content%$'\n'}"
+    done
+    printf -v "$destination" '%s' "$content"
+}
+
 _lock() {
     _LOCK_FILE="$1"
     local timeout="${2:-10}"
