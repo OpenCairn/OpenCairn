@@ -221,18 +221,21 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    done
    ```
 
-   **Plans directory — guarded deletion.** Plan files may be referenced by open work (project docs, This Week, Tickler). Before deleting each stale plan, grep its filename against `03 Projects/`, `01 Now/This Week.md`, and `01 Now/Tickler.md`. Exclude matches — report them as "retained (referenced by open work)" instead.
+   **Plans directory — delete only positively attributed plans.** `~/.claude/plans/` is machine-global: every Claude Code project on this machine writes there, so a stale plan this vault does not reference may be another repository's open work. Attribution is positive, not by elimination: a plan is this project's only if a transcript under this cwd's session directory (`~/.claude/projects/<cwd with / replaced by ->/`, the same scoping the transcript exporter uses) names it. Delete a stale plan only when it is attributed here **and** no open work (`03 Projects/`, `01 Now/This Week.md`, `01 Now/Tickler.md`) references its basename. Report the rest: referenced plans as "retained", unattributed plans as "left" — never delete those. A plan whose transcripts have already aged out of `~/.claude/projects/` stays unattributed and is left; that is the fail-safe direction.
    ```bash
+   SESSIONS=~/.claude/projects/$(pwd | tr / -)
    find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
      base=$(basename "$f")
      if rg -q -F "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
-       echo "RETAINED (referenced): $base"
-     else
+       echo "RETAINED (referenced by open work): $base"
+     elif [ -d "$SESSIONS" ] && rg -q -F -g '*.jsonl' "$base" "$SESSIONS" 2>/dev/null; then
        rm "$f" && echo "DELETED: $base"
+     else
+       echo "LEFT (not attributed to this project): $base"
      fi
    done
    ```
-   Report per-directory counts (deleted, retained, and remaining).
+   Report per-directory counts (deleted, retained, left unattributed, and remaining).
 
 10. **Session Transcript Export**
 
@@ -628,7 +631,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Rejected: N / Deferred (left in log): N
 
    ## Claude Internal Files
-   - Plans: N stale deleted, M remaining
+   - Plans: N stale deleted, M retained (referenced), K left (not attributed to this project), R remaining
    - Debug logs: N stale deleted, M remaining
    - Paste cache: N stale deleted, M remaining
    - Shell snapshots: N stale deleted, M remaining
