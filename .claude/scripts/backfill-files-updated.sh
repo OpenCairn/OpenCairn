@@ -27,8 +27,9 @@ fi
 SESSION_FILE="$1"
 SESSION_NUM="$2"
 
-# Read file list from stdin
-FILE_LIST="$(cat)"
+# Read before acquiring the lock, bounded against an orphaned heredoc writer.
+FILE_LIST=""
+_read_stdin_content FILE_LIST || exit $?
 
 if [ -z "$FILE_LIST" ]; then
     echo "No file list provided on stdin"
