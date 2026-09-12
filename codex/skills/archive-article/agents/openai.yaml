@@ -1,0 +1,4 @@
+interface:
+  display_name: "Archive Article"
+  short_description: "Save an article as a cited vault reference note"
+  default_prompt: "Use $archive-article to archive this article in my vault."

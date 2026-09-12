@@ -1,0 +1,4 @@
+interface:
+  display_name: "Archive Transcript"
+  short_description: "Archive a published transcript with a short header"
+  default_prompt: "Use $archive-transcript to archive this published transcript."

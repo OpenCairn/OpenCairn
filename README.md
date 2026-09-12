@@ -231,7 +231,6 @@ Release tags from `v0.7.13` onward are SSH-signed annotated tags. Pinned updates
 | Skill | What it does |
 |---------|-------------|
 | `/research-assistant` | Vault-first deep search. Systematically searches the Obsidian vault before suggesting external research. Presents "What We Know" vs "What We Don't Know" with source citations. |
-| `/patterns` | Cross-file pattern finder. Searches broadly for a topic and synthesises recurring themes, evolution over time, contradictions, and gaps. Args: search term (e.g., `/patterns meditation`). |
 | `/thinking-partner` | Socratic mode. Asks questions, surfaces assumptions, and challenges framing through questions. Stays in thinking mode until you explicitly request implementation. |
 | `/second-opinion` | Independent review of work or decisions. Runs a cross-model panel in parallel, or brings the same reviewers back for iterative deepening. |
 | `/shop` | Purchase decision support. Clarifies what you actually need and why (open probing + a structured quiz), then researches current candidates and recommends. "Don't buy" is a valid verdict. Args: optional item (e.g. `/shop standing desk`), `--quick` for low-stakes buys. |
@@ -258,7 +257,6 @@ Release tags from `v0.7.13` onward are SSH-signed annotated tags. Pinned updates
 | `/archive-article` | Archives an article (research paper, clinical study, technical piece, or news report) into the vault as a structured reference note with synthesis, citation metadata, primary-source discovery, and verified wikilinks. The article counterpart to `/archive-transcript`. |
 | `/ocr` | Extracts text and structured content from image screenshots (chat logs, social posts, documents). Local OCR by default, with a Claude post-pass for structure. |
 | `/inbox-processor` | Processes `02 Inbox/` items using the NIPARAS decision tree, categorises each, and routes to its permanent vault location. |
-| `/process-wm` | Processes Working Memory fresh captures through a reviewable checklist, then routes or deletes every reviewed item. |
 | `/weekly-hygiene` | Vault structural maintenance: project-doc metrics, broken links, stale items, orphaned files, tickler past-due scan. Can run standalone or as precursor to `/weekly-review`. |
 | `/book-stay` | Hotel-booking pipeline: quizzes preferences (ranked hard requirements), researches candidates with region-aware channel advice, live-verifies finalists with the user pulling prices, hands off the booking, then fans the confirmation out across the vault's trip docs. |
 | `/map-day` | Turns a day's itinerary (a This Week date, or a pasted list of places) into a phone-glanceable Organic Maps KML plus a tight markdown day-sheet. Geocodes each stop via OSM, orders them around fixed-time anchors, and emits numbered pins + a route line. Offline-first; works in or out of China. |
