@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcribe"
+  short_description: "Transcribe audio locally with WhisperX"
+  default_prompt: "Use $transcribe to transcribe this recording."

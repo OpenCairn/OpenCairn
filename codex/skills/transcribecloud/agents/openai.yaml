@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cloud Transcribe"
+  short_description: "Batch transcribe audio on a RunPod GPU"
+  default_prompt: "Use $transcribecloud to transcribe these recordings on RunPod."

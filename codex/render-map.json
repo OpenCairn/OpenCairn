@@ -103,17 +103,17 @@
       "source_sha256": "adf4f25cbe1da431008d745d438ab63924858fdced5c26dcc7ffc1e3f4fd2c87",
       "render_sha256": "1b01027e511adf996ac28fb9e3085b24262ac4a307a58fa721280ff2ec0d917f"
     },
-    "migrate": {
-      "source": ".claude/commands/migrate.md",
-      "render": "codex/skills/migrate/SKILL.md",
-      "source_sha256": "b9b58b3ddc626d2c0bb02783e10e563108aedf6c1064b3c24690a37ea93e9847",
-      "render_sha256": "a1d5aea69672a6f3b3ffd2b37e422b655a968ecc51d3cf3e10f1b87fd42caef4"
-    },
     "map-day": {
       "source": ".claude/commands/map-day.md",
       "render": "codex/skills/map-day/SKILL.md",
       "source_sha256": "3a90d35dd17b3ab8155079bb0beb430f56576191e95ef8ff3a269d06b6af6f86",
       "render_sha256": "b96e7af54c93ef233edc35fe63da385fbe1d5afddbc63fa9466237d1fd0f47ad"
+    },
+    "migrate": {
+      "source": ".claude/commands/migrate.md",
+      "render": "codex/skills/migrate/SKILL.md",
+      "source_sha256": "b9b58b3ddc626d2c0bb02783e10e563108aedf6c1064b3c24690a37ea93e9847",
+      "render_sha256": "a1d5aea69672a6f3b3ffd2b37e422b655a968ecc51d3cf3e10f1b87fd42caef4"
     },
     "morning": {
       "source": ".claude/commands/morning.md",
@@ -193,6 +193,12 @@
       "source_sha256": "0ee6e96a64a2a9e9b3db70cd55c87b640334617bcfb2fa56d8a528cad5b362ab",
       "render_sha256": "2feec86428cdac5a384487feaa1bd213d6dc9520015a29253ecc1b43f585bd03"
     },
+    "set-project-status": {
+      "source": ".claude/commands/set-project-status.md",
+      "render": "codex/skills/set-project-status/SKILL.md",
+      "source_sha256": "7437e449d61739d48f3cfbdd90057d03196bb647f3f79aaca6b2c00c3f9532e9",
+      "render_sha256": "52204d38f26c3a3220956fa832346dd8c3b8c6371a1020177d6c03148abd6074"
+    },
     "shop": {
       "source": ".claude/commands/shop.md",
       "render": "codex/skills/shop/SKILL.md",
@@ -205,12 +211,6 @@
       "source_sha256": "9c0fcb5ece8bee6b32f2a20b3cf45d8fc6c7f56a51ea6c4fc36fdf0e74247b43",
       "render_sha256": "08c319d8e4d11e12171fed900837e7927449cd6f09462ef9f6b310065d900d7f"
     },
-    "set-project-status": {
-      "source": ".claude/commands/set-project-status.md",
-      "render": "codex/skills/set-project-status/SKILL.md",
-      "source_sha256": "7437e449d61739d48f3cfbdd90057d03196bb647f3f79aaca6b2c00c3f9532e9",
-      "render_sha256": "52204d38f26c3a3220956fa832346dd8c3b8c6371a1020177d6c03148abd6074"
-    },
     "start-project": {
       "source": ".claude/commands/start-project.md",
       "render": "codex/skills/start-project/SKILL.md",
@@ -222,6 +222,18 @@
       "render": "codex/skills/thinking-partner/SKILL.md",
       "source_sha256": "f4dabf53e94a15ecf3d399967f6321c37c3d642426c8e06d96de8b7c49251df9",
       "render_sha256": "461a9e0d1394d7dc45ea59cd309f4f04e04fab5e9b967e0e090d0d0f0d9434fa"
+    },
+    "transcribe": {
+      "source": ".claude/commands/transcribe.md",
+      "render": "codex/skills/transcribe/SKILL.md",
+      "source_sha256": "ab99555fc67137d87578fe7b6c52c4588c932cb1ef89cb4947ef9d387ac15080",
+      "render_sha256": "22b27a437dfbe43a7585cf161bca39a5890cd4ad4bf5e10633a4f0eabfca994d"
+    },
+    "transcribecloud": {
+      "source": ".claude/commands/transcribecloud.md",
+      "render": "codex/skills/transcribecloud/SKILL.md",
+      "source_sha256": "d06f1ed8636c58ecc3cb280b611c0537ec2ef97315e546c6763dfbf10e458e25",
+      "render_sha256": "1feb99dcf69f284ab143416cf8796dfc296701ec6f4386cbade0886aff97e20b"
     },
     "update": {
       "source": ".claude/commands/update.md",
