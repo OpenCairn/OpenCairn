@@ -4,8 +4,8 @@
     "_shared-patterns": {
       "source": ".claude/commands/_shared-patterns.md",
       "render": "codex/skills/_shared-patterns.md",
-      "source_sha256": "2b3252e6fb553e4419737d9c4f5a44233f24d8ce6ed3ac0a033363b7ada7b634",
-      "render_sha256": "c982fbcbcd5d64027e8bb09ca50a6ea462817f61e55864ca688afc12f2c40c8d"
+      "source_sha256": "4b5323864342af65b4fe02dc530e32a2d24fe67e3a7cbe9c5715e3e358bfb833",
+      "render_sha256": "af3031c248ad900af44c556e85d92c09c0d1c4931b63869d5d8a5ed851ff214e"
     },
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
@@ -24,6 +24,18 @@
       "render": "codex/skills/afternoon/SKILL.md",
       "source_sha256": "02f9711c7055b1308419e7dcea71c9a6544606fa41ddfb913bbdcd7955206c4f",
       "render_sha256": "5a069d4ef885db6a1a5eecaa06abbad4357cdca6324f7b5dd083e37fce3d454d"
+    },
+    "archive-article": {
+      "source": ".claude/commands/archive-article.md",
+      "render": "codex/skills/archive-article/SKILL.md",
+      "source_sha256": "81aa1c57280070575f13027baa57515e78d6ade4e232f7a343261c340bf7be53",
+      "render_sha256": "074ffc745aafd34f609c6a0ff6c0c55d02117517c56143c22756a8a318612077"
+    },
+    "archive-transcript": {
+      "source": ".claude/commands/archive-transcript.md",
+      "render": "codex/skills/archive-transcript/SKILL.md",
+      "source_sha256": "5c6c451130c6beb974d9f184a093821fa0c730ec611981722882796a95201055",
+      "render_sha256": "64c58445baa0e90b48393e0c5eee0c5044fdf3b4f289dfb5ad3ca75fb45e74ad"
     },
     "audit": {
       "source": ".claude/commands/audit.md",
