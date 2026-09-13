@@ -104,7 +104,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 6. **CRM Name Scan** (if `{VAULT}/07 System/CRM/` exists)
 
-   - Read CRM index to get list of known names
+   - Collect the known names from the `### Surname, First…` entry headings across the CRM range files (`A-F.md`, `G-L.md`, `M-R.md`, `S-Z.md`; not `Self.md`); normalise to `First Surname` (drop any parenthesised title) before comparing against the bigrams below
    - Extract names from recent session files. Drop heading lines and the standard session-log/planning **section names** before counting — otherwise structural headings (`### Files Updated`, `## This Week`, …) dominate the frequency list and bury real people:
      ```bash
      # Self-contained block: shell vars don't survive between tool calls, so derive and use in one go.

@@ -20,7 +20,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 ## Patterns
 
 - **Manifest + resumability** — JSONL per-item status; resume from first incomplete. → `transcribecloud`
-- **Progress reporting** — stream per-item index, status, elapsed, rate. → `transcribe`, `transcribecloud`
+- **Progress reporting** — `[i/N]` + elapsed per item; heartbeat on long loops. → `transcribecloud` Phase 5, `ocr` capture loop
 - **Cost/time estimation up front** — project units × cost; confirm before spend. → `transcribecloud`
 - **Parallel cross-model panel despatch** — one seat per model family, identical brief, concurrent. → `second-opinion` (command block: `_shared-rules.md §10`)
 - **Seat tiering — judgment floats, verification pins** — judgment/generation seats run the session's model; verification seats may pin to a strong-but-cheaper tier, declared at the despatch site with a reason. → `park` Step 9 (rule: `_shared-rules.md §10`)
@@ -28,10 +28,10 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Out-of-band evidence in reviewer briefs** — embed every source verbatim; omissions read as fabrication. → `_shared-rules.md §16`
 - **File-size threshold + progressive resize** — read hook limit; shrink width stepwise to fit. → `ocr`
 - **Helper-reuse check** — probe for existing scripts before writing fresh. → `ocr`
-- **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe`
+- **Prereq verification with install hints** — verify each dependency; emit specific install line. → `transcribe` Prerequisites + Phase 1, `ocr` Prerequisites (runs it; `command -v` is not enough)
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
 - **Gated-model silent-None assert** — assert `diarize_model.model` after `DiarizationPipeline`. → `transcribecloud`, `transcribe`
-- **Tag-scan hygiene** — md-glob filter; exclude archive + frozen artefacts. → `longpoles`, `guillotines`, `cornerstones`
+- **Tag-scan hygiene** — md-glob filter; exclude archive, frozen artefacts, tag mentions. → `guillotines` Step 2, `longpoles`, `cornerstones`
 - **Published-transcript-first** — prefer ready-made published transcript over re-running ASR. → `transcribe` Phase 0
 - **Page text outranks transcript body** — human-written show notes win names + speakers. → `_shared-rules.md §15`
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
@@ -42,10 +42,14 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Locked atomic file write** — serialise via canonical `.lock`; atomic replace. → `_shared-rules.md §5`
 - **Step-0 vault resolution** — `resolve-vault.sh`; abort on error, never guess; substitute `{VAULT}`. → `_shared-rules.md §1`, `park` Step 0
 - **Sync marker on deliberate duplication** — comment names the twin; update both together. → `podcast-digest`, `transcribecloud` Phase 8
-- **Substitute-me placeholder for cross-call values** — literal placeholder, never shell var; substitute before running. → `_shared-rules.md §1`, `park` Step 3
-- **Deterministic temp path for cross-call files** — derive from a stable input, never `mktemp`. → `_shared-rules.md §15`, `podcast-digest` Phase 0
+- **Substitute-me placeholder for cross-call values** — literal placeholder, never shell var; substitute before running. → `_shared-rules.md §1`, `quarterly-hygiene` Step 6
+- **Cross-call scratch path: derive or record, never remember** — stable-input slug; else `mktemp` once and record it. → `_shared-rules.md §15`, `podcast-digest` Phase 0 (derived), `second-opinion` Phase 1 (recorded), `quarterly-hygiene` Step 6 (recorded + hash)
 - **Collision filenames take letter suffixes** — letters sort after bare name; `-N` sorts before. → `weekly-review` Step 5, `quarterly-review` Step 10
-- **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `park` Step 3
+- **Dated report install** — draft outside; locked CAS install; exit 2 = claimed. → `weekly-review` Step 5, `quarterly-review` Step 11 (immutable record), `weekly-hygiene` Step 16, `quarterly-hygiene` Step 9 (mutable hand-off)
+- **ISO-week basename via `%G-W%V`** — `%G` not `%Y`; they differ at year boundary. → `weekly-review` Step 1, `weekly-hygiene` Step 16, `landscape-scan` Step 2
+- **Routing is an upsert** — key by finding identity + normalised action, never period. → `weekly-hygiene` Step 17, `quarterly-hygiene` Step 9
+- **Explicit self-review step on low-cadence skills** — rare runs skip the implicit watch; instantiate it. → `_shared-rules.md §8`, `quarterly-hygiene` Step 10, `quarterly-review` Step 12
+- **Dollar-digit-free snippets** — loader substitutes bare `$0`–`$9`; avoid or `-v z=0`. → `quarterly-hygiene` Step 6, `provenance` Step 5, `weekly-hygiene` Step 13
 - **`LC_TIME=C` guard on `%p`** — `%p` expands empty under non-English locales. → `park` Step 0, `hibernate`/`awaken` Step 1
 - **Weekday via `date -d`, never internal mapping** — verify weekday+date pairs before writing. → `park` Step 5, `guillotines` Step 3
 - **Geocode with substitution + outlier guards** — exact-match escalation; drop outliers; approximate-street fallback. → `map-day`, `book-stay` Step 4
@@ -54,13 +58,13 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Quoted heredoc for literal payloads** — unquoted `<<EOF` expands/executes `$`, backticks in content; quote `<<'EOF'`, printf the parts that should expand. → `_shared-rules.md §5`, `_skill-monitor`
 - **Transcript export → `--days 7 --all-projects`** — both project + mtime-window axes clobber the date-canonical day file. → `morning` 2a.h, `goodnight` Step 16, `park` Step 11, `weekly-hygiene`
 - **Preference quiz with ranked hard requirements** — AskUserQuestion; skip context-answered; rank firmest→negotiable. → `shop` Phase 2, `book-stay` Step 2
-- **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `_shared-rules.md §22`, `morning` Step 3, `weekly-hygiene` Steps 2-3 + Step 7
-- **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 7
+- **Date an artefact from its content, not mtime** — later touches reset mtime; overdue reads as current. → `_shared-rules.md §22`, `morning` Step 3, `weekly-hygiene` Steps 5-6
+- **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 6
 - **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. Two sides: forbid it in the reviewer's brief (→ `park` Step 9, `goodnight` Step 15(c), `morning` 2a.g) and re-check any git-derived finding before accepting it (→ `park` Step 9, `goodnight` Step 15(e))
 - **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules.md §20`, `park` Step 9, `goodnight` Step 15(c)
 - **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 2(c), `goodnight` Step 14b, `_shared-rules.md §16` (brief evidence: primary/secondary/unverified)
 - **Clock value read before written** — `date` result in a *prior* call; same-call is an estimate. → `_shared-rules.md §19`, `park` Step 0, `morning` Step 3
-- **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 7, `goodnight` Step 9, `weekly-review` Step 5a
+- **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules.md §18`, `park` Step 7, `goodnight` Step 9, `weekly-review` Step 4
 - **Gate emits an observable, not an assertion** — nil case cites its evidence. → `park` Step 2(a), `park` Step 7, `oops` Phase 1
 - **Fixed-format required output makes skipping visible** — long-standing instruction, recurring silent skip. → `_shared-rules.md §9`, `_shared-rules.md §19`, `_shared-rules.md §22`, `goodnight` Step 10
 - **One section, one owner; the second writer appends** — a delegated seat's view is frozen at its read. → `park` Step 9, `goodnight` Step 15(c)

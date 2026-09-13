@@ -28,6 +28,7 @@ Use `rg` through the shell to find all `[CS]` references across `{VAULT}`:
 - Use `-C 2` (2 lines of context) so the user can see what surrounds each tag
 - Exclude `06 Archive/` with an `rg` glob exclusion — archived items aren't actionable
 - Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/.Provenance/`). A `[CS]` copied into a frozen snapshot is not a live cornerstone
+- Drop **mentions of the tag** as opposed to tagged items. A `[CS]` sitting inside running prose, or listed alongside other bare tag tokens (documentation of the tagging scheme, notes about the scanner, examples in a how-to), is describing the tag, not carrying a cornerstone. The tell: the tag isn't the leading marker of a task line, and the line reads as a sentence about tags. These are not mis-tagged items — never surface them for correction
 
 ### 2. Group by File
 
