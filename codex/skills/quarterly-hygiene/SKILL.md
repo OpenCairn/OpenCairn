@@ -42,7 +42,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
 4. **CRM stale-entry review.** (if `{VAULT}/07 System/CRM/` exists)
    `$weekly-hygiene` step 6 scans for *new* names to add. This reviews *existing* entries for decay:
-   - Read the CRM index and range files.
+   - Read the CRM range files.
    - Flag entries with outdated roles, superseded contact details, or context that this quarter's events have overtaken.
    - **Don't auto-modify** — present findings and let the user decide.
 

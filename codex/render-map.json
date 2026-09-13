@@ -4,14 +4,14 @@
     "_shared-patterns": {
       "source": ".claude/commands/_shared-patterns.md",
       "render": "codex/skills/_shared-patterns.md",
-      "source_sha256": "4b5323864342af65b4fe02dc530e32a2d24fe67e3a7cbe9c5715e3e358bfb833",
-      "render_sha256": "af3031c248ad900af44c556e85d92c09c0d1c4931b63869d5d8a5ed851ff214e"
+      "source_sha256": "f39930e7f3044c49bfafacbbe8be6744a7315ce3926a2dd3c2dad4100ba2a68f",
+      "render_sha256": "870f084ef24e169d0b4264af98056ee2c4a2e538001e94e93239318bebcce113"
     },
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "931137c1ebe7bd3d14459f703ed1e32fdd101774bab26182b4ef029a6f08edd1",
-      "render_sha256": "61bd9d4aa430e43cdd055a5d028b918577b224dfb07a9fa8f806611f10e06f3d"
+      "source_sha256": "17cfa4569f3b15e62d9db2dae5f0dd5b992501b8cd9474c9ac83561c30112e7f",
+      "render_sha256": "cee858427e8ba55940acdceaad2f9f438c1aff2e9d099d2aad5320d84d64376d"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -70,8 +70,8 @@
     "cornerstones": {
       "source": ".claude/commands/cornerstones.md",
       "render": "codex/skills/cornerstones/SKILL.md",
-      "source_sha256": "e7d9e995c05318652dd896ce04535ba951f64e47c022aee3a4a4c64030b0a1b5",
-      "render_sha256": "9944e7eb96b2f4de4e50acfdae536d0877609cd801e6b323385ee1ffec5f326d"
+      "source_sha256": "c93bd448d71199b0154c1927a70bdfdb6048ad27345388634d00863b937b560f",
+      "render_sha256": "12b019cc51acacb0e27fc54b1cea2fb69492ccb0fdfb81e63578ec132c182d20"
     },
     "de-ai-ify": {
       "source": ".claude/commands/de-ai-ify.md",
@@ -112,8 +112,8 @@
     "longpoles": {
       "source": ".claude/commands/longpoles.md",
       "render": "codex/skills/longpoles/SKILL.md",
-      "source_sha256": "adf4f25cbe1da431008d745d438ab63924858fdced5c26dcc7ffc1e3f4fd2c87",
-      "render_sha256": "1b01027e511adf996ac28fb9e3085b24262ac4a307a58fa721280ff2ec0d917f"
+      "source_sha256": "344b5e0adfcfe69ef00a1b4676a4fb3f74636b9bdd0d5e3403ce1eb087dfe0f3",
+      "render_sha256": "5c61d5b185671e66eccd69888f2869f6f9cc31bc179ceb29234f4177a747bcb6"
     },
     "map-day": {
       "source": ".claude/commands/map-day.md",
@@ -172,8 +172,8 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "c527efc49b6406329707916904269b33468506cadac53fe7ce7467dd9a497675",
-      "render_sha256": "944e9cb210484fdeb24cb9d5b916a0b7fd4be3973a92d3964739278b7cde1477"
+      "source_sha256": "174913afd4a4b1fd424354081489a6ffc921bbd6079423bf3727e6e7bf328ab7",
+      "render_sha256": "c8c57fc63ad75e53ccc805277f63dc67fc610d69dc071e1a789197e0e7ad959c"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
@@ -190,8 +190,8 @@
     "reply": {
       "source": ".claude/commands/reply.md",
       "render": "codex/skills/reply/SKILL.md",
-      "source_sha256": "7d0e6f587a13f8d1774bdc8a4c3d6f25d10e983fd87bac158629f65dcef68bab",
-      "render_sha256": "c174bf47c82100ef92d857a505b7ddb3d84c51d13a53446b689c65c80a5aa9d3"
+      "source_sha256": "adb2319fce8764337d59810055e7c11faa1325d08a3d713f6d958e9308dca802",
+      "render_sha256": "cd6f00202d19604062d4963b2061f0d47955a64fbee4b98c0933d570213fce0a"
     },
     "research-assistant": {
       "source": ".claude/commands/research-assistant.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "082cad6d463b87e290132484d2df319a4ec515deb9e5a9c3cd1c35173537d458",
-      "render_sha256": "9afe77fe3ab312e7d54cd62ec8ea5219eefe8317cc97fcb66e145f442e6e352f"
+      "source_sha256": "e98ab2b086201d2d4b29bd2f304413900aed85c623ee74c28456976b02a484d6",
+      "render_sha256": "7a9c82a262c38711fb70d417aefd922602276d848d1b539fbb424d7a95475c91"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",

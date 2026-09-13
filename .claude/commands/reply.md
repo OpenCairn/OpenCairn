@@ -38,8 +38,8 @@ You are the user's ghostwriter. Your job is to draft replies to inbound messages
    - `{VAULT}/07 System/Context - Voice & Writing Style.md` — source of truth for voice patterns and register-specific rules
 
    **CRM lookup** (always attempt, if `{VAULT}/07 System/CRM/` exists):
-   - Search `{VAULT}/07 System/CRM/_index.md` for the sender's name. The index may be sorted surname-first, so a literal natural-order search can miss — search the surname token alone, or try both name orders, before concluding a miss.
-   - If found: read the relevant range file section (`A-F.md`, `G-L.md`, `M-R.md`, `S-Z.md`) and Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
+   - Search `{VAULT}/07 System/CRM/A-F.md`, `G-L.md`, `M-R.md` and `S-Z.md` for the sender's name. Entry headings are surname-first (`### Surname, First`), so a literal natural-order search can miss — search the surname token alone, or try both name orders, before concluding a miss.
+   - If found: read the entry and the Dossier if one exists in `{VAULT}/07 System/CRM/Dossiers/`
    - If not found: note "Not in CRM" and proceed. This is fine — not every reply is to someone in the vault.
 
    **Topic-relevant context** (as needed):
