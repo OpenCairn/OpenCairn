@@ -101,6 +101,7 @@ if [ "$MODE" = "--move" ]; then
     MOVE_META="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move.XXXXXX")"
     MOVE_REFS="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-refs.XXXXXX")"
     MOVE_SNAPSHOT="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-snapshot.XXXXXX")"
+    MOVE_SOURCE_COPY="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-source.XXXXXX")"
     _MOVE_LOCK_MODE=""
     _MOVE_LOCK_DIR_1=""
     _MOVE_LOCK_DIR_2=""
@@ -118,7 +119,7 @@ if [ "$MODE" = "--move" ]; then
 
     _move_cleanup() {
         _move_unlock_pair
-        rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT"
+        rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT" "$MOVE_SOURCE_COPY"
     }
     trap '_move_cleanup' EXIT
 
@@ -127,6 +128,7 @@ if [ "$MODE" = "--move" ]; then
     export _LE_MOVE_DESTINATION="$MOVE_DESTINATION"
     export _LE_MOVE_EXPECTED="$EXPECTED_SNAPSHOT"
     export _LE_MOVE_META="$MOVE_META"
+    export _LE_MOVE_SOURCE_COPY="$MOVE_SOURCE_COPY"
 
     "$PYTHON_BIN" - <<'PY'
 import hashlib, os, pathlib, re, sys
@@ -245,11 +247,15 @@ if source.resolve(strict=True) != source:
 if destination.exists() or destination.is_symlink():
     sys.stderr.write("Move destination appeared while waiting for locks: %s\n" % destination)
     raise SystemExit(2)
-actual = hashlib.sha256(source.read_bytes()).hexdigest()
+source_bytes = source.read_bytes()
+actual = hashlib.sha256(source_bytes).hexdigest()
 if actual != expected:
     sys.stderr.write("Source changed while waiting for locks: %s (expected %s, found %s)\n" %
                      (source, expected, actual))
     raise SystemExit(2)
+# Keep the verified source bytes: post-move verification needs them to recognise
+# Obsidian healing the note's own path-qualified self-links.
+pathlib.Path(os.environ["_LE_MOVE_SOURCE_COPY"]).write_bytes(source_bytes)
 PY
 
     if [ -n "${OBSIDIAN_CLI:-}" ]; then
@@ -410,8 +416,26 @@ destination = pathlib.Path(os.environ["_LE_MOVE_DESTINATION_ABS"])
 expected = os.environ["_LE_MOVE_EXPECTED"]
 refs_file = os.environ["_LE_MOVE_REFS"]
 
-if hashlib.sha256(destination.read_bytes()).hexdigest() != expected:
-    raise SystemExit(5)
+destination_bytes = destination.read_bytes()
+if hashlib.sha256(destination_bytes).hexdigest() != expected:
+    # Obsidian also heals path-qualified links the note carries to *itself*
+    # (e.g. a session log's Previous/Next-session anchors), so the moved bytes
+    # may legitimately differ from the source snapshot by exactly that rewrite.
+    # Accept that single transformation and nothing else.
+    destination_rel = os.environ["_LE_MOVE_DESTINATION_REL"]
+    destination_no_ext = destination_rel[:-3] if destination_rel.lower().endswith(".md") else destination_rel
+    source_copy = os.environ.get("_LE_MOVE_SOURCE_COPY", "")
+    accepted = False
+    if source_copy and os.path.isfile(source_copy):
+        source_bytes = pathlib.Path(source_copy).read_bytes()
+        if hashlib.sha256(source_bytes).hexdigest() == expected:
+            healed = source_bytes.replace(
+                ("[[" + source_no_ext).encode("utf-8"),
+                ("[[" + destination_no_ext).encode("utf-8"),
+            )
+            accepted = healed != source_bytes and healed == destination_bytes
+    if not accepted:
+        raise SystemExit(5)
 
 def normalise_wiki(target):
     target = unquote(target.split("|", 1)[0].split("#", 1)[0].strip()).lstrip("/")
@@ -629,7 +653,8 @@ payload = {
     "destination": str(destination_abs),
     "source_locator": source_no_ext,
     "destination_locator": destination_no_ext,
-    "content_sha256": os.environ["_LE_MOVE_EXPECTED"],
+    "source_sha256": os.environ["_LE_MOVE_EXPECTED"],
+    "content_sha256": sha(destination_abs.read_bytes()),
     "affected_files": verified,
     "unverified_files": unverified,
 }
@@ -655,7 +680,7 @@ PY
 
     _move_unlock_pair
     trap - EXIT
-    rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT"
+    rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT" "$MOVE_SOURCE_COPY"
     echo "Locked move applied: $MOVE_SOURCE_ABS -> $MOVE_DESTINATION_ABS"
     exit 0
 fi
