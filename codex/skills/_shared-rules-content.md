@@ -48,7 +48,7 @@ from bs4 import BeautifulSoup
 soup = BeautifulSoup(open(sys.argv[1], encoding='utf-8').read(), 'lxml')
 # most-specific content container by PRIORITY (not densest — densest grabs the outer page wrapper)
 node = None
-for sel in ('section.gh-content', '.post-content', '.gh-content', '.c-content', 'article', 'main'):
+for sel in ('section.gh-content', '.post-content', '.gh-content', '.c-content', 'article.post', 'article', 'main'):
     node = soup.select_one(sel)
     if node:
         break
