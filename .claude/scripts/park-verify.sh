@@ -94,7 +94,7 @@ for i in "${!REFERENCES[@]}"; do
         fail reference "reference is not in --touched: $ref"
         continue
     fi
-    if python3 -c 'import hashlib,re,sys; from pathlib import Path; p=Path(sys.argv[1]); v=Path(sys.argv[2]).resolve(); expected=sys.argv[3]; assert re.fullmatch(r"[0-9a-f]{64}",expected); assert p.is_file() and not p.is_symlink() and not p.resolve().is_relative_to(v); assert hashlib.sha256(p.read_bytes()).hexdigest()==expected' "$ref" "$VAULT" "${REFERENCE_HASHES[$i]}" 2>/dev/null; then
+    if python3 -c 'import hashlib,re,sys; from pathlib import Path; p=Path(sys.argv[1]); v=Path(sys.argv[2]).resolve(); expected=sys.argv[3]; ok = re.fullmatch(r"[0-9a-f]{64}",expected) and p.is_file() and not p.is_symlink() and not p.resolve().is_relative_to(v) and hashlib.sha256(p.read_bytes()).hexdigest()==expected; sys.exit(0 if ok else 1)' "$ref" "$VAULT" "${REFERENCE_HASHES[$i]}" 2>/dev/null; then
         VALID_REFERENCES+=("$ref")
     else
         fail reference "external reference hash/path check failed: $ref"
