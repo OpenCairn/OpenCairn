@@ -1,5 +1,6 @@
 import subprocess
 import hashlib
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -25,7 +26,8 @@ class ParkVerifyTests(unittest.TestCase):
                                + '### Pickup Context\n**Project:** None\n')
                 return subprocess.run([str(SCRIPT), str(vault), str(log), '1',
                                        '--touched', str(reference), *extra],
-                                      text=True, capture_output=True)
+                                      text=True, capture_output=True,
+                                      env=dict(os.environ, PYTHONOPTIMIZE="1"))
             self.assertIn('FAIL separator', invoke([]).stdout)
             accepted = invoke(['--reference', str(reference), digest])
             self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
