@@ -12,7 +12,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 ## Philosophy
 
 1. **Strategic alignment** — Are the projects and priorities from 3 months ago still the right ones? What emerged that wasn't planned? What was planned but never started?
-2. **Direction maintenance** — A quarterly review is the natural checkpoint to overhaul `Context - Direction.md`: strategic plans, anti-goals, disciplines.
+2. **Direction maintenance** — A quarterly review is the natural checkpoint to overhaul `Context - Direction.md`: values and roles, career/personal strategies, trade-offs, anti-goals and disciplines.
 
 ## Instructions
 
@@ -40,10 +40,12 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
        | LC_ALL=C sort -r \
        | head -1
      ```
-     Substitute the quarter under review for `YYYY-QN`. Preserve the exact returned basename, including a suffix. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run scores. If none exists, note it and continue.
+     Substitute the quarter under review for `YYYY-QN`. Preserve the exact returned basename, including a suffix. Extract its Next Quarter sections (Big Rocks, Long Poles, Stop Doing) and its Kill List — these are the commitments this run revisits. If none exists, note it and continue.
+   - Follow the explicitly labelled **Planning system** pointer in the vault’s navigation/Autopilot document when configured. Read its cadence/ownership rules; if absent, use this generic workflow without claiming personal configuration.
    - Read `{VAULT}/07 System/Context - Direction.md` (if it exists) — the reference document for strategic alignment
    - Read `{VAULT}/07 System/Strategic Decision Log.md` (if it exists) — decisions made this quarter
-   - Read weekly reviews from `06 Archive/OpenCairn/Weekly Reviews/` for the quarter. **Boundary selection:** include any weekly review whose covered date range (from its `## Daily Reports` section) intersects the quarter; label partial-quarter reviews in the output. **Extraction guidance:** for each review, extract the Synthesis section, Projects Active, Time Allocation, Key Insights & Patterns, Alignment Check findings, and Course Corrections. Skip session counts, daily report links, and vault maintenance details (those are in the hygiene report).
+   - Read weekly reviews from `06 Archive/OpenCairn/Weekly Reviews/` whose retrospective Daily Reports date range intersects the quarter; label partial-quarter coverage. Extract Synthesis, Projects Active, Attention & Friction, Key Insights & Patterns, Alignment Check, Course Corrections and Weekly Plan choices/outcomes. Accept older reports with Time Allocation/What’s Next instead; do not require numerical sections or rebuild execution scores. Forward planning dates are not the retrospective coverage window. Skip session totals and vault-maintenance detail already supplied by hygiene.
+   - Weekly timing suggestions are not evidence of booked time or completed activity. Read older automated-planning statuses as historical; if their current outcome matters, follow explicit task/session records or ask the user. Do not reconstruct the retired scheduling scorecard or treat manual scheduling as incomplete planning.
    - Scan `03 Projects/` for all project files (root, Cold/, Backlog/)
    - **Consume the quarterly-hygiene report:** find the latest in `{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports/` (filename descending).
      - **Current quarter:** read it — its findings populate the Vault Health section of the output. Do not re-scan context files, CRM, or run structural queries; that work is done.
@@ -55,15 +57,15 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 3. **Mode choice.** Before the interview, ask the user once: interactive mode (walk through each section together) or auto-generate mode (compile answers from gathered data, present once for validation). One question upfront.
 
    - **Interactive mode:** use steps 4–6 as a sequential interview.
-   - **Auto-generate mode:** use the questions in steps 5–6 as a completeness checklist, not as fourteen separate prompts. Compile the evidence-supported retrospective, commitment scores, patterns and alignment findings into one proposed review. Do not invent first-person reflections, Direction changes or forward-looking commitments. Present one consolidated validation block containing the draft plus only the unresolved decision-bearing questions — always including Big Rocks, Long Poles, Stop Doing, and any exact Direction replacement text still needed. Apply the user's corrections, then continue to step 7.
+   - **Auto-generate mode:** use the questions in steps 5–6 as a completeness checklist, not as separate prompts. Compile the evidence-supported retrospective, commitment outcomes, patterns and alignment findings into one proposed review. Do not invent first-person reflections, Direction changes or forward-looking commitments. Present one consolidated validation block containing the draft plus only the unresolved decision-bearing questions — always including Big Rocks, Long Poles, Stop Doing, and any exact Direction replacement text still needed. Apply the user's corrections, then continue to step 7.
 
-4. **Synthesise and present.** Present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned, recurring patterns across weekly reviews, time allocation trends, and any alignment drift signals. In interactive mode this primes the interview; in auto-generate mode it becomes the opening of the single validation block.
+4. **Synthesise and present.** Present a brief data-driven summary from the gathered data: projects completed/stalled/abandoned, recurring patterns across weekly reviews, qualitative attention patterns, and any alignment drift signals. In interactive mode this primes the interview; in auto-generate mode it becomes the opening of the single validation block.
 
 5. **Run the quarterly strategic interview in interactive mode.** In auto-generate mode, answer what the evidence supports and carry only unresolved questions into step 3's single validation block:
 
    **Retrospective — What happened this quarter:**
 
-   Open by scoring the previous quarter's commitments (from step 2): mark each Big Rock, Long Pole, Kill List item, and Stop Doing item **shipped / slipped / dropped**, and ask the user to confirm or correct the call. Do this before the questions below — an unscored commitment silently rolls forward.
+   Open by reviewing the previous quarter's commitments (from step 2): mark each Big Rock, Long Pole, Kill List item, and Stop Doing item **shipped / slipped / dropped**, and ask the user to confirm or correct the call. Do this before the questions below — an unreviewed commitment silently rolls forward. Unknown outcomes stay unknown; do not infer them from missing activity or totals.
 
    1. "Which projects were completed? Which stalled? Which were abandoned?"
    2. "What emerged that wasn't planned 3 months ago?"
@@ -71,7 +73,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    4. "Looking at the weekly reviews, what patterns persisted across the full quarter?"
 
    **Alignment — Are you working on the right things (reference Direction.md if loaded):**
-   5. "Have your priorities shifted since the start of the quarter?"
+   5. "Do your values and roles still describe how you want to live? What life/work chapter do you want, and which trade-offs does that require?"
    6. "Looking at your career and personal strategic plans — do they still reflect reality?"
    7. "What's consuming time that shouldn't be?"
    8. "What deserves more attention than it's getting?"
@@ -84,8 +86,9 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    13. "What needs to start now to be ready on time? (Long Poles)"
    14. "What should you stop doing?"
 
-6. **Direction.md overhaul (if Direction.md exists):**
-   - Review these sections with the user: career strategic plan, personal strategic plan, anti-goals, disciplines, plus any section the user explicitly flags.
+6. **Develop or revise Direction:**
+   - Review Values & Roles, career strategic plan, personal strategic plan, anti-goals and disciplines with the user. Articulate the desired chapter, emphasis, trade-offs and what can wait; retain useful experiments and linked extended plans. Reaffirm unchanged values instead of manufacturing quarterly changes. If Direction is missing, draft the needed sections with the user and create the approved document through `locked-edit.sh --replace-whole MISSING` in step 8.
+   - Store confirmed direction once in its canonical home; the quarterly record links to it and briefly records decisions. Weekly review uses it to choose priorities and possible timing; the user handles calendar scheduling by default.
    - **Always collect approval — and collect only, don't edit yet.** Direction.md is high-trust, like context files. In interactive mode, ask section by section. In auto-generate mode, include the proposed status and any replacement text in the consolidated validation block. Gather the user's exact replacement text (or explicit approval of your proposed text); **step 8 is the single writer** — no edits happen in this step.
 
 ### Part 2: Vault Health (from quarterly-hygiene)
@@ -94,7 +97,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its carried weekly findings, context/CRM status, corrections-log fold (including pending approvals), session-log archiving, flywheel proposals, panel-model currency and routed actions into the output's Vault Health section. A stale report is folded with its stale label; only if no report exists, write "No quarterly-hygiene report — run `/quarterly-hygiene` for vault structural maintenance" and move on.
 
 8. **Execute strategic edits (user-confirmed only):**
-   - Apply Direction.md updates the user approved during step 6 (user-provided text only). Re-read Direction.md immediately before each edit to avoid stale writes.
+   - Apply Direction.md updates the user approved during step 6 (user-provided text or explicitly approved replacement text). Re-read Direction.md immediately before each edit to avoid stale writes.
    - Vault structural fixes (context corrections, file moves, archiving) are **not** done here — they belong to `/quarterly-hygiene`. If the user wants them actioned, point them at that command.
 
 ### Part 3: Output
@@ -141,6 +144,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 ## Strategic Alignment
 
 ### Direction Check (from Direction.md)
+**Values & roles:** [Reaffirmed / changed — confirmed decision and canonical link]
 **Career strategic plan:** [Still accurate / Updated — what changed and why]
 **Personal strategic plan:** [Still accurate / Updated — what changed and why]
 **Anti-goals reviewed:** [N items — any added/removed?]
@@ -149,8 +153,8 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
 ### Priorities Then vs Now
 [How have priorities shifted? Is the shift deliberate or drift?]
 
-### Time Allocation Patterns
-[Aggregated from weekly reviews — where did time actually go?]
+### Attention Patterns
+[Qualitative patterns from weekly reviews and the user; unknown activity remains unknown.]
 
 ### Kill List
 Projects to explicitly abandon rather than let linger:
@@ -182,8 +186,8 @@ Projects to explicitly abandon rather than let linger:
 When listing weekly reviews, preserve each file's exact name including any collision suffix (`YYYY-Wnnb` etc. — weekly-review writes suffixed files when two reviews land in one ISO week); a bare `YYYY-Wnn` link to a suffixed review is broken.
 
    **Route the forward-looking outputs — the review file is an archive record, not a planning surface:**
-   - Before routing, ensure each Big Rock / Long Pole / priority has either an existing project action section or a user-supplied surfacing date. In auto-generate mode, unresolved dates belong in the consolidated validation block; never invent one.
-   - **Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc via `locked-edit.sh`. If no suitable project section exists, write it to the user-supplied date in Tickler via `write-tickler.sh`. If the text carries a deadline token, `_shared-rules.md` §18 applies: the project doc alone is an undated sink, so also create a dated Tickler backstop.
+   - Broad priorities, values and strategic thoughts belong in Direction for weekly translation; do not force them into tasks or dates. Route only concrete actions. Before routing, locate the existing action home or obtain a needed surfacing date in validation; never invent one.
+   - **Concrete actions from Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc via `locked-edit.sh`. If no suitable project section exists, write it to the user-supplied date in Tickler via `write-tickler.sh`. If the text carries a deadline token, `_shared-rules.md` §18 applies: the project doc alone is an undated sink, so also create a dated Tickler backstop.
    - **Kill List / Stop Doing** → act on in-session: propose the `03 Projects/Cold/` moves and list `/complete-project` candidates for the user to confirm. Don't leave them as prose commitments that route nowhere.
 
    **Routing is an upsert.** Key every routed line by its normalised description. Its provenance marker must be the exact `[[06 Archive/Quarterly Reviews/<REVIEW_BASENAME>]]` backlink. Search the destination first; a match carrying any backlink in the same `YYYY-QN[a-z]?` review family is the same action, so update its text/backlink through the owning locked writer rather than appending. Otherwise create it once. A same-quarter rerun never appends a duplicate action.
@@ -205,7 +209,7 @@ Quarterly review complete.
 ## Guidelines
 
 - **Strategic, not mechanical.** This command surfaces priority drift and overhauls Direction. Structural maintenance is `/quarterly-hygiene`'s job — consume its report, don't repeat it.
-- **User confirmation for Direction.md.** High-trust file. Edit only with user-provided text; never infer an overhaul autonomously.
+- **User confirmation for Direction.md.** High-trust file. Edit only user-provided or explicitly approved replacement text; never infer an overhaul autonomously.
 - **Connect to weekly reviews.** Reference weekly review insights rather than re-deriving from session logs.
 - **Honest strategic assessment.** The quarterly check is where you surface uncomfortable truths about priority drift.
 - **Natural language.** Write in the user's voice — analytical, outcome-focused, honest.

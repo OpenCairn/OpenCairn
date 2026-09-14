@@ -33,9 +33,7 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
     ↓
   work (conversation with Claude)
     ↓
-/checkpoint → mid-session save (optional, repeatable)
-    ↓
-/park → end session, capture state
+/park (also /checkpoint) → capture session state
     ↓
 /pickup → resume from where you left off
     ↓
@@ -46,11 +44,11 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
 
 | Command | Session file | Project-doc update | Bidirectional links | OTS stamp | Quality gate |
 |---------|-------------|-----------|-------------------|-----------|-------------|
-| `/checkpoint` | Append | No | No | No | No |
-| `/park` | Append | Yes | Yes | Yes | Yes |
-| `/goodnight` | Append | Yes | Yes | Yes | No (different flow) |
+| `/checkpoint` | Same as `/park` | Same | Same | Same | Same |
+| `/park` | Append or same-day continuation | When state changes | Continuation links | No | Yes |
+| `/goodnight` | Append | When state changes | Continuation links | Explicit provenance flags only | Yes |
 
-**Key invariant:** `/checkpoint` is a subset of `/park`. Same session format, fewer side effects. Pickup finds both identically.
+**Key invariant:** `checkpoint.md` delegates directly to `/park`; it has no separate lightweight protocol.
 
 ### Session file format
 
@@ -66,29 +64,11 @@ All sessions live in `06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`. Multiple
 
 ## Provenance Chain
 
-Cryptographic audit trail for AI collaboration disclosure (journals, legal).
+Provenance is opt-in: `/provenance` creates a pending flag. It can attest final work products immediately; `/goodnight` processes pending transcript and session-log attestations after final writes and export. `/park` and its `/checkpoint` alias do not automatically request provenance.
 
-```
-Session file → SHA256 hash → Provenance Log table → OTS stamp → Bitcoin blockchain
-                                                          ↓
-                                                   07 System/.Provenance/DATE.ots
-```
+Work-product attestations retain hash-keyed snapshots and proofs. Re-hashing appends a new attestation and marks the old row superseded; it does not overwrite the old hash or proof. Verification requires bytes matching the recorded digest. A transcript export can change on re-export, so its current file is not a guaranteed preimage for an older proof.
 
-### Design Decisions
-
-**End-of-day primacy.** Only the last OTS stamp of the day survives. `/checkpoint` hashes and logs but does NOT stamp (the file will change before day-end, making mid-session proofs unverifiable). `/park` and `/goodnight` hash, log, AND stamp. If goodnight runs after park, it overwrites park's `.ots` file. This is intentional — one verifiable proof per day is sufficient for disclosure purposes.
-
-**Tag-gated auto-logging.** Provenance only fires automatically when a session has a `**Project:**` link in its pickup context. Admin, dating, and personal sessions are skipped. This keeps the log useful for publication audit trails without noise. Use `/provenance` manually to force-log any session.
-
-**Idempotent.** Same session + tag combination is never logged twice. Checked via `grep -Fq` (fixed-string match, no regex interpretation).
-
-**Non-blocking.** Provenance failures never prevent park/checkpoint/goodnight from completing. The audit trail is valuable but not worth losing session data over.
-
-### OTS verification
-
-`ots verify -f <session-file> <proof.ots>` — the `-f` flag is required because the `.ots` proof was moved from the sessions directory to `07 System/.Provenance/`. Without `-f`, ots looks for the target file adjacent to the proof and fails.
-
-For non-final entries of the day (e.g. a park entry that was later followed by goodnight), the OTS proof was overwritten. `/verify-provenance` will show "OTS FAILED" for these entries. This is expected under end-of-day primacy, not a bug.
+The producer and recovery contracts live in `.claude/commands/provenance.md`, `.claude/commands/goodnight.md`, and `.claude/commands/weekly-hygiene.md`.
 
 ---
 
@@ -105,9 +85,9 @@ Two separate lock files prevent deadlock:
 | Lock file | Protects | Used by |
 |-----------|----------|---------|
 | `06 Archive/OpenCairn/Session Logs/.lock` | Session file reads/writes | write-session.sh, add-forward-link.sh, goodnight session edits |
-| `07 System/.provenance-lock` | Provenance log writes | All provenance operations |
+| `<dir>/.<basename>.lock` | Ordinary vault-file mutations, including provenance entries | locked-edit.sh, locked-ingress.sh, write-tickler.sh |
 
-**Why separate locks:** Provenance runs after session writes. If both used the same lock, the provenance step would deadlock waiting for a lock that the same process already holds (write-session.sh acquired it and it's still in scope).
+**Lock ordering:** finish and release the session-writing call before starting provenance ingress or log mutation. Ordinary files use their canonical per-file locks.
 
 ### Why scripts, not inline bash
 
@@ -200,17 +180,17 @@ To scan the whole landscape at once, list the root and read the docs — there i
 
 Rules that span multiple commands. Violating these causes bugs.
 
-1. **Provenance runs before display.** In park (step 10 → 11), checkpoint (step 6 → 7), and goodnight (step 8a → 9), provenance logging happens before the completion message. The completion message includes provenance status — can't display it before computing it.
+1. **Provenance is opt-in.** Only explicit provenance flags trigger attestation work.
 
-2. **Hash after all writes.** Provenance hashes the session file after it has been fully written AND forward-linked. Hashing before forward-linking means the hash doesn't include the bidirectional links, creating an immediate mismatch on verification.
+2. **Hash final bytes.** Complete the relevant writes and export before hashing; a later edit requires a new attestation.
 
 3. **Scoped forward linking.** When inserting "Next session:" links, always scope to the specific previous session's heading block using line-number-based sed. Never use global `sed '/pattern/a ...'` — this matches every session in the file and creates duplicate insertions.
 
-4. **Session lock before provenance lock.** When both locks are needed, always acquire the session lock first (via write-session.sh), release it, then acquire the provenance lock. Never hold both simultaneously.
+4. **Release the session lock before provenance writes.** Provenance artefacts and log entries use their own canonical per-file locks.
 
 5. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
 
-6. **Checkpoint is a subset of park.** Same session format, no project-doc update, no bidirectional links, no OTS stamp, no quality gate. If checkpoint grows new features, they should be a strict subset of park's features.
+6. **Checkpoint stays an alias.** Its behaviour is the `/park` contract, not a separately maintained subset.
 
 ---
 

@@ -171,6 +171,7 @@ prev_hash=""
 MAX_ITER="${max_frames:-80}"
 EMPTY_MD5=$(printf '' | md5sum | awk '{print $1}')   # hash of zero-byte input
 
+t0=$SECONDS
 while [ "$n" -lt "$MAX_ITER" ]; do
   n=$((n+1))
   printf -v i "%03d" "$n"
@@ -226,11 +227,11 @@ while [ "$n" -lt "$MAX_ITER" ]; do
   prev_hash="$cur_hash"
   # Progress heartbeat: a long sweep is otherwise silent for many minutes, which is
   # indistinguishable from a hang. Emit on stderr so stdout stays clean for callers.
-  [ $(( n % 10 )) -eq 0 ] && echo "  [$n/$MAX_ITER] frames, ${SECONDS}s elapsed" >&2
+  [ $(( n % 10 )) -eq 0 ] && echo "  [$n/$MAX_ITER] frames, $((SECONDS - t0))s elapsed" >&2
   adb -s "$DEV" shell input swipe $((width/2)) "$y_high" $((width/2)) "$y_low" "$swipe_duration"
   sleep "$swipe_sleep"
 done
-echo "captured $n frames in ${SECONDS}s" >&2
+echo "captured $n frames in $((SECONDS - t0))s" >&2
 ```
 
 Use `exec-out screencap -p` (not `shell screencap`) to avoid CRLF mangling of the PNG byte stream.

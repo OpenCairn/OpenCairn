@@ -12,6 +12,8 @@ This prevents rule divergence across every skill that loads it. Change a rule on
 
 After running `resolve-vault.sh`, if it errors: **abort — no vault accessible.** Do NOT silently fall back to `~/Files` without an active failover symlink — that copy may be stale.
 
+**Resolver output:** success prints `VAULT_PATH=/resolved/path`. Strip only the `VAULT_PATH=` prefix when extracting the path; do not evaluate the output as shell code.
+
 **Use the resolved path for all file operations.** Code examples in skills use `{VAULT}` as a placeholder — substitute the literal resolved path wherever `{VAULT}` appears before executing. Do NOT rely on a shell variable set in an earlier call persisting — each shell call is a fresh process, so the variable will be empty. `$VAULT_PATH` itself is safe inline: Codex runs commands via `/bin/bash -lc`, which re-reads the profile that exports it.
 
 ---
@@ -39,7 +41,9 @@ Every actionable item in a day section or planning document should link to its p
 - Area doc exists → `→ [[04 Areas/path/doc]]`
 - Standalone/generic items (no project context) → no link
 
-When moving items that already have project/area links, preserve them. Replace session log links (`→ [[06 Archive/...]]`) with project/area links — session context is low-value once the item is in a planning doc.
+When moving items that already have project/area links, preserve them. Replace session log links (`→ [[06 Archive/OpenCairn/Session Logs/...]]`) with project/area links — session context is low-value once the item is in a planning doc.
+
+**Operational continuation links are an exception.** Preserve an unfinished task’s exact review/session links when they carry state needed to continue the work. Keep them through carry-forward and Tickler transfers; a project link may accompany them but must not replace them. This exception applies to every consumer of this linking convention.
 
 ---
 
@@ -101,6 +105,8 @@ EOF
 | (retired 2026-06-12) `07 System/.provenance-lock` | — | AI Provenance Log writes now use `locked-edit.sh`'s canonical per-file lock, like every planning file (B9) |
 
 **Lock ordering:** Ordinary edits hold one canonical per-file lock. `locked-edit.sh --move` holds the source and destination locks together in lexical path order, preventing two overlapping moves from deadlocking. Never wrap these operations in another file or session lock.
+
+**System logs are shared files too:** append to correction, wins, strategic-decision and provenance logs through `locked-edit.sh --append`; their folder does not exempt them from locking.
 
 ### Failure modes for in-place file edits
 
@@ -215,6 +221,8 @@ When executing any slash command, also follow the instructions in `_skill-monito
 
 ## 9. This Week.md Rolling Window Maintenance
 
+**Task carry-forward:** $goodnight Step 9 owns task-retention, routing and block-preservation rules. Execute that step with the source and destination sections specified below; do not maintain another routing policy here.
+
 This procedure keeps the rolling 7-day window current. It runs during `$morning` (step 6) and `$goodnight` (step 11). If This Week.md doesn't exist, skip entirely.
 
 **Write mechanism (F1):** `This Week.md` is a shared planning file — every trim/extend/populate mutation below goes through `locked-edit.sh`, never apply_patch or a raw write (see §5). Use `--replace`/`--replace-all` to delete or rewrite day sections. `--append` adds at EOF, so it is valid for new day sections **only when the file has no trailing non-day content**; if a `---` / `## Refs` / other trailing section exists, use `--replace` on the trailing boundary block instead (per the placement rule below).
@@ -224,22 +232,16 @@ This procedure keeps the rolling 7-day window current. It runs during `$morning`
 Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
 
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
-2. For each day section, compute: `today_date - section_date`. If > 3 calendar days, it becomes eligible for deletion — but **sweep before deleting**. Grep the section body for unchecked items first:
-   ```bash
-   # Materialise the section body first — from the day heading to the next '## ' (exclusive)
-   BODY=$(awk -v z=0 'f && /^## /{exit} index($z, "## HEADING_TEXT") == 1 {f=1} f' "{VAULT}/01 Now/This Week.md")
-   printf '%s\n' "$BODY" | grep -nE '^[[:space:]]*-[[:space:]]*\[ \]'
-   ```
-   Route every match forward before removing the section — into today's section (or the relevant future day / Tickler, per the caller's routing rules), preserving existing project/area links. **Only after the sweep**, delete the heading and all content until the next `## ` heading. Normally `$goodnight` has already routed undone items nightly, so eligible sections are clean and the grep returns nothing — but across a multi-day gap where `$goodnight` never ran (travel, offline), a trimmed day can still hold live `- [ ]` tasks, and deleting without the sweep silently drops them. Completed (`[x]`) items need no sweep — they're archived in the Daily Report.
+2. For each day section, compute `today_date - section_date`. If > 3 calendar days, execute $goodnight Step 9 with source = that section and destination = today’s section. Only after its open tasks are safely carried forward, delete the old day section. Completed items remain in their Daily Report.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 
 ### Extend the window
 
-Ensure day sections exist for today + 6 calendar days ahead (7 total including today). Rolling window: 3 past + today + 6 future = 10 sections max.
+Ensure day sections exist for today + 6 calendar days ahead (7 total including today). Normal window: 3 past + today + 6 future = 10 sections; preserve additional populated future days.
 
-1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 1 to 6)
+1. Run `date -d "+N days" +"%A %d %b"` for each missing day (N = 0 to 6, including today)
 2. Add new day sections after the last existing day, before `---` / Refs / other trailing sections
-3. Remove day sections beyond the 6-day window (heading + content until next `## ` heading)
+3. Remove only empty day sections beyond the 6-day window. Preserve populated future days and their dates; do not delete or offload their open tasks to enforce the window size.
 4. Format for days with no content: `## [Day] [DD] [Mon]` — just the heading
 5. Update the file heading date range — this is a **required, emitted check**, not a silent edit. See **Update the heading** below.
 
@@ -354,6 +356,8 @@ When propagating a changed identifier across the vault — `park` Step 6 (refere
 If you can't tell whether a value is a live locator or a frozen record, **report the ambiguity instead of editing**. Use the file's lock if one exists. Always show the grep output (it proves the grep ran) — and the **full** hit-set, not a sampled subset: the grep's complete hit-list *is* the scope of the triage, so account for every returned hit (tag each `updated` / `left (historical)` / `left (different context)`). A "no remaining stale refs" conclusion is earned only by triaging the whole hit-list, never by checking the files you expected to matter or a hand-picked candidate list.
 
 ---
+
+**Verify propagation in both directions:** search the old value for missed references and the new value for intended destinations. Search stable subject/container anchors separately when wording varies. For a changed route, check diagram edges as well as prose; unchanged endpoint names do not prove the route is current.
 
 ## 13. Cite Vault Items by Stable Identifier, Not Line Number
 
@@ -543,6 +547,7 @@ A short count means the brief is incomplete, not the work wrong.
 
 - **"Relevant text" means the passages the claims rest on** — not whole documents. Quote the load-bearing passage; cap each source at roughly 500 words.
 - **Mind the transport.** `$audit` and `$second-opinion` pipe the brief into CLI seats with differing context windows, under a requirement that the payload be identical across seats. An uncapped dump can silently truncate in one seat — reproducing the partial-evidence false positives this rule exists to prevent, now invisibly. If the evidence exceeds the budget, attach it as a file path all seats can read (§10's `--include-directories` / `-C`) rather than inlining it.
+- **Coverage is per claim:** include each supporting passage, including earlier excerpts from a source fetched again, action confirmations and relevant limitations. Reconcile the source union immediately before despatch with later tool results and user corrections. Name failed retrievals as partial coverage; source-count equality cannot prove completeness.
 - **Conflicting sources:** where two disagree and the work picked one, say which won and why — otherwise the reviewer re-litigates a settled question.
 
 ### A never-opened citation is closed by opening it, not by declaring it
@@ -587,7 +592,7 @@ Canonical rule for every skill that routes open items to a destination — `$par
 
 **An undated destination does not discharge such an item**, however canonical that destination is. A project doc, an area hub, an undated notes list — each records *what* to do and never *when it stops being possible*. The undated branch of a routing table exists for items with genuinely no date; a deadline token means the item has one **even when it isn't written as a calendar date**. Derive it (`date -d`), don't route past it.
 
-**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `$park` Step 7 the disallowed sinks are the project doc and Whimsy; for `$goodnight` Step 9 it is `→ Whimsy`. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
+**The failure surface is caller-specific — name yours.** Each routing skill has a different undated sink, and the check must bind to that skill's own sink: for `$park` Step 7 the disallowed sinks are undated task homes and Whimsy. `$goodnight` Step 9 has no undated sink: existing open tasks remain in This Week under §9. A caller adopting this rule states which of its destinations is the disallowed one, because "route to a dated surface" is unfalsifiable without naming what that excludes.
 
 **Checkable:** any routed item whose text carries a deadline token must land under a dated heading, and the routing summary must name that dated target.
 
@@ -597,7 +602,7 @@ Canonical rule for every skill that routes open items to a destination — `$par
 
 Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `$park` Step 2(c) (the SOURCE check of its quality gate), `$goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
 
-- Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier.
+- Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier. Also include authorship/approval and past verification claims, causal mechanisms, guarantees and asserted requirements; trace requirements to the authority that imposes them.
 - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
 - **Trace is necessary but not sufficient: require semantic entailment.** The source must support the written direction, strength, scope, and qualifiers. For example, "did not increase" does not entail "was unchanged" because it still permits a decrease.
 - **Derived values inherit the check.** A total computed from components, or two items presented as equivalent/substitutable, are unsourced unless the inputs *and the equivalence* were themselves checked. Plausible arithmetic over unverified inputs is the same defect as an invented figure.
@@ -610,6 +615,9 @@ Canonical rule for every skill with a pre-audit quality gate over files it just 
   - **Tag placement:** in a dated or archival surface (a session log), `[unverified]` is fine. In a living hub or planning doc, cut the claim or rewrite it as an open question — an untagged expiry date is how a tag rots into a permanent shrug.
 - **Mechanism-coverage claims inherit the check.** Before writing that mechanism X prevents, detects, or surfaces failure Y, name the comparison or surface X actually inspects and verify that it includes Y's subject. A mechanism that never touches the claimed pair cannot support the causal claim.
 - **Aggregate status claims name and verify their set.** State whose items the aggregate covers, then check membership and status against that set's canonical record. A clean subset cannot support an unqualified "all complete/booked/configured" claim.
+- **Scope and falsifiers:** the source must support the same subject, population, timeframe and qualifiers. State the searched boundary with a negative claim and retain a positive control from the same instrument/run. A claimed mechanism or successful verification needs an observation that would differ if it failed; a success label alone is insufficient. A durability claim needs the relevant transition tested or conditional wording.
+- **Inherited specifics retain their provenance:** user-quoted assistant prose authorises the requested action but does not independently verify its contents. Trace uncertain carried values to the original evidence before strengthening them.
+- **Late writes inherit this gate:** apply it to the final session record, routed tasks and other bookkeeping composed after the initial check. Compute counts from the complete relevant result, never truncated output; omit unnecessary counts.
 - **Required output:** `Value check: N values traced, M unsourced (fixed); P preconditions asserted, Q verified` — or `Value check: no specific values written this session` (append `; no preconditions asserted` when that half is also nil).
 
 Distinct from §16 (out-of-band evidence in reviewer briefs), which governs *supplying* sources to a reviewer; this one governs whether a value written into a file had a source at all.
@@ -696,6 +704,8 @@ Canonical rule for every skill that despatches a review to a reviewer whose tool
 A seat owes every row its reach covers, not one of them. **Paste this table into the brief body — do not point the reviewer at this file.** A reviewer's workspace is the audit target, which is rarely the directory holding these rules, so a bare cross-reference is an instruction it cannot follow, and discarding it on receipt then punishes a competent review for a rule it never saw.
 
 **Enforcement.** A review attesting nothing is brief-echo, not independent judgement — discard it and say so in the synthesis rather than quietly running an N-1 panel labelled as N. Partial attestation is not discarded wholesale: the unattested claims are reported as unverified and never promoted to findings on the reviewer's say-so. Where a row requires two artefacts, missing either fails that claim; the test is not "neither was supplied".
+
+**Snapshot locators:** record absolute paths, or an explicit base directory and resolve relative entries against it. Verify against that same root before applying a review fix.
 
 **Attestation is a locator, not a proof — spot-check before promoting.** A citation is as forgeable as the claim it supports, so an unchecked URL-and-quote does not merely fail to help, it actively inverts the ranking below: a fabricated primary source outranks an honest "from recall". Before promoting any fetched-source or command-backed finding that changes what you do, verify it yourself — open the URL and match the quote, or re-run the command. If you cannot, carry the finding as `[unverified]` at its unattested rank. The attestation's job is to make the check cheap and targeted, not to substitute for it.
 

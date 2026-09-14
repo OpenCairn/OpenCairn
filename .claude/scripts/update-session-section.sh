@@ -49,6 +49,17 @@ fi
 CONTENT=""
 _read_stdin_content CONTENT || exit $?
 
+# Reject the same line prefixes used below to delimit sections and sessions.
+# Validate before locking or writing; avoid an early-exit pipeline under pipefail.
+while IFS= read -r line; do
+    case "$line" in
+        '### '*|'## Session '*)
+            echo "ERROR: stdin contains a section or session boundary ('### ' or '## Session '); provide only section body text." >&2
+            exit 1
+            ;;
+    esac
+done <<< "$CONTENT"
+
 if [ -z "$CONTENT" ]; then
     echo "No content provided on stdin"
     exit 0

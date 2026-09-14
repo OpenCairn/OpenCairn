@@ -29,6 +29,7 @@ SEP_RE = re.compile(
 )
 JOINED_LIST_RE = re.compile(r"[^\s=`]- \[[ x]\]")
 ATTEST_RE = re.compile(r"^ATTEST ([0-9a-fA-F]{64}) (/.+)$", re.MULTILINE)
+REMOTE_PATH_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 AUDIT_TABLE = """| Seat can reach | Required attestation |
 |---|---|
 | The filesystem | The list of files it read |
@@ -45,6 +46,12 @@ def now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="microseconds")
 
 
+def count_lines(path: Path) -> int:
+    """Count readable lines, including a final line without a newline."""
+    with path.open("rb") as handle:
+        return sum(1 for _ in handle)
+
+
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as handle:
@@ -55,6 +62,23 @@ def sha256(path: Path) -> str:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def is_utf8(data: bytes) -> bool:
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def is_binary_artifact(data: bytes) -> bool:
+    """Recognise binary containers that may still decode as UTF-8."""
+    return (
+        data.startswith(b"%PDF-")
+        or data.startswith(b"\x89PNG\r\n\x1a\n")
+        or b"\x00" in data[:8192]
+    )
 
 
 def decode_utf8(data: bytes, path: Path) -> str:
@@ -561,13 +585,18 @@ def cmd_classify(args: argparse.Namespace) -> int:
 
     if not args.replace:
         die("--mechanical requires at least one --replace OLD NEW pair")
-    if not args.target:
-        die("--mechanical requires at least one --target")
+    if args.target and args.no_locator_target:
+        die("--mechanical takes --target or --no-locator-target, never both")
+    if not args.target and not args.no_locator_target:
+        die(
+            "--mechanical requires at least one --target, or --no-locator-target "
+            "to declare that no substitution in this call is a locator"
+        )
     result = verify_mechanical(
         path,
         vault,
         args.replace,
-        args.target,
+        args.target or [],
         receipt_root,
         allow_inherited_lint=args.allow_inherited_lint,
     )
@@ -579,12 +608,15 @@ def cmd_classify(args: argparse.Namespace) -> int:
         "mode": "mechanical",
         "classified_at": now(),
         "replacements": args.replace,
-        "targets": args.target,
+        "targets": args.target or [],
+        "no_locator_target": bool(args.no_locator_target),
         "verification": result,
     }
     atomic_json(manifest_path, manifest)
     print(
         f"PASS mechanical: {path} ({len(args.replace)} replacement(s), "
+        f"{len(args.target or [])} target(s)"
+        f"{', no-locator-target' if args.no_locator_target else ''}, "
         f"{len(result['receipts'])} receipt(s))"
     )
     return 0
@@ -930,6 +962,32 @@ def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]
     return paths
 
 
+def partition_attributed_paths(
+    raw_paths: list[str], vault: Path, classifications: dict
+) -> tuple[list[Path], list[dict]]:
+    """Separate local paths from exact, explicitly classified remote artefacts."""
+    local_paths: list[Path] = []
+    external_files: list[dict] = []
+    seen: set[Path] = set()
+    for raw in raw_paths:
+        external = classifications.get(f"external::{raw}")
+        if isinstance(external, dict) and external.get("mode") == "nonlocal":
+            external_files.append(
+                {"path": raw, "reason": external.get("reason", "non-local artefact")}
+            )
+            continue
+        if REMOTE_PATH_RE.match(raw):
+            die(
+                f"remote Files row is not classified exactly: {raw}; record one remote "
+                "artefact per Files row and classify that exact row with --nonlocal"
+            )
+        path = canonical_path(raw, vault)
+        if path not in seen:
+            seen.add(path)
+            local_paths.append(path)
+    return local_paths, external_files
+
+
 def load_captures(root: Path) -> list[dict]:
     records: list[dict] = []
     capture_dir = root / "captures"
@@ -1255,20 +1313,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     )
 
     created = {canonical_path(path, vault) for path in created_raw}
-    local_paths: list[Path] = []
-    external_files: list[dict] = []
-    seen: set[Path] = set()
-    for raw in created_raw + updated_raw:
-        external = classifications.get(f"external::{raw}")
-        if isinstance(external, dict) and external.get("mode") == "nonlocal":
-            external_files.append(
-                {"path": raw, "reason": external.get("reason", "non-local artefact")}
-            )
-            continue
-        path = canonical_path(raw, vault)
-        if path not in seen:
-            seen.add(path)
-            local_paths.append(path)
+    local_paths, external_files = partition_attributed_paths(
+        created_raw + updated_raw, vault, classifications
+    )
 
     full_read: list[dict] = []
     targeted_review: list[dict] = []
@@ -1384,6 +1431,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             if isinstance(classification, dict):
                 reason = classification.get("reason", reason)
             else:
+                if is_binary_artifact(data) or not is_utf8(data):
+                    die(f"unclassified non-text artefact: {path}; use classify --reference "
+                        "for imported sources or --semantic --targeted with inspection targets")
                 warnings.append(f"defaulted unclassified file to semantic: {path}")
             (
                 snapshot_digest,
@@ -1429,13 +1479,14 @@ def cmd_build(args: argparse.Namespace) -> int:
     if verifier.get("returncode") not in (None, 0):
         die("latest verifier receipt records a failing exit status")
 
-    sources: dict[str, dict] = {}
+    sources: dict[str, list[dict]] = {}
     for item in evidence:
         source = item.get("source")
         provenance = item.get("provenance")
         if not source or provenance not in ("primary", "secondary", "unverified"):
             die(f"malformed evidence receipt: {item.get('_path', 'unknown')}")
-        sources[source] = item
+        sources.setdefault(source, []).append(item)
+    embedded_excerpts = sum(len(items) for items in sources.values())
 
     ledger_path = (
         Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
@@ -1469,8 +1520,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     if read_groups:
         for group in read_groups:
             reasons = "; ".join(group["reasons"])
+            group["lines"] = count_lines(Path(str(group["read_path"])))
             lines.append(
                 f"- Read immutable review copy once: `{group['read_path']}` — "
+                f"lines `{group['lines']}` — "
                 f"review-copy SHA-256 `{group['review_sha256']}` — "
                 f"verify source bytes at `{group['hash_path']}` → `{group['sha256']}` — {reasons}"
             )
@@ -1600,15 +1653,16 @@ def cmd_build(args: argparse.Namespace) -> int:
         ]
     )
     if sources:
-        for source, item in sources.items():
-            lines.extend(
-                [
-                    f"### [{item['provenance']}] {item['label']} — `{source}`",
-                    "",
-                    fenced(item["text"]),
-                    "",
-                ]
-            )
+        for source, items in sources.items():
+            for index, item in enumerate(items, start=1):
+                heading = f"### [{item['provenance']}] {item['label']} — `{source}`"
+                if len(items) > 1:
+                    heading += (
+                        f" (receipt {index} of {len(items)}, captured "
+                        f"{item.get('captured_at', 'unknown')}; all receipts for this "
+                        "source are cumulative)"
+                    )
+                lines.extend([heading, "", fenced(item["text"]), ""])
     else:
         lines.append("None.")
 
@@ -1641,9 +1695,10 @@ def cmd_build(args: argparse.Namespace) -> int:
             "- Review the embedded Session N block; do not open the live full session log. If its immutable "
             "snapshot is a full-read row, emit only Session N from that snapshot.",
             "- Each `Read immutable review copy once` row under **Bounded semantic files — full coherence read** is one byte-identity group. "
-            "Read only the review-copy path in that row, in its own tool call; do not open the live original. "
-            "If it truncates, continue only from its "
-            "first unread line. Run `sha256sum` on the listed source-bytes path and return that SHA-256.",
+            "Read only the review-copy path in that row; do not open the live original. "
+            "Use bounded line ranges covering line 1 through the stated line count, including a final "
+            "unterminated line. Report the ranges read; retry a truncated range in smaller chunks. "
+            "Run `sha256sum` on the listed source-bytes path and return that SHA-256.",
             "- Include exactly one machine-readable attestation line for every original path represented "
             "by those groups: `ATTEST <sha256> <absolute-original-path>`. Byte-identical aliases are attested but "
             "not reread. Do not wrap either field in backticks and do not leave trailing whitespace.",
@@ -1698,8 +1753,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     }
     atomic_json(root / "review-brief-manifest.json", brief_manifest)
     print(f"Reviewer brief: {out}")
+    print(f"Reviewer brief SHA-256: {sha256(out)}")
     print(
-        f"Out-of-band evidence: sources drawn on {len(sources)} → excerpts embedded {len(sources)}"
+        f"Out-of-band evidence: sources drawn on {len(sources)} → excerpts embedded {embedded_excerpts}"
     )
     print(
         f"Review modes: bounded-full {len(full_read)} path(s) in {len(read_groups)} read(s) | targeted {len(targeted_review)} | mechanical {len(mechanical)} | "
@@ -1870,6 +1926,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     classify.add_argument("--replace", nargs=2, action="append", metavar=("OLD", "NEW"))
     classify.add_argument("--target", action="append")
+    classify.add_argument(
+        "--no-locator-target",
+        action="store_true",
+        help=(
+            "declare that no --replace pair in this --mechanical call is a locator, "
+            "so there is no destination to validate; required when --target is omitted"
+        ),
+    )
     classify.add_argument(
         "--allow-inherited-lint",
         action="store_true",

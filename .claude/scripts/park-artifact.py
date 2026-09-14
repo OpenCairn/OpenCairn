@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import tarfile
 import tempfile
 
 
@@ -171,6 +172,26 @@ def prepare(source: Path, original: Path, state_dir: Path) -> dict:
                 "review_sha256": review_digest,
                 "review_lines": review_lines,
                 "text_status": text_status,
+            }
+        )
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        receipt.update(
+            {
+                "media_type": "image/png",
+                "review_path": None,
+                "review_sha256": None,
+                "review_lines": None,
+                "text_status": "unsupported",
+            }
+        )
+    elif tarfile.is_tarfile(source_snapshot):
+        receipt.update(
+            {
+                "media_type": "application/x-tar",
+                "review_path": None,
+                "review_sha256": None,
+                "review_lines": None,
+                "text_status": "unsupported",
             }
         )
     else:

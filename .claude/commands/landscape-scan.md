@@ -66,7 +66,7 @@ Resolve the profile file: `$COMMANDS_DIR/landscape-profiles/<topic>.md` (under t
 **Read the profile now.** It defines, for the rest of this run (step numbers below refer to this engine's steps):
 - `One-liner` — the profile's one-line self-description; surface it in the Step 10 report header.
 - `Contextualising reads` — what to load in Step 4.
-- `Sources` — the curated list for Step 5 (scan mode), plus any source-specific mandatory-digest rules.
+- `Sources` — the curated list for Step 5 (scan mode), plus any source-specific coverage rules.
 - `Assessment frame` — the passes to run in Step 7 and their definitions.
 - `Report sections` — the finding-sections Step 9 classifies into and Step 10 inserts (the engine supplies the common wrapper).
 - `File naming` — the filename suffix + prior-scan glob (default profile: none; others: `-<topic>`).
@@ -121,7 +121,7 @@ Keep the **[optional]** reads light — for those, the goal is *calibration*, no
 
 ### 5. Scan mode — curated sources
 
-Only if scan mode is active. Work the profile's `Sources` list; for each, focus on what's new or changed since the last scan for this topic. Honour any source-specific mandatory-digest rules the profile defines (e.g. the default profile's Zvi end-to-end digest).
+Only if scan mode is active. Work the profile's `Sources` list; for each, focus on what's new or changed since the last scan for this topic. Honour any source-specific coverage rules the profile defines (e.g. the default profile's Zvi tool-tip sections).
 
 If a source is unreachable or a repo has been deleted/moved, note it as "unavailable" and move on. Flag it in the *Sources list updates* section so the profile file gets cleaned up.
 
@@ -239,7 +239,7 @@ Source list updates: [any changes made to the profile file]
 - **Delta over repeat.** Only report what's new since the last scan *for this topic*. Don't re-list stable sources that haven't changed.
 - **Verify before trusting pitches.** Tweets/blogs/vendor marketing hype; repos, product pages, CVE records, and commits ship. Fetch the underlying thing.
 - **Update the profile source list,** not this engine, when a source goes stale or a new one emerges.
-- **Quick and focused.** Scan mode: 10–20 min for a light delta with few new items; longer on a cold start or a heavy Zvi week — the full source list plus an end-to-end Zvi digest is realistically 30–60+ min, so budget accordingly rather than skimming to hit the lower number. Digest mode: scales with URL count but stays snappy.
+- **Quick and focused.** Scan mode: 10–20 min for a light delta with few new items; allow longer for a cold start or a large gap. Follow the profile’s coverage scope and read relevant sections properly rather than expanding into unrelated material. Digest mode: scales with URL count but stays snappy.
 - **Expand category abstraction when a direct-match search returns nothing.** If an exact-match search yields zero hits, don't conclude "none exists." Abstract up one level and search again. Direct-match null is a second-pass failure mode if not expanded.
 - **Honest about signal.** A null result is fine — say so.
 

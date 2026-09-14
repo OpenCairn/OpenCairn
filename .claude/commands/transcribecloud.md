@@ -45,7 +45,7 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
 
 1. **Parse arguments** — separate URLs, file paths, and flags.
 2. **For YouTube URLs:** Use `yt-dlp --flat-playlist --print "%(duration)s %(title)s"` to get video count and total duration. Handle playlists (expand to individual videos). Report the inventory to the user.
-3. **For local files:** Count files and get total duration via `ffprobe`.
+3. **For local files:** run `command -v ffprobe` before provisioning; if absent, report the missing dependency and stop. Then count files and get total duration via `ffprobe`.
 4. **Determine source type:**
    - `youtube` — URLs only, will download directly on pod (faster, no local transfer needed)
    - `local` — local files, will need transfer to pod (scp over exposed TCP, else `runpodctl send/receive` — Phase 4)

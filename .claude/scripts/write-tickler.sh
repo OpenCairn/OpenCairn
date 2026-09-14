@@ -18,6 +18,7 @@ set -euo pipefail
 
 # --- Portable file locking (shared library) ---
 source "$(dirname "$0")/lib-lock.sh"
+source "$(dirname "$0")/lib-session.sh"
 
 if [ $# -lt 3 ]; then
     echo "Usage: $0 <tickler-file> <date> <item>"
@@ -81,6 +82,20 @@ fi
 export _AWK_TARGET="$TARGET_DATE"
 export _AWK_ITEM="$ITEM"
 awk '
+function flush_blanks() {
+    printf "%s", pending_blanks
+    pending_blanks = ""
+}
+
+function insert_section() {
+    # Only normalize the seam where a new section is inserted.
+    pending_blanks = ""
+    print ""
+    print "## " target
+    print item
+    inserted = 1
+}
+
 BEGIN {
     target = ENVIRON["_AWK_TARGET"]
     item = ENVIRON["_AWK_ITEM"]
@@ -95,7 +110,14 @@ BEGIN {
     last_divider_line = NR
 }
 
-# After printing each line, check if we need to insert
+# Delay blank lines so an insertion can replace its leading seam, while
+# preserving whitespace verbatim everywhere else (including user prose).
+/^[ \t]*$/ {
+    pending_blanks = pending_blanks $0 "\n"
+    next
+}
+
+# Check whether this line needs a new section before it
 {
     # Check if this line is a date header in content section
     if (NR > last_divider_line && last_divider_line > 0 && /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) {
@@ -104,6 +126,7 @@ BEGIN {
         # If this is our target date, mark it
         if (current_date == target) {
             found_target = 1
+            flush_blanks()
             print
             # Print the item right after the header
             print item
@@ -113,23 +136,23 @@ BEGIN {
 
         # If this date is later than target and we have not inserted yet
         if (!inserted && current_date > target) {
-            # Insert new header + item before this line
+            # Separate the new section from both neighboring sections.
+            insert_section()
             print ""
-            print "## " target
-            print item
-            inserted = 1
         }
     }
 
+    flush_blanks()
     print
 }
 
 END {
     # If we never inserted (target date is latest or no dates exist)
     if (!inserted) {
+        insert_section()
         print ""
-        print "## " target
-        print item
+    } else {
+        flush_blanks()
     }
 }
 ' "$TICKLER_FILE" > "$TICKLER_FILE.tmp"
@@ -138,5 +161,28 @@ mv "$TICKLER_FILE.tmp" "$TICKLER_FILE"
 unset _AWK_TARGET _AWK_ITEM
 
 _unlock
+
+# Self-ledger the write. This script bypasses the Write|Edit tools, so their
+# PostToolUse hook cannot see Tickler mutations. Use the same TSV shape as the
+# hook and the other locked writers; a shell has no trustworthy agent id, so
+# record "?" rather than claiming the main seat. Bookkeeping remains fail-open:
+# a ledger failure must not turn a successfully installed reminder into an
+# apparent write failure.
+_WT_SID="$(_session_id)"
+if [ -n "$_WT_SID" ]; then
+    _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
+    _LEDGER_PATH="$TICKLER_FILE"
+    case "$_LEDGER_PATH" in /*) ;; *) _LEDGER_PATH="$PWD/$_LEDGER_PATH" ;; esac
+    case "$_LEDGER_PATH" in
+        "$_LEDGER_DIR"/*) ;;  # Never ledger the state files themselves.
+        *)
+            _LEDGER_PATH=${_LEDGER_PATH//$'\t'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\n'/ }
+            { mkdir -p "$_LEDGER_DIR" &&
+              printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "write-tickler" \
+                  "$_LEDGER_PATH" "?" \
+                  >> "$_LEDGER_DIR/$_WT_SID.tsv"; } 2>/dev/null || true
+            ;;
+    esac
+fi
 
 echo "Tickler item added: $TARGET_DATE"

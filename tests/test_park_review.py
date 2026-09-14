@@ -23,6 +23,119 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_utf8_decodable_tar_is_still_binary(self) -> None:
+        tar_header = b"payload.txt" + (b"\x00" * 500)
+        self.assertTrue(park_review.is_utf8(tar_header))
+        self.assertTrue(park_review.is_binary_artifact(tar_header))
+
+    def test_build_refuses_to_default_an_unclassified_pdf_to_a_full_read(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config = base / "config"
+            root = config / ".session-state/session.park-review"
+            vault = base / "vault"
+            log = vault / "log.md"
+            manual = vault / "manual.pdf"
+            vault.mkdir(parents=True)
+            manual.write_bytes(b"%PDF-1.4\n%inherited manual\n")
+            log.write_text(
+                "# Sessions\n\n"
+                "## Session 1 - Merge park\n\n"
+                "### Summary\nDone.\n\n"
+                "### Key Insights / Decisions\n- None\n\n"
+                "### Next Steps / Open Loops\n- None\n\n"
+                "### Files Created\nNone\n\n"
+                f"### Files Updated\n- {manual} - inherited from the first park\n- {log} - recorded\n\n"
+                "### Pickup Context\n**For next session:** None.\n**Project:** None\n",
+                encoding="utf-8",
+            )
+            captures = root / "captures"
+            captures.mkdir(parents=True)
+            # Only the log was classified in this park; the manual's earlier classification
+            # was not carried into the continuation.
+            park_review.atomic_json(
+                root / "files.json", {str(log): {"mode": "semantic", "reason": "fixture"}}
+            )
+            park_review.atomic_json(
+                captures / "propagation.json",
+                {"kind": "propagation", "captured_at": "1", "text": "checked"},
+            )
+            park_review.atomic_json(
+                captures / "verifier.json",
+                {"kind": "verifier", "captured_at": "2", "text": "RESULT: PASS", "returncode": 0},
+            )
+            args = SimpleNamespace(
+                session_id="session", vault=str(vault), session_log=str(log), number=1, out=None
+            )
+            with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(config)}):
+                with self.assertRaises(SystemExit) as refused:
+                    park_review.cmd_build(args)
+            self.assertIn("unclassified non-text artefact", str(refused.exception))
+            self.assertIn(str(manual), str(refused.exception))
+            self.assertIn("classify --reference", str(refused.exception))
+
+    def test_build_embeds_every_receipt_for_a_repeated_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            config = base / "config"
+            root = config / ".session-state/session.park-review"
+            vault = base / "vault"
+            log = vault / "log.md"
+            vault.mkdir(parents=True)
+            log.write_text(
+                "# Sessions\n\n"
+                "## Session 1 - Fixture\n\n"
+                "### Summary\nDone.\n\n"
+                "### Key Insights / Decisions\n- None\n\n"
+                "### Next Steps / Open Loops\n- None\n\n"
+                "### Files Created\nNone\n\n"
+                f"### Files Updated\n- {log} - recorded\n\n"
+                "### Pickup Context\n**For next session:** None.\n**Project:** None\n",
+                encoding="utf-8",
+            )
+            captures = root / "captures"
+            captures.mkdir(parents=True)
+            park_review.atomic_json(
+                root / "files.json", {str(log): {"mode": "semantic", "reason": "fixture"}}
+            )
+            park_review.atomic_json(
+                captures / "propagation.json",
+                {"kind": "propagation", "captured_at": "1", "text": "checked"},
+            )
+            park_review.atomic_json(
+                captures / "verifier.json",
+                {"kind": "verifier", "captured_at": "2", "text": "RESULT: PASS", "returncode": 0},
+            )
+            for stamp, text in (("3", "FIRST-FACT: dose 5 mg"), ("4", "SECOND-FACT: taken at night")):
+                park_review.atomic_json(
+                    captures / f"evidence-{stamp}.json",
+                    {
+                        "kind": "evidence",
+                        "captured_at": stamp,
+                        "label": "product information",
+                        "source": "https://example.invalid/pi",
+                        "provenance": "primary",
+                        "text": text,
+                    },
+                )
+            args = SimpleNamespace(
+                session_id="session", vault=str(vault), session_log=str(log), number=1, out=None
+            )
+            stdout = io.StringIO()
+            with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(config)}):
+                with mock.patch("sys.stdout", stdout):
+                    self.assertEqual(park_review.cmd_build(args), 0)
+
+            brief = (root / "review-brief.md").read_text(encoding="utf-8")
+            self.assertIn("FIRST-FACT: dose 5 mg", brief)
+            self.assertIn("SECOND-FACT: taken at night", brief)
+            self.assertLess(brief.index("FIRST-FACT"), brief.index("SECOND-FACT"))
+            self.assertIn("(receipt 1 of 2, captured 3; all receipts for this source are cumulative)", brief)
+            self.assertIn("(receipt 2 of 2, captured 4;", brief)
+            self.assertIn(
+                "Out-of-band evidence: sources drawn on 1 → excerpts embedded 2", stdout.getvalue()
+            )
+
     def test_locked_edit_receipt_records_pre_and_post_lint(self) -> None:
         locked_edit = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
         with tempfile.TemporaryDirectory() as tmp:
@@ -967,6 +1080,113 @@ class ParkReviewTests(unittest.TestCase):
             self.assertEqual(
                 park_review.current_audit_receipts(state / ".park-audit-receipts"), []
             )
+
+
+class RemoteFilesRowTests(unittest.TestCase):
+    def test_remote_row_requires_exact_nonlocal_classification(self) -> None:
+        vault = Path("/vault")
+        remote = "adb://device/Download/map.kml"
+
+        with self.assertRaises(SystemExit) as caught:
+            park_review.partition_attributed_paths([remote], vault, {})
+
+        self.assertIn("classify that exact row with --nonlocal", str(caught.exception))
+
+    def test_each_exactly_classified_remote_row_is_preserved(self) -> None:
+        vault = Path("/vault")
+        rows = [
+            "adb://device/Download/map.kml",
+            "adb://device/Download/day-sheet.md",
+        ]
+        classifications = {
+            f"external::{row}": {"mode": "nonlocal", "reason": "remote: copied"}
+            for row in rows
+        }
+
+        local, remote = park_review.partition_attributed_paths(
+            rows, vault, classifications
+        )
+
+        self.assertEqual(local, [])
+        self.assertEqual([item["path"] for item in remote], rows)
+
+
+class MechanicalTokenClassificationTests(unittest.TestCase):
+    """A mechanical substitution need not be a locator (park Step 2(b))."""
+
+    def _classify(self, env: dict, vault: Path, target: Path, *extra: str):
+        return subprocess.run(
+            [
+                "python3",
+                str(HELPER),
+                "--session-id",
+                "token-fixture",
+                "classify",
+                "--vault",
+                str(vault),
+                "--path",
+                str(target),
+                "--mechanical",
+                "--replace",
+                "serialize",
+                "serialise",
+                *extra,
+            ],
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+
+    def test_token_only_substitution_classifies_without_a_target(self) -> None:
+        locked_edit = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            vault.mkdir()
+            target = vault / "note.md"
+            target.write_text("serialize the payload\n", encoding="utf-8")
+            env = dict(
+                os.environ,
+                CLAUDE_CONFIG_DIR=str(root / "config"),
+                CLAUDE_CODE_SESSION_ID="token-fixture",
+            )
+            subprocess.run(
+                [str(locked_edit), str(target), "--replace"],
+                input=(
+                    "serialize the payload\n"
+                    "========OPENCAIRN-LOCKED-EDIT-SEP========\n"
+                    "serialise the payload\n"
+                ),
+                text=True,
+                check=True,
+                capture_output=True,
+                env=env,
+            )
+
+            bare = self._classify(env, vault, target)
+            self.assertNotEqual(bare.returncode, 0)
+            self.assertIn("--no-locator-target", bare.stderr)
+
+            both = self._classify(
+                env, vault, target, "--target", str(target), "--no-locator-target"
+            )
+            self.assertNotEqual(both.returncode, 0)
+            self.assertIn("never both", both.stderr)
+
+            declared = self._classify(env, vault, target, "--no-locator-target")
+            self.assertEqual(declared.returncode, 0, declared.stderr)
+            self.assertIn("PASS mechanical", declared.stdout)
+            self.assertIn("no-locator-target", declared.stdout)
+
+            manifest = json.loads(
+                (
+                    root / "config/.session-state/token-fixture.park-review/files.json"
+                ).read_text(encoding="utf-8")
+            )
+            entry = manifest[str(target.resolve())]
+            self.assertEqual(entry["mode"], "mechanical")
+            self.assertEqual(entry["targets"], [])
+            self.assertTrue(entry["no_locator_target"])
 
 
 if __name__ == "__main__":

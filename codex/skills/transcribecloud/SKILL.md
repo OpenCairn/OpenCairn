@@ -55,7 +55,7 @@ If `runpodctl` is missing, report the prerequisite and use the official RunPod i
 
 1. **Parse arguments** — separate URLs, file paths, and flags.
 2. **For YouTube URLs:** Use `yt-dlp --flat-playlist --print "%(duration)s %(title)s"` to get video count and total duration. Handle playlists (expand to individual videos). Report the inventory to the user.
-3. **For local files:** Enumerate the exact requested files and get total duration via `ffprobe`. Extract audio from video formats absent from the batch script’s supported extensions before transfer. Give duplicate basenames distinct staging names and retain their original paths in the manifest so files cannot overwrite each other.
+3. **For local files:** run `command -v ffprobe` before provisioning; if absent, report the missing dependency and stop. Then enumerate the exact requested files and get total duration via `ffprobe`. Extract audio from video formats absent from the batch script’s supported extensions before transfer. Give duplicate basenames distinct staging names and retain their original paths in the manifest so files cannot overwrite each other.
 4. **Determine source type:**
    - `youtube` — URLs only, will download directly on pod (faster, no local transfer needed)
    - `local` — local files, will need transfer to pod (scp over exposed TCP, else `runpodctl send/receive` — Phase 4)

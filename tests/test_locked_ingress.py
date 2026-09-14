@@ -3,12 +3,18 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from session_isolation import isolated_os_environ
 
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/locked-ingress.sh"
 
 
 class LockedIngressTests(unittest.TestCase):
+    def setUp(self):
+        self.state = tempfile.TemporaryDirectory()
+        self.addCleanup(self.state.cleanup)
+        self.enterContext(isolated_os_environ(Path(self.state.name), "writer-fixture"))
+
     def run_ingress(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [str(SCRIPT), *args], check=False, capture_output=True, text=True

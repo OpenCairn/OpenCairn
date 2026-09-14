@@ -7,6 +7,7 @@ import importlib.util
 import os
 from pathlib import Path
 import stat
+import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -21,6 +22,29 @@ SPEC.loader.exec_module(park_artifact)
 
 
 class ParkArtifactTests(unittest.TestCase):
+    def test_png_and_tar_receipts_remain_binary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            png = root / "image.png"
+            png.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+            payload = root / "payload.txt"
+            payload.write_text("fixture\n", encoding="utf-8")
+            archive = root / "bundle.tar"
+            with tarfile.open(archive, "w") as handle:
+                handle.add(payload, arcname="payload.txt")
+
+            expected = {png: "image/png", archive: "application/x-tar"}
+            for source, media_type in expected.items():
+                with self.subTest(source=source.name):
+                    receipt = park_artifact.prepare(source, source, root / "state")
+                    self.assertEqual(receipt["media_type"], media_type)
+                    self.assertEqual(receipt["text_status"], "unsupported")
+                    self.assertIsNone(receipt["review_path"])
+                    self.assertEqual(
+                        Path(receipt["source_snapshot"]).read_bytes(),
+                        source.read_bytes(),
+                    )
+
     def test_atomic_bytes_uses_umask_mode_for_missing_target(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "new.json"

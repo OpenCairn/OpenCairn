@@ -31,6 +31,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      - **Current or last week:** read and carry its unresolved structural findings into this quarterly report's "Carried from weekly-hygiene" section. Mapping: `Vault Consistency` → broken links / orphans / dead-ends; `Projects Folder` → tier mismatches; `Actions Routed` → unresolved routed items. Counts-only metrics (`Vault Structural Metrics`) are not carried — snapshots, not open work.
      - **Older than last week, or absent:** warn — "Latest weekly-hygiene report is [week / none] — vault structural state may be stale. Recommend running `/weekly-hygiene` before this pass." If a stale report exists, still carry its findings per the same mapping, labelled stale in the report's source line. Continue regardless; this command's own deep checks run independently and never require a fresh weekly run.
 
+**Ordinary unresolved findings:** use an existing reviewed task home or the configured quick-capture fallback (located through navigation/Autopilot). Without a configured map, use the existing Working Memory fresh-capture section and report the missing configuration. Keep findings undated unless they carry a real deadline or user-supplied date; apply `_shared-rules.md` §18 and verify the dated target in those cases. Do not automatically re-date existing items. Fallback captures remain triage input under existing inbox rules. The report-only corrections-fold, flywheel and panel-model proposals keep their explicit quarterly handling.
+
 ### Quarterly-only deep passes
 
 3. **Deep context-file accuracy re-read (non-temporal drift).**
@@ -39,6 +41,8 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Check durable claims for drift: job title / role, location, hardware specs and model numbers, active subscriptions, default tools and workflows, named collaborators/clinics. **Evidence source:** skim the weekly reviews inside the evidence window (Synthesis + Projects Active sections) for events that contradict a claim. Flag a claim only when that evidence contradicts it or another concrete inconsistency makes it suspect. Absence from the reviews is not a flag and does not trigger a claim-by-claim "still true?" quiz; record those claims collectively as not independently revalidated — this skill gathers no other activity data, and `/quarterly-review`'s full gather runs after it.
    - **Evidence window** — the run cadence is not the calendar quarter (mid-quarter and standalone runs are expected), so anchoring on the quarter start leaves reviews between the last pass and the boundary permanently unread. Window start = the `**Generated:**` date in the latest `{VAULT}/06 Archive/OpenCairn/Quarterly Hygiene Reports/*.md` (filename descending; take the date from that content header, never from mtime — `_shared-rules.md` §22), falling back to the quarter start when no prior report exists. Window end = today. State the window in the report so the next run's start is unambiguous.
    - **Guardrail (inherited from `/weekly-hygiene`'s context-file staleness step):** edit a context file ONLY with user-provided replacement text. Never rewrite, rephrase, or infer an update autonomously — these are high-trust prose documents; wrong corrections are worse than stale content. Present each flagged claim, ask, then edit only what the user supplies.
+
+   - Facts in Direction may be checked here; choosing values, priorities or disciplines belongs to quarterly review. Keep the existing user-supplied factual-correction rule.
 
 4. **CRM stale-entry review.** (if `{VAULT}/07 System/CRM/` exists)
    `/weekly-hygiene` step 6 scans for *new* names to add. This reviews *existing* entries for decay:
@@ -176,11 +180,11 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
 
    ## Actions Taken / Routed
    - [Confirmed edits applied this run]
-   - [Unresolved items the user didn't engage with → the relevant project/area doc, else Tickler +7d via `write-tickler.sh`, back-linked: `[description] → [[06 Archive/OpenCairn/Quarterly Hygiene Reports/YYYY-QN|Quarterly QN]]`]
+   - [Ordinary unresolved findings → reviewed task home or capture fallback, with report link; actual deadlines/user dates → verified dated surface. Preserve source content and existing dates.]
    - [Flywheel proposals stay in this report as pending user decisions — they are not routed]
    ```
 
-   **Routing is an upsert.** Key each routed item by its normalised description plus quarterly-report backlink. Search the destination before writing; update an existing matching item through the owning locked writer, or create it once. Never append a second copy on a same-quarter rerun. Tickler additions always use `write-tickler.sh`.
+   **Routing is an upsert.** Key by source/finding identity and normalised description, independent of report period. Search live task homes, the fallback, This Week and Tickler for the same source/action before writing; preserve existing dated commitments and update their owning entry, never recreate them undated; update a matching item through `locked-edit.sh`, or create it once, then read it back. Preserve original provenance and refresh the report link. Reports point to the owning home; they are not a new ordinary-finding backlog. Tickler additions for real dates use `write-tickler.sh`; the undated home/report is the disallowed sink under §18.
 
 10. **Skill self-review (quarterly cadence — explicit instantiation of `_shared-rules.md` §8 Skill Monitor / `_skill-monitor.md`).**
    The §8 skill-monitor already applies to every command, but this one runs ~4×/year, so the implicit watch is easy to skip and per-run friction evaporates between invocations. Make it an emitted checkpoint: before the final display, run the §8 / `_skill-monitor.md` review against *this* run end-to-end — did any step misfire, produce mostly noise, mandate a tool that didn't work, or require an undocumented improvisation? If so, log observations per `_skill-monitor.md` for weekly processing. If clean, state `✓ Skill self-review: no gaps this run`.

@@ -11,7 +11,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 **Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into an existing project task/action section, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, not the Edit tool — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
-**Disengage routing — applies to every "user disengages" branch below.** A finding the user declines to resolve in-session routes to an existing task/action section in the relevant project/area doc where one is identifiable, else to the Tickler dated 7 days out — always with a hygiene-report back-reference, never to the Whimsy sink, never silently dropped. Write formats and mechanisms: step 17.
+**Disengage routing — applies to every unresolved-finding branch below.** Ordinary findings go to an existing reviewed project/area task home, else the configured quick-capture fallback, with a hygiene-report link. Resolve that map through vault navigation/Autopilot; without a configured map, use the existing Working Memory fresh-capture section and report missing routing configuration. Leave ordinary findings undated. The fallback remains a triage inbox and counts as unprocessed under existing rules. Real deadlines/user-supplied dates still use `_shared-rules.md` §18; the undated task home is the disallowed sink for those. Preserve already-dated items until the user decides; no automatic re-dating. Write/upsert/read-back mechanics: step 17.
 
 0. **Resolve Vault Path**
 
@@ -30,13 +30,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - List root docs: `ls "{VAULT}/03 Projects/"*.md`
    - For each root doc, check for `bucket:` in the frontmatter — list violations. Do not flag missing `## Current Objective` or `## Next Actions` headings.
    - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
-   - Staleness candidates: where a root doc has an explicit task/action section, flag it when all tasks are ticked (no open `- [ ]`); also flag explicit current-state text that reads as completed. Missing conventional sections are not a staleness signal. Candidates may belong in `Cold/` or `/complete-project` (moves are executed in step 2's folder audit).
+   - Staleness candidates: flag explicitly completed state or action sections with all tasks ticked. Missing conventional sections or inactivity alone do not establish a decision. Report priority-based pause/resume/abandon choices to review; only confirmed factual completion filing belongs here.
 
    **Confirm with user:**
    - Structure violations: fix a missing `bucket:` frontmatter key in-session via `locked-edit.sh`, with the user's confirmation
-   - Staleness candidates: recommend `Cold/` or `/complete-project`
+   - Route priority-based choices to `/weekly-review` / `/quarterly-review`; confirmed completion filing may use `/complete-project`.
 
-   **If not resolved in-session:** route each finding per the disengage-routing rule — use the doc's existing task/action section where one is identifiable; otherwise use the Tickler dated 7 days out via `write-tickler.sh`.
+   **If not resolved in-session:** route each finding per the disengage-routing rule to its reviewed task home or capture fallback.
 
 2. **Projects Folder Audit**
 
@@ -47,10 +47,10 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - A project's tier IS its folder — there is no separate dashboard to reconcile. Flag folder mismatches: root docs that look dead (step 1's staleness candidates), and Cold/ docs that look active (open dated commitments, or content contradicting "paused")
 
    **Confirm with user:**
-   - Route confirmed pauses and resumptions through `/set-project-status`; route completed or abandoned projects through `/complete-project`
+   - Refer priority-based pauses, resumptions and abandonment choices to `/weekly-review` / `/quarterly-review`. File confirmed completed projects through `/complete-project`; do not infer completion or a life decision from apparent staleness.
    - Completed/abandoned projects with reference value → `04 Areas/[Area]/Archive/`; revivable-someday → `03 Projects/Cold/`. `06 Archive/` holds immutable write-once records only — never park project files there.
 
-   **If not resolved in-session:** for each folder mismatch, route per the disengage-routing rule — `⚠ Hygiene Wnn: looks [dead/active] for its folder — move? → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` under an existing task/action section, else Tickler +7 days.
+   **If not resolved in-session:** route the folder-mismatch decision per the disengage-routing rule with a report link; preserve the current project until the user decides.
 
 3. **Tickler Hygiene**
 
@@ -63,9 +63,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Resolve in-session:**
    - For each past-due item: present and ask user to choose — complete (remove from Tickler), reschedule (user provides the new date), or drop (remove). Execute the chosen action during the sweep. No default rescheduling — the user must provide a real date.
    - For each completed (`- [x]`) item: confirm it's genuinely done, then remove it during the sweep (per the Tickler "delete if done" convention). When removing a mid-list item, match its **trailing** newline (not a leading one) so its neighbours don't join onto one line; re-grep for a join defect after. Struck-through items are not in this set — leave them.
-   - **If user disengages:** route each unresolved past-due item per the disengage-routing rule (an existing task/action section in its project/area doc where identifiable, else re-date it in the Tickler 7 days out via `write-tickler.sh`).
+   - **If user disengages:** leave the existing dated item visible and unchanged; report it for review. Do not re-date it or duplicate it into an undated home.
 
 4. **Working Memory Sweep**
+
+   **Task-home integration (also applies to the Scratchpad Sweep):** locate any configured task-home/review map through vault navigation. Tasks correctly filed in sections explicitly designated as retained task homes are not unprocessed merely because they remain open or undated. Exclude those tasks from triage-needed counts and re-presentation; their mapped review owns selection. This is section-scoped, never a whole-file exemption. Continue checking other captures, genuine routing/deadline concerns and protected reply drafts.
+
+   **Diagnostic markers:** overflow/scratchpad markers below describe source state. They do not replace action capture under step 17, and do not create an extra triage task when the underlying work is already on a reviewed surface.
 
    **Gather:**
    - Read `{VAULT}/01 Now/Working memory.md`
@@ -86,13 +90,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Flag as "unsent `/reply` draft — at-risk work product"
    - Present file path, heading, and first non-empty body line to user
    - Per-draft confirmation required: "sent" (→ remove section per §11 boundary rules via `locked-edit.sh`), "still needed" (→ route to durable location), or "discard" (→ remove section)
-   - **Routing for "still needed":** CRM dossier if one exists for the recipient; else relevant project/area doc; else the Tickler dated 7 days out via `write-tickler.sh`, with a backlink
+   - **Routing for "still needed":** CRM dossier if one exists, else relevant project/area doc. If neither is identified, preserve the protected draft in place and route one linked capture for choosing its durable home; never replace the draft with a reminder or invent a date.
    - Protected draft sections are excluded from general scratchpad triage below — handle them here first
    - See `_shared-rules.md` §11 for section boundary rules and cleanup ownership
 
    **Resolve in-session (non-draft content):**
-   - After draft sections are resolved above, present remaining non-empty scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
-   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of each non-empty scratchpad file.
+   - After draft sections are resolved above, exclude correctly filed retained tasks per the task-home integration rule, then present remaining unprocessed scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
+   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of each scratchpad file with remaining unprocessed content. Open tasks retained in a mapped home alone do not justify a marker.
 
    **⛔ Never derive the staleness figure from mtime** (`_shared-rules.md` §22 — this is its marker-specific case). Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
 
@@ -132,7 +136,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session:**
    - Present candidates to user. For confirmed names, create CRM entries in the appropriate range file (A-F, G-L, M-R, S-Z) during the sweep.
-   - **If user disengages:** route unresolved candidates per the disengage-routing rule (a CRM candidate rarely has a project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
+   - **If user disengages:** route unresolved findings per the disengage-routing rule to a reviewed task home or capture fallback, preserving source material.
 
 7. **This Week.md Hygiene**
 
@@ -190,7 +194,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Present each entry with its classification and recommended action
    - For trims: show the compressed hook. For migrations: show the destination and confirm it loads on the entry's trigger before moving.
    - Execute confirmed trims, deletions, and (rare) migrations during the sweep. Update the `MEMORY.md` index; delete memory files only for migrated or deleted entries.
-   - **If user disengages:** route unresolved entries per the disengage-routing rule (memory entries rarely map to a project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
+   - **If user disengages:** route unresolved findings per the disengage-routing rule to a reviewed task home or capture fallback, preserving source material.
 
 9. **Claude Internal File Cleanup**
 
@@ -390,7 +394,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Strict subset / redundant** (the conflict copy adds nothing the base lacks) → delete the copy, base unchanged.
    - **Divergent fork** (each side carries unique content — e.g. two devices appended different work offline): do *not* "keep newer" — a parallel fork looks like a stale pair but newest-wins silently drops the other side's real work. A union-merge that preserves *all* unique content (and repoints inbound wikilinks if it renumbers/moves headings) is reflective work beyond this mechanical sweep — **route it to the user as a manual merge** (per the disengage-routing rule if not done in-session); never summarise, rewrite, or choose between the two sides autonomously.
    **Confirm per file — never auto-delete.** Deletion mechanism by source: a Syncthing `*.sync-conflict-*` file is safe to `rm` once its content is confirmed merged or redundant; an Obsidian Sync "conflicted copy" must be deleted *inside Obsidian* (via the app or the Obsidian delete tool, never `rm` — delete-on-disk can resurrect it via Sync).
-   **If user disengages:** route per the disengage-routing rule (the doc the conflicted note belongs to where identifiable, else Tickler +7 days) — don't let it go undetected until next week.
+   **If user disengages:** route unresolved findings per the disengage-routing rule to a reviewed task home or capture fallback, preserving source material.
 
    **Terminology consistency** (if `_terminology-checks.md` exists in the commands directory):
    Read the file for domain-specific ambiguous terms. Scan recently modified vault files (last 7 days) for each pattern. For each match, write an HTML comment near the ambiguous term in the flagged file: `<!-- ⚠ Hygiene Wnn: ambiguous term "[term]" — disambiguate -->`. This surfaces when the user next edits that file. Report instances in the hygiene report.
@@ -442,7 +446,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For Expired: ask user for the updated text, then edit the context file. Never rewrite, rephrase, or infer updates autonomously — only write what the user provides.
    - For Verify: present as a quick scan checklist — "still true?" For each claim the user confirms is stale, ask for replacement text and edit. For claims still true, no action.
    - For Approaching expiry: ask user — update now (provide text) or add to Tickler under the expiry date? If Tickler: `- [ ] Update Context - [Name].md: [specific stale claim]`
-   - **If user disengages:** route unresolved items per the disengage-routing rule (context files have no project doc — the Tickler +7 days via `write-tickler.sh` is the usual destination).
+   - **If user disengages:** route unresolved findings per the disengage-routing rule to a reviewed task home or capture fallback, preserving source material.
    - **Guardrail:** Edit context files only with user-provided replacement text. These are high-value prose documents — never rewrite, rephrase, or infer updates autonomously.
 
 13. **Provenance: Process Stale Flags & Verify Hashes**
@@ -690,20 +694,22 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - [For each routed item: description → destination file]
    - Routed to project docs (task/action sections): N
    - Routed to SSOT files (Working Memory, scratchpads, terminology): N
-   - Routed to Tickler (+7d): N
+   - Routed to capture fallback: N
+   - Dated routing (real deadlines/user dates): [items and destinations / none]
    ```
 
 17. **Route unresolved findings**
 
     For each finding not resolved during the sweep:
 
-    - **Tier 3 items (project-level judgement):** Write the finding to the destination file per the routing rules in each step above. Format: `⚠ Hygiene Wnn: [description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` — under an existing task/action section (for project docs), at the top of the relevant section (for Working Memory), or at the top of the file (for scratchpads).
-    - **Tier 2 items the user declined to engage with** (the disengage-routing rule) — two destinations:
+    - **Priority decisions and unresolved actions** require the reviewed task-home/capture route below. Overflow/scratchpad/terminology markers remain diagnostic annotations, not proof of action capture. Where the underlying work already lives in a reviewed task section, retain it there without adding a duplicate “triage” task solely because of a count marker; otherwise capture the needed follow-up through this step.
+    - **Unresolved ordinary findings** follow the disengage-routing rule:
       - **Project/area doc with an existing task/action section identifiable:** append `- [ ] [Description] → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` there via `locked-edit.sh`.
-      - **No doc identifiable:** write a Tickler entry dated 7 days out via `write-tickler.sh`, same line format.
+      - **No doc identifiable:** upsert an unchecked capture in the configured fallback with the report link through `locked-edit.sh`; leave it undated. Preserve protected drafts in place until a durable home is chosen.
       Findings never go to the Whimsy sink and are never silently dropped.
+    - Apply §18 to actual deadlines/user dates and list each verified dated target. Keep unresolved past-due Tickler entries in place. Read back every routed finding; ordinary report-only findings do not count as captured.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent. Re-read the report, then update that section through `locked-edit.sh --replace`; never mutate it directly.
-    - **Routing is an upsert.** Key each routed item by its destination plus normalised finding identity; ignore volatile week numbers, counts and first-flagged metadata during matching. Its provenance marker must be the exact current hygiene-report backlink. Search the destination first; a match carrying any `Hygiene Reports/YYYY-Wnn` backlink is the same recurring finding, so update its text/backlink through the owning locked writer rather than appending. Otherwise create it once. The week number alone is not a key — several distinct findings may route to the same file in one run.
+    - **Routing is an upsert.** Key by source/finding identity and normalised action, independent of destination and report period; ignore volatile week/count metadata. Search live task homes, the capture fallback, This Week and Tickler for that identity before creating a task. A finding already captured or later triaged to an owning home is updated there, not recreated in fallback. Preserve existing user dates, original provenance and open This Week placement; refresh the report link. Resolve ambiguous matches before writing. Different findings in one report remain distinct.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers in every routing destination (project docs, Working Memory, scratchpads, Tickler) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
 18. **Display confirmation:**
@@ -720,9 +726,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 ## Guidelines
 
 - **Mechanical, not reflective.** This command fixes structural issues and flags potential staleness. `/weekly-review` handles patterns, alignment, and planning. Context staleness detection (step 12) straddles this boundary — the gather is mechanical (grep), the classification requires judgement, but the output is a checklist to confirm, not a reflexion to act on.
-- **Three tiers of findings.** (1) Auto-fix: safe mechanical changes. (2) Resolve in-session: CRM additions, memory cleanup, context file updates, Tickler past-due, scratchpad triage — present to user and execute during the sweep. (3) Route to SSOT: project-level judgement calls (stale project docs, folder mismatches, Working Memory overflow) get `⚠ Hygiene Wnn:` markers written to the relevant file. If the user declines to engage with tier-2 items, route per the disengage-routing rule — an existing task/action section in the relevant project/area doc where one exists, else the Tickler dated 7 days out — never to Whimsy, never dropped silently.
+- **Three tiers of findings.** Auto-fix safe mechanical defects; resolve factual/cleanup questions in-session; route priority decisions and unresolved findings through reviewed task homes/capture fallback. Reviews own selection. Preserve genuine dates and open This Week tasks; no invented reminders or automatic re-dating.
 - **Hygiene markers clean up automatically.** When resolved, markers are struck through (`~~⚠ Hygiene Wnn: ...~~`). The next hygiene run removes struck **`⚠ Hygiene` markers only** — never struck user content, which is left in place (see the Tickler step's strikethrough rule).
-- **Idempotent.** Running twice should produce the same result. The report overwrites each run. Routed markers are upserted by destination plus normalised finding identity, with the backlink refreshed to the current hygiene report, so distinct findings coexist and reruns do not duplicate them.
+- **Idempotent.** Running twice should produce the same result. The report overwrites each run. Routed markers are upserted by source/action identity across task homes and dated surfaces, with the backlink refreshed to the current hygiene report, so distinct findings coexist and reruns do not duplicate them.
 - **Report is consumable.** `/weekly-review` reads the hygiene report if it exists, so findings flow into the weekly review without re-gathering.
 - **Portability note.** Code snippets assume GNU coreutils (`stat -c`, `sha256sum`, GNU `date`) and ripgrep with PCRE2 support for `rg -P` — same caveat as `_shared-rules.md` §5's Linux-specific diagnostics. On macOS/BSD, substitute equivalents (`stat -f`, `shasum -a 256`, `date -v`/`-j`) and use `perl` if the installed ripgrep lacks PCRE2.
 

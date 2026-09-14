@@ -37,106 +37,13 @@ date +"%A, %d %b %Y — %H:%M %Z"  # friendly display with time and timezone
 date +"%Y-%m-%d"                   # for file paths if needed
 ```
 
-### 2. Reconcile yesterday's close-out
+### 2. Reconcile recent close-outs
 
-#### 2a. Catch up missed /goodnight
-
-**Read `goodnight.md` (same commands directory as this file) before executing a catch-up.** 2a applies /goodnight's Step 8 report format, Step 9 routing logic, Step 10 collapse format, and Step 15 audit protocol by reference — executing them from this file's paraphrase alone produces catch-up reports that drift from goodnight-produced ones, on the exact archival surface `/weekly-review` parses mechanically.
-
-Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/offline). For each day, in chronological order:
-
-**Catch-up path invariant:** each of these recent days still writes directly to `Session Logs/YYYY-MM-DD.md`, not `Session Logs/YYYY/YYYY-MM-DD.md`. Derive the path from the loop's day value and assert its parent inside the write call; never reuse a year-subfolder path found while reading older history.
-
-1. Check if a daily report exists: `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
-2. Check if a session log exists: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
-3. If no session log or no sessions → skip silently (nothing to close out).
-4. **Skip the day only if it is closed out on both surfaces** — the daily report exists **and** the session log carries a close-out entry (`^## Session [0-9]+ - Goodnight:`, `Goodnight catch-up via /morning`, or `Goodnight catch-up via $morning`). Accept both catch-up invocation forms so pre-port days are not repeated. The report is written at 2a.b but the session entry, audit and provenance come at 2a.e/g/h, so a report-only test marks an interrupted catch-up permanently closed and nothing downstream repairs it — 2b skips days with no close-out session, and only provenance has its own net.
-5. Otherwise → **/goodnight was missed, or a previous catch-up did not finish.** Run a lightweight catch-up, skipping any sub-step whose artefact is already present and complete (do not duplicate an existing daily report — verify and extend it instead):
-
-   a. Read the day's session log and its day section in This Week.md. **Also sweep for stranded Claude-internal work product from that day** — `/park` Step 4's third check, day-scoped, since a day reaching catch-up is by definition a day no park or goodnight closed out. Bound the window with two explicit dates (`+1 day` inside `-newermt` is not portable; derive the upper bound with `date -d "<day> +1 day" +%F`):
-
-      ```bash
-      find ~/.claude/plans -maxdepth 1 -type f -newermt "<day>" ! -newermt "<next day>"
-      ```
-
-      Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in 2a.e's Files Created; leave spent execution plans.
-   b. **Generate the daily report** at `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md` — follow the Daily Report format in /goodnight Step 8: convert the day section into `## Today's Plan` with `[x]`→`✓` and `[ ]`→plain bullets; list sessions; list blockers. Include the catch-up close-out itself as the last numbered Sessions entry (`N. **Goodnight catch-up via /morning** — [one-line outcome]`), mirroring /goodnight Step 8's include-the-close-out rule — plan the line here to match the session entry 2a.e writes. **Omit the `## Outside-Agent` section** — no debrief prompt fires during 2a itself (the user is async — the caught-up day is done, not memory-fresh). Step 4 (Open Space) runs the deferred outside-agent debrief for each caught-up day; any activity it surfaces is back-filled into that day's daily report via the Step 5 Capture Gate (see Step 5).
-   c. **Route undone items** from the day section in This Week.md — same logic as /goodnight Step 9 (natural future day → move there; priority → today's section; low priority/no deadline → Whimsy (`04 Areas/Whimsy/_notes.md`, plain line, no checkbox); already in future day → delete duplicate). Carry items forward intact including sub-items and checklists, applying /goodnight Step 9's block-boundary rule. **Whimsy batch veto — collect now, present later:** accumulate that branch's candidates from ALL caught-up days into a buffer during 2a. Do **not** prompt mid-loop — the per-day catch-up loop must run to completion, and day collapse (2a.d) may proceed with the buffer still unwritten, because each day's daily report is written at 2a.b before routing and preserves the items. Present the buffer as a single batch-veto line — `→ Whimsy (someday, no obligation): item · item · …` — as the **first item of the Step 3 landscape output**, and write to Whimsy only after the user's response: unvetoed items go; vetoes reroute (Tickler / project doc) or delete. **Date shift:** during catch-up, "tomorrow" (where /goodnight would route priority items) means **today**, not the day after today.
-   d. **Collapse the day section** to a one-liner + daily report link — same format as /goodnight Step 10, **including its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Also collapse any earlier verbose day sections within the file.
-   e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel /park or /goodnight invocations):
-
-      ```bash
-      CATCHUP_DAY="YYYY-MM-DD"  # replace with this loop iteration's actual day
-      case "$CATCHUP_DAY" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) echo "ERROR: unsubstituted/invalid catch-up day: $CATCHUP_DAY" >&2; exit 1 ;; esac
-      SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
-      SESSION_LOG="$SESSION_DIR/$CATCHUP_DAY.md"
-      [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: catch-up log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
-      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight catch-up via /morning" "HH:MMam/pm"
-      ### Summary
-      [Brief summary of what was generated/routed]
-
-      ### Files Created
-      - 06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md
-
-      ### Files Updated
-      - [Items routed by 2a.c/d]
-
-      ### Pickup Context
-      **For next session:** [pickup pointer for today]
-      EOF
-      ```
-
-      Body only — no `## Session N` heading; the script prepends it. Capture the assigned N from the `Session number assigned: N` stdout line for the audit brief in 2a.g.
-   f. **Skip** (not part of catch-up): the debrief prompt — Step 4 runs it for each caught-up day. (Provenance processing is **not** skipped — see 2a.h, which runs after the audit.)
-   g. **Run /audit via a fresh sub-agent on the catch-up** — apply /goodnight Step 15 sub-steps (a)–(f) verbatim (including the (f) Files-Updated backfill, scoped to the catch-up session entry). Catch-up performs the same state-propagating actions as /goodnight (status flips on items the user may have already marked, day-section collapses, item routing, session-log writes) and is subject to the same Layer 3 failure mode (stale phase/status framings in project hubs and area files that referenced the caught-up day's now-historical state). Inline audit suffers the same cognitive-load / enumeration-scoping / recency-bias mechanisms /park's audit step names. **Unconditional, not gated on substrate size:** even a "trivial" catch-up writes a NEW daily report file + NEW catch-up session entry, so the enumeration floor is never zero — same logic as /goodnight Step 15.
-
-      Substrate-specific notes (when applying Step 15's checklist to the catch-up):
-      - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — 2a generally inherits state, doesn't flip), day-section moves from 2a.c, Whimsy routings from 2a.c, day-section collapses from 2a.d, NEW daily report file from 2a.b, NEW catch-up session entry from 2a.e. The last two are always present.
-      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from 2a.e's `Session number assigned: N` stdout), the file list (different from /goodnight's — assemble from 2a.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`audit.md` Phase 2 Layers 1–5 — Layer 0 deliberately out of scope for this bookkeeping audit — in `~/.claude/commands/` or `{VAULT}/.claude/commands/`), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace this morning's landscape pass (Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when Step 3 runs.
-      - **Pre-state authority in the audit brief:** the authoritative pre-catch-up state is the main session's own Read of This Week.md at catch-up time — embed the relevant pre-collapse content in the brief if the auditor needs it. Do NOT direct the sub-agent to reconstruct pre-state from vault auto-save git: commit boundaries are arbitrary, and a morning-window commit typically captures the *user's own* pre-/morning edits, so its diff mis-attributes user actions to the catch-up. Any git-derived data-loss finding must be verified against the specific commit's diff content and timing before remediation.
-      - After the sub-agent returns: verify any remediation edits were backfilled to the catch-up session entry via `backfill-files-updated.sh`. If not, run the backfill from the file list the sub-agent reported.
-   h. **Process this day's provenance flag(s), if any.** Glob `{VAULT}/07 System/.Provenance/pending/` for files whose name begins with **this caught-up day's own date** (`YYYY-MM-DD` — the loop's current day, never today, and never an empty/unsubstituted date, which would match every pending flag and process the wrong days). `/provenance` writes one flag per tag, so a day may have **more than one** — process **each** matching flag. If none match, skip silently. A match means `/provenance` ran that day but `/goodnight` never processed it — process it now per `/goodnight` Step 17 (mechanism) and `/weekly-hygiene` Step 13a (past-day adaptation), with these specifics:
-      - **Must run after 2a.g completes — including its post-return Files-Updated backfill — never before.** Same strict ordering as /goodnight Steps 15→16→17: the audit can still modify the caught-up day's session log, and the hash must cover its final state. Hashing before the audit produces an immediately-invalid proof — the single most common provenance execution error.
-      - **Export that day's transcript first, then confirm the file landed.** A missed-goodnight day may never have been exported (only /park and /goodnight export transcripts). Run `python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects` — `--all-projects` **unconditionally** (morning has no `cd` to the day's launch directory, and which project a past session launched from is unknowable during catch-up; the flag is cwd-independent), and `--days 7` because the script windows and dates each transcript file by the JSONL's **mtime**, not the logical session date — a tight window can miss or mis-date the boundary day, so clear it with margin. **Then verify `06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md` exists for the caught-up date.** If it does not, do **not** hash a missing/empty file and do **not** delete the flag — hash what you can, leave the flag in `pending/` for `/weekly-hygiene`, and report it as partially processed.
-      - **Then hash per the flag:** the work products it lists (on a mismatch against an existing "Hashed Immediately" entry, run /provenance Step 5's superseding re-hash path — don't skip silently); that date's transcript (verified above); that date's session log (`06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`, final after 2a.e + 2a.g). OTS-stamp the hashed files and append rows to `07 System/AI Provenance Log.md` via `locked-edit.sh --append`. **Delete each flag only after a log row exists for every required target — each listed work product, the transcript, and the session log** (not merely the flag's listed work products). Any flag with a target still unrowed stays in `pending/` for `/weekly-hygiene`. See `/provenance` for flag format and full hashing instructions.
-   i. Display:
-      ```
-      ⚠ /goodnight was not run for [Day DD Mon] — caught up:
-      ✓ Daily report generated: 06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md
-      ✓ [N] undone items routed from [Day]'s section
-      ✓ [Day] section collapsed
-      ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
-      ✓ Provenance: N files hashed [OR "⚠ Provenance: partially hashed — flag retained for /weekly-hygiene" if a required target was missing; omit the line entirely if no flag existed]
-      ```
-
-#### 2b. Reconcile post-goodnight sessions
-
-For each day that now has a daily report (whether from /goodnight or 2a), check for late sessions:
-
-1. Read the day's session log.
-2. Find the goodnight session — match pattern `^## Session [0-9]+ - Goodnight:` (colon required to distinguish from sessions that happen to mention "goodnight" in their topic). Also match both `Goodnight catch-up via /morning` and `Goodnight catch-up via $morning` for catch-up sessions.
-3. If no goodnight session found → skip.
-4. Extract the goodnight session number. Check if any sessions exist with a higher number.
-5. If no post-goodnight sessions → skip silently.
-6. If post-goodnight sessions found:
-   - Read each post-goodnight session block.
-   - **Drop the ones already reconciled.** Read the daily report's `## Sessions` list and skip any late session whose number or topic already appears there. 2b re-runs over every day that has a report — a second /morning the same day, or tomorrow's pass over yesterday, hits the same sessions again, and the session-log test at step 4 stays true forever. If every candidate is already present, skip the day silently (no append, no note, no display).
-   - Add the remaining late session(s) *inside* the daily report's `## Sessions` section. Re-read from that heading through the next H1/H2 (or EOF), compose the complete old and replacement blocks, and apply one `locked-edit.sh --replace` call under §5. **Never use `--append`:** it writes at EOF, while `## Sessions` is followed by other sections, so the rows would land outside the list while still fooling a grep-based success check. That is the only daily-report section late sessions touch — any completions they contain live in the SSOT files (This Week.md, Tickler, project files), not the report.
-   - Do NOT modify other sections — `## Today's Plan`, `## Outside-Agent`, and `## Blockers` were set deliberately at close-out and remain valid.
-   - Add a note at the end of the Sessions section naming only the sessions this pass appended: `*Sessions N–M added by /morning (ran after close-out)*`. If an earlier pass already left such a note, extend its range rather than adding a second one.
-   - **Refresh the collapsed day's one-liner in This Week.md.** /goodnight Step 10 collapsed the day to `## [emoji] [Day] [Date] — [Theme] ✅` + one sentence + report link. If the late sessions change what the day amounted to, extend that sentence to mention them; otherwise leave it alone. (The collapse format carries no session count — do not invent or parse one.)
-   - Display:
-     ```
-     ✓ Reconciled: [N] post-goodnight session(s) added to yesterday's daily report
-       - Session M: [Topic] - [outcome]
-     ✓ This Week.md collapsed-day summary extended (only if the late sessions changed the day's shape)
-     ```
+Read `~/.claude/commands/goodnight.md` and execute its **Catch-up mode**, passing the current date from Step 1. Goodnight owns missed-day detection, close-out recovery and late-session reconciliation. Retain its returned dates, report paths and deferred debriefs for Steps 4–5, then continue to the landscape. Do not implement a second catch-up procedure here.
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
 **Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules.md` Section 9 now, before the Tickler migration or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
-
-**Pending Whimsy batch veto (first item of the output, if 2a ran):** if step 2a buffered Whimsy candidates, present them here as the **first** line of the landscape output — `→ Whimsy (someday, no obligation): item · item · …` — before the weather and everything below. Write to Whimsy only after the user's response; unvetoed items go, vetoes reroute (Tickler / project doc) or delete. If 2a ran no catch-up, or the buffer is empty, skip this silently.
 
 **Weather forecast:** Fetch the 7-day forecast from the Open-Meteo API (free, no key). Determine the user's current city from CLAUDE.md context (TZ field, travel status, or This Week.md location banner), resolve its coordinates — if not already known, use Open-Meteo's geocoding endpoint (`curl -sf "https://geocoding-api.open-meteo.com/v1/search?name=CITY&count=1"`, take `latitude`/`longitude` from the first result; do not guess coordinates) — and run:
 
@@ -166,7 +73,7 @@ Include the weather output in the landscape presentation, and if This Week.md ex
 
 Read and present:
 - **Active projects:** From the root docs just read — project names and the available current-state/action cues per bucket
-- **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (up to 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 7. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 7. If the file doesn't exist, skip.
+- **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (normally 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 7. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 7. If the file doesn't exist, skip.
 - **Tickler items due:** Read `{VAULT}/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration (automatic, unconditional):** If `{VAULT}/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). **The migration is gated on the date and nothing else** — not on how many items the destination day already holds, not on the window total. A dated item's home is its day section; holding it back because a day looks full hides work that is genuinely due and splits the SSOT. Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup. When migrating, preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`). If an item has only a session log link (`→ [[06 Archive/...]]`), replace it with the relevant project/area link. If no link, add one per the item linking convention (see Step 7).
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
@@ -181,10 +88,10 @@ Read and present:
   Also check for a "Completed" or "Likely Stale" section — if it has unchecked items, note the count: `[N] items flagged for deletion — confirm during this session?`
 - **Review staleness:** Check when the last weekly review and quarterly review were run:
   ```bash
-  ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Reviews/"*.md 2>/dev/null | sort | tail -1
-  ls -1 "{VAULT}/06 Archive/Quarterly Reviews/"*.md 2>/dev/null | sort | tail -1
+  ls -1 "{VAULT}/06 Archive/OpenCairn/Weekly Reviews/" 2>/dev/null | rg '^[0-9]{4}-W[0-9]{2}[a-z]?\.md$' | LC_ALL=C sort -r | head -1
+  ls -1 "{VAULT}/06 Archive/Quarterly Reviews/" 2>/dev/null | rg '^[0-9]{4}-Q[1-4][a-z]?\.md$' | LC_ALL=C sort -r | head -1
   ```
-  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md` — both lexically sortable, which is why selection sorts on filename and never on mtime (`ls -t` is banned by the same rule that governs the dating below). **Date the review from its own header, and compute the elapsed days in bash** — the general rule is `_shared-rules.md` §22 (artefact age comes from content, never mtime); the two wrong sources it bans show up here as:
+  Weekly review files are `YYYY-Wnn.md` (ISO week number); quarterly files are `YYYY-QN.md` — both byte-sortable, including the known same-period suffix shape (`YYYY-Wnnb.md` / `YYYY-QNb.md`). Filter to those canonical names and pin `LC_ALL=C`; ambient locale collation can rank the older bare file after its suffixed successor. Selection sorts on filename, never mtime (`ls -t` is banned by the same rule that governs the dating below). **Date the review from its own header, and compute the elapsed days in bash** — the general rule is `_shared-rules.md` §22 (artefact age comes from content, never mtime); the two wrong sources it bans show up here as:
 
   - **Not the filename**, via internal arithmetic — the date-mapping class LLMs are unreliable at.
   - **Not the file's mtime.** Any later touch resets it — an audit remediation, a sync write, a hygiene pass, an editor opening the file — so a review edited after the fact reads as *fresher than it was run*. The error is asymmetric in the dangerous direction: it makes an overdue review look current, which is the exact failure this check exists to catch.
@@ -232,10 +139,7 @@ If a section is empty, skip it. Keep it scannable.
 
 ### 4. Open Space
 
-**If a catch-up fired in Step 2a this morning,** first run the outside-agent debrief that catch-up deferred. For each caught-up day, ask:
-> "Before we move on — did you do anything outside parked agent sessions on [Day DD]? (exercise, errands, social, admin) It won't have been captured at close-out."
-
-Route any answer through the Step 5 Capture Gate's outside-agent category — it back-fills the `## Outside-Agent` section into that day's daily report. Then ask the normal open-space question below.
+If Step 2 returned pending debriefs, invoke `/goodnight` **C3. Complete a deferred catch-up debrief** with that handoff before the normal open-space question.
 
 Ask:
 > "Anything you'd like to add this morning?"
@@ -259,7 +163,7 @@ For every item the user mentioned:
    - **Decision (resolved)** → Write the decision + rationale to the relevant project file
    - **Decision (open)** → Write to relevant project's "Open Decisions" section
    - **Research/idea** → Write to the relevant project or area file
-   - **Activity outside agent sessions from a caught-up day** (only if Step 2a fired this morning — wander/exercise/social/admin/errands done outside the assistant on a day that was caught up) → Insert an `## Outside-Agent` section into the caught-up day's daily report at `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`, between `## Sessions` (or `## Today's Plan` if no Sessions) and `## Blockers` (or `---` links footer if no Blockers). 2a scans up to 3 days back, so target the report for the specific day the user names (e.g. "Tuesday's wander" → YYYY-MM-DD for that Tuesday). If the user surfaced activity but didn't specify which day and 2a caught up >1 day, ask before writing. This is the Step 2a back-fill — 2a deliberately omitted the section because no debrief prompt fires during 2a itself; Step 4 runs it and routes the answer here. Without this back-fill, activity outside agent sessions from a missed-goodnight day reaches this morning's capture but never the archival daily report.
+   - **Activity outside agent sessions from a caught-up day** → Pass the answer and Step 2’s dated handoff to `/goodnight` C3 for capture in the correct report.
    - **Just venting** → Don't write. But this category should be rare — most things people say in the morning are at least "note-worthy"
 
 2. **Write immediately.** Do the file edits NOW, in this step, before asking any more questions. Do not batch them for step 6. Do not hold them in conversational memory.
@@ -283,6 +187,8 @@ Step 3 already ran rolling-window maintenance before presenting the landscape. R
 
 ### 7. Update today's timeline (optional)
 
+**Daily execution when configured.** Follow the Planning system pointer in the vault’s navigation/Autopilot document. The user manages the calendar. If they want a rendered timeline, reflect known commitments (read the live calendar if requested) and choose This Week tasks for gaps, preserving open tasks. Do not require a daily strategy/values-plan reread, label blocks, verify weekly scheduling, or rebuild the week. Calendar changes need an explicit request. Preserve any old task’s operational review/continuation link until its disposition is settled; do not restart retired scheduling-resume machinery.
+
 If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
 
 > "Want me to update today's section in This Week.md?"
@@ -291,7 +197,7 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Find today's day section by matching `## [Day] [DD] [Mon]` headings. Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
+Find today’s day section using `_shared-rules.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
 
 ````
 ## [Day] [DD] [Mon]
@@ -336,7 +242,7 @@ When moving items that already have project/area links, preserve them. Replace s
 
 Pull items from:
 - Items carried forward from stale This Week.md (if any, noted in step 3)
-- Time-sensitive items and appointments
+- Known commitments and time-sensitive items; optional live calendar information when requested. Unavailable calendar evidence is labelled, not guessed
 - Project docs (their existing task/action queues, read in step 3)
 - Items /goodnight routed into today's day section last night
 - Today's items already in This Week.md (migrated from Tickler in steps 3/6)
@@ -351,7 +257,7 @@ Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Ta
 **Creation:** If This Week.md is stale or missing:
 > "This Week.md is [stale/missing]. Want me to create one for this week?"
 
-If yes — and if replacing a stale file, first show unchecked items from the old This Week.md and ask which to carry forward into the new week. Then create `{VAULT}/01 Now/This Week.md` — today + 6 future days (7 sections). Today gets the full timeline (including carried-forward items); future days get simple task lists:
+If yes — and if replacing a stale file, carry every unchecked item from the old This Week.md forward intact; do not require the user to choose the same work again. Then create `{VAULT}/01 Now/This Week.md` — today + 6 future days (7 sections). Today gets the full timeline (including carried-forward items); future days get simple task lists:
 
 ````
 # This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
@@ -429,6 +335,6 @@ This command should trigger when the user says:
 
 - **Reads from:** 03 Projects root docs, This Week.md (date-range freshness + tickler migration), Tickler, Direction (disciplines reminder), recent agent session logs, Daily Reports, Weekly Reviews (staleness), Quarterly Reviews (staleness), Open-Meteo API (weather forecast)
 - **May create/update:** This Week.md (weekly plan with day sections)
-- **May update:** Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation), `07 System/AI Provenance Log.md` + `07 System/.Provenance/pending/` flags (catch-up provenance processing, step 2a.h)
+- **May update:** Tickler (mark items done or reschedule), Journal, Project files, previous day's Daily Report (post-goodnight reconciliation), `07 System/AI Provenance Log.md` + `07 System/.Provenance/pending/` flags (via `/goodnight` Catch-up mode)
 - **Complements:** `/park` (end of session), `/goodnight` (end of day), `/afternoon` (mid-day)
 - **Doesn't replace:** Morning pages / journaling (that's separate generative practice)
