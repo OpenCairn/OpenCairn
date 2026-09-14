@@ -843,6 +843,25 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
         command = command[1:]
     if not command:
         die("run-verifier requires a command after --")
+    if Path(command[0]).name == "park-verify.sh" and len(command) >= 4:
+        if "--reference" in command:
+            die("reference exemptions are derived from verified classifications")
+        vault = canonical_path(command[1])
+        classifications = load_json(root / "files.json", {})
+        reference_args: list[str] = []
+        seen_references: set[Path] = set()
+        for index, token in enumerate(command[:-1]):
+            if token != "--touched":
+                continue
+            source = canonical_path(command[index + 1], vault)
+            item = classifications.get(str(source), {})
+            if item.get("mode") != "reference" or source.is_relative_to(vault) or source in seen_references:
+                continue
+            digest = sha256(source)
+            validated_artifact_receipt(source, digest, item)
+            reference_args.extend(["--reference", str(source), digest])
+            seen_references.add(source)
+        command = [*command, *reference_args]
     completed = subprocess.run(command, text=True, capture_output=True, check=False)
     if completed.stdout:
         sys.stdout.write(completed.stdout)
