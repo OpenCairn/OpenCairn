@@ -5,6 +5,8 @@ description: Explicitly complete a project and route artefacts - prevents zombie
 
 # Complete Project - Formal Project Completion
 
+**Scoped rule loading:** `_shared-rules-planning.md` before task linking; `_shared-rules-content.md` before structural moves. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are helping the user formally complete a project. This command prevents "zombie projects" that linger in the `03 Projects/` root long after they're effectively done.
 
 ## Philosophy
@@ -63,9 +65,9 @@ Projects often fade away rather than explicitly complete. This creates clutter i
    "{VAULT}/.claude/scripts/locked-edit.sh" "$SOURCE" --move "$DESTINATION" "$SOURCE_SHA256"
    ```
 
-   Shell `mv` moves the bytes but leaves every inbound link dangling. This matters most for the **project file**: per `_shared-rules.md` §3, items link to projects with *path-based* references (`→ [[03 Projects/Project Name]]`). The wrapper requires the running Obsidian app and fails closed if the source changed, the destination appeared, the CLI did nothing, the content hash changed, or old path-qualified links remain. A failed preflight means every move here is deferred to the user per Step 2; completion still proceeds.
+   Shell `mv` moves the bytes but leaves every inbound link dangling. This matters most for the **project file**: per `_shared-rules-planning.md` §3, items link to projects with *path-based* references (`→ [[03 Projects/Project Name]]`). The wrapper requires the running Obsidian app and fails closed if the source changed, the destination appeared, the CLI did nothing, the content hash changed, or old path-qualified links remain. A failed preflight means every move here is deferred to the user per Step 2; completion still proceeds.
 
-   **Batches are fine, but drive each item through the wrapper per `_shared-rules.md` §24.** Run the first item as a canary; if it fails, stop the batch.
+   **Batches are fine, but drive each item through the wrapper per `_shared-rules-content.md` §24.** Run the first item as a canary; if it fails, stop the batch.
 
    **Step 4a — Route artefacts:**
    - Check if the project has associated files (resource folders, reference docs, templates, setup guides) beyond the project file itself — explicitly including `05 Resources/[Project Name]/` (created by `/start-project` Step 7) and anything linked from the project file's `## Resources` section, not just folders under `03 Projects/`
@@ -74,7 +76,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
      - **No reference value** (old CSVs, superseded docs, one-time exports) → **delete**
    - **Stopping rule:** one pass. Don't re-interrogate artefacts the user has already routed, and don't ask about files under ~5 that are obviously project-internal scratch — delete them with the user's batch approval.
    - If the project has a resource folder in `03 Projects/`, apply the same test to its contents — don't move the whole folder blindly
-   - **Moving a folder:** a folder move means moving each file individually, per the batch note above and `_shared-rules.md` §24. `mkdir -p` the destination, move each file, then remove the empty source folder. If the Obsidian app is unavailable, hand off to the user to multi-select in the file explorer and drag the batch across — Obsidian heals every inbound link in one pass.
+   - **Moving a folder:** a folder move means moving each file individually, per the batch note above and `_shared-rules-content.md` §24. `mkdir -p` the destination, move each file, then remove the empty source folder. If the Obsidian app is unavailable, hand off to the user to multi-select in the file explorer and drag the batch across — Obsidian heals every inbound link in one pass.
    - **Before any delete:** check inbound links via a backlinks route §24 marks reliable — and treat a nil result from an unreliable route as *unverified*, not as zero. Update live-doc references to the deleted file; links inside frozen records (session logs, snapshots) may be left dangling — the record of the deletion lives in the session log.
 
    **Step 4b — Move the project file:**

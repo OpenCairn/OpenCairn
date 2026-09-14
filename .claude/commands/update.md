@@ -463,6 +463,8 @@ Iterate over each changed existing file:
 
 First remove the archive-core unit from the per-file candidate list. If any of `.claude/scripts/check-archive-layout.sh`, `.claude/scripts/archive-namespace-migration.py`, or `.claude/commands/migrate.md` differs, show one combined exact replacement diff and accept or skip all three as a unit. An absent member may be added automatically only when the other existing members are already identical; otherwise explicit unit approval is required, including under `--force`.
 
+**Shared-rule dependency unit:** when the selected ref contains `_shared-rules-planning.md`, treat `_shared-rules.md` and its planning, reviewer and content siblings as one accepted-or-skipped set in each harness tree. Require every member at the selected ref. Review existing differences together; `--force` does not bypass that review. Copy accepted supplements before core. Before applying a dependent command/skill, verify that every shared-rule file it references will exist in the resulting installation; if its required set was skipped and is absent, hold that consumer and report the dependency. Preserve unrelated accepted files. Older refs without the split retain the ordinary per-file path.
+
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \
@@ -537,6 +539,8 @@ The repo's `codex/` tree is a distribution copy — Codex CLI reads `${CODEX_HOM
 2. Step 4 found the repository already current and continued for live drift recovery. Candidate set = every file under `codex/skills/`.
 
 The marker is `[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`; its absence means the user has not installed the Codex rendering, so skip silently.
+
+Apply Step 6's shared-rule dependency unit to this live copy too: include the complete support set when any accepted consumer needs a missing supplement, review its differing files together, copy supplements before core/consumers, and hold consumers whose required set is declined. The installed core marker alone does not establish that supplements are present.
 
 For each candidate `codex/skills/` file, compare the live counterpart at `${CODEX_HOME:-$HOME/.codex}/skills/<same relative path>`:
 

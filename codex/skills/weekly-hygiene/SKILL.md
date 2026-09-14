@@ -6,13 +6,15 @@ description: Vault structural maintenance - broken links, stale items, folder mi
 
 # Weekly Hygiene - Vault Structural Maintenance
 
+**Scoped rule loading:** `_shared-rules-planning.md` before task/window work; `_shared-rules-content.md` before provenance or structural operations. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are running a vault hygiene pass. This is purely mechanical/structural maintenance — no reflexion, no planning, no alignment checks. It can run independently (mid-week cleanup) or as a precursor to `$weekly-review`.
 
 ## Instructions
 
 **Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into an existing project task/action section, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, never a raw edit — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
-**Disengage routing — applies to every unresolved-finding branch below.** Ordinary findings go to an existing reviewed project/area task home, else the configured quick-capture fallback, with a hygiene-report link. Resolve that map through vault navigation/Autopilot; without a configured map, use the existing Working Memory fresh-capture section and report missing routing configuration. Leave ordinary findings undated. The fallback remains a triage inbox and counts as unprocessed under existing rules. Real deadlines/user-supplied dates still use `_shared-rules.md` §18; the undated task home is the disallowed sink for those. Preserve already-dated items until the user decides; no automatic re-dating. Write/upsert/read-back mechanics: step 17.
+**Disengage routing — applies to every unresolved-finding branch below.** Ordinary findings go to an existing reviewed project/area task home, else the configured quick-capture fallback, with a hygiene-report link. Resolve that map through vault navigation/Autopilot; without a configured map, use the existing Working Memory fresh-capture section and report missing routing configuration. Leave ordinary findings undated. The fallback remains a triage inbox and counts as unprocessed under existing rules. Real deadlines/user-supplied dates still use `_shared-rules-planning.md` §18; the undated task home is the disallowed sink for those. Preserve already-dated items until the user decides; no automatic re-dating. Write/upsert/read-back mechanics: step 17.
 
 0. **Resolve Vault Path**
 

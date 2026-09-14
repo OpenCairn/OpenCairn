@@ -6,6 +6,8 @@ description: Restore context from hibernate snapshot after extended break - reco
 
 # Awaken - Restore from Hibernate
 
+**Scoped rule loading:** `_shared-rules-planning.md` before transferring Tickler items or rebuilding the day window. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are helping the user restore context after an extended break from regular work. Your task is to load the most recent hibernate snapshot, update with any changes during the break, and set up for productive return.
 
 ## Philosophy
@@ -159,7 +161,7 @@ For the rest, say which are completed and which are dropped.
 
 9. **Route Immediate Next Actions to SSOT** (write mechanism: `locked-edit.sh` for This Week.md and Whimsy, `write-tickler.sh` for dated Tickler inserts — see `_shared-rules.md` §5):
    - For each action in "Immediate Next Actions" (plus actionable "what changed" items from step 7):
-     - If This Week.md exists and is current (its window covers today per `_shared-rules.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists.
+     - If This Week.md exists and is current (its window covers today per `_shared-rules-planning.md` §9) → add to today's or tomorrow's section. Include project/area links (`→ [[03 Projects/...]]` or `→ [[04 Areas/...]]`) where a doc exists.
      - If This Week.md is stale/missing → dated items go to the Tickler via `write-tickler.sh`; undated items go to `04 Areas/Whimsy/_notes.md` as a plain line (no checkbox) — unless they belong to a project with an existing task/action section, in which case add them there.
    - Dedup check before each write: grep the target file and Tickler.md. Already present somewhere → skip the write; if the new placement supersedes a Tickler copy, delete the Tickler copy per §4 (Tickler SSOT transfer).
    - The awaken doc keeps plain-bullet records; the SSOT files get `- [ ]` checkboxes (Whimsy lines stay plain).

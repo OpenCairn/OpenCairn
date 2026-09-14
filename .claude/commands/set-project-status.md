@@ -6,6 +6,8 @@ argument-hint: "[Project Name] [active|cold|backlog]"
 
 # Set Project Status
 
+**Scoped rule loading:** `_shared-rules-content.md` before moving project notes. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 Change one project's lifecycle state through the standard link-healing move.
 
 ## Workflow

@@ -1042,6 +1042,9 @@ class ArchiveNamespaceMigrationTests(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             if "06 Archive/OpenCairn" in text and path.name not in {
                 "_shared-rules.md",
+                "_shared-rules-planning.md",
+                "_shared-rules-reviewer.md",
+                "_shared-rules-content.md",
                 "migrate.md",
                 "update.md",
             }:

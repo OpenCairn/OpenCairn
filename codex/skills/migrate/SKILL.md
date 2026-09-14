@@ -30,7 +30,7 @@ Use the canonical migrator stored in the OpenCairn checkout. This Codex skill is
 
    - `/migrate` means `$migrate`.
    - `/update` means `$update`.
-   - `_shared-rules.md` in the source command means the installed Codex support file already read above.
+   - `_shared-rules.md` and `_shared-rules-*.md` in the source command resolve in the same installed Codex shared skills directory. Load the scoped sections before their operation; the core file's directory resolves bare section references.
    - Use Codex commentary for progress and concise plain-text questions for sync confirmation, split-archive collision decisions, or destructive approvals.
    - Read `${CODEX_HOME:-$HOME/.codex}/skills/_skill-monitor.md` for the final monitor step.
 

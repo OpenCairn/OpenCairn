@@ -10,11 +10,11 @@ You are archiving one or more podcast/talk transcripts into the vault. Each note
 Two principles drive this skill:
 
 1. **Keep the transcript out of your context.** A transcript is ~10–20k words. Fetch and clean it straight to a file and append it to the note via the shell — never read the whole thing into the conversation. You write only the small synthesis header and read at most a few lines to verify boundaries.
-2. **A formatting hook can corrupt verbatim quotes unless you bypass it.** This is the general problem in `_shared-rules.md` §14 — read it. The skill-local invariant: **write the header with the editor tool, append the body with the shell.** Whether a *later* `Write`/`Edit` on the finished note is safe depends on the vault, so establish that in Phase 0 rather than assuming. The *why*, the precondition (the hook must not intercept shell writes), and the path-exclude alternative all live in §14.
+2. **A formatting hook can corrupt verbatim quotes unless you bypass it.** This is the general problem in `_shared-rules-content.md` §14 — read it. The skill-local invariant: **write the header with the editor tool, append the body with the shell.** Whether a *later* `Write`/`Edit` on the finished note is safe depends on the vault, so establish that in Phase 0 rather than assuming. The *why*, the precondition (the hook must not intercept shell writes), and the path-exclude alternative all live in §14.
 
 ## Phase 0 — Preflight
 
-1. Run the `_shared-rules.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4`/`lxml`) before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe. If anything is missing, tell the user and stop (or use the §15 transcription fallback — transcribe the audio/video — after confirming with the user).
+1. Run the `_shared-rules-content.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4`/`lxml`) before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe. If anything is missing, tell the user and stop (or use the §15 transcription fallback — transcribe the audio/video — after confirming with the user).
 2. **Establish the formatting-hook state** (§14): is a `PostToolUse` hook configured on `.md` writes, what does its matcher cover, and does it read a path-exclude list? Three outcomes drive the later phases:
    - **No hook** → verbatim is safe by any write method; the no-edit invariant below doesn't apply.
    - **Hook matching `Write`/`Edit` only** (the usual case) → the shell append holds; treat the note as no-edit after appending unless the destination folder is on the exclude list.
@@ -28,7 +28,7 @@ Two principles drive this skill:
 
 ## Phase 2 — Fetch the verbatim transcript to a file
 
-Use the **`_shared-rules.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode (the per-URL slug keeps a multi-episode batch from colliding), leaving:
+Use the **`_shared-rules-content.md` §15 published-transcript extractor** (the single source of truth for this) to pull each episode to a file. Run it once per episode (the per-URL slug keeps a multi-episode batch from colliding), leaving:
 
 - `<BODY_FILE>` — the clean verbatim transcript body (parser-selected container, chrome stripped, converted to markdown, gated on word + leak count; the body never enters your context). This is §15's printed `BODY=` path, a **deterministic function of the URL** — reuse that exact path in Phase 3/4 (or re-derive it from the URL); there is no random temp name to carry across the tool-call boundary.
 - the published **description** and the `## `/`### ` **section outline** — the raw material for the Phase 3 synthesis header.
@@ -39,7 +39,7 @@ Use the **`_shared-rules.md` §15 published-transcript extractor** (the single s
 
 ## Phase 3 — Write the note (header via editor, body via shell)
 
-Per `_shared-rules.md` §14:
+Per `_shared-rules-content.md` §14:
 
 1. **Choose the destination first (no hardwired path)** — the dedupe grep needs a real operand. Propose a transcript folder: detect an existing transcript/podcast folder in the vault (never create or assume one); if there's no obvious folder, **ask** rather than guessing. Bind the three operands once here and reuse them verbatim through Phase 4:
    - `<TRANSCRIPT_FOLDER>` — the chosen folder (user-overridable).
@@ -89,5 +89,5 @@ Per `_shared-rules.md` §14:
 - **Verbatim means verbatim.** Don't summarise, fix grammar, or let a hook rewrite the body. Synthesis lives in the header only.
 - **Synthesis from structure, not from a full read.** Build the topic summary + cruxes from the published description and section headings; don't pull 15k words into context to write 8 bullets, and don't assert a thesis the metadata doesn't support.
 - **Locale of the header follows the vault; locale of the body follows the speaker.** Your synthesis can be the vault's English; the transcript stays as published.
-- **Names and speakers follow `_shared-rules.md` §15 "Names and speakers"** — the page's human-written text outranks the transcript body on identity, per field. Applies to every name reaching `host` / `guest` / the filename / the synthesis header, and to who-spoke-when. Sharpened here by the header being built from structure rather than a full read: §15's greps over the human-written half are your only view of the participants, so run them rather than inferring identity from a body you never read. Note that the *heading* outline is usually navigational — the segment map is the timestamp-carrying list §15 scans for.
+- **Names and speakers follow `_shared-rules-content.md` §15 "Names and speakers"** — the page's human-written text outranks the transcript body on identity, per field. Applies to every name reaching `host` / `guest` / the filename / the synthesis header, and to who-spoke-when. Sharpened here by the header being built from structure rather than a full read: §15's greps over the human-written half are your only view of the participants, so run them rather than inferring identity from a body you never read. Note that the *heading* outline is usually navigational — the segment map is the timestamp-carrying list §15 scans for.
 - **Match the vault's transcript conventions** (folder, filename, frontmatter) — probe 2–3 existing transcript notes with a shell `head`, not a `Read`, and follow the modal convention before inventing a layout.

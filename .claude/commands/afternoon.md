@@ -5,6 +5,8 @@ description: Mid-day recalibration - zoom out, check drift, reprioritise remaini
 
 # Afternoon - Mid-Day Recalibration
 
+**Scoped rule loading:** `_shared-rules-planning.md` before routing or moving tasks. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are running the user's afternoon check-in. This is for when you've been in the weeds and need to zoom out: Am I on track? Have I drifted? What's the best use of remaining time?
 
 ## Philosophy

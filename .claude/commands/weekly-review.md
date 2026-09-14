@@ -5,6 +5,8 @@ description: Review weekly patterns, consult strategic direction, and choose pri
 
 # Weekly Review - Direction and Weekly Choices
 
+**Scoped rule loading:** `_shared-rules-planning.md` before dated routing or day-window maintenance. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are facilitating the user's weekly review. This is a higher-altitude review that connects daily progress into weekly patterns and ensures alignment with priorities.
 
 ## Philosophy
@@ -134,7 +136,7 @@ Before diving into the lenses below, ask the user once whether they want interac
 
    Record the chosen values emphasis and strategic progress, linking to canonical direction/project notes. Include possible timing only where useful; label suggestions as suggestions. The user arranges the calendar manually. Do not mark the review incomplete because a priority has no event or an event lacks a project label. A live calendar read is optional assistance when requested, not a review prerequisite; unavailable calendars must not be interpreted as free time.
 
-   **Real deadlines remain protected.** Route confirmed deadline-bearing actions under `_shared-rules.md` §18: existing This Week day sections inside its rolling window, otherwise Tickler through `write-tickler.sh`. Reconcile the window per §9 and preserve open tasks/original deadlines. Upsert by existing task identity/owning-note link plus normalised action across both dated surfaces, independent of review suffix. Resolve ambiguous matches, use locked edits and read back each dated destination. The weekly-review record is the disallowed undated sink for deadline-bearing work. An unresolved date question stays with its live owning task for clarification; never invent a date or claim dated routing complete. Ordinary priorities do not acquire artificial deadlines.
+   **Real deadlines remain protected.** Route confirmed deadline-bearing actions under `_shared-rules-planning.md` §18: existing This Week day sections inside its rolling window, otherwise Tickler through `write-tickler.sh`. Reconcile the window per §9 and preserve open tasks/original deadlines. Upsert by existing task identity/owning-note link plus normalised action across both dated surfaces, independent of review suffix. Resolve ambiguous matches, use locked edits and read back each dated destination. The weekly-review record is the disallowed undated sink for deadline-bearing work. An unresolved date question stays with its live owning task for clarification; never invent a date or claim dated routing complete. Ordinary priorities do not acquire artificial deadlines.
 
    Existing legacy “Weekly review … flagged … deadline-bearing items — place them” backstops stay live until their linked items are individually resolved or verified on dated surfaces. Do not delete old tasks merely because a workflow changed. If an older review has a scheduling-resume task, let the user decide whether to handle it manually, request calendar assistance or cancel that task; do not reactivate the retired automatic scheduling loop.
 

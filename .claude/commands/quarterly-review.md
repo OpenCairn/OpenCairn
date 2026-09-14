@@ -5,6 +5,8 @@ description: Quarterly deep review - strategic alignment and direction. Consumes
 
 # Quarterly Review - Strategic Check
 
+**Scoped rule loading:** `_shared-rules-planning.md` before routing. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction and alignment over a 3-month horizon: the questions too heavy for weekly that accumulate debt if never asked.
 
 This is the **strategic half**, the reflective companion to `/quarterly-hygiene` (mechanical deep maintenance) — exactly as `/weekly-review` pairs with `/weekly-hygiene`. Vault structural health (context-file drift, CRM staleness, session-log archiving) is handled by `/quarterly-hygiene`; this command **consumes its report** rather than re-deriving any of it.
@@ -187,7 +189,7 @@ When listing weekly reviews, preserve each file's exact name including any colli
 
    **Route the forward-looking outputs — the review file is an archive record, not a planning surface:**
    - Broad priorities, values and strategic thoughts belong in Direction for weekly translation; do not force them into tasks or dates. Route only concrete actions. Before routing, locate the existing action home or obtain a needed surfacing date in validation; never invent one.
-   - **Concrete actions from Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc via `locked-edit.sh`. If no suitable project section exists, write it to the user-supplied date in Tickler via `write-tickler.sh`. If the text carries a deadline token, `_shared-rules.md` §18 applies: the project doc alone is an undated sink, so also create a dated Tickler backstop.
+   - **Concrete actions from Big Rocks / Long Poles / priorities** → write each into an existing task/action section in the relevant project doc via `locked-edit.sh`. If no suitable project section exists, write it to the user-supplied date in Tickler via `write-tickler.sh`. If the text carries a deadline token, `_shared-rules-planning.md` §18 applies: the project doc alone is an undated sink, so also create a dated Tickler backstop.
    - **Kill List / Stop Doing** → act on in-session: propose the `03 Projects/Cold/` moves and list `/complete-project` candidates for the user to confirm. Don't leave them as prose commitments that route nowhere.
 
    **Routing is an upsert.** Key every routed line by its normalised description. Its provenance marker must be the exact `[[06 Archive/Quarterly Reviews/<REVIEW_BASENAME>]]` backlink. Search the destination first; a match carrying any backlink in the same `YYYY-QN[a-z]?` review family is the same action, so update its text/backlink through the owning locked writer rather than appending. Otherwise create it once. A same-quarter rerun never appends a duplicate action.

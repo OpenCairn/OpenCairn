@@ -6,6 +6,8 @@ description: Flag this session for cryptographic provenance hashing at end-of-da
 
 # Provenance - Flag Session for Cryptographic Audit Trail
 
+**Scoped rule loading:** `_shared-rules-content.md` before snapshotting verbatim material. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are flagging this session as provenance-worthy. This creates a lightweight flag file that `$goodnight` will process (hashing files, OTS-stamping, and logging). Optionally, work products that are already final can be hashed immediately.
 
 ## When To Use

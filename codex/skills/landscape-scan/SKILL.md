@@ -51,7 +51,7 @@ If error, abort. Set **`SKILLS_ROOT`** to the first candidate below that contain
 
 **If no candidate resolves, abort** and state which paths were tried. If more than one resolves, use the first and record the fact under `## Run diagnostics`: installed and canonical copies should match, so divergence belongs in the installation's template-sync workflow if one exists. Set `SKILL_DIR="$SKILLS_ROOT/landscape-scan"`, read `$SKILLS_ROOT/_shared-rules.md`, and apply it throughout. All code below uses `{VAULT}`, `$SKILLS_ROOT`, and `$SKILL_DIR` as placeholders to substitute with resolved absolute paths.
 
-**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`), current web-search tooling, and the fetch ladder in `_shared-rules.md` §26. On a non-GNU shell, substitute the platform equivalent. If a configured fetch rung is unavailable, continue down §26's ladder and record the gap.
+**Environment assumption:** this engine assumes a GNU/Linux shell (the profiles call `date -d`, `lsb_release`, `dpkg-query`), current web-search tooling, and the fetch ladder in `_shared-rules-content.md` §26. On a non-GNU shell, substitute the platform equivalent. If a configured fetch rung is unavailable, continue down §26's ladder and record the gap.
 
 ### 1. Resolve topic and load the profile
 
@@ -129,7 +129,7 @@ If a source is unreachable or a repo has been deleted/moved, note it as "unavail
 Only if digest mode is active. These verification disciplines are domain-agnostic — they apply whatever the topic:
 
 - **Fetch all URLs in parallel.** Don't serialise.
-- **Handle fetch failures gracefully.** Follow `_shared-rules.md` §26. For 403/429/timeout/blocked pages, begin at its configured-reader rung; a credits/quota error counts as unavailable. If all routes fail, log the URL under "unfetchable" and continue.
+- **Handle fetch failures gracefully.** Follow `_shared-rules-content.md` §26. For 403/429/timeout/blocked pages, begin at its configured-reader rung; a credits/quota error counts as unavailable. If all routes fail, log the URL under "unfetchable" and continue.
 - **Verify suspicious sources before trusting the pitch.** Red flags: engagement-ratio anomalies (many retweets, zero likes → bot amplification); self-promotion by the author without independent endorsement; unverifiable superlatives ("99% accuracy," "permanent fix"); brand-new repo with improbable star counts (astroturfing). For threat profiles, add: unsubstantiated severity claims, vendor marketing dressed as advisory, and "patch available" claims with no CVE or commit to point to.
 - **Fetch the underlying primary source, not just the pitch.** A tweet/blog pointing to a tool → fetch the repo/product page (last commit, issues, licence). A post describing a vulnerability → fetch the CVE record / vendor advisory / commit, and report what's actually confirmed.
 - **Check commit activity on `main`, not just releases.** Stale release ≠ dead; active releases ≠ live `main`. Independent signals — look at both.

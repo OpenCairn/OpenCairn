@@ -5,6 +5,8 @@ description: Choose and book a hotel (or stay) — quiz preferences, generate sh
 
 # Book Stay
 
+**Scoped rule loading:** `_shared-rules-planning.md` before routing follow-ups; `_shared-rules-content.md` before verbatim writes or source acquisition. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 Pipeline for choosing and booking a hotel for a trip leg. **One pipeline run and one accommodation doc per leg** — for a multi-city trip, split into legs first and run Steps 1-11 per leg (record the split rationale in the doc template's Multi-leg section), updating the trip hub once at the end.
 
 **Prerequisites:** web search (candidate research + live FX rates) and an interactive quiz run in conversation (numbered questions, concrete options). The vault doc template lives at `{VAULT}/07 System/Templates/Accommodation Decision.md`. **No vault?** Skip Step 1's context-load, Step 8's doc write, and Step 11 entirely (Step 1's lead-time check and currency step still run) — the quiz → research → verify → handoff core works anywhere.
@@ -163,7 +165,7 @@ User pastes confirmation # back; agent captures it.
   3. **Relocated-anchor coverage:** if this booking moved a section/doc (e.g. consolidated a sub-trip's notes into a new file), grep the moved-from doc's bare inbound anchor (`[[wikilink]]` + path forms) with NO keyword conjunction — a narrow pattern drops semantic-variant pointers like "the trip doc".
 - Superseded shortlists: add this banner at the top of the old doc/section rather than deleting — `> ⚠️ SUPERSEDED — active doc: [[<new doc>]]` — and keep the research below it.
 
-**Edit safety:** Shared planning files in the fan-out (`This Week.md`, project hubs) go through `locked-edit.sh`, never a raw edit — see `_shared-rules.md` §5. For all edits (either mechanism): the shared vault's formatting hooks may rewrite these files between your read and your edit. Use *minimal-context* old-strings (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules.md` §14.
+**Edit safety:** Shared planning files in the fan-out (`This Week.md`, project hubs) go through `locked-edit.sh`, never a raw edit — see `_shared-rules.md` §5. For all edits (either mechanism): the shared vault's formatting hooks may rewrite these files between your read and your edit. Use *minimal-context* old-strings (just the unique line being changed, not full table rows with trailing whitespace) so formatter normalisation doesn't break the match. Re-read and retry with shorter strings if a match fails. If writing verbatim quoted text (review excerpts, source quotes) into the accommodation doc where exact wording matters, formatting hooks can silently rewrite it — see `_shared-rules-content.md` §14.
 
 ## Heuristics summary (the load-bearing ones)
 
