@@ -286,8 +286,8 @@
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
       "render": "codex/skills/_shared-rules-content.md",
-      "source_sha256": "d485ac1e3f718e49a1d58b2e576d381c76b5c5f07ab5c6238634b9fa5e9aeffe",
-      "render_sha256": "364b1e229d4ca16d0b45ed996427da25588a72eccda1b588324246e70d08612a"
+      "source_sha256": "de1841c2de658d8dc5c6c5bcbcd45e3816ddd97a1abf4a31979d7be21892dd73",
+      "render_sha256": "4cfc6027d412c988d7f82673877545c1583af483081a94501a88c3d97a84e9ce"
     }
   }
 }
