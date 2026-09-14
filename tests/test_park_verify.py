@@ -8,6 +8,39 @@ SCRIPT = Path(__file__).parents[1] / ".claude/scripts/park-verify.sh"
 
 
 class ParkVerifyTests(unittest.TestCase):
+    def test_duplicate_touched_spellings_preserve_distinct_external_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            vault = base / 'vault'
+            (vault / '01 Now').mkdir(parents=True)
+            (vault / 'docs').mkdir()
+            inside = vault / 'docs/a.md'
+            inside.write_text('inside\n')
+            outside = base / 'external/docs/a.md'
+            outside.parent.mkdir(parents=True)
+            outside.write_text('outside\n')
+            log = vault / 'log.md'
+            for include_external in (True, False):
+                with self.subTest(include_external=include_external):
+                    log.write_text('## Session 1 - Fixture\n### Summary\nDone\n'
+                                   '### Files Created\nNone\n### Files Updated\n'
+                                   '- docs/a.md - inside\n'
+                                   + (f'- {outside} - outside\n' if include_external else '')
+                                   + '### Pickup Context\n**Project:** None\n')
+                    result = subprocess.run(
+                        [str(SCRIPT), str(vault), str(log), '1',
+                         '--touched', 'docs/a.md', '--touched', str(inside),
+                         '--touched', './docs/a.md', '--touched', str(outside)],
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 0 if include_external else 1, result.stdout)
+                    if include_external:
+                        self.assertIn('PASS backfill: all 2 path(s)', result.stdout)
+                        self.assertIn('RESULT: PASS', result.stdout)
+                    else:
+                        self.assertIn('FAIL backfill:', result.stdout)
+                        self.assertIn(str(outside), result.stdout)
+
     def test_sparse_quick_entry_with_all_none_file_sections_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = Path(tmp)

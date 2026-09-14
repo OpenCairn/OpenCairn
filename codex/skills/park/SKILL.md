@@ -31,7 +31,7 @@ SESSION_LOG="$SESSION_DIR/$TODAY.md"
 printf 'Session log path: %s\n' "$SESSION_LOG"
 ```
 
-**Path invariant:** a new entry for today goes directly in `Session Logs/YYYY-MM-DD.md`, never `Session Logs/YYYY/YYYY-MM-DD.md`. Year subfolders contain archived logs; an archived path loaded by `$pickup` must not be carried into this park. Shell variables do not persist between tool calls, so re-derive and assert `SESSION_LOG` inside every later call that writes or edits today's log, or use the exact path printed above. Step 1 may still update an existing archived session at its existing path when genuinely merging into that old session.
+**Path invariant:** a new entry for today goes directly in `Session Logs/YYYY-MM-DD.md`, never `Session Logs/YYYY/YYYY-MM-DD.md`. Year subfolders contain archived logs; an archived path loaded by `$pickup` must not be carried into this park. Shell variables do not persist between tool calls, so re-derive and assert `SESSION_LOG` inside every later call that writes or edits today's log, or use the exact path printed above. A later-date continuation creates a new entry here, retaining a link to the earlier session.
 
 **Parboil draft.** A mid-session snapshot may already hold this park's expensive half — session narrative, identifier enumeration, open-loop list — derived while the context was still cheap:
 
@@ -57,11 +57,11 @@ python3 "$PARK_REVIEW" capture --kind evidence --label "<source name>" --source 
 EOF
 ```
 
-Use `secondary` or `unverified` where §16 requires it. One receipt per distinct source; update by adding a later receipt for the same `--source`. On a bare or escalated full path, do §16's source-union sweep once and capture only the load-bearing excerpts. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript. An eligible quick path creates only its verifier receipt.
+Use `secondary` or `unverified` where §16 requires it. Add receipts as evidence arrives; all excerpts for the same `--source` are retained in capture order. A later excerpt does not replace an earlier one. On a bare or escalated full path, do §16's source-union sweep once and capture only the load-bearing excerpts. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript. An eligible quick path creates only its verifier receipt.
 
 ### 1. Merge-continuation check
 
-If this session directly continues a just-parked session (a `$pickup` loaded it and the work finishes its loose end), `--quick` is ineligible: print `↪ --quick escalated to full park: merge-continuation`, then update the existing entry via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), and run Steps 2 and 4–11 against the merged session's N. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
+If this session directly continues a just-parked session dated today (a `$pickup` loaded it and the work finishes its loose end), `--quick` is ineligible: print `↪ --quick escalated to full park: merge-continuation`, then update the existing entry via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), and run Steps 2 and 4–11 against the merged session's N. **Reconcile the whole merged entry**, including surviving Summary, Key Insights, Next Steps and Pickup Context; confirm inherited artefact classifications still fit. A continuation on a later calendar date creates a new entry with a continuation link. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
 
 ### 2. Inventory and change classification
 
@@ -123,8 +123,8 @@ This validates each receipt's exact link-target-only delta and current hash, the
 
 - `semantic` — session-authored, substantively rewritten, or otherwise meaning-bearing. A bounded file uses `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --semantic --reason "<created|substantive>"` and receives one full coherence read at Step 4c. For a large artefact where that is disproportionate, add `--targeted --inspection-target "<page/section/line range or outcome-specific check>"` (repeat as needed); Step 4c reviews only that delta-plus-context coverage.
 - `reference` — a local manual, textbook, paper, dataset or other source copied/downloaded but not authored this session. Register it with `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --reference --reason "<why retained>"`, adding `--inspection-target "<passage or claim actually used>"` for each source-dependent claim. The shared `park-artifact.py` helper creates a hash-bound source snapshot, metadata and text index in the cross-session/cross-lane `.park-artifacts` cache; extraction is not a whole-source read attestation. A reference with no source-dependent session claim needs identity/metadata verification only.
-- `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic; choose bounded-full or targeted coverage by the artefact rules above. If and only if lint predates an otherwise exact mechanical delta, rerun that classification with `--allow-inherited-lint`; the receipt records the exception for the verifier's exact-path gate.
-- `nonlocal` — a remote artefact that cannot be read from this filesystem. Register it with `--nonlocal --reason "<surface represented by evidence>"`; the reviewer sees it only through evidence receipts. Deleted files stay in `Files Deleted` and need no read classification.
+- `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). For substitutions that change no locator, use `--no-locator-target` instead of `--target`; never pass both. The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic; choose bounded-full or targeted coverage by the artefact rules above. If and only if lint predates an otherwise exact mechanical delta, rerun that classification with `--allow-inherited-lint`; the receipt records the exception for the verifier's exact-path gate.
+- `nonlocal` — an exact remote artefact, or a local root-only/secret-bearing file that must not be copied into a review brief. Use sanitised identity/configuration checks as evidence, never secret contents. Register it with `--nonlocal --reason "<surface represented by evidence>"`; the reviewer sees it only through evidence receipts. Deleted files stay in `Files Deleted` and need no read classification.
 
 Display the inventory with its classification and declared coverage. Do not perform the quality read here; Step 4b must start before the expensive quality pass.
 
@@ -149,19 +149,21 @@ Display the inventory with its classification and declared coverage. Do not perf
 - [specific enough to resume without re-reading the conversation; plain bullets, never checkboxes — session logs are records, not task trackers]
 
 ### Files Created
-- path - purpose        [bare `None` if empty; same for Updated]
+- path - purpose        [one path per line; never brace-expand or comma-group; bare `None` if empty; same for Updated]
 
 ### Files Updated
-- path - what changed and why   [not vault-scoped — include load-bearing external paths]
+- path - what changed and why   [one path per line; never brace-expand or comma-group; include load-bearing external paths]
 
 ### Files Deleted
-- path - why removed    [omit the section entirely if none]
+- path - why removed    [one path per line; never brace-expand or comma-group; omit the section entirely if none]
 
 ### Pickup Context
 **For next session:** [one immediately-actionable sentence]
 **Continues:** [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session X - Topic)   [only if continuing]
 **Project:** [exact link from the metadata line]
 ```
+
+Use full vault-relative paths inside the vault, and absolute or `~`-prefixed paths outside the vault. Repeat the complete path on every row; never abbreviate later paths as `~/x, y, z`.
 
 **Write it:**
 
@@ -183,7 +185,7 @@ The script handles locking, file/header creation, and atomic numbering — paral
 
 Three checks:
 - **Conversation-only drafts** Claude composed (emails, messages, analysis, plans) exist only as text output — write each to its semantic vault home. Drafts the user authored/pasted themselves are not at-risk.
-- **Transient surfaces** (Scratchpad, Inbox captures, daily notes) are cleared on a cadence — `park-files.sh`'s `[transient]` lines list this-session candidates mechanically (memory-gating is the failure this check exists to prevent). Read each hit; move durable this-session work product to its semantic home and update every reference to the old location. **Exception:** `$reply` draft sections (headings starting `**Reply to `) need explicit per-draft user confirmation before removal (§11). Pre-existing cross-session content is the user's working buffer — leave it (`$weekly-hygiene`'s job).
+- **Transient surfaces** (Scratchpad, Inbox captures, daily notes) are cleared on a cadence — `park-files.sh`'s `[transient]` lines list this-session candidates mechanically (memory-gating is the failure this check exists to prevent). Read each hit; tasks correctly filed in a configured map’s retained task sections are already at their task home and stay there. Move other durable this-session work product to its semantic home and update every reference to the old location. **Exception:** `$reply` draft sections (headings starting `**Reply to `) need explicit per-draft user confirmation before removal (§11). Pre-existing cross-session content is the user's working buffer — leave it (`$weekly-hygiene`'s job).
 - **Claude-internal files** live outside the vault, so `park-files.sh`'s vault-only transient scan cannot see them: run `find ~/.claude/plans -type f -mmin -<session minutes>` and Read every hit individually. A sub-agent's output (`*-agent-*.md`) shares its parent plan's name prefix but is a separate document with its own migration status — "the plan was migrated" is not a verdict on it. Migrate standalone reference material to its semantic vault home; leave spent execution plans (`$weekly-hygiene` owns their cleanup).
 
 Output: `✓ No at-risk work product to persist` or `🔧 Persisted N item(s): [paths]`.
@@ -215,13 +217,17 @@ If you reach Step 5 without having despatched it, despatch it before continuing.
 
 Output: `✓ Quality check: B bounded semantic files full-read; T large/reference artefacts target-inspected; M mechanical files receipt-verified`, `🔧 Quality check: fixed N issues — [file: fix]`, or — when (a)'s checked inventory is empty — `✓ Quality check: no attributed files (writes deferred to Steps 3–7)`. The empty case is a result, not a skip: planning and research sessions can legitimately make their first writes during Park, and the later writes still pass their step contracts, Step 8 verification, and Step 9 audit.
 
+**Coherence after status changes:** compare the changed span with its governing heading, table labels, adjacent conditions and parent scope/provenance statement. Check each clause before ticking a compound task. Reconcile surviving tasks with the settled decision, preserving any still-open clause. For claimed deduplication, inspect the retained counterpart as evidence even when it was not edited. For reciprocal links, verify both endpoints only when reciprocity was intended.
+
+**Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred.
+
 ### 5. Project doc update
 
 If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its existing current-state/action content to match reality, preserving the document's structure, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
 
 ### 6. Reference-graph propagation
 
-**Enumerate (main session):** list every identifier value the session changed as `old → new` pairs — status flips, factual corrections, renames/moves (include full old-path forms, not just filenames), numeric changes (carry the constrained subject phrase too), new options on pre-existing decisions (carry the decision's anchor), and **world-state changes from what the session did**: a sent message or made booking changes the acted-on entity's state even where no file token changed. When a factual correction invalidates a planned event, also enumerate a descriptive anchor for the stale entailed state (the pending action or premise), because the live task may contain neither the corrected token nor its old value. **A named-entity claim also carries the entity's canonical identifiers:** for a change of the form "X now has state Y", enumerate X's identifier forms (project name, person, booking or ticket reference, branch, filename, ID) alongside the old/new Y pair. The entity's own SSOT often tracks X without restating the claim, so the claim vocabulary alone never reaches it; those hits go through the same §12 triage. Commits pushed this session are their own identifier class — hub record per §17. Display the enumeration. Nil is a positive claim, not a default — display `✓ Reference graph: No identifier values changed` only after actually checking these categories.
+**Enumerate (main session):** list every identifier value the session changed as `old → new` pairs — status flips, factual corrections, renames/moves (include full old-path forms, not just filenames), numeric changes (carry the constrained subject phrase too), new options on pre-existing decisions (carry the decision's anchor), and **world-state changes from what the session did**: a sent message or made booking changes the acted-on entity's state even where no file token changed. When the session completes, defers or invalidates a planned action, also enumerate a descriptive anchor for the stale entailed state (the pending action or premise), because the live task may contain neither the corrected token nor its old value. **A named-entity claim also carries the entity's canonical identifiers:** for a change of the form "X now has state Y", enumerate X's identifier forms (project name, person, booking or ticket reference, branch, filename, ID) alongside the old/new Y pair. The entity's own SSOT often tracks X without restating the claim, so the claim vocabulary alone never reaches it; those hits go through the same §12 triage. Commits pushed this session are their own identifier class — hub record per §17. For changed headings, include the old `[[path#heading` prefix so aliased links are found too. Include dependent actions and cause/configuration records whose instructions the change invalidates. Display the enumeration. Nil is a positive claim, not a default — display `✓ Reference graph: No identifier values changed` only after actually checking these categories.
 
 **Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a background sub-agent via `collaboration.spawn_agent`, on the session's own model — do not downgrade this seat. §12 triage decides whether each hit is a stale cross-reference, a live locator, a historical record, or unrelated; getting that wrong silently corrupts the reference graph. Despatch at Step 4b, then run Step 4c and Steps 5 and 7 while it works; collect its consolidated report at Step 8 before the backfill. Its prompt is self-contained, embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to set the search command's working directory to `{VAULT}` and run a separate `rg -F --type md -i -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- '<identifier>' .` for each identifier, the bare value and never a keyword-conjoined pattern (`-F` because identifiers are literal values: a needle beginning `**` or containing `(`, `.` or `$` silently changes meaning or fails to parse as a regex, and a co-occurrence pattern misses the prose reference carrying the value alone); the resulting live-vault hit-set is the scope, with no hand-picked candidate lists and with already-updated docs re-grepped for other instances. `07 System/.Provenance/**` is a frozen evidence snapshot, not a live reference surface: exclude it from triage, while still validating any snapshot file explicitly attributed to this session. The agent reads §12 rather than recalling it, triages every hit, runs structural link-integrity after moves, bumps co-located `Last updated:` stamps on docs it edits, and retains its per-identifier hit-list for Step 8's comparison. Planning/hub writes use `locked-edit.sh`, every call prefixed `env OPENCAIRN_SESSION_ID=<id>` with this session's id (resolve it first: `echo $CODEX_THREAD_ID`; embed the value in the brief) so its edits and receipts land under this session.
 
@@ -231,16 +237,20 @@ Output: `✓ Reference graph: N files updated for [identifier]` (+ file list) or
 
 ### 7. Route open loops
 
-Route every open loop to exactly one canonical target — no per-item prompting:
+Route every open loop to exactly one canonical target — no per-item prompting.
 
-1. **Explicit future date** → Tickler: `"{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] text → [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N - Topic)"`
+**Already in This Week.md:** keep the existing task there; update any changed scope in place. Do not recapture or offload it through the routing rules below. Shared §9 owns carry-forward.
+
+**Configured task-home map takes precedence for new open loops:** locate it through vault navigation/Autopilot and follow Quick capture, including its undated fallback. Honour actual dates and execution days the user chose; being actionable does not by itself select work for this week. Keep retained tasks as checkboxes. Whimsy is only for ideas the user has released from obligation, never merely low-priority tasks. Use the fallback table below only when no map is configured.
+
+1. **Explicit future date** → the matching dated section in This Week.md if it exists (use `locked-edit.sh --replace`); otherwise Tickler: `"{VAULT}/.claude/scripts/write-tickler.sh" "{VAULT}/01 Now/Tickler.md" "YYYY-MM-DD" "- [ ] text → [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N - Topic)"`
 2. **No date, actionable this week** → This Week.md day section (tomorrow's; today's if parking before noon) via `locked-edit.sh --replace` on the day section — never `--append`, which lands outside any section. Format: `- [ ] text → [[project/area doc]]`. Trigger-contingent loops ("next time X runs, check Y") are not day-bound — use rule 3, or the Tickler at +10 days if no project doc exists.
 3. **No date, has a project** → that project doc's existing task/action section (prefer `## Next Actions`, then `## Open Loops`, then another clearly equivalent section). If none exists, route to the Tickler at +10 days instead of creating a section.
-4. **Undated, low-priority, no project home** → Whimsy: append a plain line (no checkbox) to `{VAULT}/04 Areas/Whimsy/_notes.md`. There is no undated catch-all task list.
+4. **Undated, low-priority, no project home** → Whimsy: append a plain line (no checkbox) to `{VAULT}/04 Areas/Whimsy/_notes.md`.
 
-**§18 applies:** an item carrying a deadline/expiry/window token MUST land on a dated surface — for this skill the disallowed sinks are the project doc and Whimsy. Derive the date (`date -d`) if it isn't written as one.
+**§18 applies:** an item carrying a deadline/expiry/window token MUST land on a dated surface — for this skill the disallowed sinks are undated project/area task homes, general capture inboxes and Whimsy. Derive the date (`date -d`) if it isn't written as one.
 
-**Dedup before writing:** grep a distinctive substring across This Week.md, Tickler.md, and the candidate project doc. An intact duplicate may be skipped. If the session resolved only part of the existing item, rewrite that item's surviving scope under `locked-edit.sh`; do not skip the whole item merely because the grep hit.
+**Dedup before writing:** search both a distinctive task phrase and its stable subject across This Week.md, Tickler.md, and the candidate project/area/capture destination. Read candidate hits for semantic overlap; an intact duplicate may be skipped. Preserve source triggers and safety conditions through a link to their canonical home; do not invent a stronger condition or copy volatile decision prose into another home. Follow the destination's own entry rules. If the session resolved only part of the existing item, rewrite that item's surviving scope under `locked-edit.sh`; do not skip the whole item merely because the grep hit.
 
 Output: `✓ Routed: [item] → [target]` per item. A zero-routing claim cites an observable (the dedup grep hit, or the session log's "None — work completed").
 
@@ -262,7 +272,9 @@ EOF
 
 Add every propagation-touched file to the attribution list. Classify new locator-only files through the locked-edit receipts; apply Step 2(b)'s proportional semantic/reference inspection to every other new artefact. This closes the overlap without repeating mechanical checks or promoting imported references into full reads.
 
-**Backfill:** park-time edits (Steps 5–7: project docs, This Week, Tickler) postdate the Step 3 log write — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script dedups by path but *silently discards* the incoming description on a hit — to extend an already-listed entry's description, rewrite the section via `update-session-section.sh <log> N "Files Updated" --replace`. Also reconcile inline closures: a Next Steps item that park itself closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
+**Backfill:** park-time edits (Steps 5–7: project docs, This Week, Tickler) postdate the Step 3 log write — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script reports skipped paths already in Files Created/Updated and preserves their descriptions. Extend a skipped description in its existing section via `update-session-section.sh --replace`; a created file stays in Files Created after later edits. Also reconcile inline closures: a Next Steps item that park itself closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
+
+Reconcile the Files lists with a fresh `session-ledger.sh --read`, the Step 2 inventory (including its non-ledger backstop), and the collected propagation/park-time edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
 **Verify:** run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
 
@@ -283,6 +295,8 @@ When this is the verifier's **only** failure, rerun through `run-verifier` with 
 
 Output: the script's `RESULT:` line plus what you fixed.
 
+**Final evidence check:** apply §19 to the final session entry and all Park-owned writes, including backfill descriptions. Reconcile completion claims with surviving open items before assembling the review. If audit remediation or later edits change verified inputs, reconcile attribution and rerun Step 8 before reporting its PASS.
+
 ### 9. Bounded delta-aware audit (fresh read-only sub-agent — standing authorisation)
 
 This is a **close-out review, not a nested `$audit` run**. Steps 4c, 6 and 8 already perform proportional hygiene, vault-wide propagation and deterministic verification. Keep the independent fresh-context check, but do not repeat those passes or import `$audit`'s panel, remediation or "iterate until clean" workflow.
@@ -293,7 +307,7 @@ Generate the brief from the post-backfill session log, raw session ledger, locke
 python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --number N
 ```
 
-The command prints the §16 evidence count and review-mode counts, writes `review-brief.md`, and uses immutable digest-addressed source/review copies under this session's `.session-state` directory. It full-reads only bounded semantic groups; large semantic and local reference artefacts carry hash-bound metadata plus declared inspection targets. It fails closed if a propagation/verifier receipt is absent, an artefact receipt is stale/corrupt, or a mechanical receipt no longer matches the live file. Pass that generated file's contents verbatim as the brief below; do not reconstruct or embellish it from the transcript.
+The command prints the §16 evidence count and review-mode counts, writes `review-brief.md`, and uses immutable digest-addressed source/review copies under this session's `.session-state` directory. It full-reads only bounded semantic groups; large semantic and local reference artefacts carry hash-bound metadata plus declared inspection targets. It fails closed if a propagation/verifier receipt is absent, an artefact receipt is stale/corrupt, or a mechanical receipt no longer matches the live file. Give the filesystem-capable reviewer the generated brief's absolute path and printed SHA-256, instructing it to read the file and verify the digest before reviewing. Do not reconstruct the brief in the spawn message.
 
 Despatch exactly one reviewer with this shape (replace `yyyymmdd` and `n` with the current date and assigned session number; both substitutions use digits only):
 
@@ -301,7 +315,7 @@ Despatch exactly one reviewer with this shape (replace `yyyymmdd` and `n` with t
 collaboration.spawn_agent({
   task_name: "park_audit_yyyymmdd_n",
   fork_turns: "none",
-  message: "<self-contained brief>"
+  message: "<brief absolute path + SHA-256 + read-and-verify instruction + read-only contract>"
 })
 ```
 

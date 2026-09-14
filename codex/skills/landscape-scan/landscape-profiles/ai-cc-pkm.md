@@ -27,7 +27,7 @@ For each, focus on what's new or changed since the last scan.
 - https://github.com/ComposioHQ/awesome-claude-skills — practical skills across Claude.ai, Claude Code, and Claude API
 - https://github.com/BehiSecc/awesome-claude-skills — skills collection incl. claude-starter (40 auto-activating skills, TOON format)
 - https://github.com/FlorianBruniaux/claude-code-ultimate-guide — beginner-to-power-user guide with production-ready templates
-- https://github.com/affaan-m/everything-claude-code — config collection with longform guide (skills, hooks, subagents, MCPs, plugins)
+- https://github.com/affaan-m/ECC — config collection with longform guide (skills, hooks, subagents, MCPs, plugins)
 - https://github.com/luongnv89/claude-howto — visual, example-driven guide to every Claude Code feature
 - https://github.com/davepoon/buildwithclaude — plugin marketplace/discovery platform for Claude Code
 - https://awesomeclaude.ai/ — web directory aggregating Claude AI tools, integrations, and resources
@@ -64,21 +64,12 @@ For each, focus on what's new or changed since the last scan.
 - PKM Weekly newsletter (https://www.pkmweekly.com/) — weekly digest of the space
 - AFFiNE, Tana — AI-native alternatives to Obsidian worth monitoring
 
-### Source-specific mandatory-digest rule (Zvi)
+### Zvi tool-tip roundups
 
-- **Mandatory mechanical digest:** fetch *every* Zvi post published since the last scan run. Scan each post end-to-end (not just headlines/TOC) for any Claude Code / AI-tool / PKM / agent-workflow / AI-coding-infra item. Extract every such item regardless of how buried. The OCLI near-miss is the load-bearing precedent — headline-scan is not sufficient for this source.
-- **Bootstrap (first-ever scan run):** no prior scan exists, so "since last run" is undefined. Default window: last **4 weeks** of posts. Compute cutoff explicitly: `date -d "4 weeks ago" +%Y-%m-%d`. Acknowledge in the report that this is a cold-start pass.
-- **Subsequent runs:** delta from the most recent scan file's date — find the most recent file by the ISO week label in its filename (`ls -1 … | sort -r`, mtime for ties only), then parse its report-date header.
-- **Review the Zvi mandatory-digest rule once 3 runs have carried it.** The rule is single-point-justified (OCLI only), so it gets a sunset check rather than standing forever.
-
-  **Mechanical trigger — run this in Step 4, don't rely on remembering.** Count prior reports for this profile with its own glob, and check whether the review has already happened:
-
-  ```
-  ls -1 "{VAULT}/06 Archive/Landscape Scans/"20[0-9][0-9]-W[0-9][0-9].md | wc -l
-  grep -l "Zvi rule review:" "{VAULT}/06 Archive/Landscape Scans/"20[0-9][0-9]-W[0-9][0-9].md
-  ```
-
-  If the count is ≥ 3 and no prior report carries the marker, the review is **due this run** (and is *overdue*, not optional, if the count exceeds 3). Evaluate: did Zvi surface anything non-obvious that a headline-scan would have missed? If no, downgrade to headline-scan with selective deep-read on Claude-Code-adjacent sections. Record the outcome in this run's report as a literal line — `Zvi rule review: kept` or `Zvi rule review: downgraded to headline-scan` — which is what the next run's grep looks for.
+- **Scope:** enumerate the recurring numbered **AI #…** roundups published since the prior scan, including split parts. Inspect their contents/headings, then read the practical AI-tool, coding, PKM and agent-workflow sections in full, including buried tips (often “Language Models Offer Mundane Utility”, “Huh, Upgrades”, “Get My Agent On The Line” and “Introducing”; headings vary). Headline-only scanning is insufficient; reading every post or every policy/alignment section is not required.
+- **Follow concrete leads:** read a standalone post when a practical lead in a roundup warrants it, or the user supplies it. Verify consequential product claims against primary sources before recommending adoption.
+- **Window:** use the prior report's date, selecting the latest default-profile report by its ISO week filename and parsing its date header. For a first scan, use the last **4 weeks** (`date -d "4 weeks ago" +%Y-%m-%d`) and label the cold-start window.
+- **Coverage:** record which roundups and practical sections were read, plus any retrieval gaps. If extracted text loses section headings, use the contents list and topic boundaries; do not equate fetched bodies with completed reading.
 
 ## Assessment frame
 

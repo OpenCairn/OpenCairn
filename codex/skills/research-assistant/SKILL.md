@@ -54,6 +54,8 @@ Use this search strategy:
 - Follow links from relevant notes
 - Check backlinks (files that link TO the current note). **Route via whatever the vault's search-routing doc marks reliable for backlinks — verify that before reaching for the Obsidian CLI's `backlinks` subcommand, which in some setups returns false positives *and* false negatives (a silent nil reads as "no inbound links" and is the dangerous direction).** If the sanctioned route is unavailable, or the routing doc doesn't mark one reliable, fall through to a literal grep of `{VAULT}` covering **both** link forms — bare (`rg -lF "[[Note Name" {VAULT}`) and path-based (`rg -lF "[[<Folder>/Note Name" {VAULT}`). Path-based links are the vault convention and the bare form alone under-reports badly; `-F` is required because `[[` is not a valid regex.
 
+**Current message requested by the user:** retrieve the named email/chat through the configured channel before treating a vault summary as its contents. Reconcile relevant vault notes against the message; if retrieval fails, state that the summary is secondary and the live message remains unavailable.
+
 3. **Synthesize what's found:**
 
 Organize findings into:

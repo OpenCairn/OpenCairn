@@ -143,7 +143,9 @@ Required format (first line exactly as shown — /park diffs against that count)
   SNAPSHOT-LEDGER-LINES: $LEDGER_LINES
 
 That number is the hook's exact \`wc -l < "$LEDGER"\` result at trigger time. It is not
-a count of bullets, files, or sections in the draft.
+a count of bullets, files, or sections in the draft. If refreshing this draft
+manually later, recompute that ledger line count at the refresh and replace the
+header; never retain the old count beside a refreshed body.
 
   ## Draft session log
   ### Summary            — 2-4 sentences, outcomes and decisions

@@ -61,7 +61,7 @@ A published transcript (podcast show site, Substack, official transcript page) i
 1. **Determine source type.** If the argument is a YouTube URL (contains `youtube.com/watch` or `youtu.be/`), this is a YouTube source. Otherwise, confirm the audio file exists at the given path.
 2. Check prerequisites are installed:
    ```bash
-   ~/venvs/whisperx/bin/python3 -c "import whisperx" && command -v ffmpeg
+   ~/venvs/whisperx/bin/python3 -c "import whisperx" && command -v ffmpeg && command -v ffprobe
    ```
    If YouTube source, also check: `command -v yt-dlp`
 3. If checks fail, report what's missing and stop.

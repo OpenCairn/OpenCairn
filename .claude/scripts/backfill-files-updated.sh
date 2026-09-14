@@ -62,7 +62,7 @@ NEXT_HEADING=$(tail -n +$((SESSION_HEADING + 1)) "$SESSION_FILE" | { grep -n "^#
 if [ -n "$NEXT_HEADING" ]; then
     END_LINE=$((SESSION_HEADING + NEXT_HEADING - 1))
 else
-    END_LINE=$(wc -l < "$SESSION_FILE")
+    END_LINE=$(awk 'END { print NR }' "$SESSION_FILE")
 fi
 
 # Find "### Files Updated" within this session block
@@ -74,33 +74,39 @@ if [ -z "$FILES_UPDATED_LINE" ]; then
 fi
 FILES_UPDATED_ABS=$((SESSION_HEADING + FILES_UPDATED_LINE - 1))
 
-# Find the next section heading after "### Files Updated" (to know the boundary)
-NEXT_SECTION=$(tail -n +$((FILES_UPDATED_ABS + 1)) "$SESSION_FILE" | { grep -n "^### " || true; } | head -1 | cut -d: -f1)
-if [ -n "$NEXT_SECTION" ]; then
-    SECTION_END=$((FILES_UPDATED_ABS + NEXT_SECTION - 1))
-else
-    SECTION_END=$END_LINE
-fi
+# Exclusive section end: next section heading within this session, or the
+# first line after the session. awk counts an unterminated final record too.
+SECTION_END=$(awk -v start="$FILES_UPDATED_ABS" -v end="$END_LINE" '
+    NR > start && NR <= end && /^### / { print NR; found=1; exit }
+    END { if (!found) print end + 1 }
+' "$SESSION_FILE")
 
-# Check if the section contains "None" (with possible surrounding text)
-SECTION_CONTENT=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE")
+# Numeric predicates also make an empty section an empty range (unlike sed's
+# reversed start,end range, which can still return the start line).
+SECTION_CONTENT=$(awk -v start="$FILES_UPDATED_ABS" -v end="$SECTION_END" '
+    NR > start && NR < end
+' "$SESSION_FILE")
 
 # --- Path extraction ---------------------------------------------------------
-# Extract the path from a "- path - description" line.
-#
-# Anchor on a file extension. Neither naive alternative is correct:
-#   - matching the LAST " - " (a greedy ".*") breaks when the DESCRIPTION
-#     contains " - ", which is common in model-written prose;
-#   - matching the FIRST " - " breaks when the FILENAME contains " - ", which
-#     is a real vault convention (e.g. "07 System/Context - Direction.md").
-# Extension-anchoring is correct for both. Extensionless paths (scripts,
-# wrappers) have no anchor and fall back to the first separator, which is safe
-# because such paths rarely contain " - ".
+# Backticks delimit a path atomically, including extensionless separator names.
+# Legacy descriptive rows retain extension anchoring so "Context - Example.md"
+# is not split at its filename separator. A paths-only row needs no delimiter.
 _extract_path() {
-    local line="$1" p
+    local line="$1" value p
+    case "$line" in '- '*) value="${line#- }" ;; *) return 0 ;; esac
+    if [[ "$value" == \`* ]]; then
+        value="${value#\`}"
+        [[ "$value" == *\`* ]] || return 0
+        printf '%s' "${value%%\`*}"
+        return
+    fi
     p=$(printf '%s\n' "$line" | sed -n 's/^- \(.*\.[A-Za-z0-9]\{1,8\}\) - .*/\1/p')
     if [ -z "$p" ]; then
-        p=$(printf '%s\n' "$line" | sed -n 's/^- //; s/ - .*//p')
+        if [[ "$value" =~ \.[A-Za-z0-9]{1,8}$ ]]; then
+            p="$value"
+        else
+            p="${value%% - *}"
+        fi
     fi
     printf '%s' "$p"
 }
@@ -134,12 +140,27 @@ while IFS= read -r existing; do
     fi
 done <<< "$SECTION_CONTENT"
 
+# A created file remains Created after later edits; preserve that original row.
+CREATED_CONTENT=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | awk '
+    /^### Files Created$/ { inside=1; next }
+    /^### / { inside=0 }
+    inside { print }
+')
+while IFS= read -r existing; do
+    EXISTING_PATH=$(_extract_path "$existing")
+    if [ -n "$EXISTING_PATH" ]; then
+        SEEN_PATHS="${SEEN_PATHS}$(_norm_path "$EXISTING_PATH")
+"
+    fi
+done <<< "$CREATED_CONTENT"
+
 DEDUPED_LIST=""
 while IFS= read -r line; do
     FILE_PATH=$(_extract_path "$line")
     if [ -n "$FILE_PATH" ]; then
         NORM_PATH=$(_norm_path "$FILE_PATH")
-        if printf '%s' "$SEEN_PATHS" | grep -qxF "$NORM_PATH"; then
+        if printf '%s' "$SEEN_PATHS" | grep -qxF -- "$NORM_PATH"; then
+            printf 'skipped (already listed in Created/Updated): %s\n' "$FILE_PATH"
             continue  # already listed (or already accepted earlier in this batch)
         fi
         SEEN_PATHS="${SEEN_PATHS}${NORM_PATH}
@@ -163,7 +184,7 @@ if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
     # Find placeholder "None" line — matches: "None", "- None", "- None (explanation)", "- None."
     # Does NOT match "None - work completed" (intentional content, not a placeholder)
     # Uses [ \t] instead of \s for POSIX/macOS compatibility
-    NONE_LINE=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -nE "^-?[ 	]*None($|[^- 	]|[ 	]*\()" || true; } | head -1 | cut -d: -f1)
+    NONE_LINE=$(printf '%s\n' "$SECTION_CONTENT" | { grep -nE "^-?[ 	]*None($|[^- 	]|[ 	]*\()" || true; } | head -1 | cut -d: -f1)
     if [ -n "$NONE_LINE" ]; then
         NONE_ABS=$((FILES_UPDATED_ABS + NONE_LINE))
         # Replace the None line with the file list
@@ -177,7 +198,7 @@ if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
     fi
 else
     # Find the last "- " line in the section (last file entry) and append after it
-    LAST_ENTRY=$(sed -n "$((FILES_UPDATED_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -n "^- " || true; } | tail -1 | cut -d: -f1)
+    LAST_ENTRY=$(printf '%s\n' "$SECTION_CONTENT" | { grep -n "^- " || true; } | tail -1 | cut -d: -f1)
     if [ -n "$LAST_ENTRY" ]; then
         INSERT_AFTER=$((FILES_UPDATED_ABS + LAST_ENTRY))
     else

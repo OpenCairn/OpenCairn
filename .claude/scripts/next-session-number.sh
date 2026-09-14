@@ -32,10 +32,24 @@ if [ -f "$SESSION_FILE" ]; then
     # --auto-number. They diverge on non-monotonic numbering (manual edits,
     # post-collision renames), which would cause spurious reconciliation in
     # callers that compare this probe against --auto-number's assigned N.
-    LAST_NUM=$(grep -oE '^## Session [0-9]+' "$SESSION_FILE" 2>/dev/null \
-               | grep -oE '[0-9]+' \
-               | sort -n \
-               | tail -1 || true)
+    #
+    # `## Session N` lines inside fenced code blocks (``` or ~~~) are body
+    # content, not real headings — skip them, exactly as write-session.sh
+    # --auto-number does (F6). Counting them inflates this probe's baseline
+    # whenever a session body quotes a heading in a fenced example, which
+    # surfaces downstream as phantom "missed sessions" in /goodnight Step 2's
+    # reconciliation against --auto-number's assigned N.
+    LAST_NUM=$(awk '
+        /^```/  { fence = !fence; next }
+        /^~~~/  { fence = !fence; next }
+        !fence && /^## Session [0-9]+/ {
+            if (match($0, /[0-9]+/)) {
+                n = substr($0, RSTART, RLENGTH) + 0
+                if (n > max) max = n
+            }
+        }
+        END { print max + 0 }
+    ' "$SESSION_FILE")
     LAST_NUM="${LAST_NUM:-0}"
     echo $((LAST_NUM + 1))
 else

@@ -20,6 +20,14 @@
 # direct edits that bypass both. Output is CANDIDATES, not attribution - the
 # caller decides which lines are this session's work.
 #
+# Every sweep matches on mtime OR ctime (-mmin/-cmin). A metadata-preserving
+# ingress (cp -p, rsync -a, tar -p, a mover that keeps timestamps) lands a NEW
+# file carrying its OLD mtime, so an mtime-only sweep never sees it; ctime is
+# set by the kernel at creation and cannot be preserved from userspace, so the
+# ctime arm is what surfaces it. A file this sweep still cannot see (created by
+# cp -p outside these roots) needs a ledger row: locked-ingress.sh self-ledgers
+# for exactly that reason.
+#
 # Platform: Linux, macOS (BSD date fallback), Windows Git Bash.
 set -euo pipefail
 
@@ -48,20 +56,20 @@ fi
 
 # 2. mtime sweep of the config tree (recursive: skill bundles live in subdirs).
 find "$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" \
-        \( -name .git -o -name __pycache__ \) -prune -o -type f -mmin -"$MIN" -print 2>/dev/null \
+        \( -name .git -o -name __pycache__ \) -prune -o -type f \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
     | sed 's/^/[config]\t/' || true
-find "$CONFIG_DIR" -maxdepth 1 -name '*.log' -type f -mmin -"$MIN" 2>/dev/null \
+find "$CONFIG_DIR" -maxdepth 1 -name '*.log' -type f \( -mmin -"$MIN" -o -cmin -"$MIN" \) 2>/dev/null \
     | sed 's/^/[config]\t/' || true
 find "$CODEX_CONFIG_DIR/skills" \
         \( -name .git -o -name __pycache__ -o -name .system -o -name .tmp \) -prune -o \
-        -type f -mmin -"$MIN" -print 2>/dev/null \
+        -type f \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
     | sed 's/^/[config]\t/' || true
 find "$HOME/.local/libexec" "$HOME/.config/systemd/user" \
         \( -name .git -o -name __pycache__ \) -prune -o \
-        \( -type f -o -type l \) -mmin -"$MIN" -print 2>/dev/null \
+        \( -type f -o -type l \) \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
     | sed 's/^/[config]\t/' || true
 if [ -e "$HOME/.config/kwinoutputconfig.json" ]; then
-    find "$HOME/.config/kwinoutputconfig.json" -mmin -"$MIN" -print 2>/dev/null \
+    find "$HOME/.config/kwinoutputconfig.json" \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
         | sed 's/^/[config]\t/' || true
 fi
 
@@ -75,7 +83,7 @@ for repo in "$@"; do
 done
 
 # 4. Transient surfaces in the vault (scoped roots - NEVER the vault root).
-find "$VAULT/01 Now" "$VAULT/02 Inbox" -maxdepth 2 -type f -name '*.md' -mmin -"$MIN" 2>/dev/null \
+find "$VAULT/01 Now" "$VAULT/02 Inbox" -maxdepth 2 -type f -name '*.md' \( -mmin -"$MIN" -o -cmin -"$MIN" \) 2>/dev/null \
     | sed 's/^/[transient]\t/' || true
 
 exit 0

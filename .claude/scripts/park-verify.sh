@@ -14,9 +14,8 @@
 # Deterministic checks only - judgement stays with the caller:
 #   numbering   session-log headings carry no duplicate session numbers;
 #               exactly one "## Session N" heading exists
-#   sections    Session N block has "### Summary", both "### Files Created" and
-#               "### Files Updated" (checked as two separate headings),
-#               and exactly one "### Pickup Context"
+#   sections    Session N block has every required full-tier heading, with
+#               exactly one "### Pickup Context"
 #   project     block's "**Project:**" line exists (printed for caller comparison)
 #   separator   no stranded locked-edit delimiter LINE in planning files, the
 #               session log, or any touched file (the padded "====SEP====" form;
@@ -72,6 +71,11 @@ while [ $# -gt 0 ]; do
         *) usage ;;
     esac
 done
+
+# Repeated spellings normalised above identify one touched path, not extra files.
+if [ "${#TOUCHED[@]}" -gt 0 ]; then
+    mapfile -t TOUCHED < <(printf '%s\n' "${TOUCHED[@]}" | awk '!seen[$0]++')
+fi
 
 FAILS=0; REVIEWS=0
 pass()   { echo "PASS $1: $2"; }
@@ -193,6 +197,7 @@ fi
 
 # --- closure greps per ident -------------------------------------------------
 # Fixed-string ident match first (no regex injection), then unchecked-checkbox filter.
+# Python slices Unicode code points; cut -c can split UTF-8 bytes even in a UTF-8 locale.
 CLOSURE_TARGETS=("$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
 for t in "${TOUCHED[@]:-}"; do
     case "$t" in
@@ -204,7 +209,18 @@ for ident in "${IDENTS[@]:-}"; do
     HITS=""
     for t in "${CLOSURE_TARGETS[@]}"; do
         [ -f "$t" ] || continue
-        h=$(grep -n -i -F -- "$ident" "$t" | grep -E '^[0-9]+:[[:space:]]*-[[:space:]]*\[ \]' | cut -c1-100 || true)
+        h=$(grep -n -i -F -- "$ident" "$t" | grep -E '^[0-9]+:[[:space:]]*-[[:space:]]*\[ \]' || true)
+        if [ -n "$h" ]; then
+            # A missing or broken encoder must not erase a real unchecked match.
+            if ! h=$(printf '%s\n' "$h" | python3 -c 'import sys
+for raw in sys.stdin.buffer:
+    line = raw.decode("utf-8", errors="backslashreplace").rstrip("\n")
+    sys.stdout.buffer.write((line[:100] + "\n").encode("utf-8"))'); then
+                fail closure "UTF-8 excerpt conversion failed for $t"
+                echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+                exit 1
+            fi
+        fi
         [ -n "$h" ] && HITS="$HITS$t -> $(echo "$h" | tr '\n' ' '); "
     done
     if [ -n "$HITS" ]; then
@@ -271,8 +287,45 @@ else
 fi
 
 # --- reverse coverage: does the log list files --touched never saw? ----------
-mapfile -t LOGGED < <(printf '%s\n' "$FILES_SECTIONS" \
-    | awk '/^[[:space:]]*- /{sub(/^[[:space:]]*- /,""); i=index($0," - "); if(i>0) $0=substr($0,1,i-1); if(length($0)) print}')
+# Parse explicit backtick paths atomically. For unquoted paths prefer the
+# longest existing prefix, so a filename containing " - " is not truncated.
+LOGGED=()
+while IFS= read -r row; do
+    row="${row#"${row%%[![:space:]]*}"}"
+    case "$row" in '- '*) value="${row#- }" ;; *) continue ;; esac
+    case "$value" in ''|[Nn][Oo][Nn][Ee]) continue ;; esac
+    if [[ "$value" == \[\[* ]]; then
+        if [[ "$value" == *\]\]* ]]; then
+            value="${value#\[\[}"
+            value="${value%%\]\]*}"
+            value="${value%%|*}"
+            value="${value%%#*}"
+            LOGGED+=("$value")
+        else
+            review backfill "unterminated wiki Files path: $row"
+        fi
+        continue
+    fi
+    if [[ "$value" == \`* ]]; then
+        value="${value#\`}"
+        if [[ "$value" == *\`* ]]; then
+            LOGGED+=("${value%%\`*}")
+        else
+            review backfill "unterminated quoted Files path: $row"
+        fi
+        continue
+    fi
+    candidate="$value"
+    while [[ "$candidate" == *' - '* ]] && [ ! -e "$(norm_path "$candidate")" ]; do
+        candidate="${candidate% - *}"
+    done
+    if [ -e "$(norm_path "$candidate")" ]; then
+        LOGGED+=("$candidate")
+    else
+        # Legacy absent/deleted unquoted paths use the original first-separator rule.
+        LOGGED+=("${value%% - *}")
+    fi
+done <<< "$FILES_SECTIONS"
 UNCOVERED=""
 for lp in "${LOGGED[@]:-}"; do
     [ -n "$lp" ] || continue
