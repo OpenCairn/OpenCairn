@@ -11,7 +11,7 @@ Capture a work session: proportional quality gate, session log, project-doc upda
 
 **Args:** `$park --quick` requests the fail-closed quick path below. Quick mode activates only when the complete argument string is exactly `--quick`; bare `$park` and every other argument string, including `--quick foo`, run the full protocol. Never infer quick mode from a quiet-looking session.
 
-**On the full path, the propagation agent is despatched at Step 4b and collected at Step 8** — after park-time moves are known, but before the main quality pass. It runs in the background across Step 4c and Steps 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 4c, 5 and 7 may also touch. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction.
+**On the full path, despatch propagation at Step 4b only for a checked nonempty identifier enumeration; recheck and collect at Step 8.** Checked-empty skips only this agent, not the quality gates, backfill, mechanical verification or independent Step 9 close-out reviewer; it is not quick mode. When despatched, it starts after park-time moves are known, but before the main quality pass, and runs in the background across Step 4c and Steps 5 and 7. Park's cost is dominated by model turns, not by its scripts, so a blocking sub-agent is dead wall clock. **The overlap is not conflict-free:** the agent writes planning and hub files that Steps 4c, 5 and 7 may also touch. `locked-edit.sh` prevents lost updates, not stale-preimage conflicts — an exit 2/3 on either side means re-read and recompute (§5), and that is the expected cost of the overlap, not a malfunction.
 
 **Concurrent parks are safe.** All shared-file writes go through the locking scripts (`write-session.sh`, `update-session-section.sh`, `backfill-files-updated.sh`, `locked-edit.sh`, `write-tickler.sh` — `_shared-rules.md` §5; exit 2/3 = a parallel writer changed the region: re-read and recompute, don't loop-retry; lock timeouts are §5 Failure mode B — kill the hung script, never fall back to a raw write). After each `locked-edit.sh` call, grep the target for the full padded separator line `========OPENCAIRN-LOCKED-EDIT-SEP========`, not the bare fragment, which also matches any doc discussing the token (§5). `$goodnight` uses the same machinery; parking before goodnight keeps its daily report coherent.
 
@@ -128,7 +128,7 @@ This validates each receipt's exact link-target-only delta and current hash, the
 - `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). For substitutions that change no locator, use `--no-locator-target` instead of `--target`; never pass both. The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic; choose bounded-full or targeted coverage by the artefact rules above. If and only if lint predates an otherwise exact mechanical delta, rerun that classification with `--allow-inherited-lint`; the receipt records the exception for the verifier's exact-path gate.
 - `nonlocal` — an exact remote artefact, or a local root-only/secret-bearing file that must not be copied into a review brief. Use sanitised identity/configuration checks as evidence, never secret contents. Register it with `--nonlocal --reason "<surface represented by evidence>"`; the reviewer sees it only through evidence receipts. Deleted files stay in `Files Deleted` and need no read classification.
 
-Display the inventory with its classification and declared coverage. Do not perform the quality read here; Step 4b must start before the expensive quality pass.
+Display the inventory with its classification and declared coverage. Do not perform the quality read here; Step 4b's enumeration check and any required despatch must precede the expensive quality pass.
 
 (c) **Earlier audit reuse:** if a clean independent reviewer already full-read any attributed file in this or an earlier session and returned its SHA-256, pipe that report once into `python3 "$PARK_REVIEW" record-audit --reviewer "<seat>" --vault "{VAULT}" --file "<file>" ...`. The helper records only hashes explicitly attested in a clean report. Step 9 reuses the receipt only while the current file hash remains identical.
 
@@ -192,17 +192,17 @@ Three checks:
 
 Output: `✓ No at-risk work product to persist` or `🔧 Persisted N item(s): [paths]`.
 
-### 4b. Despatch the propagation agent (background)
+### 4b. Check enumeration; despatch propagation if nonempty (background)
 
-**Do this here — after Step 4, before the main quality pass and Step 5 — not at Step 6.** Extend the Step 2(d) enumeration with everything Steps 3–4 changed (moves are an identifier class) per Step 6 and despatch that agent now via `collaboration.spawn_agent` (background). Step 6 below defines what it does and what its prompt contains; this step fixes *when*.
+**Do this here — after Step 4, before the main quality pass and Step 5 — not at Step 6.** Actually check every Step 6 identifier class against the session's work and tool/world-state effects, extending the Step 2(d) enumeration with everything Steps 3–4 changed (including moves). Display and retain the exact enumeration and category-check results. Checked nonempty → despatch the Step 6 agent now via `collaboration.spawn_agent` (background). Checked-empty → record `Step 4b: checked empty; no propagation agent despatched` and continue without a seat. Unknown/incomplete attribution or any unchecked category is not nil: resolve it before taking either branch; if it cannot be resolved, report the blocker, not a completed Park. File count and a quiet-looking session are never evidence of nil. Step 6 defines the agent's work and prompt; Step 8 rechecks even when no seat was created.
 
-Keep the exact initial enumeration. Step 8 recomputes it after Steps 4c, 5 and 7, then sends the complete final enumeration back to this same seat for a last hit-set comparison. The initial sweep buys overlap; the final delta sweep closes the read race.
+Keep the exact initial enumeration, including a checked-empty one. Step 8 recomputes it after Steps 4c, 5–7: an existing seat receives the complete final enumeration for a last hit-set comparison; if identifiers first appear then, create the seat then. The initial sweep buys overlap; the final delta sweep closes the read race.
 
 Not earlier: Step 4 **moves files**, and moves are one of Step 6's identifier classes (full old-path forms). Despatching before Step 4 would put every park-time relocation outside the vault-wide sweep, leaving Step 4's own hand-picked reference update as the only net — which is exactly the candidate-list approach §12 forbids. Not later: delaying until after Step 4c throws away the quality-pass overlap.
 
-If you reach Step 5 without having despatched it, despatch it before continuing.
+If you reach Step 5 without a seat or a recorded checked-empty result, perform Step 4b before continuing; do not catch-up spawn for a checked-empty enumeration.
 
-### 4c. Proportional quality gate (while propagation runs)
+### 4c. Proportional quality gate (whether or not propagation runs)
 
 - **Bounded semantic files:** read each in full once. Mid-session direction changes can leave stale residue outside the edited span.
 - **Large semantic artefacts:** inspect the session delta, enough surrounding structure to judge coherence, and the declared outcome-specific pages/sections/renders/tests. State exact coverage; do not claim a whole-file read.
@@ -229,13 +229,15 @@ If the session materially changed a project's state, update that project's doc i
 
 ### 6. Reference-graph propagation
 
+Perform the enumeration at Step 4b and again at Step 8. The **Propagate** paragraph below applies only to a checked nonempty enumeration: despatch at Step 4b, or at Step 8 if identifiers first appear then. Checked-empty skips that paragraph's agent work, never the main session's out-of-vault responsibilities.
+
 **Enumerate (main session):** list every identifier value the session changed as `old → new` pairs — status flips, factual corrections, renames/moves (include full old-path forms, not just filenames), numeric changes (carry the constrained subject phrase too), new options on pre-existing decisions (carry the decision's anchor), and **world-state changes from what the session did**: a sent message or made booking changes the acted-on entity's state even where no file token changed. When the session completes, defers or invalidates a planned action, also enumerate a descriptive anchor for the stale entailed state (the pending action or premise), because the live task may contain neither the corrected token nor its old value. **A named-entity claim also carries the entity's canonical identifiers:** for a change of the form "X now has state Y", enumerate X's identifier forms (project name, person, booking or ticket reference, branch, filename, ID) alongside the old/new Y pair. The entity's own SSOT often tracks X without restating the claim, so the claim vocabulary alone never reaches it; those hits go through the same §12 triage. Commits pushed this session are their own identifier class — hub record per §17. For changed headings, include the old `[[path#heading` prefix so aliased links are found too. Include dependent actions and cause/configuration records whose instructions the change invalidates. Display the enumeration. Nil is a positive claim, not a default — display `✓ Reference graph: No identifier values changed` only after actually checking these categories.
 
 **Propagate (sub-agent — standing authorisation; running it inline instead is the failure):** despatch a background sub-agent via `collaboration.spawn_agent`, on the session's own model — do not downgrade this seat. §12 triage decides whether each hit is a stale cross-reference, a live locator, a historical record, or unrelated; getting that wrong silently corrupts the reference graph. Despatch at Step 4b, then run Step 4c and Steps 5 and 7 while it works; collect its consolidated report at Step 8 before the backfill. Its prompt is self-contained, embedding verbatim: the enumeration (copied, not retyped — count must match), the resolved vault path, and instructions to set the search command's working directory to `{VAULT}` and run a separate `rg -F --type md -i -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- '<identifier>' .` for each identifier, the bare value and never a keyword-conjoined pattern (`-F` because identifiers are literal values: a needle beginning `**` or containing `(`, `.` or `$` silently changes meaning or fails to parse as a regex, and a co-occurrence pattern misses the prose reference carrying the value alone); the resulting live-vault hit-set is the scope, with no hand-picked candidate lists and with already-updated docs re-grepped for other instances. `07 System/.Provenance/**` is a frozen evidence snapshot, not a live reference surface: exclude it from triage, while still validating any snapshot file explicitly attributed to this session. The agent reads §12 rather than recalling it, triages every hit, runs structural link-integrity after moves, bumps co-located `Last updated:` stamps on docs it edits, and retains its per-identifier hit-list for Step 8's comparison. Planning/hub writes use `locked-edit.sh`, every call prefixed `env OPENCAIRN_SESSION_ID=<id>` with this session's id (resolve it first: `echo $CODEX_THREAD_ID`; embed the value in the brief) so its edits and receipts land under this session.
 
 **Out-of-vault facts** (skill/command files asserting things about each other) stay in the main session — the sub-agent has no skill-edit authority: grep `~/.codex/skills`, `~/.claude/commands` and repo command dirs yourself, propagate mechanical fixes, and log non-mechanical skill changes at Step 10.
 
-Output: `✓ Reference graph: N files updated for [identifier]` (+ file list) or the nil line.
+Output: `✓ Reference graph: N files updated for [identifier]` (+ file list). The short nil line above is an enumeration result, not the completion message: use Step 8/12's checked-final nil wording only when the final enumeration is checked-empty and no propagation seat was despatched. If a seat existed, report its actual result instead; never claim it was not despatched.
 
 ### 7. Route open loops
 
@@ -258,17 +260,21 @@ Output: `✓ Routed: [item] → [target]` per item. A zero-routing claim cites a
 
 ### 8. Backfill + mechanical verification
 
-**Finalise Step 6 first.** Recompute the complete identifier enumeration after Steps 4c, 5 and 7. Use `collaboration.followup_task` on the original propagation seat with that final enumeration and instruct it to re-run every original and newly added identifier search in the exact Step 6 shape, compare each final hit-set with its initial one, triage every new or changed hit, and return one consolidated report. Do this even when the enumeration is unchanged: the main pass may have changed a hit after the seat's first read. The final re-grep is mechanical; only hit-set deltas need fresh semantic triage.
+**Finalise Step 6 first.** Recompute and display the complete identifier enumeration after all intervening work, including Steps 4c, 5–7, using Step 4b's category checks and unknown/incomplete rule. Branch on whether a propagation seat exists:
 
-Collect that consolidated report with `collaboration.wait_agent` before anything else here runs — its edits belong in the backfill, and park-verify's `--touched` list is incomplete without them. wait_agent's return is the *only* signal it has finished; never substitute a proxy that cannot tell "running" from "finished" (a transcript's file size, an elapsed-time guess, a scratch file appearing). Improvising one has already reported completion mid-run.
+- **No seat, checked-empty final enumeration:** neither spawn, follow up nor wait. The primary session records `Checked final enumeration: no identifier values changed. No propagation agent dispatched.`, with its category-check results, and captures that explicit checked-nil receipt below before backfill. It is not an agent report.
+- **No seat, nonempty final enumeration:** create the Step 6 background seat via `collaboration.spawn_agent` with the complete final enumeration and normal self-contained brief, including the primary session ID write prefix. Collect its report before backfill; there is no initial hit-set to compare.
+- **Existing seat:** use `collaboration.followup_task` on the original propagation seat with that final enumeration and instruct it to re-run every original and newly added identifier search in the exact Step 6 shape, compare each final hit-set with its initial one, triage every new or changed hit, and return one consolidated report. Do this even when the enumeration is unchanged: the main pass may have changed a hit after the seat's first read. The final re-grep is mechanical; only hit-set deltas need fresh semantic triage. Never discard an existing seat or its report on a later nil claim.
 
-Inspect the returned report for unresolved or gated consequences before backfill. Route each through Step 7. If that routing changes the final enumeration, send one delta-only `collaboration.followup_task` to the same propagation seat and collect its consolidated addendum before capture; a report that surfaces a new open loop invalidates any earlier "none" result.
+For either branch with a seat, collect its report with `collaboration.wait_agent` before backfill — its edits belong in the backfill, and park-verify's `--touched` list is incomplete without them. wait_agent's return is the *only* signal it has finished; never substitute a proxy that cannot tell "running" from "finished" (a transcript's file size, an elapsed-time guess, a scratch file appearing). Improvising one has already reported completion mid-run.
 
-Immediately capture the returned report — including a checked nil result — so Step 9 consumes it mechanically:
+When a seat reported, inspect its returned report for unresolved or gated consequences before backfill. Route each through Step 7. If that routing changes the final enumeration, send one delta-only `collaboration.followup_task` to the same propagation seat and collect its consolidated addendum before capture; a report that surfaces a new open loop invalidates any earlier "none" result. Apply the same consequence/delta check to each addendum; further identifier changes from propagation or later Park edits require rechecking Step 8 before completion.
+
+Immediately capture the returned report and any consolidated addendum verbatim, or, only in the no-seat checked-empty branch, the primary session's explicit checked-nil receipt and category-check results. Never fabricate an agent report or supply empty input. Step 9 consumes this receipt mechanically and still despatches its independent reviewer:
 
 ```bash
 python3 "$PARK_REVIEW" capture --kind propagation --label "Step 6 propagation" <<'EOF'
-<agent report verbatim>
+<agent report and addendum verbatim OR primary session's explicit checked-nil receipt and category-check results>
 EOF
 ```
 
@@ -354,7 +360,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Session N saved: 06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md
 ✓ At-risk work product: [none | persisted N]
 ✓ Project doc: [updated [[Name]] | no material change]
-✓ Reference graph: [N files updated | No identifier values changed]
+✓ Reference graph: [N files updated | No identifier values changed — checked final enumeration; no propagation agent despatched]
 ✓ Open loops routed: N (This Week: X, Tickler: Y, Project: Z, Whimsy: W)
 ✓ park-verify: PASS
 ✓ Audit: [bounded clean pass | N findings fixed]

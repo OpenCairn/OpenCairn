@@ -148,8 +148,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "01326e0f9f184168754329c31f95b3739e577e1230fd37ae394dc7c3af376ef1",
-      "render_sha256": "612cf45655215ece4584f731574cb64119d48bb3f18e85477d0877e2a2cf4bd0"
+      "source_sha256": "5f24c46060f89a0005575ce24038f0189dfdb44752e6113bb92b5216f4218df1",
+      "render_sha256": "b12e72e8b4be1ee7156c3fb47e177cbc374feea3fb6b2c0b3e498dca1be25251"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
