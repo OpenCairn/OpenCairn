@@ -52,6 +52,8 @@ python3 .github/scripts/validate_codex_renderings.py --check
 
 `_shared-rules.md` remains the core and installation marker. Its `_shared-rules-planning.md`, `_shared-rules-reviewer.md` and `_shared-rules-content.md` siblings contain the relocated sections; original section numbers remain valid through the core directory. Review and copy this set together in each harness. Copy supplements before core and dependent skills, then verify their hashes against the reviewed source. Never distribute a core file that points to absent supplements. Rule consumers load only the sections needed for their operation.
 
+Codex's `update` and `migrate` adapters execute `{VAULT}/.claude/commands/update.md` and `{VAULT}/.claude/commands/migrate.md`. When those are separate from the home-directory command copies, include the actual runtime paths in deployment review and verification; checking only `~/.claude/commands/` does not verify the adapters' inputs. Reconcile unrelated local differences before replacing a runtime copy.
+
 ### No Personal Examples
 
 All examples in template commands must be generic (e.g. "Workshop (3h)", "Dinner with Sam"). Never use contributor-specific details (project names, people, locations) that other users would need to change.
