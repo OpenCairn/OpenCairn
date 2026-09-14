@@ -13,7 +13,7 @@ Archive the article the user supplied as a useful reference note, matching its d
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md), especially §§5, 14, 15, 25 and 26. Read the vault's search-routing document when available. All vault creates, edits and appends use `locked-edit.sh`; an editor or `apply_patch` is not a substitute. Supporting paths are relative to this skill directory, not the shell working directory.
+Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md) (core, including §§5 and 25), then [../_shared-rules-content.md](../_shared-rules-content.md) §§14, 15 and 26. Read the vault's search-routing document when available. All vault creates, edits and appends use `locked-edit.sh`; an editor or `apply_patch` is not a substitute. Supporting paths are relative to this skill directory, not the shell working directory.
 
 ## Phase 1: Gather the article
 

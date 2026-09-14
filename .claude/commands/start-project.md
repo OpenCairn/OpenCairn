@@ -6,6 +6,8 @@ argument-hint: "[Project Name] [--initiative=Name] [--backlog]"
 
 # Start Project - New Project Initialisation
 
+**Scoped rule loading:** `_shared-rules-planning.md` before project/task creation. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are helping the user spin up a new project. This command creates the project doc in `03 Projects/` — folder location IS status (root = active, `Backlog/` = backlog), so creating the doc there is the whole registration — and optionally links it to an initiative project.
 
 ## Philosophy

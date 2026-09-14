@@ -5,6 +5,8 @@ description: Adaptive morning check-in - surface landscape, catch gaps, open spa
 
 # Morning - Adaptive Start-of-Day Check-in
 
+**Scoped rule loading:** `_shared-rules-planning.md` before the initial day-window pass; `_shared-rules-reviewer.md` before delegated close-out review. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are facilitating the user's morning check-in. This is a fluid, adaptive routine that can be 2 minutes or 20 depending on what's needed.
 
 ## Philosophy
@@ -43,7 +45,7 @@ Read `~/.claude/commands/goodnight.md` and execute its **Catch-up mode**, passin
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
-**Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules.md` Section 9 now, before the Tickler migration or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
+**Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules-planning.md` Section 9 now, before the Tickler migration or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
 
 **Weather forecast:** Fetch the 7-day forecast from the Open-Meteo API (free, no key). Determine the user's current city from CLAUDE.md context (TZ field, travel status, or This Week.md location banner), resolve its coordinates — if not already known, use Open-Meteo's geocoding endpoint (`curl -sf "https://geocoding-api.open-meteo.com/v1/search?name=CITY&count=1"`, take `latitude`/`longitude` from the first result; do not guess coordinates) — and run:
 
@@ -197,7 +199,7 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Find today’s day section using `_shared-rules.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
+Find today’s day section using `_shared-rules-planning.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
 
 ````
 ## [Day] [DD] [Mon]

@@ -48,6 +48,10 @@ python3 .github/scripts/validate_codex_renderings.py --check
 
 `--check` passes with exit 0 and a `validation passed` line. A missing file, unregistered rendering, invalid `SKILL.md` frontmatter, or changed hash exits 1 and names the affected pair. `/sync-template` runs the same check before pushing, and GitHub Actions runs it on pushes and pull requests. Never acknowledge a pair without reading its source and rendering.
 
+### Shared-rule distribution
+
+`_shared-rules.md` remains the core and installation marker. Its `_shared-rules-planning.md`, `_shared-rules-reviewer.md` and `_shared-rules-content.md` siblings contain the relocated sections; original section numbers remain valid through the core directory. Review and copy this set together in each harness. Copy supplements before core and dependent skills, then verify their hashes against the reviewed source. Never distribute a core file that points to absent supplements. Rule consumers load only the sections needed for their operation.
+
 ### No Personal Examples
 
 All examples in template commands must be generic (e.g. "Workshop (3h)", "Dinner with Sam"). Never use contributor-specific details (project names, people, locations) that other users would need to change.

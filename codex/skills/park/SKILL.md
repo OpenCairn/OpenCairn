@@ -5,6 +5,8 @@ description: Capture session with bookkeeping — quality gate, session log, pro
 
 # Park - Session Capture
 
+**Scoped rule loading:** `_shared-rules-planning.md` before project/task routing; `_shared-rules-reviewer.md` before attribution or reviewer preparation; `_shared-rules-content.md` before verbatim or structural operations. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 Capture a work session: proportional quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, and a bounded close-out review.
 
 **Args:** `$park --quick` requests the fail-closed quick path below. Quick mode activates only when the complete argument string is exactly `--quick`; bare `$park` and every other argument string, including `--quick foo`, run the full protocol. Never infer quick mode from a quiet-looking session.

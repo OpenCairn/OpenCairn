@@ -13,7 +13,7 @@ Archive one or more published transcripts. Preserve the body exactly as extracte
 "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
 ```
 
-Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md), particularly §§5, 14–15 and 26, and the vault's search-routing document when available. Paths to supporting files are relative to this skill directory. Every vault write, including creation, body append, header correction and hub integration, uses `locked-edit.sh`.
+Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md) (core, including §5), then [../_shared-rules-content.md](../_shared-rules-content.md) §§14–15 and 26, and the vault's search-routing document when available. Paths to supporting files are relative to this skill directory. Every vault write, including creation, body append, header correction and hub integration, uses `locked-edit.sh`.
 
 Run §15's prerequisites (`curl`, `pandoc`, `python3` with `bs4`/`lxml`) before fetching. Missing tooling needs a specific prerequisite report; an audio transcription fallback requires an available transcription skill and the user's choice, including paid-cloud authorisation where relevant.
 

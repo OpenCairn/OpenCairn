@@ -21,6 +21,8 @@ Run:
 
 Do **not** run `check-archive-layout.sh --enforce` here: this skill is the recovery route that enforcement deliberately leaves open. Read `_shared-rules.md` from this skill's commands directory and apply it throughout, especially §5 (locked vault writes), §12 (grep-hit triage), §23 (evidence), and §24 (structural moves). `{VAULT}` is the resolved path.
 
+**Pre-split recovery compatibility:** the nine-file archive recovery set may run beside an older, complete `_shared-rules.md`. If a scoped supplement is absent, use the requested section from that legacy core only when its full rule body is present. A missing section or forwarding stub is not a fallback: stop that operation and report the incomplete support set. Do not add support-file writes to the pre-gate recovery set; ordinary update installs them after migration.
+
 Require these helpers before continuing:
 
 ```bash
@@ -110,7 +112,7 @@ This is the normal migration path.
 
    This records `in-progress` and atomically writes a journal containing the logical source-member inventory (lock artefacts excluded) and immutable-file hashes. If the source changes on a repeated `begin`, stop.
 
-4. Rename the folder **inside Obsidian** from `Claude` to `OpenCairn`, so the application heals path-qualified wikilinks. If an installed Obsidian CLI is to perform it, first follow `_shared-rules.md` §24 in full: derive syntax from `help`, prove folder support, use a canary, wait for async settlement, and verify by source/destination state rather than exit code. If folder rename support cannot be verified, ask the user to do the single File Explorer rename in Obsidian. Never use raw `mv`.
+4. Rename the folder **inside Obsidian** from `Claude` to `OpenCairn`, so the application heals path-qualified wikilinks. If an installed Obsidian CLI is to perform it, first follow `_shared-rules-content.md` §24 in full: derive syntax from `help`, prove folder support, use a canary, wait for async settlement, and verify by source/destination state rather than exit code. If folder rename support cannot be verified, ask the user to do the single File Explorer rename in Obsidian. Never use raw `mv`.
 
 5. Re-run `inspect`. The old directory must now be absent and the new directory present. Then repair remaining live plain-text locators through the deterministic locked-edit engine:
 
@@ -182,7 +184,7 @@ If none exists and the legacy component table has no `later` item, skip to Docto
 | 4 | WIP demotion + delete | Absorb unique state into project docs, then delete Works in Progress.md |
 | 5 | Archive re-sort | Optionally move living docs from `06 Archive/` to their Area or Area archive |
 
-Component 5 is independent and defaults to `later`. Use `locked-edit.sh` for planning/hub writes, `write-tickler.sh` for Tickler writes, and `_shared-rules.md` §24 for every linked-file move. Preserve each project document's existing structure. A finished-looking project requires the user's call rather than an invented state.
+Component 5 is independent and defaults to `later`. Use `locked-edit.sh` for planning/hub writes, `write-tickler.sh` for Tickler writes, and `_shared-rules-content.md` §24 for every linked-file move. Preserve each project document's existing structure. A finished-looking project requires the user's call rather than an invented state.
 
 Record rows exactly as before:
 

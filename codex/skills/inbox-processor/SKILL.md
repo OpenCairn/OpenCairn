@@ -6,6 +6,8 @@ description: Organise inbox captures into NIPARAS structure
 
 # Inbox Processor - NIPARAS Categorisation
 
+**Scoped rule loading:** `_shared-rules-planning.md` before action routing; `_shared-rules-content.md` before structural moves. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are helping the user process their inbox. Your job is to categorise captured items and move them to the appropriate location in the NIPARAS structure.
 
 ## Philosophy
@@ -84,7 +86,7 @@ If the second confirmation isn't given, the items stay deferred; execute the res
 
 4. **Execute moves** (after confirmation):
    - Move items to their new locations. For any item that may have inbound links or embeds (notes *and* attachments — `![[file.pdf]]` embeds break too), use a link-healing move (Obsidian's move) rather than raw `mv`. Verify "link-free" before a raw `mv`: a backlink/structural query, or grep the vault for the filename. Fresh captures usually have none. If link-healing moves may be needed, probe first with `obsidian version 2>/dev/null` **before any writes** — it requires the Obsidian app to be running, which a PATH check alone does not establish. If it's unavailable, raw-`mv` only verified link-free items and defer the rest.
-   - **The Obsidian CLI handles an inbox-sized batch fine — but drive it per `_shared-rules.md` §24** (the single source of truth for this CLI: the `</dev/null`, the settle delay, verify-by-result, and why raw `mv` is never the batch shortcut). Each requirement fails *silently* if dropped, so a batch that reports success is not evidence it worked.
+   - **The Obsidian CLI handles an inbox-sized batch fine — but drive it per `_shared-rules-content.md` §24** (the single source of truth for this CLI: the `</dev/null`, the settle delay, verify-by-result, and why raw `mv` is never the batch shortcut). Each requirement fails *silently* if dropped, so a batch that reports success is not evidence it worked.
    - Create necessary folders if they don't exist
    - Update relevant index files (project pages, hub files) for durable notes that need discoverability — not for raw attachments/receipts. Hub/planning-file edits go through `locked-edit.sh` per `_shared-rules.md` §5, never a raw edit
    - Apply only the renames approved in the Step 3 plan

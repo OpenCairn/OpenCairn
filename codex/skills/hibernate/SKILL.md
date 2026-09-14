@@ -6,6 +6,8 @@ description: Save comprehensive state snapshot before extended travel or breaks 
 
 # Hibernate - Extended Break State Snapshot
 
+**Scoped rule loading:** `_shared-rules-planning.md` before task routing. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 You are preparing the user for an extended break from regular OpenCairn usage (travel, vacation, sabbatical). Your task is to create a comprehensive state snapshot that enables confident context recovery weeks or months later.
 
 ## Philosophy

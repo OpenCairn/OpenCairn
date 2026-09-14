@@ -208,11 +208,13 @@ Claude Code stores memories in `~/.claude/projects/` keyed to the absolute path 
 
 ## Shared Conventions
 
-Operational rules that span multiple commands live in `.claude/commands/_shared-rules.md`. Commands reference this file in Step 0 after vault path resolution. This prevents rule divergence across 30+ command files — change the rule once, all commands follow it.
+Operational rules shared by commands live in `.claude/commands/_shared-rules.md` (core) and its planning, reviewer and content supplements. Codex carries paired files in `codex/skills/`. Skills load core through their existing setup, then read the relevant supplement sections when an operation needs them. A read-only pickup does not need transcript extraction or reviewer dispatch instructions.
 
 The underscore prefix follows the `_skill-monitor.md` convention for non-invocable support files in the commands directory.
 
-**What goes in `_shared-rules.md`:** Procedural rules that commands must follow (project linking, item linking, Tickler SSOT transfer, file locking, FIFO cap, timezone handling, This Week.md maintenance).
+**Rule ownership:** core owns general vault, write, evidence, search and date discipline; planning owns task/project linking and dated queues; reviewer owns dispatch, brief evidence and cross-session attribution; content owns source extraction, verbatim preservation and structural file operations. Section numbers stay global. The core directory and forwarding headings resolve old section references without duplicating rule bodies. A skill spanning audiences loads sections as needed rather than loading every supplement at startup.
+
+**Distribution:** install the shared-rule files together, supplements before core and dependent skills. Keep `_shared-rules.md`: it remains the installation marker and compatibility entry point. A missing required supplement blocks its dependent operation. The updater reviews the shared-rule set as a dependency unit; manual installations must copy the complete set in the same pass. Existing sessions retain already-loaded instructions and use the new files on their next read.
 
 **What stays inline:** Rules specific to one command (park's quality gate, pickup's two-stage loading). Only rules appearing in 3+ files get extracted.
 

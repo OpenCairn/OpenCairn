@@ -6,6 +6,8 @@ argument-hint: "[--quick]"
 
 # Park - Session Capture
 
+**Scoped rule loading:** `_shared-rules-planning.md` before project/task routing; `_shared-rules-reviewer.md` before attribution or reviewer preparation; `_shared-rules-content.md` before verbatim or structural operations. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
+
 Capture a work session: quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, audit.
 
 **Args:** `/park --quick` requests the fail-closed quick path below. Quick mode activates only when the complete argument string is exactly `--quick`; bare `/park` and every other argument string, including `--quick foo`, run the full protocol. Never infer quick mode from a quiet-looking session.
@@ -249,7 +251,7 @@ Output: the script's `RESULT:` line plus what you fixed.
 
 ### 9. Audit (fresh sub-agent — standing authorisation)
 
-Despatch `/audit` via the Agent tool (`general-purpose`, `model: opus` — this seat verifies work the session already did, so its failure mode is bounded and review is a documented Opus-tier strength; seat-tiering rule: `_shared-rules.md` §10. The propagation seat's anti-downgrade clause in Step 6 is unaffected). **Steps 10–11 must not begin until its report is in hand.** Gate on collection, not on despatch mode: whether the seat runs in the foreground is a harness detail you do not control, so requiring "collected before Step 10" holds either way, where "despatch it in the foreground" silently doesn't. The completion notification is the only signal the gate is met. Inline audits empirically rubber-stamp (cognitive load this deep into the park, recency bias on just-edited files, scope anchored to park's own edits); if you catch yourself walking the layers inline, stop and despatch. The brief must be self-contained, embedding verbatim:
+Despatch `/audit` via the Agent tool (`general-purpose`, `model: opus` — this seat verifies work the session already did, so its failure mode is bounded and review is a documented Opus-tier strength; seat-tiering rule: `_shared-rules-reviewer.md` §10. The propagation seat's anti-downgrade clause in Step 6 is unaffected). **Steps 10–11 must not begin until its report is in hand.** Gate on collection, not on despatch mode: whether the seat runs in the foreground is a harness detail you do not control, so requiring "collected before Step 10" holds either way, where "despatch it in the foreground" silently doesn't. The completion notification is the only signal the gate is met. Inline audits empirically rubber-stamp (cognitive load this deep into the park, recency bias on just-edited files, scope anchored to park's own edits); if you catch yourself walking the layers inline, stop and despatch. The brief must be self-contained, embedding verbatim:
 
 - Resolved vault path; session log path; N; the file list (from the log's Files Created/Updated, post-backfill); the `### Summary` text (Layer 3 needs what the session *did*, not just what park edited).
 - **Out-of-band evidence** per §16 — derive the count from the work product's citations plus this session's fetch/read tool calls, never recollection; display `Out-of-band evidence: sources N → excerpts embedded N` (or the none-line) before despatch.
