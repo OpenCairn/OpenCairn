@@ -1,4 +1,5 @@
 import subprocess
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +9,34 @@ SCRIPT = Path(__file__).parents[1] / ".claude/scripts/park-verify.sh"
 
 
 class ParkVerifyTests(unittest.TestCase):
+    def test_external_reference_quotes_are_hash_bound_and_still_need_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            vault = base / 'vault'
+            (vault / '01 Now').mkdir(parents=True)
+            reference = base / 'audit.err'
+            reference.write_text('```bash\n========OPENCAIRN-LOCKED-EDIT-SEP========\n```\n')
+            digest = hashlib.sha256(reference.read_bytes()).hexdigest()
+            log = vault / 'log.md'
+            def invoke(extra, listed=True):
+                log.write_text('## Session 1 - Fixture\n### Summary\nDone\n'
+                               '### Files Created\nNone\n### Files Updated\n'
+                               + (f'- {reference} - evidence\n' if listed else 'None\n')
+                               + '### Pickup Context\n**Project:** None\n')
+                return subprocess.run([str(SCRIPT), str(vault), str(log), '1',
+                                       '--touched', str(reference), *extra],
+                                      text=True, capture_output=True)
+            self.assertIn('FAIL separator', invoke([]).stdout)
+            accepted = invoke(['--reference', str(reference), digest])
+            self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
+            self.assertIn('RESULT: PASS', accepted.stdout)
+            self.assertIn('FAIL reference', invoke(['--reference', str(reference), '0' * 64]).stdout)
+            self.assertIn('FAIL backfill', invoke(['--reference', str(reference), digest], listed=False).stdout)
+            self.assertIn('FAIL reference', invoke(['--reference', str(log), digest]).stdout)
+            reference = vault / 'inside.md'
+            reference.write_text('```bash\n========OPENCAIRN-LOCKED-EDIT-SEP========\n```\n')
+            self.assertIn('FAIL reference', invoke(['--reference', str(reference), digest]).stdout)
+
     def test_duplicate_touched_spellings_preserve_distinct_external_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

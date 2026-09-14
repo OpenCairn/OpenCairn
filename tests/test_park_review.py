@@ -23,6 +23,41 @@ SPEC.loader.exec_module(park_review)
 
 
 class ParkReviewTests(unittest.TestCase):
+    def test_verifier_reference_arguments_require_classification_and_current_receipt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            vault = base / 'vault'
+            vault.mkdir()
+            source = base / 'audit.err'
+            source.write_text('source example\n')
+            root = base / 'state'
+            root.mkdir()
+            item = {'mode': 'reference'}
+            park_review.atomic_json(root / 'files.json', {str(source): item})
+            args = SimpleNamespace(session_id='test',
+                command=['park-verify.sh', str(vault), str(vault / 'log.md'), '1', '--touched', str(source)],
+                accept_inherited_lint=[], label='test')
+            completed = subprocess.CompletedProcess(args.command, 0, 'RESULT: PASS\n', '')
+            with mock.patch.object(park_review, 'state_paths', return_value=('test', root, root, root)), \
+                 mock.patch.object(park_review, 'validated_artifact_receipt') as validate, \
+                 mock.patch.object(park_review.subprocess, 'run', return_value=completed) as run, \
+                 mock.patch.object(park_review, 'capture_record', return_value=root / 'receipt.json'), \
+                 mock.patch('sys.stdout', new_callable=io.StringIO), \
+                 mock.patch('sys.stderr', new_callable=io.StringIO):
+                park_review.cmd_run_verifier(args)
+                validate.assert_called_once_with(source, park_review.sha256(source), item)
+                self.assertEqual(run.call_args.args[0][-3:], ['--reference', str(source), park_review.sha256(source)])
+                validate.side_effect = ValueError('stale source')
+                run.reset_mock()
+                with self.assertRaisesRegex(ValueError, 'stale source'):
+                    park_review.cmd_run_verifier(args)
+                run.assert_not_called()
+                park_review.atomic_json(root / 'files.json', {str(source): {'mode': 'semantic'}})
+                validate.reset_mock()
+                park_review.cmd_run_verifier(args)
+                validate.assert_not_called()
+                self.assertNotIn('--reference', run.call_args.args[0])
+
     def test_utf8_decodable_tar_is_still_binary(self) -> None:
         tar_header = b"payload.txt" + (b"\x00" * 500)
         self.assertTrue(park_review.is_utf8(tar_header))

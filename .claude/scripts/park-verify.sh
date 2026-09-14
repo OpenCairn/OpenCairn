@@ -7,6 +7,8 @@
 #              Must be distinctive: a bare number under ~4 digits matches digit runs
 #              inside phone numbers, order IDs and amounts, burying real hits in noise.
 #   --touched  each file the session+park created or edited (repeatable)
+#   --reference PATH SHA256  preserved external reference, hash-bound by the
+#              review wrapper; still checked for Files-list coverage
 #
 # Paths (<session-log> and --touched) may be absolute, ~-prefixed, or relative to
 # <vault> - all three are normalised on entry.
@@ -63,11 +65,12 @@ norm_path() {
 LOG="$(norm_path "$LOG")"
 [ -f "$LOG" ] || { echo "ERROR: session log not found: $LOG" >&2; exit 1; }
 
-IDENTS=(); TOUCHED=()
+IDENTS=(); TOUCHED=(); REFERENCES=(); REFERENCE_HASHES=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --ident)   [ $# -ge 2 ] || usage; IDENTS+=("$2"); shift 2 ;;
         --touched) [ $# -ge 2 ] || usage; TOUCHED+=("$(norm_path "$2")"); shift 2 ;;
+        --reference) [ $# -ge 3 ] || usage; REFERENCES+=("$(norm_path "$2")"); REFERENCE_HASHES+=("$3"); shift 3 ;;
         *) usage ;;
     esac
 done
@@ -81,6 +84,22 @@ FAILS=0; REVIEWS=0
 pass()   { echo "PASS $1: $2"; }
 fail()   { echo "FAIL $1: $2"; FAILS=$((FAILS+1)); }
 review() { echo "REVIEW $1: $2"; REVIEWS=$((REVIEWS+1)); }
+
+# Reference bytes are evidence, not editable output. Validate their identity
+# before exempting quoted source markers; never exempt live vault content.
+VALID_REFERENCES=()
+for i in "${!REFERENCES[@]}"; do
+    ref="${REFERENCES[$i]}"
+    if ! grep -qxF -- "$ref" <<< "$(printf '%s\n' "${TOUCHED[@]}")"; then
+        fail reference "reference is not in --touched: $ref"
+        continue
+    fi
+    if python3 -c 'import hashlib,re,sys; from pathlib import Path; p=Path(sys.argv[1]); v=Path(sys.argv[2]).resolve(); expected=sys.argv[3]; assert re.fullmatch(r"[0-9a-f]{64}",expected); assert p.is_file() and not p.is_symlink() and not p.resolve().is_relative_to(v); assert hashlib.sha256(p.read_bytes()).hexdigest()==expected' "$ref" "$VAULT" "${REFERENCE_HASHES[$i]}" 2>/dev/null; then
+        VALID_REFERENCES+=("$ref")
+    else
+        fail reference "external reference hash/path check failed: $ref"
+    fi
+done
 
 # --- numbering ---------------------------------------------------------------
 DUPES=$(grep -E '^## Session [0-9]+ ' "$LOG" | awk '{print $3}' | sort | uniq -d || true)
@@ -136,6 +155,10 @@ SEP_HITS=""
 SEP_SCANNED=0
 SEP_SKIPPED=0
 for t in "${SEP_TARGETS[@]}"; do
+    if [ "${#VALID_REFERENCES[@]}" -gt 0 ] && grep -qxF -- "$t" <<< "$(printf '%s\n' "${VALID_REFERENCES[@]}")"; then
+        SEP_SKIPPED=$((SEP_SKIPPED + 1))
+        continue
+    fi
     if [ ! -f "$t" ]; then
         SEP_SKIPPED=$((SEP_SKIPPED + 1))
         continue
