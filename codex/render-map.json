@@ -124,7 +124,7 @@
     "migrate": {
       "source": ".claude/commands/migrate.md",
       "render": "codex/skills/migrate/SKILL.md",
-      "source_sha256": "c95f9c3a92946ecb12369a225558accd8afafc96e01faa253149628445e4f480",
+      "source_sha256": "c7626e73c872bc0deb95d36cf8e11444dfab89da7e021e25bf5c34ad5fbb9192",
       "render_sha256": "bc3b29404fe66d318d15ef1412f2b47939156b7307c3fafebb8ffb79e17874ba"
     },
     "morning": {

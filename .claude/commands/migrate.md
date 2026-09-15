@@ -120,7 +120,7 @@ This is the normal migration path.
    python3 "{VAULT}/.claude/scripts/archive-namespace-migration.py" rewrite "{VAULT}"
    ```
 
-   The engine replaces literal forward- and backslash `06 Archive/Claude` locators, including an exact archive-root value with no trailing separator, across the declared text/config/script/web formats plus extensionless files, one file at a time through `locked-edit.sh --replace-all`; binary/media files are ignored. It excludes `07 System/.Provenance/`, `07 System/.OpenCairn Migration/`, `.Session Transcripts/` under the Claude/OpenCairn archive namespaces, lock files, and the Migration Record. `inspect` reports this actionable scan surface separately from excluded immutable hits; it is not a universal binary-file claim.
+   The engine replaces literal forward- and backslash `06 Archive/Claude` locators, including an exact archive-root value with no trailing separator, across the declared text/config/script/web formats plus extensionless files, one file at a time through `locked-edit.sh --replace-all`; binary/media files are ignored. It leaves provenance log and evidence paths untouched (`07 System/AI Provenance Log.md` and `07 System/.Provenance/`, at any depth and regardless of letter case). It also excludes `07 System/.OpenCairn Migration/`, `.Session Transcripts/` under the Claude/OpenCairn archive namespaces, lock files, and the Migration Record. `inspect` reports this actionable scan surface separately from excluded immutable hits; it is not a universal binary-file claim.
 
 6. Let Obsidian's index settle. Re-run the same reliable unresolved-link route used for the baseline. The count must not increase, and no moved archive target may be unresolved. Then finish:
 
