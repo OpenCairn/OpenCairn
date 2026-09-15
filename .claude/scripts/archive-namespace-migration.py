@@ -88,6 +88,11 @@ LEGACY_LOCATOR_EXEMPT_MARKER = "<!-- opencairn: legacy-locator-exempt -->"
 
 def excluded(relative: Path) -> bool:
     parts = relative.parts
+    folded = tuple(part.casefold() for part in parts)
+    if folded[-2:] == ("07 system", "ai provenance log.md"):
+        return True
+    if any(pair == ("07 system", ".provenance") for pair in zip(folded, folded[1:])):
+        return True
     if relative == Path("07 System/Migration Record.md"):
         return True
     if len(parts) >= 3 and parts[:2] == ("07 System", ".OpenCairn Migration"):
@@ -123,7 +128,7 @@ def matching_files(vault: Path, *, immutable: bool) -> list[Path]:
                 raise RuntimeError(
                     f"legacy-locator search escaped the vault: {path}"
                 ) from exc
-            if excluded(relative) != immutable:
+            if (excluded(relative) or excluded(path.relative_to(vault))) != immutable:
                 continue
             if path.suffix and not any(
                 fnmatch.fnmatch(path.name, pattern) for pattern in TEXT_GLOBS
