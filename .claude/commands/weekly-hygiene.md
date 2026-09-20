@@ -410,6 +410,25 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Any non-space immediately before a `- [ ]`/`- [x]` is a join defect (legit nested items are space- or tab-indented, so they don't match). Split the two items onto separate lines via `locked-edit.sh` and report each fix.
 
+   **Lock sentinels** (vault clutter; auto-fix):
+   `lib-lock.sh` locks a per-file sibling `<dir>/.<basename>.lock` and leaves the empty file behind, one per file ever edited under the lock. Deleting these is a safe auto-fix: machine-generated, content-free, recreated on demand. Reap under `flock -n`, which skips any sentinel a writer currently holds, and only sentinels not modified in 7 days (the shell writers truncate on acquisition, so a recent mtime means recent use). `-name` already excludes real lockfiles such as `flake.lock`; `-empty` is a second guard so nothing with content is ever deleted. Never delete mkdir-fallback directories (`.lock.d`): `lib-lock.sh` cannot tell an abandoned one from a live owner without a race, so report them for the user. Where `flock` is absent, skip the sweep. **Residual race:** a writer that has opened a sentinel but not yet locked it keeps the old inode if the sweep unlinks it in that instant, and a second writer then locks a fresh one, so mutual exclusion splits. The 7-day gate confines this to files being acquired for the first time in a week during the sweep's microsecond window; it narrows the exposure, it does not close it.
+   ```bash
+   if command -v flock >/dev/null 2>&1; then
+     reaped=0; held=0; errors=0
+     while IFS= read -r -d '' f; do
+       flock -n -E 75 "$f" rm -- "$f"
+       case $? in 0) reaped=$((reaped+1));; 75) held=$((held+1));; *) errors=$((errors+1)); echo "ERROR: $f";; esac
+     done < <(find "{VAULT}" -name .git -prune -o -type f -empty -name '.*.lock' ! -mtime -7 -print0)
+     echo "REAPED=$reaped HELD=$held ERRORS=$errors"
+   else
+     echo "flock unavailable; sentinel sweep skipped"
+   fi
+   echo "REMAINING=$(find "{VAULT}" -name .git -prune -o -type f -empty -name '.*.lock' -print | wc -l)"
+   # Report only, never delete:
+   find "{VAULT}" -name .git -prune -o -type d \( -name '.*.lock.d' -o -name '.lock.d' \) -print
+   ```
+   A lock-busy exit is 75 (via `-E`); any other non-zero exit is an error (for example `rm` refused on NTFS while the handle is open) and is listed, never counted as held.
+
 12. **Context File Staleness Detection**
 
    Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
@@ -652,6 +671,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Shared-patterns pointers: [stale list or "all resolve"] (if _shared-patterns.md exists)
    - List-item joins fixed: N [file + line per fix, or "none"]
    - Sync conflict files: N [list paths, or "none"] (Syncthing `*.sync-conflict-*` + Obsidian "conflicted copy")
+   - Lock sentinels: N reaped, M held (skipped), E errors, R remaining, D mkdir-fallback dirs (report only) — or "skipped: flock unavailable"
 
    ## Obsidian Sync Ghost Check
    *(omit this section if the ghost-check script is not installed)*
@@ -718,7 +738,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
     ```
     ✓ Hygiene report saved to: 06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md
-    ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, internal file cleanup)
+    ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, lock-sentinel sweep, internal file cleanup)
     ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
     ✓ Routed to SSOT: M (N to project docs, M to files, P to Tickler)
 
