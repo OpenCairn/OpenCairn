@@ -1,6 +1,6 @@
 {
   "name": "opencairn",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Skills for Claude Code: park/pickup session chaining, morning/afternoon/goodnight day loops, weekly & quarterly reviews, a six-layer cross-model audit panel, and PKM utilities. Designed to pair with the OpenCairn NIPARAS vault, but the skills install standalone.",
   "author": {
     "name": "Harrison Edwards",
