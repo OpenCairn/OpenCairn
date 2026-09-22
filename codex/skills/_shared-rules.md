@@ -119,7 +119,7 @@ EOF
 
 **Lock ordering:** Ordinary edits hold one canonical per-file lock. `locked-edit.sh --move` holds the source and destination locks together in lexical path order, preventing two overlapping moves from deadlocking. Never wrap these operations in another file or session lock.
 
-**System logs are shared files too:** append to correction, wins, strategic-decision and provenance logs through `locked-edit.sh --append`; their folder does not exempt them from locking.
+**System logs are shared files too:** append to correction, wins, strategic-decision and provenance logs, and the Panel Seat Ledger (`$audit`, `$second-opinion` via `panel-run-record.sh`), through `locked-edit.sh --append`; their folder does not exempt them from locking.
 
 ### Failure modes for in-place file edits
 

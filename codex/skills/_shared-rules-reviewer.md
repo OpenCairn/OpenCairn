@@ -13,28 +13,30 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
 - **Keep Gemini read-only with a `--policy` file, not `--approval-mode plan`** — `plan` blocks `run_shell_command` but still exposes the `replace`/`write_file` edit tools, so a skill that briefs Gemini to propose changes can have them written straight into the target. Verified on gemini 0.40.x: a deny-rule policy strips the named tools from the model entirely (it reports them "not found") while reads stay intact — a hard guarantee. The policy file needs **no `.toml` extension** (verified 0.40.1), so create it with portable `mktemp` — GNU-only `--suffix` breaks BSD/macOS. **Don't** put the file in `~/.gemini/policies/` (auto-loaded for *every* invocation → would make all gemini sessions read-only); use an explicit temp path. After a panel run, check whether the reviewer **attempted** an edit: if it did, it must have reported the tool "not found"/unavailable — an edit that *succeeded* means the policy didn't load; treat the run as contaminated. A clean review with no edit attempt produces no such report (the tools are only reported missing when called) — for that case, and on the no-`--policy` fallback, the `git status`/snapshot backstop is the verification.
 - **Canonical read-only panel despatch block.** Under Codex, the harness-native seat is a fresh `codex exec --sandbox read-only` despatch with the brief contents verbatim on stdin — ⚠ when Codex is the primary harness, that seat shares the primary's model and is **not an independent voice**: announce the reduced independence in the synthesis, and swap in the Claude seat when Claude Code is available — working form in the block below, verified: the read-only set holds under an active write attempt (no write path in the seat's toolset, and a spawned sub-agent inherits the restriction), and `--output-format json` yields `.session_id` (capture for Mode B) and `.result` (the review text). Panel reviews run 2–5 minutes. Under Codex, `exec_command`'s default 10-second window **yields rather than kills** a still-running seat: retain the returned `session_id` and poll it with `write_stdin` until completion, while wrapping the child command in an explicit 1,500-second timeout as the real ceiling. Verified 2026-08-17 in a four-seat `$audit`: all seats yielded and returned complete reviews after 94–206 seconds.
 
-  ```bash
-  RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)   # portable: no --suffix, no .toml needed
-  printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
-  if command -v timeout >/dev/null 2>&1; then
-    PANEL_TIMEOUT=(timeout 1500s)
-  elif command -v gtimeout >/dev/null 2>&1; then
-    PANEL_TIMEOUT=(gtimeout 1500s)
-  else
-    echo 'Panel despatch requires timeout (GNU coreutils: timeout or gtimeout).' >&2
-    exit 1
-  fi
-  # Each CLI call below runs 2-5 min: under Codex, retain its yielded session_id and poll with write_stdin (see above)
-  cat <brief> | "${PANEL_TIMEOUT[@]}" gemini -p "Follow the instructions in the piped input exactly." --policy "$RO_POLICY" -o text --include-directories <root>
-  cat <brief> | "${PANEL_TIMEOUT[@]}" codex exec --sandbox read-only --skip-git-repo-check -C <root> -
-  # Claude seat, when Claude Code is available (jq: .session_id for Mode B resume, .result = the review):
-  cat <brief> | "${PANEL_TIMEOUT[@]}" claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
-  # Mode B round 2 (re-pass the flags; the resumed session keeps its prior context):
-  # cat <round2> | "${PANEL_TIMEOUT[@]}" claude -p --resume <session_id> --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit"
-  "${PANEL_TIMEOUT[@]}" "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...]
-  ```
+  Every seat's files land in one **run directory**. Shell state does not survive between separate `exec_command` calls, so the block is two parts: a create step run once, and per-seat lines that carry the printed path as a literal (`<run-dir>` below) and resolve their own timeout.
 
-  `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion/SKILL.md` Phase 2A.
+  Create once (prints the path; copy it into every later call):
+  ```bash
+  RUN_DIR=$(mktemp -d -t panel-run.XXXXXX) && cp <brief> "$RUN_DIR/brief.md" \
+    && printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RUN_DIR/gemini-ro-policy" \
+    && python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.gemini/settings.json"))).get("model",{}).get("name","gemini-default"))' > "$RUN_DIR/gemini.model" 2>/dev/null; echo "$RUN_DIR"
+  ```
+  Copy the pre-flight baseline (target bytes plus SHA-256s) into `<run-dir>/baseline/` so the archive carries the target as reviewed.
+
+  Per seat, one call each (`T` resolves the 1,500-second ceiling in the same call; stdout → `<seat>.out`, stderr → `<seat>.err`, wall seconds → `<seat>.time`, exit status → `<seat>.exit`; under Codex retain the yielded session_id and poll with `write_stdin`):
+  ```bash
+  T=$(command -v timeout || command -v gtimeout) || { echo 'needs GNU timeout/gtimeout' >&2; exit 1; }
+  s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s gemini -p "Follow the instructions in the piped input exactly." --policy <run-dir>/gemini-ro-policy -o text --include-directories <root> > <run-dir>/gemini.out 2> <run-dir>/gemini.err; echo $? > <run-dir>/gemini.exit; echo $(( $(date +%s) - s )) > <run-dir>/gemini.time
+  s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s codex exec --sandbox read-only --skip-git-repo-check -C <root> - > <run-dir>/codex.out 2> <run-dir>/codex.err; echo $? > <run-dir>/codex.exit; echo $(( $(date +%s) - s )) > <run-dir>/codex.time
+  # Claude seat, when Claude Code is available (keep the raw JSON; .result is the review; .session_id is the Mode B handle):
+  s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit" > <run-dir>/claude.json 2> <run-dir>/claude.err; echo $? > <run-dir>/claude.exit; echo $(( $(date +%s) - s )) > <run-dir>/claude.time; jq -r .result <run-dir>/claude.json > <run-dir>/claude.out
+  s=$(date +%s); "$T" 1500s "{VAULT}/.claude/scripts/xai_client.py" --panel-review <run-dir>/brief.md --source <target> [--source <target> ...] > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
+  ```
+  `panel-run-record.sh` reads the Claude model from `claude.json`, so it is never typed.
+
+  Round N>1 uses the same directory and `-rN` names — `gemini-rN.*` with `--resume <index>`, `codex-rN.*` with `codex exec --sandbox read-only --skip-git-repo-check resume <uuid> -` (sandbox flags before `resume`), `claude-rN.json`/`.out` with `claude -p --resume <session_id>` and the same flags, `grok-rN.*` replaying with `--source <run-dir>/grok.out` added; each with its own `.err`, `.exit`, `.time`. If the temp directory has aged out, recreate it as a copy of the round-1 archive (path on the ledger line) and continue there.
+
+  Never read a seat file through `head`/`tail`: a truncated capture drops that seat's findings silently; read the whole file. `--include-directories <root>` / `-C <root>` point the seats at the target's root; drop them when the target sits under the despatch cwd. Session-handle capture, auth caveats, and fallback invocations stay in `second-opinion/SKILL.md` Phase 2A. At the run's terminal state, write the synthesis and terminal-state report to `<run-dir>/synthesis.md`, then `"{VAULT}/.claude/scripts/panel-run-record.sh" <run-dir> ...` (the despatching skill says when) derives the run-index line from these files and archives the directory; the seat files, baseline and synthesis, not the transcript, are the record a later reader would use.
 
 - **Headless `gemini -p` has no shell tool at all — this is not the `--policy` file's doing.** Verified on gemini 0.40.1 by despatching with *no* `--policy` flag and asking the model to enumerate its own toolset: `update_topic, list_directory, read_file, grep_search, glob, google_web_search, enter_plan_mode, invoke_agent`. `run_shell_command` is absent. So the deny-rule above is belt-and-braces for shell rather than its cause, and **loosening the policy does not buy an executing Gemini seat** — the seat can read, grep and glob, nothing more. Codex is the CLI seat that *can* run commands: `--sandbox read-only` blocks writes, not execution. Two traps: seeing `Tool "run_shell_command" not found` and blaming your own policy (costs a redundant despatch to disprove), and briefing a Gemini seat to "run the tests" — it cannot, so per the pre-flight below the orchestrator runs them and embeds the receipts.
 
