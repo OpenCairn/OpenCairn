@@ -87,7 +87,7 @@ Write the brief once and save it to a scratch file with a unique name — e.g. `
 
 ### Phase 2A: Launch a fresh panel (Mode A)
 
-**Before launching: baseline the targets.** Copy every target file's bytes into a scratch directory and record their SHA-256s, taken from the **working tree** as it stands now (not `HEAD`), for git and non-git targets alike. Step 6's integrity guard diffs against this baseline and restores from it; without it a post-panel `git status` cannot separate a reviewer's write from an edit that was already in the tree, and there is nothing to reconstruct afterwards if you skip it.
+**Before launching: baseline the targets.** Copy every target file's bytes into `<run-dir>/baseline/` and record their SHA-256s, taken from the **working tree** as it stands now (not `HEAD`), for git and non-git targets alike. Step 6's integrity guard diffs against this baseline and restores from it; without it a post-panel `git status` cannot separate a reviewer's write from an edit that was already in the tree, and there is nothing to reconstruct afterwards if you skip it.
 
 **Before launching: confirm the reviewers are available** — run `claude --version`, `gemini --version`, `codex --version`, and `"{VAULT}/.claude/scripts/xai_client.py" --probe` in the shell. If a CLI errors out, it isn't installed; drop it and note the reduced panel per step 4. The Grok probe has no binary to version-check — it exits 0 when the client resolves `XAI_API_KEY` from the process environment or `~/.claude/settings.json`, 1 otherwise; run it *before* despatch so an unavailable key degrades the panel up front rather than failing mid-run. If Gemini's version is older than 0.40 (no Policy Engine), use the write-capable fallback invocation in step 2 — but note that path has **no read-only enforcement** (the step-6 integrity guard is the *only* protection), so prefer upgrading to gemini ≥ 0.40 and treat findings from a 0.33–0.39 Gemini as lower-assurance.
 
@@ -118,16 +118,14 @@ Send the brief to all reviewers concurrently (parallel shell calls where the har
 
 3b. **Grok**, in parallel with the other three. **Give the call a five-minute ceiling** — xhigh reasoning can think >90 s before the first byte; under Codex, use §10's yield-and-poll mechanism. Invocation per the **canonical block in `_shared-rules-reviewer.md` §10**:
 
-   ```
-   "{VAULT}/.claude/scripts/xai_client.py" --panel-review <brief> --source <target> [--source <target> ...] > <grok-out>
-   ```
+   The Grok line of §10's per-seat block (stdout to `<run-dir>/grok.out`, stderr to `grok.err`, plus `.exit` and `.time`), with every file it should consider passed as `--source`.
 
    Unlike the CLI seats, Grok reads nothing — every file it should consider must be passed with `--source`, and the wrapper inlines them as a delimited appendix with a `path | bytes | sha256` manifest. Two failure modes to handle rather than absorb:
 
    - **Over `MAX_INLINE_BYTES`** the wrapper exits non-zero without calling the API. Drop the seat and announce the reduced panel; never re-run with a trimmed source list to squeeze under the cap, because a seat reviewing a silently-narrowed target produces confident findings about a target nobody else reviewed.
    - **A review that comes back with no manifest and no quoted passages is brief-echo** — discard it per `_shared-rules-reviewer.md` §23, and say so in the synthesis rather than quietly running a three-seat panel labelled as four.
 
-   **There is no Grok session handle.** The wrapper sets `store: false`, which forecloses `previous_response_id` threading — so Mode B round 2 is always replay, never resume. Persist the brief path, the `--source` list, and `<grok-out>` beside the scratch brief, and surface those paths alongside the other handles; round 2 has nothing to resume *from* without them. **Derive `<grok-out>` deterministically** — same name as the brief with a `.grok-out` suffix, per the deterministic-temp-path rule in `_shared-rules-content.md` §15 — rather than a fresh `mktemp`. Gemini and Codex can be re-found by session index or UUID if you lose the path; Grok cannot, so a random output name that scrolls out of context makes round 2 unrecoverable. Tag round-2 Grok findings `[Grok r2, fresh-with-replay]`, consistent with the existing fallback vocabulary.
+   **There is no Grok session handle.** The wrapper sets `store: false`, which forecloses `previous_response_id` threading — so Mode B round 2 is always replay, never resume. Persist the `--source` list beside the brief in the run directory (`$RUN_DIR/grok-sources.txt`) and surface the run directory path alongside the other handles; round 2 has nothing to resume *from* without them. Grok's output is `$RUN_DIR/grok.out` (§10), deterministic once the run directory is known. Gemini and Codex can be re-found by session index or UUID if you lose the path; Grok cannot, so a run directory path that scrolls out of context makes round 2 unrecoverable. Tag round-2 Grok findings `[Grok r2, fresh-with-replay]`, consistent with the existing fallback vocabulary.
 
 4. **If a reviewer is unavailable** — a CLI not installed, API unreachable, quota hit, a seat despatch erroring or timing out — fall back to the reviewers that are present and **say so explicitly in the synthesis**. Do not silently pretend the full panel ran. A one-reviewer run isn't a panel; it's a single opinion with one extra pair of eyes, and the "cross-model signal" claim weakens with every family you drop.
 
@@ -157,21 +155,21 @@ Use this phase instead of 2A when you're iterating — the reviewers are already
      ```
      RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)
      printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
-     cat <round2-path> | gemini -p "Continue the prior review." --resume <index> --policy "$RO_POLICY" -o text --include-directories <root> --skip-trust
+     cat <round2-path> | gemini -p "Continue the prior review." --resume <index> --policy "$RO_POLICY" -o text --include-directories <root> --skip-trust > <run-dir>/gemini-r2.out 2> <run-dir>/gemini-r2.err; echo $? > <run-dir>/gemini-r2.exit
      ```
+     Wrap it in §10's `s=$(date +%s); ...; echo $(( $(date +%s) - s )) > <run-dir>/gemini-r2.time` clock like the round-one line.
      Drop `--include-directories` when the target already sits under the despatch cwd; `--skip-trust` (or `GEMINI_CLI_TRUST_WORKSPACE=true`) is required whenever that cwd is outside your trusted set — headless gemini otherwise refuses to start. If gemini's resume semantics don't round-trip cleanly (session state missing, prompt interpreted as fresh), fall back to running gemini fresh with a brief that quotes the round-1 reviewer output verbatim as context — not ideal, but recoverable. **In the Phase 3 synthesis, annotate this case explicitly** (e.g. `[Gemini r2, fresh-with-replay]`) so the reader can distinguish a true resume from a replayed brief — they're not equivalent signals.
 
    - **Codex CLI** with a five-minute window — resume by the UUID recorded in Phase 2A, substituting `<round2-path>`:
      ```
-     cat <round2-path> | codex exec --sandbox read-only --skip-git-repo-check resume <SESSION_ID> -
+     cat <round2-path> | codex exec --sandbox read-only --skip-git-repo-check resume <SESSION_ID> - > <run-dir>/codex-r2.out 2> <run-dir>/codex-r2.err; echo $? > <run-dir>/codex-r2.exit
      ```
+     Same clock wrapper, writing `<run-dir>/codex-r2.time`.
      **Flag order matters:** `--sandbox`/`--skip-git-repo-check` belong to the parent `codex exec` and must come *before* `resume` — `codex exec resume <ID> --sandbox …` errors with `unexpected argument '--sandbox'` (verified codex-cli 0.136.0). The `resume` sub-subcommand only accepts `[SESSION_ID] [PROMPT]` plus its own options (`--last`, `-c key=value`, etc.). Replace `<SESSION_ID>` with the session UUID from round 1 (`codex exec --sandbox read-only --skip-git-repo-check resume --last -` picks the most recent recorded session if you've lost it, but resume by explicit UUID when you have it — `--last` has the same wrong-session risk as Gemini's `latest` if any other codex run happened in between). The resumed session carries its round-1 context. Same fallback as Gemini if resume doesn't round-trip: run codex fresh with the round-1 output quoted in the brief, and annotate `[Codex r2, fresh-with-replay]` in the synthesis.
 
    - **Grok** with a five-minute window — **always replay, never resume** (the wrapper stores nothing, so there is no session handle). Re-send the round-2 prompt with the same `--source` list persisted in Phase 2A, plus the round-1 output so the seat carries its own prior findings:
-     ```
-     "{VAULT}/.claude/scripts/xai_client.py" --panel-review <round2-path> --source <target> [--source <round1-grok-out>] > <round2-grok-out>
-     ```
-     Derive `<round2-grok-out>` from `<round2-path>` with a `.grok-out` suffix, per `_shared-rules-content.md` §15. Tag every round-2 Grok finding `[Grok r2, fresh-with-replay]` — it is replay by construction, not a true resume, and the synthesis must not present it as one. If the persisted `--source` list is gone, the seat can't be replayed faithfully; drop it and say so rather than reconstructing a narrower source set.
+     The Grok line of §10's round-N block: replay with the round-two prompt as the brief and `--source <run-dir>/grok.out` added, writing `grok-r2.out/.err/.exit/.time`.
+     Round-two seat files take a `-r2` suffix in the round-one run directory (`gemini-r2.out`, `codex-r2.out`, `grok-r2.out`, `claude-r2.json`/`.out`), so `panel-run-record.sh --round 2` finds them. Tag every round-2 Grok finding `[Grok r2, fresh-with-replay]` — it is replay by construction, not a true resume, and the synthesis must not present it as one. If the persisted `--source` list is gone, the seat can't be replayed faithfully; drop it and say so rather than reconstructing a narrower source set.
 
 5. **If only one reviewer is being iterated** (you only care about one reviewer's finding in round 2), run that one in Phase 2B and skip the others. Note clearly in the synthesis that round 2 is single-reviewer.
 
@@ -206,6 +204,8 @@ Present the verdict and priority stack, then confirm with the user what to act o
 After the user acts on findings, **consider a Mode B round 2** to verify the fixes against the reviewer who raised the concern. This is especially worth it for findings where the fix is non-obvious or where "does the fix land?" is itself a judgement call. For trivial fixes, skip round 2.
 
 Executing the fixes is outside the scope of this skill. Hand off to direct edits, `$audit`'s fix-and-re-audit loop, or whatever workflow the work product normally lives in.
+
+**Record the run** once next steps are decided, panel mode only, whatever the seat count (a single-reviewer Mode B round still records). First write the synthesis and the decision to `<run-dir>/synthesis.md` (round two: `synthesis-r2.md`) with the Write tool. Resolve the vault (`resolve-vault.sh`, `_shared-rules.md` §1), then run `"{VAULT}/.claude/scripts/panel-run-record.sh" "<run dir>" --skill second-opinion --round <1 or 2> --target "<what was reviewed>" --claude-model <model id from claude.json, when that seat ran> --vault "{VAULT}" --archive`. It derives seats, model ids, wall seconds and Grok cost from the seat files, archives the run directory under `06 Archive/OpenCairn/Panel Runs/` and appends one index line to `07 System/Panel Seat Ledger.md` under lock; it records no findings; the archived seat files are the evidence if the seat question is ever reopened, coded then from the files rather than from this synthesis. Mode B is a second call with `--round 2`. No vault resolvable: run it without `--archive`, quote the line and the run directory, and say the evidence was not archived. A round-two record lands in the round-one archive directory.
 
 ## Guidelines
 

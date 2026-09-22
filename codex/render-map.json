@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "2bb3de9cccb83d8c8f2217f3f043b1ae392f7d6ab5958fb3fe885a7e001d16da",
-      "render_sha256": "3c2cce9320989ca0c8ed152cb7b5babfedd1c8254a4e4e85c86cb9cef64ca91e"
+      "source_sha256": "1f1c736f11f68ff80e455bb0cf8714b88fe2b49a4d0d3d00bb79118279666175",
+      "render_sha256": "9c9dbfe83fe866a922e1c924fab2c754c9c7ebc1729e65f8976db782b76510df"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -40,8 +40,8 @@
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "2c3ab49760cacf3ac5fbb82da505941cf44541d6459e3c41252254d461c988ae",
-      "render_sha256": "dce63e2eb39f9d6905db3dcc3e04224e8ac496023ae3f80091fd5a9c8ca15713"
+      "source_sha256": "a57ebb92f875e1a5f2c0f4fb0e52985170de0123a0f85afc90b4d70616704be1",
+      "render_sha256": "2306864347ad7ffae282ae52d1d56655eb612534b3264b6c27b6e9b18fb6a268"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
@@ -202,8 +202,8 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "abfb2b38486bdab2e5877930d4cc40c92b7f664ffc502f34c9eadb41b3b3d3a5",
-      "render_sha256": "6577d14e391047d4785f1aa0628b6cb65a71bae09fa80bc28eb06c791896aee7"
+      "source_sha256": "aa9b1e4b1cca64bd53357bd6bd05db3eb901211b08fccc4acea3277fbb89790f",
+      "render_sha256": "097bc97763e244038cf77c8239233d2c63a6f6652c1b3ef31ed463c61bab90c4"
     },
     "set-project-status": {
       "source": ".claude/commands/set-project-status.md",
@@ -280,8 +280,8 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "e60ff07466b1b7899851b111082ef68e2778e7f939d7cbd21c82c10cc401b574",
-      "render_sha256": "e33bf6be89517e82fb18919a0605714c67f4a7a79a1be2eb429ba6c79708670e"
+      "source_sha256": "aa1a4670078c549120685e9d92164e9873c9f33c0fdecb5bb0c3020760449934",
+      "render_sha256": "4435bfe8898b9472c2986ae46f812b83f1aa19e44d283a6c1badd688a89835aa"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
