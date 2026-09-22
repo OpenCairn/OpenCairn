@@ -108,6 +108,9 @@ PY
 EVIDENCE="$RUN_DIR"
 if [[ $ARCHIVE -eq 1 ]]; then
   [[ -n "$VAULT" && -d "$VAULT" ]] || { echo "--archive needs a vault: pass --vault or set VAULT_PATH" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1; }
+  if [[ -x "$HERE/check-archive-layout.sh" ]] && ! "$HERE/check-archive-layout.sh" --enforce "$VAULT" >/dev/null 2>&1; then
+    echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1
+  fi
   ! ls "$RUN_DIR"/synthesis* >/dev/null 2>&1 && echo "warning: no synthesis*.md in $RUN_DIR; write the synthesis and terminal state there before recording" >&2
   MARK="$RUN_DIR/.archive-path"
   if [[ "$ROUND" -gt 1 && -f "$MARK" && -d "$VAULT/$(cat "$MARK")" ]]; then
