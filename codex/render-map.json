@@ -106,8 +106,8 @@
     "landscape-scan": {
       "source": ".claude/commands/landscape-scan.md",
       "render": "codex/skills/landscape-scan/SKILL.md",
-      "source_sha256": "e82a75ba818f64caa9c6c7dfff304acd32d658ffcaf4fbde5f8ad243464e668c",
-      "render_sha256": "cd72828dd0a03f14a2743c4d62afeda5ab527288d34178f8ce6d37b4b4f53c85"
+      "source_sha256": "ff2d8b370d9ba1e29b301350ee67bacdfaa26427ba11bd09e8623097cfbada1e",
+      "render_sha256": "61b5af6d602942a2c059a2629952e7495f3fc3a571bd26c0f291a5e397fb2cc8"
     },
     "longpoles": {
       "source": ".claude/commands/longpoles.md",
