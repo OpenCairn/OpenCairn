@@ -113,6 +113,12 @@ For each:
   - *Capability:* [what it unlocks that isn't being done today]
   - *Supply-chain cooldown:* [latest version + publish date; N days old; passes / fails ≥3–7 day cooldown; recommendation: install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD]
 
+## Try (hands-on trial queued)
+Ranked by capability. For each:
+- **[Tool/pattern]** — [what it does, link]
+  - *Capability:* [what it would unlock]
+  - *First trial:* [smallest concrete step; where it runs (local / remote host); the observation that decides keep or drop]
+
 ## Adapt (extract the pattern)
 - **[Pattern]** — [how to apply it, link]
   - *Fit:* …
@@ -125,6 +131,7 @@ For each:
 
 ## Skip (hype / low-value)
 - **[Thing]** — [why skipped, so it isn't re-surfaced]
+  - *Capability:* [what it would unlock, and why that is not worth a trial now]
 
 ## Skill-obsolescence check
 - [Skill domain] — [external tool/pattern, how it compares, classify: adopt/adapt/note/inferior]
@@ -132,4 +139,4 @@ For each:
 - (or: "No new skill-obsoleting findings this week")
 ```
 
-Section counts for the Step 12 confirmation line: `N adopt, N adapt, N note, N skip`.
+Section counts for the Step 12 confirmation line: `N adopt, N try, N adapt, N note, N skip`.

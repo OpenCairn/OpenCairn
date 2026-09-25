@@ -15,7 +15,7 @@ Two modes that can run separately or together:
 
 ## Philosophy
 
-Research, not shopping. Surface patterns, architecture insights, and (for threat-style profiles) exposure. A run that produces zero actionable findings is a valid result — not every week has something worth acting on.
+Research that ends in trials. Surface patterns, architecture insights, and (for threat-style profiles) exposure, then turn the strongest findings into hands-on trials. Dismiss a lead only on evidence about the thing itself — a trial, a primary source, or a completed second pass — never on how it was packaged or promoted. A run with nothing to try is valid only when every candidate's second pass has been run and reported.
 
 The assessment *frame* lives in the profile, because what "actionable" means is domain-specific:
 - a tool-adoption profile (the default `ai-cc-pkm`) asks "should this change how I work?" — **fit** + **capability** passes;
@@ -134,7 +134,7 @@ Only if digest mode is active. These verification disciplines are domain-agnosti
 - **Fetch the underlying primary source, not just the pitch.** A tweet/blog pointing to a tool → fetch the repo/product page (last commit, issues, licence). A post describing a vulnerability → fetch the CVE record / vendor advisory / commit, and report what's actually confirmed.
 - **Check commit activity on `main`, not just releases.** Stale release ≠ dead; active releases ≠ live `main`. Independent signals — look at both.
 - **Verify falsifiable structural claims against raw source.** If a summary asserts a project is archived/deprecated/forked/superseded/renamed/rewritten — or that a vuln is patched/exploited-in-the-wild/disputed — re-fetch the raw source (e.g. `raw.githubusercontent.com/<owner>/<repo>/main/README.md`, the NVD entry, the vendor bulletin) and quote verbatim before acting. Summarisers occasionally confabulate plausible structural claims; high-stakes assertions need verbatim confirmation.
-- **Flag red flags explicitly in the output.** Don't smooth them over, but don't let them pre-empt the profile's second-pass assessment either.
+- **Flag red flags explicitly in the output.** Don't smooth them over, but don't let them pre-empt the profile's second-pass assessment either. Promotional packaging (hype, templated or coordinated posts, amplification) is a reason to verify the underlying thing, never a classification by itself: a finding whose only defect is how it was promoted still gets both passes.
 
 ### 7. Assessment — per the profile's frame (BOTH modes)
 
@@ -159,6 +159,10 @@ If the vault contains a capability-audit project doc, update the relevant domain
 ### 9. Classify findings
 
 Classification labels come from the profile's `Report sections`. For each finding, state what it is and its significance in the active profile's terms — tool-adoption profiles: what problem it solves (handled or not today); threat profiles: what it reaches and the action trigger — and place it in the right section.
+
+**No dismissal without the second pass.** Every entry in a dismissal section (e.g. Skip) carries its second-pass line: what the finding would unlock, and why that is not worth trying now. An entry without it goes back through Step 7.
+
+**Bias to try.** Where the profile defines a trial section, place every finding whose second pass shows real capability there, ranked, each with one concrete first trial step, where it would run, and the observation that decides keep or drop. When the invocation names a frame project with a trial list, route those entries to it.
 
 **For any finding whose action is "install / adopt a package" (either profile — a Claude Code tool, or a security tool), compute supply-chain cooldown explicitly.** Days since latest release (npm/PyPI/Docker) or last commit (source installs). Compare against a **7-day** cooldown window measured from that date; a **3-day** window applies only when pinning to an *earlier* version that has itself been public ≥7 days. Don't install a package the day it publishes — let downstream users surface supply-chain compromises (malicious publishes, typosquats, compromised maintainer accounts) first. State the recommendation — **install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD** — don't leave arithmetic to the user. **Exception:** an exposed, exploited-in-the-wild or critical-reachable security patch overrides the cooldown — when the profile's action pass says *patch now*, apply it immediately and state why (active exploitation outweighs the fresh-publish risk); the cooldown still governs optional tool/source adoption. (This discipline is doubly load-bearing for the `cybersec` profile, whose own beat is supply-chain attacks — the override resolves the irony that a rushed patch can itself be poisoned, but an exploited critical can't wait.)
 
@@ -233,14 +237,14 @@ Source list updates: [any changes made to the profile file]
 
 ## Guidelines
 
-- **Research, not shopping.** "How did they solve X?" / "Does this reach me?" beats "should I switch to Y?"
+- **Research that ends in trials.** "How did they solve X?" / "Does this reach me?" come first; then "what is the smallest hands-on trial of this?"
 - **Two passes, always.** First-pass dismissal does not close the second pass. Report both, per the profile's frame.
 - **Delta over repeat.** Only report what's new since the last scan *for this topic*. Don't re-list stable sources that haven't changed.
 - **Verify before trusting pitches.** Tweets/blogs/vendor marketing hype; repos, product pages, CVE records, and commits ship. Fetch the underlying thing.
 - **Update the profile source list,** not this engine, when a source goes stale or a new one emerges.
 - **Quick and focused.** Scan mode: 10–20 min for a light delta with few new items; allow longer for a cold start or a large gap. Follow the profile’s coverage scope and read relevant sections properly rather than expanding into unrelated material. Digest mode: scales with URL count but stays snappy.
 - **Expand category abstraction when a direct-match search returns nothing.** If an exact-match search yields zero hits, don't conclude "none exists." Abstract up one level and search again. Direct-match null is a second-pass failure mode if not expanded.
-- **Honest about signal.** A null result is fine — say so.
+- **Honest about signal.** A null result is valid only with each candidate's second pass shown — say so, and say what would change it.
 
 ## Frequency
 
