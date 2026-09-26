@@ -171,6 +171,7 @@ for t in "${SEP_TARGETS[@]}"; do
     # carry a real leak.
     case "$t" in
         */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # verbatim transcript exports preserve source shell snippets
+        */06\ Archive/OpenCairn/Panel\ Runs/*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # immutable panel evidence preserves quoted source markers
         */07\ System/.Provenance/*.snapshot.*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;; # immutable provenance snapshots preserve exact source bytes
         */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) SEP_SKIPPED=$((SEP_SKIPPED + 1)); continue ;;
     esac
