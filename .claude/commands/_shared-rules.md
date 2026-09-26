@@ -93,7 +93,7 @@ EOF
 # Other modes: --replace-all (every occurrence), --append (stdin appended at EOF),
 # --replace-whole <expected-sha256|MISSING> (atomic compare-and-swap from stdin).
 # --move <destination> <expected-source-sha256> (link-healing compare-and-move;
-# both paths must be inside VAULT_PATH and the destination directory must exist).
+# both paths must be inside VAULT_PATH; a missing destination directory is created).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace).
 # For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
 # For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
