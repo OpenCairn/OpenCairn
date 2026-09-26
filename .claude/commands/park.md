@@ -235,7 +235,9 @@ When a seat reported, inspect its returned propagation report for unresolved or 
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the Step 2 inventory (including its non-ledger backstop), and the collected propagation/park-time edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
-**Verify:** run the verifier and resolve every FAIL, re-running until clean:
+**Batch the ready mechanical work:** once propagation, routing and attribution are final, prefer `python3 "{VAULT}/.claude/scripts/park-prepare.py" --vault "{VAULT}" --session-log "<session log>" --number N`. Read `"{VAULT}/.claude/scripts/park-prepare-guide.md"` for the JSON handoff. The helper can perform the reconciled backfill above, derives `--touched` from the resulting log, runs the verifier and assembles the hashed audit-input packet with stage timings. Supply actual evidence/pre-state excerpts and the propagation result; preserve the preceding quality gates. FAIL, untriaged REVIEW or changed inputs stop preparation. This is a full-path batching helper, not quick mode.
+
+**Standalone verification** (when preparation is not ready to batch): run the verifier and resolve every FAIL, re-running until clean:
 
 ```bash
 "{VAULT}/.claude/scripts/park-verify.sh" "{VAULT}" "<session log>" N \
@@ -254,6 +256,8 @@ Output: the script's `RESULT:` line plus what you fixed.
 **Final evidence check:** apply §19 to the final session entry and all Park-owned writes, including backfill descriptions. Reconcile completion claims with surviving open items before assembling the review. If audit remediation or later edits change verified inputs, reconcile attribution and rerun Step 8 before reporting its PASS.
 
 ### 9. Audit (fresh sub-agent — standing authorisation)
+
+After successful batched preparation, give the reviewer the printed `audit-inputs.md` path and SHA-256 and require it to verify the digest before reading. That packet supplies the session record, file contents/targeted coverage, evidence and verifier result below; do not hand-copy them again. Add the existing protocol, attribution, write/remediation and attestation instructions. Rebuild after input changes; preparation success never substitutes for the audit's clean report.
 
 Despatch `/audit` via the Agent tool (`general-purpose`, `model: opus` — this seat verifies work the session already did, so its failure mode is bounded and review is a documented Opus-tier strength; seat-tiering rule: `_shared-rules-reviewer.md` §10. The propagation seat's anti-downgrade clause in Step 6 is unaffected). **Steps 10–11 must not begin until its report is in hand.** Gate on collection, not on despatch mode: whether the seat runs in the foreground is a harness detail you do not control, so requiring "collected before Step 10" holds either way, where "despatch it in the foreground" silently doesn't. The completion notification is the only signal the gate is met. Inline audits empirically rubber-stamp (cognitive load this deep into the park, recency bias on just-edited files, scope anchored to park's own edits); if you catch yourself walking the layers inline, stop and despatch. The brief must be self-contained, embedding verbatim:
 

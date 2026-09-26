@@ -9,6 +9,8 @@
 #   --touched  each file the session+park created or edited (repeatable)
 #   --reference PATH SHA256  preserved external reference, hash-bound by the
 #              review wrapper; still checked for Files-list coverage
+#   --nonlocal PATH  explicitly classified remote/secret-bearing artefact;
+#              retain Files-list coverage but never inspect/print its contents
 #
 # Paths (<session-log> and --touched) may be absolute, ~-prefixed, or relative to
 # <vault> - all three are normalised on entry.
@@ -65,12 +67,13 @@ norm_path() {
 LOG="$(norm_path "$LOG")"
 [ -f "$LOG" ] || { echo "ERROR: session log not found: $LOG" >&2; exit 1; }
 
-IDENTS=(); TOUCHED=(); REFERENCES=(); REFERENCE_HASHES=()
+IDENTS=(); TOUCHED=(); REFERENCES=(); REFERENCE_HASHES=(); NONLOCAL=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --ident)   [ $# -ge 2 ] || usage; IDENTS+=("$2"); shift 2 ;;
         --touched) [ $# -ge 2 ] || usage; TOUCHED+=("$(norm_path "$2")"); shift 2 ;;
         --reference) [ $# -ge 3 ] || usage; REFERENCES+=("$(norm_path "$2")"); REFERENCE_HASHES+=("$3"); shift 3 ;;
+        --nonlocal) [ $# -ge 2 ] || usage; NONLOCAL+=("$(norm_path "$2")"); shift 2 ;;
         *) usage ;;
     esac
 done
@@ -84,6 +87,34 @@ FAILS=0; REVIEWS=0
 pass()   { echo "PASS $1: $2"; }
 fail()   { echo "FAIL $1: $2"; FAILS=$((FAILS+1)); }
 review() { echo "REVIEW $1: $2"; REVIEWS=$((REVIEWS+1)); }
+
+is_nonlocal() {
+    local candidate
+    for candidate in "${NONLOCAL[@]:-}"; do
+        [ "$candidate" = "$1" ] && return 0
+    done
+    return 1
+}
+for excluded in "${NONLOCAL[@]:-}"; do
+    [ -n "$excluded" ] || continue
+    declared=false
+    for candidate in "${TOUCHED[@]:-}"; do
+        [ "$candidate" = "$excluded" ] && declared=true
+    done
+    if [ "$excluded" = "$LOG" ] || [ "$declared" != true ]; then
+        fail nonlocal "exemption must name a touched artefact other than the session log: $excluded"
+        echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+        exit 1
+    fi
+    pass nonlocal "content checks excluded; audit via supplied evidence: $excluded"
+done
+for reference in "${REFERENCES[@]:-}"; do
+    if [ -n "$reference" ] && is_nonlocal "$reference"; then
+        fail nonlocal "artefact cannot be both reference and nonlocal: $reference"
+        echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+        exit 1
+    fi
+done
 
 # Reference bytes are evidence, not editable output. Validate their identity
 # before exempting quoted source markers; never exempt live vault content.
@@ -155,6 +186,10 @@ SEP_HITS=""
 SEP_SCANNED=0
 SEP_SKIPPED=0
 for t in "${SEP_TARGETS[@]}"; do
+    if is_nonlocal "$t"; then
+        SEP_SKIPPED=$((SEP_SKIPPED + 1))
+        continue
+    fi
     if [ "${#VALID_REFERENCES[@]}" -gt 0 ] && grep -qxF -- "$t" <<< "$(printf '%s\n' "${VALID_REFERENCES[@]}")"; then
         SEP_SKIPPED=$((SEP_SKIPPED + 1))
         continue
@@ -194,6 +229,7 @@ fi
 # --- lint on touched .md files ----------------------------------------------
 LINT_HITS=""
 for t in "${TOUCHED[@]:-}"; do
+    is_nonlocal "$t" && continue
     [ -n "$t" ] && [ -f "$t" ] || continue
     case "$t" in *.md) ;; *) continue ;; esac
     case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
@@ -232,6 +268,7 @@ for ident in "${IDENTS[@]:-}"; do
     [ -n "$ident" ] || continue
     HITS=""
     for t in "${CLOSURE_TARGETS[@]}"; do
+        is_nonlocal "$t" && continue
         [ -f "$t" ] || continue
         h=$(grep -n -i -F -- "$ident" "$t" | grep -E '^[0-9]+:[[:space:]]*-[[:space:]]*\[ \]' || true)
         if [ -n "$h" ]; then

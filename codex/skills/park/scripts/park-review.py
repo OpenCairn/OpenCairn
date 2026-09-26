@@ -844,14 +844,18 @@ def cmd_run_verifier(args: argparse.Namespace) -> int:
     if not command:
         die("run-verifier requires a command after --")
     if Path(command[0]).name == "park-verify.sh" and len(command) >= 4:
-        if "--reference" in command:
-            die("reference exemptions are derived from verified classifications")
+        if "--reference" in command or "--nonlocal" in command:
+            die("reference/nonlocal exemptions are derived from verified classifications")
         vault = canonical_path(command[1])
         classifications = load_json(root / "files.json", {})
         reference_args: list[str] = []
         seen_references: set[Path] = set()
         for index, token in enumerate(command[:-1]):
             if token != "--touched":
+                continue
+            nonlocal_item = classifications.get(f"external::{command[index + 1]}", {})
+            if nonlocal_item.get("mode") == "nonlocal":
+                reference_args.extend(["--nonlocal", command[index + 1]])
                 continue
             source = canonical_path(command[index + 1], vault)
             item = classifications.get(str(source), {})
@@ -1700,7 +1704,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "",
             fenced(verifier["text"]),
             "",
-            "## One-pass checklist",
+            "## Checklist for this audit pass",
             "",
             "- Layer 1 — Does the approach serve the stated outcome?",
             "- Layer 2 — Do operating assumptions agree with the embedded evidence?",
@@ -1732,7 +1736,10 @@ def cmd_build(args: argparse.Namespace) -> int:
             "- Treat non-local paths only through embedded evidence. Use the propagation report for "
             "reference-graph coverage; do not repeat vault-wide searches.",
             "- Make no edits. Use no web, network, SSH, remote hosts, sub-agents, skill maintenance, "
-            "or adjacent cleanup. Run one bounded review pass.",
+            "or adjacent cleanup. Review this snapshot in one scoped pass. The main session applies "
+            "confirmed fixes and sends a rebuilt brief for re-audit; repeat the full checklist on each "
+            "new brief until a pass is clean. Do not treat a prior pass or a promised fix as evidence "
+            "that the current snapshot is clean.",
             "- Return only material findings introduced by this session. Omit style nits and speculative improvements.",
             "",
             "## Required evidence attestation",
@@ -1919,6 +1926,148 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prepare(args: argparse.Namespace) -> int:
+    """Run the mechanical review-preparation chain without model handoffs."""
+    sid, root, _, _ = state_paths(args.session_id)
+    vault = canonical_path(args.vault)
+    log = canonical_path(args.session_log, vault)
+    try:
+        handoff = json.load(sys.stdin)
+    except ValueError as exc:
+        die(f"invalid prepare JSON: {exc}")
+    allowed = {"classifications", "captures", "identifiers", "accept_inherited_lint"}
+    if not isinstance(handoff, dict) or set(handoff) - allowed:
+        die("prepare expects classifications, captures, identifiers and/or accept_inherited_lint")
+    for key in allowed:
+        if not isinstance(handoff.get(key, []), list):
+            die(f"prepare {key} must be a list")
+    for key in ("identifiers", "accept_inherited_lint"):
+        if not all(isinstance(value, str) and value.strip() for value in handoff.get(key, [])):
+            die(f"prepare {key} must contain nonempty strings")
+
+    parser = build_parser()
+    classifications = []
+    paths = set()
+    # Reuse the existing CLI's argument validation and mode-specific contracts.
+    for argv in handoff.get("classifications", []):
+        if not isinstance(argv, list) or not all(isinstance(v, str) for v in argv):
+            die("each classification must be a list of classify arguments")
+        if any(v in {"--vault", "--session-id", "--help", "-h"} or
+               v.startswith(("--vault=", "--session-id=")) for v in argv):
+            die("classification cannot override prepare's vault/session or request help")
+        item = parser.parse_args(["--session-id", sid, "classify", "--vault", str(vault), *argv])
+        if item.vault != str(vault):
+            die("classification cannot override prepare's vault")
+        identity = item.path if item.non_local else str(canonical_path(item.path, vault))
+        if identity in paths:
+            die(f"duplicate classification: {identity}")
+        paths.add(identity)
+        classifications.append(item)
+    captures = handoff.get("captures", [])
+    for item in captures:
+        if not isinstance(item, dict) or set(item) - {"kind", "label", "text", "source", "provenance"}:
+            die("invalid prepare capture fields")
+        if item.get("kind") not in {"evidence", "prestate", "propagation"}:
+            die("prepare cannot fabricate verifier or audit receipts")
+        if not all(isinstance(item.get(k), str) and item[k].strip() for k in ("label", "text")):
+            die("prepare captures require nonempty label and text")
+        if any(item.get(k) is not None and not isinstance(item[k], str) for k in ("source", "provenance")):
+            die("capture source and provenance must be strings")
+        if item.get("kind") == "evidence" and (not item.get("source") or item.get("provenance") not in {"primary", "secondary", "unverified"}):
+            die("evidence requires source and provenance")
+    if args.number < 1:
+        die("session number must be positive")
+    extract_session(log, args.number)
+    verifier = vault / ".claude/scripts/park-verify.sh"
+    if not verifier.is_file():
+        die(f"missing verifier: {verifier}")
+
+    started = time.monotonic()
+    run_path = root / "prepare-runs" / f"{uuid.uuid4().hex}.json"
+    timing = {"schema": 1, "started_at": now(), "session_log": str(log),
+              "session_number": args.number, "steps": [], "status": "running"}
+
+    def run_step(name, operation):
+        before = time.monotonic()
+        row = {"name": name, "status": "running"}
+        timing["steps"].append(row)
+        try:
+            rc = operation()
+            row["status"] = "passed" if rc in (None, 0) else "failed"
+            if rc not in (None, 0):
+                raise SystemExit(rc)
+        except BaseException as exc:
+            row["status"] = "failed"
+            row["error"] = str(exc)
+            raise
+        finally:
+            row["seconds"] = time.monotonic() - before
+            atomic_json(run_path, timing)
+            print(f"Prepare {name}: {row['status']} ({row['seconds']:.3f}s)")
+
+    def capture_inputs():
+        existing = load_captures(root)
+        for item in captures:
+            value = {k: item.get(k) for k in ("kind", "label", "text", "source", "provenance")}
+            # Exact evidence/pre-state replays add no information; distinct excerpts survive.
+            if item["kind"] != "propagation" and any(all(old.get(k) == v for k, v in value.items()) for old in existing):
+                continue
+            capture_record(root, **value)
+            existing.append(value)
+        return 0
+
+    def verify():
+        _, sections = extract_session(log, args.number)
+        manifest = load_json(root / "files.json", {})
+        touched = []
+        for heading in ("Files Created", "Files Updated", "Files Deleted"):
+            for path in parse_file_lines(sections.get(heading, ""), vault, manifest):
+                if f"external::{path}" not in manifest:
+                    path = str(canonical_path(path, vault))
+                if path not in touched:
+                    touched.append(path)
+        local, _ = partition_attributed_paths(touched, vault, manifest)
+        checked = set(local) | {log}
+        before = {str(p): sha256(p) if p.is_file() else None for p in checked}
+        command = [str(verifier), str(vault), str(log), str(args.number)]
+        for ident in handoff.get("identifiers", []):
+            command.extend(["--ident", ident])
+        for path in touched:
+            command.extend(["--touched", path])
+        print(f"Prepare touched paths from session Files lists: {len(touched)}")
+        rc = cmd_run_verifier(argparse.Namespace(session_id=sid, command=command,
+            label="park-verify", accept_inherited_lint=handoff.get("accept_inherited_lint", [])))
+        if rc:
+            return rc
+        latest = [x for x in load_captures(root) if x.get("kind") == "verifier"][-1]
+        if re.search(r"^REVIEW\b", latest["text"], re.MULTILINE):
+            die("verifier REVIEW requires explicit triage before building the brief")
+        if any((sha256(Path(p)) if Path(p).is_file() else None) != value for p, value in before.items()):
+            die("a verified input changed during prepare; reconcile and rerun")
+        verified_inputs.update(before)
+        return 0
+
+    verified_inputs = {}
+    try:
+        for i, item in enumerate(classifications, 1):
+            run_step(f"classify-{i}", lambda item=item: cmd_classify(item))
+        run_step("capture", capture_inputs)
+        run_step("verify", verify)
+        run_step("build", lambda: cmd_build(argparse.Namespace(session_id=sid, vault=str(vault),
+            session_log=str(log), number=args.number, out=None)))
+        if any((sha256(Path(p)) if Path(p).is_file() else None) != value for p, value in verified_inputs.items()):
+            die("a reviewed input changed during prepare; reconcile and rerun")
+        timing["status"] = "passed"
+        return 0
+    except BaseException:
+        timing["status"] = "failed"
+        raise
+    finally:
+        timing["seconds"] = time.monotonic() - started
+        atomic_json(run_path, timing)
+        print(f"Prepare timing: {run_path} ({timing['seconds']:.3f}s)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-id", help="override harness session id")
@@ -2004,6 +2153,14 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--number", required=True, type=int)
     build.add_argument("--out")
     build.set_defaults(func=cmd_build)
+
+    prepare = subparsers.add_parser(
+        "prepare", help="batch classification, supplied receipts, verification and review brief; JSON on stdin"
+    )
+    prepare.add_argument("--vault", required=True)
+    prepare.add_argument("--session-log", required=True)
+    prepare.add_argument("--number", required=True, type=int)
+    prepare.set_defaults(func=cmd_prepare)
 
     audit = subparsers.add_parser(
         "record-audit", help="cache a clean full-read audit against exact hashes"
