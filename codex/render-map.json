@@ -244,7 +244,7 @@
     "transcribecloud": {
       "source": ".claude/commands/transcribecloud.md",
       "render": "codex/skills/transcribecloud/SKILL.md",
-      "source_sha256": "65fce901d97e154924bbbdb611d9b8011007f8248673cdf4cf1cf33a87661c5e",
+      "source_sha256": "5eb7d81dffd66045909def77d736685f66d2c2c0708a3234e365d0a9a4de49a0",
       "render_sha256": "627f84e4d45f69532234093e9068fe821e0958ad5d88a27a44e25a48df113aa9"
     },
     "update": {
