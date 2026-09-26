@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "1f1c736f11f68ff80e455bb0cf8714b88fe2b49a4d0d3d00bb79118279666175",
-      "render_sha256": "9c9dbfe83fe866a922e1c924fab2c754c9c7ebc1729e65f8976db782b76510df"
+      "source_sha256": "c13da6862a6b2d8f7b845d8402bca8ba4556ae4783b39b9d46e51d16457274d0",
+      "render_sha256": "bcf0bcb454096a0a0f11ca3e778c9d86f02538ceacfcfd227983713ca9660ac9"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -202,7 +202,7 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "8fa1b1d91243858b44fd4343ef84c31838c9443dec798bf688c129104113f110",
+      "source_sha256": "6c70b7accc9ca8f4f13cae36e4e71f565821ad8c646a82554499d91706bf087a",
       "render_sha256": "5cbc856b128b0787ac931abe7a674887bd8f601509c9232e04b51bc01ddde452"
     },
     "set-project-status": {
@@ -244,7 +244,7 @@
     "transcribecloud": {
       "source": ".claude/commands/transcribecloud.md",
       "render": "codex/skills/transcribecloud/SKILL.md",
-      "source_sha256": "5e850eab05b7857ee1cfe804a234995c1d45835bd8679769c720a92709b41800",
+      "source_sha256": "65fce901d97e154924bbbdb611d9b8011007f8248673cdf4cf1cf33a87661c5e",
       "render_sha256": "627f84e4d45f69532234093e9068fe821e0958ad5d88a27a44e25a48df113aa9"
     },
     "update": {
@@ -280,14 +280,14 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "aa1a4670078c549120685e9d92164e9873c9f33c0fdecb5bb0c3020760449934",
+      "source_sha256": "c5f54a4bf88f14edfd009ca7045dd239e34c554d6ddef416afb7848bc7f0d973",
       "render_sha256": "4435bfe8898b9472c2986ae46f812b83f1aa19e44d283a6c1badd688a89835aa"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
       "render": "codex/skills/_shared-rules-content.md",
-      "source_sha256": "de1841c2de658d8dc5c6c5bcbcd45e3816ddd97a1abf4a31979d7be21892dd73",
-      "render_sha256": "4cfc6027d412c988d7f82673877545c1583af483081a94501a88c3d97a84e9ce"
+      "source_sha256": "e7cd2ede412266a15dd3ab5c7c980721e84772f7d7d304ffcc7105715b3087b2",
+      "render_sha256": "61b7e46a6aab1b34aa3cbcb6d97888ae72ab9d43432283556ba00e8f8410728a"
     }
   }
 }

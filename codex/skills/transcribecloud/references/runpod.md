@@ -25,7 +25,7 @@ Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. `--image` and `--
    ```
    Read `ssh.ip`, `ssh.port`, and `ssh_command` from the response where available. Treat missing fields or zero uptime as incomplete status, not proof of a dead pod; cross-check the pod detail/status view and an actual SSH readiness probe.
 
-   **Only if direct TCP is unreachable from the user's network** (common on restricted networks like GFW — test with `nc -zv <ip> <port>`): fall back to proxy SSH via `ssh.runpod.io`. The proxy's `PODID-HASH` is only in the web UI — ask the user to copy the `ssh PODID-HASH@ssh.runpod.io -i ~/.ssh/id_ed25519` line from Pods > whisperx-batch > Connect.
+   **Only if direct TCP is unreachable from the user's network** (common on restricted networks like GFW — test with `nc -zv <ip> <port>`): fall back to proxy SSH via `ssh.runpod.io`. RunPod's REST API returns the proxy command (documented; not yet exercised here): `curl -s -H "Authorization: Bearer $RUNPOD_API_KEY" https://api.runpod.io/v2/pods/<POD_ID> | jq -r .ssh.proxy.command`. If that call fails, ask the user to copy the `ssh PODID-HASH@ssh.runpod.io -i ~/.ssh/id_ed25519` line from Pods > whisperx-batch > Connect.
 
 4. Determine connection method:
    - **Direct TCP (ip + port from API):** standard `ssh ... "command"` works; supports SCP/SFTP.

@@ -129,7 +129,7 @@ Ranked by capability. For each:
   - *Fit:* …
   - *Capability:* …
 
-## Skip (hype / low-value)
+## Skip (low-value after both passes)
 - **[Thing]** — [why skipped, so it isn't re-surfaced]
   - *Capability:* [what it would unlock, and why that is not worth a trial now]
 
