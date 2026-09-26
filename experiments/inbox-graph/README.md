@@ -14,6 +14,8 @@ node. Pydantic checks the plan shape. Code checks coverage, paths, collisions an
 file snapshots, then calls the existing `locked-edit.sh` for every effect.
 A separate SQLite effect ledger reconciles a move or edit that landed before a
 node checkpoint. `steps.jsonl` records node starts, completions, pauses and errors.
+Locked-write receipts stay under the run directory's `effect-state/`, isolated
+from the invoking agent's session bookkeeping.
 
 ## Run
 

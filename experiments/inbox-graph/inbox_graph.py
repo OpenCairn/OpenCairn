@@ -351,7 +351,9 @@ class Runner:
                 db.execute('INSERT OR REPLACE INTO effects VALUES (?,?,?)', (key, 'intent', expected))
                 db.commit()
                 result = subprocess.run(args, input=payload, capture_output=True, text=True,
-                                        env={**os.environ, 'VAULT_PATH': str(vault)}, timeout=180)
+                                        env={**os.environ, 'VAULT_PATH': str(vault),
+                                             'OPENCAIRN_SESSION_ID': 'inbox-graph',
+                                             'CLAUDE_CONFIG_DIR': str(self.run_dir / 'effect-state')}, timeout=180)
                 if result.returncode:
                     raise RuntimeError(f'Locked write refused; stopped batch: {result.stderr[-2000:]}')
                 observed = digest(target.read_bytes()) if target.is_file() else None
