@@ -70,6 +70,8 @@ def test_approval_then_reopen_heals_links_and_verifies(workspace):
     assert result['verification']['remaining'] == []
     assert (vault / '04 Areas/Example/note.md').read_text() == 'original\n'
     assert '[[04 Areas/Example/note]]' in (vault / '04 Areas/Example/hub.md').read_text()
+    receipts = run / 'effect-state/.session-state/inbox-graph.project-move-receipts'
+    assert len(list(receipts.glob('*.json'))) == 1
 
 
 def test_reject_makes_no_changes(workspace):
