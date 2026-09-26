@@ -1,13 +1,13 @@
 ---
 name: park
-description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, and a bounded close-out review.
+description: Capture session with bookkeeping — quality gate, session log, project-doc update, open-loop routing, and a close-out audit that repeats until clean.
 ---
 
 # Park - Session Capture
 
 **Scoped rule loading:** `_shared-rules-planning.md` before project/task routing; `_shared-rules-reviewer.md` before attribution or reviewer preparation; `_shared-rules-content.md` before verbatim or structural operations. Read the applicable numbered sections at that point, from the same directory as the core `_shared-rules.md`; do not preload unrelated supplements.
 
-Capture a work session: proportional quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, and a bounded close-out review.
+Capture a work session: proportional quality gate, session log, project-doc update, reference-graph propagation, open-loop routing, and a close-out audit that repeats until clean.
 
 **Args:** `$park --quick` requests the fail-closed quick path below. Quick mode activates only when the complete argument string is exactly `--quick`; bare `$park` and every other argument string, including `--quick foo`, run the full protocol. Never infer quick mode from a quiet-looking session.
 
@@ -284,7 +284,9 @@ Add every propagation-touched file to the attribution list. Classify new locator
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the Step 2 inventory (including its non-ledger backstop), and the collected propagation/park-time edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
-**Verify:** run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
+**Batch the ready mechanical work:** after the reconciliation above, prefer `python3 "$PARK_REVIEW" prepare --vault "{VAULT}" --session-log "<session log>" --number N` with the JSON handoff described in [references/prepare.md](references/prepare.md). It batches supplied classifications/receipts, derives the complete deduplicated `--touched` list from the log, runs the receipt-wrapped verifier and builds Step 9's brief, with stage timings. It stops on FAIL, untriaged REVIEW or changed inputs. All preceding quality, propagation and routing gates still apply; this is not a quick-path shortcut.
+
+**Standalone verification** (when preparation is not ready to batch): run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
 
 ```bash
 python3 "$PARK_REVIEW" run-verifier -- \
@@ -305,11 +307,11 @@ Output: the script's `RESULT:` line plus what you fixed.
 
 **Final evidence check:** apply §19 to the final session entry and all Park-owned writes, including backfill descriptions. Reconcile completion claims with surviving open items before assembling the review. If audit remediation or later edits change verified inputs, reconcile attribution and rerun Step 8 before reporting its PASS.
 
-### 9. Bounded delta-aware audit (fresh read-only sub-agent — standing authorisation)
+### 9. Delta-aware audit until clean (fresh read-only sub-agent — standing authorisation)
 
-This is a **close-out review, not a nested `$audit` run**. Steps 4c, 6 and 8 already perform proportional hygiene, vault-wide propagation and deterministic verification. Keep the independent fresh-context check, but do not repeat those passes or import `$audit`'s panel, remediation or "iterate until clean" workflow.
+Run the independent close-out audit, remediate confirmed findings, and **re-audit until a full pass finds no further findings**. Keep the delta-aware scope and read-only reviewer; the main session owns remediation. This does not invoke `$audit` or its panel. **Steps 10–11 and the Park completion message must wait for the final clean report and accepted audit receipt.**
 
-Generate the brief from the post-backfill session log, raw session ledger, locked-edit/classification receipts, propagation receipt, latest verifier receipt, evidence receipts and hash-matching prior audit receipts:
+Use the brief and SHA-256 printed by a successful Step 8 `prepare` invocation when its inputs are unchanged. Otherwise generate the brief from the post-backfill session log, raw session ledger, locked-edit/classification receipts, propagation receipt, latest verifier receipt, evidence receipts and hash-matching prior audit receipts:
 
 ```bash
 python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --number N
@@ -331,15 +333,19 @@ Resolve the task name against `collaboration.list_agents` before spawning. On a 
 
 Omit both `model` and `reasoning_effort`: the reviewer must inherit the active park seat's model and reasoning effort exactly. Do not resolve, copy or hard-code their current names or values; omission keeps the match intact when the user changes either setting. `fork_turns: "none"` keeps the context fresh and does not change that inheritance. The propagation seat's anti-downgrade clause in Step 6 is unaffected.
 
-The generated brief is delta-aware: bounded semantic files are full-read once from immutable review copies; large semantic and local reference artefacts are checked only at their declared targets after the source hash and any review-copy hash are verified; mechanical-only files use exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread while their SHA-256 is unchanged. Complete PDF extraction is an index, never a whole-book coverage claim. Attestations bind full-read snapshots to original paths. The brief embeds the one-pass Layers 1–5 checklist, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
+The generated brief is delta-aware: bounded semantic files are full-read once per pass from immutable review copies; large semantic and local reference artefacts are checked only at their declared targets after the source hash and any review-copy hash are verified; mechanical-only files use exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread while their SHA-256 is unchanged. Complete PDF extraction is an index, never a whole-book coverage claim. Attestations bind full-read snapshots to original paths. The brief embeds the Layers 1–5 checklist for each pass, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
 
 Collect with `collaboration.wait_agent` in intervals no longer than 60 seconds until the report arrives. Do not infer completion from elapsed time or another proxy, and do not re-despatch merely because the seat is still running. If the same seat has explicitly said its review work is complete but remains running through repeated no-progress waits, send one report-only message. If it still does not yield, interrupt that seat and use `collaboration.followup_task` on the same task name with a no-tools, report-only instruction to return its existing evidence. Do not spawn a fresh audit before this same-seat recovery.
 
-For a completed report, re-run `session-ledger.sh --read` and reconcile any row attributed to the reviewer against the read-only contract. An unexpected reviewer write is not cured by a clean final file: inspect the target for lost concurrent content, replay any warranted vault delta through `locked-edit.sh`, and add the path to attribution/backfill. Then sanity-check each finding in the live file. The main seat may remediate confirmed, attributable findings in one fix round using the normal locked write mechanics, backfill any newly touched paths, re-read the changed portions and rerun the relevant deterministic check. Do not send the reviewer back for another pass; route anything needing external verification or a broader design decision as an open loop.
+For each completed report, re-run `session-ledger.sh --read` and reconcile any row attributed to the reviewer against the read-only contract. An unexpected reviewer write is not cured by a clean final file: inspect the target for lost concurrent content, replay any warranted vault delta through `locked-edit.sh`, and add the path to attribution/backfill. Then sanity-check each finding in the live file.
+
+**Remediate and repeat:** the main seat fixes confirmed, attributable findings using the normal locked write mechanics, backfills newly touched paths, refreshes affected classification/evidence receipts, re-reads the changed portions and reruns Step 8. Obtain the updated brief from `prepare`, or rebuild it explicitly after standalone verification, then use `collaboration.followup_task` to send the same independent reviewer the new brief path and SHA-256, with instructions to verify its digest and run the full scoped checklist again. Collect and assess that report by the same contract. Repeat after every fix round; there is no one-round cap. An incomplete report or missing attestation also requires a follow-up before claiming clean.
+
+If a finding requires unavailable evidence, a user decision or action beyond the authorised scope, report the concrete blocker and retain it as an open loop; do not label the audit clean or Park complete. For a disputed finding, send the reviewer the counter-evidence; unresolved disagreement is a blocker, not grounds for silently accepting or endlessly repeating the finding.
 
 On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "<resolved task name>" --from-brief`. The helper refuses a receipt unless the report says clean and attests every snapshot SHA-256 against its original path. It then checks the live originals: unchanged files remain eligible for later audit reuse; a changed file is accepted only when post-snapshot locked-edit receipts from other sessions form a complete hash chain and every session-owned locator remains intact. Traceable disjoint edits by another session therefore do not invalidate this park, but that file's snapshot receipt is not reused as a clean audit of its newer live bytes. A post-snapshot edit by this session requires a rebuilt brief and new review; an untraceable change or missing owned locator fails closed as possible overlap. The helper persists `pending`, completes its final live-byte check, then atomically promotes the receipt to `clean`, so interruption cannot strand a reusable receipt before finalisation. Do not create a clean receipt after findings/remediation without a new independent full read.
 
-Output: `✓ Audit: bounded clean pass` or `🔧 Audit: N findings fixed — see [paths]`.
+Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited clean — see [paths]`. If blocked: `✗ Audit: not clean — [blocker]`; do not proceed to the completion message.
 
 ### 10. Skill monitor
 
@@ -363,7 +369,7 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ✓ Reference graph: [N files updated | No identifier values changed — checked final enumeration; no propagation agent despatched]
 ✓ Open loops routed: N (This Week: X, Tickler: Y, Project: Z, Whimsy: W)
 ✓ park-verify: PASS
-✓ Audit: [bounded clean pass | N findings fixed]
+✓ Audit: [clean pass | N findings fixed and re-audited clean]
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
 
