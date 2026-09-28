@@ -45,7 +45,7 @@ GROKMD_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "GROK.md"
 # --- models (verify against GET /v1/models) -----------------------------------
 FAST = "grok-4.20-0309-non-reasoning"   # hot paths: fastest, zero reasoning tokens
 WORKHORSE = "grok-4.3"                  # high-volume analysis, 1M ctx
-DEEP = "grok-4.6"                       # best reasoning, 500k ctx (verified on /v1/models 2026-08-14)
+DEEP = "grok-4.7"                       # flagship reasoning (verified on /v1/models 2026-09-28)
 
 DEFAULT_TIMEOUT = 1200.0   # xhigh reasoning can think >90s before the first byte
 MAX_RETRIES = 3           # 429 / 5xx only; never retry a 4xx that isn't 429
