@@ -19,6 +19,8 @@ Capture a work session: proportional quality gate, session log, project-doc upda
 
 ### 0. Setup
 
+**Full-run measurements:** keep a count of completed independent audit reports, rounds of fixes after those reports, and distinct confirmed audit findings. Before every completion or blocked return (including quick mode), record the observed counts as described under **Measurement close-out** below. Missing evidence stays unknown; human review time requires the user's report. Passive transcript collection measures the full request, including the final response.
+
 Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`, then `"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"`; abort on either error (usual causes: `VAULT_PATH` unset, or a pending archive migration). Resolve `CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"`, read `$CODEX_ROOT/skills/_shared-rules.md`, and apply it throughout. `{VAULT}` below = the resolved vault path. Set `PARK_REVIEW="$CODEX_ROOT/skills/park/scripts/park-review.py"` and `PARK_ARTIFACT="{VAULT}/.claude/scripts/park-artifact.py"`; abort if either is absent.
 
 Get date and time from bash — `date +"%Y-%m-%d"` and `LC_TIME=C date +"%I:%M%p" | tr '[:upper:]' '[:lower:]'` (`LC_TIME=C` guards `%p`, which expands empty under many locales).
@@ -358,6 +360,16 @@ python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days
 ```
 
 `--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count. The exporter covers Claude Code sessions and Codex rollouts alike (Codex sessions appear as `codex-<id>` sections).
+
+### Measurement close-out (full, quick and blocked paths)
+
+Batch this with the last existing tool call before the final response; it does not replace any audit gate:
+
+```bash
+python3 "{VAULT}/.claude/scripts/park-metrics.py" record --harness codex --session-id "$CODEX_THREAD_ID" --outcome <completed|blocked|aborted> --review-rounds <completed reports> --correction-rounds <fix rounds> --confirmed-findings <distinct confirmed findings>
+```
+
+Use the actual harness transcript session ID (resolve via `lib-session.sh` when needed), not a synthetic bookkeeping suffix. Count independent audit reports only, including the clean pass; exclude propagation and report-only recovery. Count each accepted finding once. Omit any unknown count flag; do not turn missing data into zero. Quick success has zero audit counts only after its checks pass. A recording error is reported but does not block parking. The scheduled collector measures through the final response. Do not ask for human review time routinely; record it only when supplied by the user. Contract and report commands → `{VAULT}/.claude/scripts/park-metrics-guide.md`.
 
 ### 12. Full-path completion message
 
