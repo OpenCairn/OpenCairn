@@ -172,14 +172,14 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "54b33aa6c1c72fc871ff254f48ba0f7f2a2e6686f09e1adbaf06d0533fd8b748",
-      "render_sha256": "09ba4b33d3e38286f4b32785314cb5570964138f38c1ee698fd73ead29f7071b"
+      "source_sha256": "ae312774455395757336618141a21f9b3c1c3b356746334ae9877e91495a12aa",
+      "render_sha256": "7c016aa9c663d29719e69dc225d62b96d25a474f3a52e1ee63a6b05e69124a47"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
       "render": "codex/skills/quarterly-review/SKILL.md",
-      "source_sha256": "04fcb41940630953b6955afc8a7cc345354466ad7d3fe0f4aec2c850baea05bc",
-      "render_sha256": "e71f6a24e5d37283e73b3d8f470dc3edb7c33855739afd3e03c39fef531a4bc4"
+      "source_sha256": "4f3156edf271fb292bc81828590577b2e1905f4f5f99e566e1f630cda17d0325",
+      "render_sha256": "a9e40fd75355db9051973803a0036bb481d5faf031ba4d815969c74a4647378c"
     },
     "regroup": {
       "source": ".claude/commands/regroup.md",
@@ -268,8 +268,8 @@
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
       "render": "codex/skills/weekly-review/SKILL.md",
-      "source_sha256": "8fc84a3e9198f3b59bf6f47220a3db54c3bb467d227c88f248b91c5ef7899ca4",
-      "render_sha256": "fa6baeb464af7af2a6f1ce3d3812a0abf1843bd4f39d5a109ff12997e444beef"
+      "source_sha256": "0f3283e469c8a0969ec29ff98e83afaffb08ce0dbbd0e281188b78bfb646f0d3",
+      "render_sha256": "aa0b5384b86093fadd2e251a302864d3f6cf42032f436db5cfe2a4a2d479751a"
     },
     "_shared-rules-planning": {
       "source": ".claude/commands/_shared-rules-planning.md",
