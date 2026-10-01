@@ -1,6 +1,6 @@
 ---
 name: quarterly-hygiene
-description: "Quarterly deep vault maintenance: context-file review, CRM staleness, session-log archiving, skill-library flywheel audit, and panel model-currency checks."
+description: "Quarterly deep vault maintenance: context-file review, CRM staleness, session-log and daily-report archiving, skill-library flywheel audit, and panel model-currency checks."
 ---
 
 # Quarterly Hygiene - Deep Vault Maintenance
@@ -60,55 +60,61 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Present the complete proposed fold — every rule/date-list change, new rule, supersession and verbatim entry removal — and get explicit user approval before writing. Re-read the file, then apply the approved fold through one `locked-edit.sh --replace` operation against the unique literal OLD block; never edit the log directly.
    - Bump the "Last fold" date only in the approved write. Add a domain heading only when several rules cluster outside the current set; include that taxonomy change in the same approval — the buckets are a high-trust curation.
 
-6. **Session-log archiving (90-day rolling).**
-   Keep only the last ~90 days of session logs flat; roll older ones into `Session Logs/YYYY/` subfolders each quarter so the flat directory never piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`$weekly-hygiene` 13b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable.
-   - **Identify candidates once, partitioned by collision** (single-dir `ls` + date compare — not a tree walk). Cutoff is 90 days ago. List flat date-named logs older than the cutoff; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat log whose destination year folder already holds that basename is a **duplicate**, not a move candidate. Persist the exact result outside the vault and reuse it for the dry-run, confirmation, move/drag set and report — never recompute after confirmation. Keep the snippet free of bare dollar-digit awk fields so its Claude sibling is not mangled by the slash-command loader; ISO date names make plain string comparison correct:
+6. **Archive rolling (90-day): session logs and daily reports.**
+   Keep only the last ~90 days of session logs and daily reports flat; roll older ones into `Session Logs/YYYY/` and `Daily Reports/YYYY/` subfolders each quarter so neither flat directory piles into a mountain. Both consumers that resolve a log by date are subfolder-aware: `pickup-scan.sh` scans `-maxdepth 2`, and the provenance verifier (`$weekly-hygiene` 13b) falls back to `Session Logs/YYYY/YYYY-MM-DD.md` — so archived logs stay discoverable and hash-verifiable. Daily reports are addressed by date only for recent days (`$goodnight`, `$morning`), and `$weekly-review` falls back to `Daily Reports/YYYY/` when its period reaches past the cutoff. The move heals inbound links in non-hidden notes; dot-folder provenance snapshots are deliberately left byte-stable.
+   - **Identify candidates once, partitioned by collision** (single-dir `ls` + date compare per folder — not a tree walk). Cutoff is 90 days ago. List flat date-named files older than the cutoff in each folder; skip non-date files (e.g. an Obsidian Sync "Conflicted copy"). A flat file whose destination year folder already holds that basename is a **duplicate**, not a move candidate. Each row carries its folder, since both folders hold identical basenames. Persist the exact result outside the vault and reuse it for the dry-run, confirmation, move/drag set and report — never recompute after confirmation. Keep the snippet free of bare dollar-digit awk fields so its Claude sibling is not mangled by the slash-command loader; ISO date names make plain string comparison correct:
      ```bash
      CUTOFF=$(date -d "90 days ago" +%F 2>/dev/null \
        || date -v-90d +%F 2>/dev/null \
        || python3 -c "from datetime import datetime,timedelta; print((datetime.now()-timedelta(days=90)).strftime('%Y-%m-%d'))")
      [ -n "$CUTOFF" ] || { echo "ABORT: could not derive the 90-day cutoff" >&2; exit 1; }
-     LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
      ARCHIVE_PLAN=$(mktemp -t quarterly-hygiene-archive.XXXXXX)
-     ls -1 "$LOGS" | rg '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
-       [ "${f%.md}" \< "$CUTOFF" ] || continue
-       y=${f%%-*}
-       if [ -e "$LOGS/$y/$f" ]; then printf 'DUPLICATE|%s|%s\n' "$f" "$y"; else printf 'MOVE|%s|%s\n' "$f" "$y"; fi
+     for dir in "Session Logs" "Daily Reports"; do
+       BASE="{VAULT}/06 Archive/OpenCairn/$dir"
+       [ -d "$BASE" ] || continue
+       ls -1 "$BASE" | rg '^[0-9]{4}-[0-9]{2}-[0-9]{2}\.md$' | while read -r f; do
+         [ "${f%.md}" \< "$CUTOFF" ] || continue
+         y=${f%%-*}
+         if [ -e "$BASE/$y/$f" ]; then printf 'DUPLICATE|%s|%s|%s\n' "$dir" "$f" "$y"; else printf 'MOVE|%s|%s|%s\n' "$dir" "$f" "$y"; fi
+       done
      done > "$ARCHIVE_PLAN"
      printf 'ARCHIVE_PLAN=%s\n' "$ARCHIVE_PLAN"
      python3 -c 'import hashlib,sys; print("ARCHIVE_PLAN_SHA256=" + hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$ARCHIVE_PLAN"
-     while IFS='|' read -r kind f y; do printf '%s: %s -> %s/\n' "$kind" "$f" "$y"; done < "$ARCHIVE_PLAN"
+     while IFS='|' read -r kind dir f y; do printf '%s: %s/%s -> %s/\n' "$kind" "$dir" "$f" "$y"; done < "$ARCHIVE_PLAN"
      ```
      Record the printed plan path and hash and substitute them for `<ARCHIVE_PLAN>` and `<ARCHIVE_PLAN_SHA256>` below; shell variables do not survive between tool calls. If the plan disappears or its hash changes before execution, regenerate the dry-run and reconfirm the new exact list.
-   - **Dry-run and gates first:** present the persisted `MOVE` list grouped by destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. Confirm the vault's sync client is ON (or that the vault has none), then get explicit confirmation to move this exact list. If no interactive reply can be obtained, the run is unattended: report both lists, move nothing and continue to the report; the confirmation gate cannot be waived.
+   - **Dry-run and gates first:** present the persisted `MOVE` list grouped by folder, then destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`; K reports → `Daily Reports/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. State that the move also rewrites link targets in other notes that point at the moved files. Confirm the vault's sync client is ON (or that the vault has none), then get explicit confirmation to move this exact list. If no interactive reply can be obtained, the run is unattended: report both lists, move nothing and continue to the report; the confirmation gate cannot be waived.
    - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `$weekly-hygiene` holds for duplicate detection). If the user does ask for a resolution, the safe order is: byte-compare the pair and **refuse on any difference**, delete the *archived* copy, then move the flat copy into place with a link-aware move — the flat copy is the one inbound links resolve to, so it must be the survivor. Treat a refusal per `_shared-rules-content.md` §24 before calling it genuine. The user decides.
-   - **Move each confirmed file through `locked-edit.sh --move`.** Drive the persisted `MOVE` rows per **`_shared-rules-content.md` §24**, which owns the locks, Obsidian CLI behaviour and verification. Create each required destination-year folder in that list, then move each file; treat the first as a canary and abort the batch on any refusal:
+   - **Move each confirmed file through `locked-edit.sh --move`.** Drive the persisted `MOVE` rows per **`_shared-rules-content.md` §24**, which owns the locks, Obsidian CLI behaviour and verification. Create each required destination-year folder in that list, then move each file; treat the first as a canary and abort the batch on any refusal. A large batch outlasts the default command timeout: run the block with an extended timeout or in the background, and if it is cut off, re-run the same block against the same plan — `ALREADY MOVED` lines are completed moves, not duplicates:
      ```bash
-     LOGS="{VAULT}/06 Archive/OpenCairn/Session Logs"
      actual_plan_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "<ARCHIVE_PLAN>")"
      [ "$actual_plan_sha256" = "<ARCHIVE_PLAN_SHA256>" ] || { echo "ABORT: archive plan changed; regenerate and reconfirm"; exit 1; }
-     while IFS='|' read -r kind f y; do
+     while IFS='|' read -r kind dir f y; do
        [ "$kind" = "MOVE" ] || continue
-       mkdir -p "$LOGS/$y"
-       if [ -e "$LOGS/$y/$f" ]; then echo "SKIP (exists): $f"; continue; fi
-       source_path="$LOGS/$f"
-       destination_path="$LOGS/$y/$f"
+       BASE="{VAULT}/06 Archive/OpenCairn/$dir"
+       source_path="$BASE/$f"
+       destination_path="$BASE/$y/$f"
+       if [ -e "$destination_path" ]; then
+         if [ -e "$source_path" ]; then echo "SKIP (exists): $dir/$f"; else echo "ALREADY MOVED: $dir/$f"; fi
+         continue
+       fi
+       mkdir -p "$BASE/$y"
        source_sha256="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$source_path")"
        if "{VAULT}/.claude/scripts/locked-edit.sh" "$source_path" --move "$destination_path" "$source_sha256" </dev/null; then
-         echo "MOVED: $f -> $y/"
+         echo "MOVED: $dir/$f -> $y/"
        else
-         echo "ABORT: verified move failed for $f"
+         echo "ABORT: verified move failed for $dir/$f"
          exit 1
        fi
      done < "<ARCHIVE_PLAN>"
      ```
      The wrapper's expected hash is the source snapshot for that invocation. See **`_shared-rules-content.md` §24** for the failure contract; do not reproduce its internal CLI mechanics here.
-   - **Obsidian GUI drag-and-drop is an equivalent alternative** if the user would rather do it by hand: have them multi-select **only the `MOVE` files** and drag each year's batch into its folder — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Report the count once the user confirms the drag is done.
-   - **⛔ Never fall back to raw `mv`** — per **`_shared-rules-content.md` §24**, which also explains why a "globally unique basename" exception does not exist. If a link-aware move is unavailable, **move nothing**: report the `MOVE` list and defer the roll. Session logs cross-link each other densely, so one moved date can strand dozens of inbound links, and a roll that relocates the files while orphaning their links is worse than a roll not run.
+   - **Obsidian GUI drag-and-drop is an equivalent alternative** if the user would rather do it by hand: have them work one source folder at a time, multi-select **only that folder's `MOVE` files** and drag each year's batch into the year folder inside the same source folder (both folders hold identical basenames, so a batch dropped into the other folder's year is a mis-file) — colliding basenames stay out of the drag set, since Obsidian's behaviour on a name clash (rename vs refuse) is not something this skill should gamble the original on. Report the count once the user confirms the drag is done.
+   - **⛔ Never fall back to raw `mv`** — per **`_shared-rules-content.md` §24**, which also explains why a "globally unique basename" exception does not exist. If a link-aware move is unavailable, **move nothing**: report the `MOVE` list and defer the roll. Session logs and daily reports cross-link each other densely, so one moved date can strand dozens of inbound links, and a roll that relocates the files while orphaning their links is worse than a roll not run.
      Count the `SKIP (exists)` lines and carry the number into the report's skipped bullet — a silent skip is how duplication survives a pass that claims to be clean.
    - **Verify link integrity and put the numbers in the report** — §24's before/after unresolved-link counts, plus a confirmation that no moved date appears as an unresolved target. Record both totals in the report's link-integrity bullet; a roll reporting no numbers has verified nothing.
    - Record the confirmed sync state in the report. A structural batch run with sync off gets silently resurrected on the next reconnect — mechanism in §24.
-   - **Idempotent for moves, not for duplicates:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs. A skipped collision is the exception — the flat copy stays flat and older than every future cutoff, so it resurfaces each run. The `MOVE`/`DUPLICATE` partition is what keeps it distinguishable from a newly-aged log rather than padding the move count forever.
+   - **Idempotent for moves, not for duplicates:** files already inside a `YYYY/` subfolder are never re-listed by the flat `ls`, so re-running only moves newly-aged logs and reports. A skipped collision is the exception — the flat copy stays flat and older than every future cutoff, so it resurfaces each run. The `MOVE`/`DUPLICATE` partition is what keeps it distinguishable from a newly-aged file rather than padding the move count forever.
 
 7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
    The library-level layer of the cross-pollination system uses `${CODEX_HOME:-$HOME/.codex}/skills/_shared-patterns.md` as its index. Some installations also maintain a Claude-side skill-edit Stop hook and `~/.claude/cross-pollination.log`; treat those as optional evidence, not Codex prerequisites. Once a quarter, look across the **user-authored skill library** for infrastructure that's been reinvented rather than shared. System skills under `.system/` and versioned plugin-cache skills are vendor-owned and explicitly out of scope; proposing their consolidation into a personal index would create unstable pointers. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
@@ -162,9 +168,9 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - "Last fold" date bumped: [YYYY-MM-DD / n/a]
    - Fold pending approval: [summary of proposed changes / none]
 
-   ## Session-Log Archiving
-   - Flat session logs: N (keeping last ~90 days flat)
-   - Archived this run: N logs → YYYY/ subfolders (or "none — nothing older than 90 days")
+   ## Archive Rolling
+   - Flat session logs: N · flat daily reports: N (keeping last ~90 days flat)
+   - Archived this run: N logs, M reports → YYYY/ subfolders (or "none — nothing older than 90 days")
    - Skipped (already archived): N — flat copies whose year folder already holds that basename; duplication surfaced, nothing deleted [list or "none"]
    - Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
 
@@ -199,6 +205,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ CRM stale entries: N flagged
    ✓ Corrections-log fold: [applied (N entries folded) / pending approval / no distilled rules section / no log]
    ✓ Session logs: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
+   ✓ Daily reports: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
    ✓ Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Panel model currency: [N seats checked, M stale/unstable pins flagged / no panel configured]
@@ -224,4 +231,4 @@ Quarterly (last week of March, June, September, December), or as a precursor to 
 
 - **Feeds `$quarterly-review`:** the strategic review consumes this report for its Vault Health section.
 - **Consumes `$weekly-hygiene`:** carries forward unresolved structural findings rather than re-scanning.
-- **Archives session logs:** inventories logs older than 90 days and rolls confirmed files into `Session Logs/YYYY/` through `locked-edit.sh --move`; unattended runs stop after the dry run.
+- **Archives session logs and daily reports:** inventories files older than 90 days and rolls confirmed files into `Session Logs/YYYY/` and `Daily Reports/YYYY/` through `locked-edit.sh --move`; unattended runs stop after the dry run.

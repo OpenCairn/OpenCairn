@@ -9,7 +9,7 @@ description: Quarterly deep review - strategic alignment and direction. Consumes
 
 You are facilitating the user's quarterly review. This is the highest-altitude review — strategic direction and alignment over a 3-month horizon: the questions too heavy for weekly that accumulate debt if never asked.
 
-This is the **strategic half**, the reflective companion to `$quarterly-hygiene` (mechanical deep maintenance) — exactly as `$weekly-review` pairs with `$weekly-hygiene`. Vault structural health (context-file drift, CRM staleness, session-log archiving) is handled by `$quarterly-hygiene`; this skill **consumes its report** rather than re-deriving any of it.
+This is the **strategic half**, the reflective companion to `$quarterly-hygiene` (mechanical deep maintenance) — exactly as `$weekly-review` pairs with `$weekly-hygiene`. Vault structural health (context-file drift, CRM staleness, session-log and daily-report archiving) is handled by `$quarterly-hygiene`; this skill **consumes its report** rather than re-deriving any of it.
 
 ## Philosophy
 
@@ -96,7 +96,7 @@ This is the **strategic half**, the reflective companion to `$quarterly-hygiene`
 ### Part 2: Vault Health (from quarterly-hygiene)
 
 7. **Fold in the quarterly-hygiene findings.**
-   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its carried weekly findings, context/CRM status, corrections-log fold (including pending approvals), session-log archiving, flywheel proposals, panel-model currency and routed actions into the output's Vault Health section. A stale report is folded with its stale label; only if no report exists, write "No quarterly-hygiene report — run `$quarterly-hygiene` for vault structural maintenance" and move on.
+   This section is sourced entirely from the quarterly-hygiene report read in step 2 — no re-scanning here. Summarise its carried weekly findings, context/CRM status, corrections-log fold (including pending approvals), session-log and daily-report archiving, flywheel proposals, panel-model currency and routed actions into the output's Vault Health section. A stale report is folded with its stale label; only if no report exists, write "No quarterly-hygiene report — run `$quarterly-hygiene` for vault structural maintenance" and move on.
 
 8. **Execute strategic edits (user-confirmed only):**
    - Apply Direction.md updates the user approved during step 6 (user-provided text or explicitly approved replacement text). Re-read Direction.md immediately before each edit and use `"{VAULT}/.claude/scripts/locked-edit.sh" --replace` with a unique literal OLD block. On exit 2 or 3, re-read and retry; never fall back to a direct edit.
@@ -165,7 +165,7 @@ Projects to explicitly abandon rather than let linger:
 ## Vault Health
 *Source: Quarterly Hygiene Reports/YYYY-QN (current / stale — from YYYY-QN, re-run recommended / not found — run $quarterly-hygiene)*
 
-[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, corrections-log fold and pending approvals, session-log archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed. Not re-derived here.]
+[Summarised from the quarterly-hygiene report — carried weekly-hygiene structural findings, context-file drift, CRM stale entries, corrections-log fold and pending approvals, session-log and daily-report archiving status, skill-library flywheel findings, panel model-currency findings, actions taken/routed. Not re-derived here.]
 
 ## Next Quarter
 

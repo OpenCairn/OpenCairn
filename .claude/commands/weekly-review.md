@@ -49,8 +49,8 @@ Calendar assistance is available only when explicitly requested. Handle that req
    - If no reports exist, note this and suggest running `/weekly-hygiene` first (but continue with the review)
 
    **Week's activity data:**
-   - Read daily reports from `{VAULT}/06 Archive/OpenCairn/Daily Reports/` for dates from `PERIOD_START` to current date
-   - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/`. Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
+   - Read daily reports from `{VAULT}/06 Archive/OpenCairn/Daily Reports/` for dates from `PERIOD_START` to current date. Reports older than ~90 days are rolled into `Daily Reports/YYYY/`; look there when a date is absent from the flat folder
+   - **Daily report gap detection:** Compare the review period date range against files actually present in `Daily Reports/` (flat or its `YYYY/` subfolder). Flag any missing dates (e.g., "No daily report for Mar 18, 19, 20"). Include this in the review output under Challenges & Friction if gaps exist.
    - Read session summaries from `{VAULT}/06 Archive/OpenCairn/Session Logs/` for the same date range. While reading, collect Open Loops entries and note any that are 14+ days old and still unresolved — these are the producer for the review's "Aged Open Loops" section (the hygiene report does not track open loops; they come from session logs).
    - Use reports and the user’s account qualitatively. Do not infer attendance from calendar entries, effort from files touched, or failure from unfinished gap tasks. No execution scorecard, compulsory session totals, allocation percentages or event-by-event retrospective reconciliation.
    - Read the `03 Projects/` root docs to see active projects — each carries `bucket:` frontmatter; use `## Current Objective` and `## Next Actions` when present, but do not require them. Folder location is the status (root = active, `Cold/` = paused, `Backlog/` = unstarted). If the root doc count (excluding `Cold/` and `Backlog/`) exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent) — flag it and ask which project moves to `Cold/`
@@ -248,7 +248,7 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
 **Stop/Delegate:** [Confirmed choices, if any.]
 
 ## Daily Reports
-[Links to daily reports for drill-down]
+[Links to daily reports for drill-down — link each at the path where it was found; an archived report is `Daily Reports/YYYY/YYYY-MM-DD`]
 - [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] - Mon
 - [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] - Tue
 - etc.
