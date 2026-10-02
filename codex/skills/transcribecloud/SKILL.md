@@ -161,7 +161,7 @@ For recurring known speakers, read [references/voice-references.md](references/v
 
 ## Notes
 
-- Cloud uses multilingual `large-v3`; local `$transcribe` defaults to English-only `distil-large-v3`.
+- Cloud uses multilingual `large-v3`; local `$transcribe` defaults to English-only `distil-large-v3.5`.
 - Historical source-workflow validation is described in `references/voice-references.md`; this Codex port does not imply a new live GPU test.
 - Model downloads and dependency setup can dominate short jobs. Use live RunPod quotes; historical prices are not a current estimate.
 - Preserve the source workflow’s pinned image and dependency versions in `references/runpod.md`; verify CUDA, VAD and gated diarisation before the batch. Any version change needs end-to-end testing.

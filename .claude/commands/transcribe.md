@@ -1,11 +1,11 @@
 ---
 name: transcribe
-description: Transcribe audio files or YouTube videos using WhisperX (distil-large-v3) with optional speaker diarisation
+description: Transcribe audio files or YouTube videos using WhisperX (distil-large-v3.5) with optional speaker diarisation
 ---
 
 # Transcribe — Audio to Text
 
-Transcribe audio files using WhisperX with distil-large-v3, locally. Optional speaker diarisation via pyannote.
+Transcribe audio files using WhisperX with distil-large-v3.5, locally. Optional speaker diarisation via pyannote.
 
 ## When to use
 
@@ -123,15 +123,15 @@ min_speakers = MIN_SPEAKERS
 max_speakers = MAX_SPEAKERS
 
 # 1. Transcribe
-model = whisperx.load_model("distil-large-v3", device, compute_type=compute_type)
+model = whisperx.load_model("distil-large-v3.5", device, compute_type=compute_type)
 audio = whisperx.load_audio(audio_file)
 result = model.transcribe(audio, batch_size=batch_size)
 language = result["language"]
 
-# distil-large-v3 is English-only — its output on other languages is unreliable.
+# distil-large-v3.5 is English-only — its output on other languages is unreliable.
 if language != "en":
     raise SystemExit(
-        f"Detected language '{language}', but distil-large-v3 is English-only. "
+        f"Detected language '{language}', but distil-large-v3.5 is English-only. "
         "Re-run with a multilingual model (large-v3) or use /transcribecloud."
     )
 
@@ -256,7 +256,7 @@ Replace the placeholder variables with actual values.
    **Source:** `{YouTube URL or filename/path to audio file}`
    **Date transcribed:** {YYYY-MM-DD}
    **Duration:** {MM:SS or H:MM:SS}
-   **Model:** whisperx / distil-large-v3
+   **Model:** whisperx / distil-large-v3.5
    **Diarisation:** {yes (N speakers) | no}
    **Cleanup:** {yes | no (--raw)}
 
@@ -279,10 +279,10 @@ Replace the placeholder variables with actual values.
 ## Notes
 
 - WhisperX uses faster-whisper (CTranslate2 backend) which is faster than HF Transformers for inference.
-- distil-large-v3 is **English-only** — Phase 2 aborts if the detected language isn't English. For other languages, run the multilingual `large-v3` (much slower on CPU) or `/transcribecloud`. This is why the auto-caption step is best-effort rather than a non-English pathway.
+- distil-large-v3.5 is **English-only** — Phase 2 aborts if the detected language isn't English. For other languages, run the multilingual `large-v3` (much slower on CPU) or `/transcribecloud`. This is why the auto-caption step is best-effort rather than a non-English pathway.
 - GPU (CUDA) is used automatically if available; falls back to CPU with int8 quantisation.
-- Models are cached after first download (~1.5GB for distil-large-v3, ~2-4GB for pyannote diarisation models).
-- On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.
+- Models are cached after first download (~1.5GB for distil-large-v3.5, ~2-4GB for pyannote diarisation models).
+- On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3.5 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.
 - On GPU: transcription is near-instant; diarisation is also fast — an earlier ~20–30 min/hr claim was empirically disproven (a 46-min recording diarised in ~20s on a cloud RTX 4090; see `/transcribecloud` Notes).
 - Diarisation accuracy is best with 2-3 speakers in clear audio. Specify `--speakers N` when you know the count.
 
