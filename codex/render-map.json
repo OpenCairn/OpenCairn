@@ -238,14 +238,14 @@
     "transcribe": {
       "source": ".claude/commands/transcribe.md",
       "render": "codex/skills/transcribe/SKILL.md",
-      "source_sha256": "fbad50a4404b737f7377d6b9d32998963c049642e7af63dc12d42d463dd39df8",
-      "render_sha256": "dcf6e1828ed05b41eac8e8ff37f41e4dbb55d6dc8e742f34edcecc3cc2dac9fe"
+      "source_sha256": "edae6fbb0ac54ae3933c23ecc4685d568fb49dca5d0cfd276698c93453d95045",
+      "render_sha256": "ee577503e96d5afbf22a2e20283c2de06658e7e93d46dea8d1311bcf9b87577f"
     },
     "transcribecloud": {
       "source": ".claude/commands/transcribecloud.md",
       "render": "codex/skills/transcribecloud/SKILL.md",
-      "source_sha256": "5eb7d81dffd66045909def77d736685f66d2c2c0708a3234e365d0a9a4de49a0",
-      "render_sha256": "627f84e4d45f69532234093e9068fe821e0958ad5d88a27a44e25a48df113aa9"
+      "source_sha256": "f7560c5764b4409ee059795be2c1b65e85cfcc5ca0caee3779ef35ca570de0ec",
+      "render_sha256": "028d2db2b9e8c0c014325fd7d55fde44f9dac0be53b95c066cded3128f0f2831"
     },
     "update": {
       "source": ".claude/commands/update.md",
