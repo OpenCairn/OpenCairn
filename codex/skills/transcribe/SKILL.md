@@ -283,10 +283,9 @@ Check for an existing destination before writing. Do not append a duplicate tran
 ## Notes
 
 - WhisperX uses faster-whisper (CTranslate2 backend) which is faster than HF Transformers for inference.
-- distil-large-v3.5 is **English-only**. For a known non-English source, choose multilingual `large-v3` before inference; do not rely on the English-only model to detect unsupported speech. Phase 2 also aborts if it returns a non-English language code. For other languages, run the multilingual `large-v3` (much slower on CPU) or `$transcribecloud`. This is why the auto-caption step is best-effort rather than a non-English pathway.
+- distil-large-v3.5 is **English-only**. For a known non-English source, choose multilingual `large-v3` before inference; do not rely on the English-only model to detect unsupported speech. Phase 2 also aborts if it returns a non-English language code. For other languages, run the multilingual `large-v3` or `$transcribecloud`. This is why the auto-caption step is best-effort rather than a non-English pathway.
 - GPU (CUDA) is used automatically if available; falls back to CPU with int8 quantisation.
-- Models are cached after first download (~1.5GB for distil-large-v3.5, ~2-4GB for pyannote diarisation models).
-- On CPU without diarisation: ~0.2–0.6x realtime with distil-large-v3.5 (faster on modern multi-core CPUs; a 46-min batch ran in ~12 min wall time on one reference machine). With diarisation on CPU: add ~2-3x audio length.
+- Models are cached after first download.
 - On GPU: transcription is near-instant; diarisation is also fast — an earlier ~20–30 min/hr claim was empirically disproven (a 46-min recording diarised in ~20s on a cloud RTX 4090; see `../transcribecloud/references/voice-references.md` for the historical source test).
 - Diarisation accuracy is best with 2-3 speakers in clear audio. Specify `--speakers N` when you know the count.
 

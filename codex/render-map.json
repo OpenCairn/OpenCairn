@@ -238,8 +238,8 @@
     "transcribe": {
       "source": ".claude/commands/transcribe.md",
       "render": "codex/skills/transcribe/SKILL.md",
-      "source_sha256": "edae6fbb0ac54ae3933c23ecc4685d568fb49dca5d0cfd276698c93453d95045",
-      "render_sha256": "ee577503e96d5afbf22a2e20283c2de06658e7e93d46dea8d1311bcf9b87577f"
+      "source_sha256": "78c813b248cdaa743cb162d1b68a6dd292eb80a676a5cbf5899e384ce5ff924d",
+      "render_sha256": "5435366ee42a284793a4cb8522b7701b92fbe9d84b952827a19632d2eaf8db41"
     },
     "transcribecloud": {
       "source": ".claude/commands/transcribecloud.md",
