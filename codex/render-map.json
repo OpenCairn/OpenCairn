@@ -172,8 +172,8 @@
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
       "render": "codex/skills/quarterly-hygiene/SKILL.md",
-      "source_sha256": "ae312774455395757336618141a21f9b3c1c3b356746334ae9877e91495a12aa",
-      "render_sha256": "7c016aa9c663d29719e69dc225d62b96d25a474f3a52e1ee63a6b05e69124a47"
+      "source_sha256": "787c77c7f3193a332a70f78b280dba481d4309540790954381a9f2515a379c9b",
+      "render_sha256": "7923980d95a7365cc8c79bb05a9dea5db5f04166dc26305f75daf1b079c4d0e1"
     },
     "quarterly-review": {
       "source": ".claude/commands/quarterly-review.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "08484c2bed7519bb4437ea7be5045fada8ba2936a7cb479085cb27a3f3e542fb",
-      "render_sha256": "0b32f550f89e6c8c9a1378dd1de20bbe64af228354ecf49f4ecc61873d9cd7f1"
+      "source_sha256": "3e240fb1d0a7246a9df71ac626214106c2f41b87cea8da6363be3b14b8b8ecc7",
+      "render_sha256": "c182deb904eba18ea3e7a9d8345477585c56a53f46f20c5edbe950eacd713352"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
