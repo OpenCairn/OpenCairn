@@ -225,6 +225,20 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         self.assertIn('Meaning-bearing content.', packet)
         self.assertNotIn('Mechanical forward-link insertion only', packet)
 
+    def test_empty_config_uses_home_fallback_from_vault_working_directory(self):
+        import subprocess
+        home = self.base / 'home'
+        result = subprocess.run(
+            ['python3', str(SCRIPT), '--vault', str(self.vault),
+             '--session-log', str(self.log), '--number', '1'],
+            input=json.dumps(self.handoff), capture_output=True, text=True,
+            cwd=self.vault,
+            env={**os.environ, 'HOME': str(home), 'CLAUDE_CONFIG_DIR': ''})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(list((home / '.claude/.session-state').glob(
+            'fixture.park-prepare/*/audit-inputs.md')))
+        self.assertFalse((self.vault / '.session-state').exists())
+
     def test_fixture_writer_ledger_and_receipts_stay_in_fixture_state(self):
         import subprocess
         result = subprocess.run([str(REPO / '.claude/scripts/locked-edit.sh'),

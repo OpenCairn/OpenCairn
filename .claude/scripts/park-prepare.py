@@ -161,7 +161,7 @@ def prepare(args, data):
     sid = os.environ.get('OPENCAIRN_SESSION_ID') or os.environ.get('CLAUDE_CODE_SESSION_ID') or os.environ.get('CODEX_THREAD_ID')
     if not sid or not re.fullmatch(r'[A-Za-z0-9._-]+', sid):
         fail('A valid harness session id is required')
-    state = (Path(os.environ.get('CLAUDE_CONFIG_DIR', Path.home() / '.claude')) / '.session-state' / f'{sid}.park-prepare').resolve()
+    state = (Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude') / '.session-state' / f'{sid}.park-prepare').resolve()
     if state.is_relative_to(vault):
         fail('Preparation output must be outside the vault')
     out = state / uuid.uuid4().hex
