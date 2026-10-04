@@ -73,7 +73,7 @@ try:
     else:
         check(len(sys.argv) == 4 and re.fullmatch(r'[A-Za-z0-9._-]+',sys.argv[3]))
         target = pathlib.Path(sys.argv[2]).resolve(); sid = sys.argv[3]
-        state = pathlib.Path(os.environ.get('CLAUDE_CONFIG_DIR',pathlib.Path.home()/'.claude'))/'.session-state'
+        state = pathlib.Path(os.environ.get('CLAUDE_CONFIG_DIR') or pathlib.Path.home()/'.claude')/'.session-state'
         ledger = state/(sid+'.tsv')
         rows = [v.split('\t') for v in ledger.read_text().splitlines()]
         matched = [r for r in rows if len(r)>=3 and pathlib.Path(r[2]).resolve()==target]

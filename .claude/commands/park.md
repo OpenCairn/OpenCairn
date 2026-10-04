@@ -103,7 +103,7 @@ Quick parked.
 [Short session summary.]
 ```
 
-Keep every attributed lexical path spelling, including symlink aliases, in the Files record and preparation input. Preparation deduplicates content review by resolved physical identity while preserving aliases for attribution and attestation. A missing or dangling retained path fails preparation; it is not silently treated as a deletion.
+Keep every attributed lexical path spelling, including symlink aliases, in the Files record and preparation input. Preparation deduplicates content review by resolved physical identity while preserving aliases for attribution in the manifest. A missing or dangling retained path fails preparation; it is not silently treated as a deletion.
 
 Older session logs touched only by `add-forward-link.sh` may use its exact producer proof automatically through preparation. The helper requires a complete forward-link-only receipt chain for all logged operations ending at current bytes, with source/target session context checked. Explicit classification takes precedence. If any proof or chain is missing, changed or includes other writes, retain normal coverage; do not exempt a file merely because it is a session log or the command reported success.
 
