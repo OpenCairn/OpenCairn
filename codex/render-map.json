@@ -64,8 +64,8 @@
     "complete-project": {
       "source": ".claude/commands/complete-project.md",
       "render": "codex/skills/complete-project/SKILL.md",
-      "source_sha256": "d3d397c6c7ebc9027e12e95bba723013a9bb1e47e23bd2914c443471f98c0a76",
-      "render_sha256": "222a68a7171639cf4bce669709e713f6c6289dbc2850cdd4fae05cfd727ae36b"
+      "source_sha256": "85b60ade4b30c73915ad8f3ecf20978b2dbd7e205b9571758a577e1c049132fe",
+      "render_sha256": "9d2047ecbfac24fc44078c3c2e623468c47624cc84f58f386b99387e9cd9fc64"
     },
     "cornerstones": {
       "source": ".claude/commands/cornerstones.md",
@@ -286,8 +286,8 @@
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
       "render": "codex/skills/_shared-rules-content.md",
-      "source_sha256": "1ff86cfe30a58ffbf1c9767531afa82b19a74e995e58f9d544a4b274d99abe17",
-      "render_sha256": "ab58baf9458900e0b4f2bba10f954907fb8c64c8d090781fec2f6ccf5cf845bf"
+      "source_sha256": "194f3512ec3f9dc888557de2c4d5612fa83cbf2d239b4686b23d721180262d68",
+      "render_sha256": "6be04b7c4c6cf7b9f1020c1eace26604d9b7c7e7ea3268dec83837c3f4015606"
     }
   }
 }
