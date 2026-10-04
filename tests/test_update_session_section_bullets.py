@@ -31,10 +31,9 @@ class UpdateSessionSectionBulletTests(unittest.TestCase):
         return self.log.read_text()
 
     def test_file_list_rows_carry_exactly_one_bullet(self):
-        shapes = ('A.md - changed', '- A.md - changed', '  - A.md - changed',
-                  '\t- A.md - changed', '* A.md - changed', '+ A.md - changed',
-                  '- - A.md - changed', '-\tA.md - changed')
-        for section in ('Files Created', 'Files Updated'):
+        shapes = ('A.md - changed', '- A.md - changed', '* A.md - changed',
+                  '+ A.md - changed', '- - A.md - changed', '-\tA.md - changed')
+        for section in ('Files Created', 'Files Updated', 'Files Deleted'):
             for existing in ('None\n', '', '- Z.md - original\n'):
                 for flags in ((), ('--replace',)):
                     for shape in shapes:
@@ -54,10 +53,43 @@ class UpdateSessionSectionBulletTests(unittest.TestCase):
 
     def test_none_placeholder_can_still_be_written(self):
         before = HEAD + '### Files Created\n- A.md - mistaken\n' + TAIL
-        for placeholder in ('None', 'None (nothing created)'):
+        for placeholder in ('None', 'None.', 'None (nothing created)', 'None(nothing created)',
+                            'None \u2014 nothing created', 'None\u2014nothing created',
+                            'None - nothing created', '- None'):
             with self.subTest(placeholder=placeholder):
                 after = self.run_helper(before, placeholder + '\n', 'Files Created', '--replace')
                 self.assertEqual(after, HEAD + '### Files Created\n' + placeholder + '\n' + TAIL)
+
+    def test_filename_beginning_with_none_is_a_row(self):
+        before = HEAD + '### Files Updated\n- Z.md - original\n' + TAIL
+        for row in ('Nonesuch Notes.md - changed', 'None.md - changed', 'Nonexistent/A.md',
+                    'None-of-these.md - changed'):
+            with self.subTest(row=row):
+                after = self.run_helper(before, row + '\n', 'Files Updated', '--replace')
+                self.assertEqual(after, HEAD + '### Files Updated\n- ' + row + '\n' + TAIL)
+
+    def test_indented_lines_are_left_as_supplied(self):
+        body = ('A.md - restructured:\n'
+                '  - moved a section up\n'
+                '    continued description line\n'
+                '\t* tab-nested detail\n'
+                '* B.md - star bullet\n'
+                '  (also touched elsewhere)\n')
+        written = ('- A.md - restructured:\n'
+                   '  - moved a section up\n'
+                   '    continued description line\n'
+                   '\t* tab-nested detail\n'
+                   '- B.md - star bullet\n'
+                   '  (also touched elsewhere)\n')
+        for section in ('Files Created', 'Files Updated', 'Files Deleted'):
+            for existing in ('None\n', '- Z.md - original\n'):
+                for flags in ((), ('--replace',)):
+                    with self.subTest(section=section, existing=existing, flags=flags):
+                        before = HEAD + '### ' + section + '\n' + existing + TAIL
+                        after = self.run_helper(before, body, section, *flags)
+                        kept = existing if existing.startswith('- Z') and not flags else ''
+                        self.assertEqual(after, HEAD + '### ' + section + '\n' + kept
+                                         + written + TAIL)
 
     def test_prose_sections_are_left_verbatim(self):
         before = HEAD + '### Files Created\nNone\n' + TAIL

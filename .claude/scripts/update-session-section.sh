@@ -5,8 +5,9 @@
 #   Default: append after last entry (replaces "None" lines automatically)
 #   --replace: replace entire section content
 #   Section name without "### " prefix (e.g. "Summary", "Files Created")
-#   "Files Created" / "Files Updated" rows are written with exactly one leading
-#   "- " whether or not the caller supplied it; other sections stay verbatim
+#   "Files Created" / "Files Updated" / "Files Deleted" rows are written with
+#   exactly one leading "- " whether or not the caller supplied it; indented
+#   lines (nested bullets, continuations) and other sections stay verbatim
 #
 # Examples (use heredocs, not printf — printf interprets % as format specifiers):
 #   # Append to Summary (leading blank line creates paragraph break)
@@ -68,11 +69,10 @@ if [ -z "$CONTENT" ]; then
 fi
 
 # A file-list row is written with exactly one leading "- ", whether the caller sent
-# it bare, indented, doubled, or under another list marker. A marker is "-",
-# "*" or "+" followed by whitespace, so a dash-led filename keeps its dash.
+# it bare, doubled, or under another list marker. A marker is "-", "*" or "+"
+# followed by whitespace, so a dash-led filename keeps its dash.
 _bullet_row() {
     local row="$1"
-    row="${row#"${row%%[![:space:]]*}"}"
     while :; do
         case "$row" in
             [-*+][[:space:]]*) row="${row:1}"; row="${row#"${row%%[![:space:]]*}"}" ;;
@@ -84,14 +84,18 @@ _bullet_row() {
 }
 
 # Only the file-list sections hold one row per line; every other section is
-# prose and stays verbatim. Blank lines and a "None" placeholder pass through.
+# prose and stays verbatim. A row is a top-level line: an indented line is a
+# nested bullet or a continuation of the row above and passes through, as do
+# blank lines and a "None" placeholder ("None", "None.", or "None" followed by
+# whitespace, "(" or an em dash). "None.md" and "Nonesuch.md" are rows.
 case "$SECTION_NAME" in
-    'Files Created'|'Files Updated')
+    'Files Created'|'Files Updated'|'Files Deleted')
         NORMALISED=""
         while IFS= read -r line; do
             case "$line" in
-                None*) ;;
-                *[![:space:]]*) line=$(_bullet_row "$line") ;;
+                ''|[[:space:]]*) ;;
+                None|None.|None[[:space:]]*|None\(*|None—*) ;;
+                *) line=$(_bullet_row "$line") ;;
             esac
             NORMALISED="${NORMALISED}${line}
 "
