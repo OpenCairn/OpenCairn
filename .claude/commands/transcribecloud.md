@@ -116,12 +116,12 @@ Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. `--image` and `--
    - **Direct TCP (ip + port from API):** standard `ssh ... "command"` works; supports SCP/SFTP.
    - **Proxy SSH (`@ssh.runpod.io`):** use PTY wrapper `script -qec 'ssh -tt ...'`. No SCP — use `runpodctl send/receive` for file transfer.
 
-5. **Wait for pod to initialise.** Test SSH connectivity with retries; `-v` and the `grep` make the same call show which key authenticated:
+5. **Wait for pod to initialise.** Test SSH connectivity with retries; `-v` and the `rg` make the same call show which key authenticated:
 ```bash
 # TCP:
-ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT "echo ready" 2>&1 | grep -E '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
+ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT "echo ready" 2>&1 | rg '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
 # Proxy:
-script -qec 'ssh -tt -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" SSH_TARGET "echo ready; exit"' /dev/null 2>&1 | grep -E '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
+script -qec 'ssh -tt -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" SSH_TARGET "echo ready; exit"' /dev/null 2>&1 | rg '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
 ```
 - **Pass:** one `Offering public key:` line, naming `KEY`, then `Authenticated to …` and `ready`.
 - **No output:** no connection yet — wait and retry.
@@ -311,7 +311,7 @@ yt-dlp --cookies /workspace/yt-cookies.txt --sleep-interval 3 --max-sleep-interv
 ```
 This keeps the "download on pod" architecture (fast datacenter bandwidth) while authenticating the requests.
 
-**Privacy caveat:** the exported cookies file contains **all** browser cookies in Netscape format, not just YouTube's. Uploading it to a cloud pod means session tokens for every site you've logged into are on that pod until destruction. Mitigations: (a) filter the file to YouTube-only entries before upload — `grep -E '^(# |(#HttpOnly_)?([a-z0-9.-]*\.)?(youtube|google)\.com[[:space:]])' /tmp/yt-cookies.txt > /tmp/yt-only-cookies.txt` — note the `#HttpOnly_` alternate: Netscape-format exports prefix HttpOnly cookie *lines* with `#HttpOnly_`, and YouTube's key auth cookies (e.g. `LOGIN_INFO`, `SSID`) are HttpOnly, so a filter matching only `^# |^\.youtube` silently strips the very cookies that authenticate; or (b) use Option 2 if privacy concerns outweigh the speed win.
+**Privacy caveat:** the exported cookies file contains **all** browser cookies in Netscape format, not just YouTube's. Uploading it to a cloud pod means session tokens for every site you've logged into are on that pod until destruction. Mitigations: (a) filter the file to YouTube-only entries before upload — `rg '^(# |(#HttpOnly_)?([a-z0-9.-]*\.)?(youtube|google)\.com[[:space:]])' /tmp/yt-cookies.txt > /tmp/yt-only-cookies.txt` — note the `#HttpOnly_` alternate: Netscape-format exports prefix HttpOnly cookie *lines* with `#HttpOnly_`, and YouTube's key auth cookies (e.g. `LOGIN_INFO`, `SSID`) are HttpOnly, so a filter matching only `^# |^\.youtube` silently strips the very cookies that authenticate; or (b) use Option 2 if privacy concerns outweigh the speed win.
 
 **Option 2 (fallback): download locally with browser cookies, then transfer the MP3s to the pod.**
 Run locally:
@@ -338,7 +338,7 @@ Otherwise use `runpodctl send/receive` (works over proxy SSH too). `send` prints
 ```bash
 # Locally — detached send; returns immediately:
 nohup runpodctl send /path/to/audio/directory > /tmp/rp-send.log 2>&1 &
-sleep 2 && grep -o 'runpodctl receive [a-z0-9-]*' /tmp/rp-send.log   # capture the code
+sleep 2 && rg -o 'runpodctl receive [a-z0-9-]*' /tmp/rp-send.log   # capture the code
 
 # On pod (one SSH session), using the captured code:
 ssh -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT 'mkdir -p /workspace/audio && cd /workspace/audio && runpodctl receive <code>'

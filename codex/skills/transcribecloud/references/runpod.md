@@ -31,12 +31,12 @@ Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. `--image` and `--
    - **Direct TCP (ip + port from API):** standard `ssh ... "command"` works; supports SCP/SFTP.
    - **Proxy SSH (`@ssh.runpod.io`):** use PTY wrapper `script -qec 'ssh -tt ...'`. No SCP — use `runpodctl send/receive` for file transfer.
 
-5. **Wait for pod to initialise.** Test SSH connectivity with retries; `-v` and the `grep` make the same call show which key authenticated:
+5. **Wait for pod to initialise.** Test SSH connectivity with retries; `-v` and the `rg` make the same call show which key authenticated:
 ```bash
 # TCP:
-ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT "echo ready" 2>&1 | grep -E '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
+ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT "echo ready" 2>&1 | rg '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
 # Proxy:
-script -qec 'ssh -tt -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" SSH_TARGET "echo ready; exit"' /dev/null 2>&1 | grep -E '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
+script -qec 'ssh -tt -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ControlPath=none -o IdentitiesOnly=yes -i "KEY" SSH_TARGET "echo ready; exit"' /dev/null 2>&1 | rg '^ready|Offering public key|Authenticated to|Too many authentication failures|Permission denied'
 ```
 - **Pass:** one `Offering public key:` line, naming `KEY`, then `Authenticated to …` and `ready`.
 - **No output:** no connection yet — wait and retry.

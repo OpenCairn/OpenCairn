@@ -12,7 +12,7 @@ When a skill writes **verbatim external text** to the vault — a transcript, a 
 
 1. **Never let a hooked harness re-edit a verbatim note.** Write the synthesis header however you like, but the verbatim body is appended via the shell (`printf '\n' >> "$dest"; cat "$body_file" >> "$dest"`) and the note is never rewritten wholesale afterwards — any full-file rewrite by a hooked harness re-fires that harness's hook on the whole body.
 2. **Path-level exclude is the robust defence.** If a formatting hook reads an exclude list (`exclude_paths` in a `config.local.json`-style file), the verbatim-output folder belongs on it — that holds regardless of which harness writes, and it is the only defence that survives collateral edits (adding wikilinks to a note that itself holds verbatim quotes).
-3. **Inline identifiers and bare URLs.** In normalised prose, wrap stray foreign-spelled tokens and every bare URL in an inline code span (backticks) — a normaliser matches inside a URL's path segments, silently turning a correct citation into a 404 that reads to a later reader as fabricated. After writing any note carrying citations, extract its URLs (`grep -o 'https\?://[^ )`]*' <file>`) and confirm each still matches the source — verify after the write, not before.
+3. **Inline identifiers and bare URLs.** In normalised prose, wrap stray foreign-spelled tokens and every bare URL in an inline code span (backticks) — a normaliser matches inside a URL's path segments, silently turning a correct citation into a 404 that reads to a later reader as fabricated. After writing any note carrying citations, extract its URLs (`rg -o 'https?://[^ )`]*' <file>`) and confirm each still matches the source — verify after the write, not before.
 4. **A hook's actual matcher is established empirically, never assumed.** Before relying on any bypass (shell append vs editor write), write a control file containing a known-rewritable token via each write route, re-read it, and record the result in the project's own reference doc.
 
 ---
@@ -77,10 +77,10 @@ md = '\n'.join(l for l in md.split('\n')
 print(md.strip())
 PY
 echo "body words: $(wc -w < "$BODY")"
-grep -cE '<div|</div|<span|base64' "$BODY" || true   # leak check — expect 0 (grep exits 1 on no match; that's fine)
+rg -c '<div|</div|<span|base64' "$BODY" || echo 0   # leak check — expect 0 (rg prints nothing and exits 1 on no match, hence the echo)
 ```
 
-**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`grep -oE '<(article|main|section|div)[^>]*class="[^"]*"' "$HTML" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `$BODY` (a few lines) to confirm it starts/ends in transcript content.
+**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`rg -o '<(article|main|section|div)[^>]*class="[^"]*"' "$HTML" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `$BODY` (a few lines) to confirm it starts/ends in transcript content.
 
 **Metadata for the header, without reading the body** — published description (covers Ghost's `og:`/`twitter:` variants) and the section outline:
 
@@ -94,21 +94,21 @@ for sel in ('meta[name=description]', 'meta[property="og:description"]', 'meta[n
     if m and m.get('content'):
         print('DESC:', m['content']); break
 PY
-grep -E '^#{2,3} ' "$BODY"      # section outline, for the cruxes
+rg '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 ```
 
 **Names and speakers: the page's human-written text outranks the transcript body — per field.** The body wins on prose; it does **not** win on identity. A *published* transcript is frequently the publisher's own ASR, which garbles names phonetically and assigns speaker labels by voice-clustering guess: turns come out as `Unknown`, or get handed to whoever spoke last. The show notes, chapter list, resource links and pull-quotes on that same page are typed by a person. Each check below states the command **and** the observation that separates pass from fail — without the second half every one of them returns something plausible under both hypotheses and manufactures confidence.
 
 **First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary; everything below is scoped to one side or the other:
 ```bash
-BOUND=$(grep -nE '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | head -1 | cut -d: -f1)
+BOUND=$(rg -n '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | head -1 | cut -d: -f1)
 if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no heading})"; else echo "boundary line: $BOUND"; fi
 ```
 **⛔ `SPLIT FAILED` aborts the two checks below — do not run them.** This guard is the point: with `$BOUND` empty the slice commands error, but the errors are swallowed by their pipes and each check still emits a *plausible* result — an empty name set (which the rule reads as "the page never names them") and an empty timestamp scan (read as "no usable segment map"). A broken split therefore disguises itself as a legitimate finding *about the page*, which is the same confirmatory-only defect one level up. `BOUND < 3` catches the other direction: a nav link or a heading on line 1 matched first, which leaves the "human-written half" as a single heading line — and a degenerate range like `1,0p` may be accepted silently rather than erroring (`sed` behaviour here is implementation-dependent), so the guard cannot rely on the slice itself failing loudly. On `SPLIT FAILED`, say the halves are unseparated and **flag** names rather than resolving them.
 
 - **Provenance defaults to unverified, and only positive evidence upgrades it.** Absence of a disclaimer is not evidence of human editing — it is equally consistent with a differently-worded disclaimer, or one outside the selected container. So the header value starts at `published transcript (provenance unverified)` and moves to `(source-provided, auto-generated)` on a match, or to `(human-edited)` only where the page positively claims editing:
   ```bash
-  sed -n "1,$((BOUND+8))p" "$BODY" | grep -niE 'automatically generated|auto-generated|AI-generated|machine.generated|may contain errors|transcribed by'
+  sed -n "1,$((BOUND+8))p" "$BODY" | rg -ni 'automatically generated|auto-generated|AI-generated|machine.generated|may contain errors|transcribed by'
   ```
   **Scope it to the boundary region, not the whole body** — a disclaimer sits within a few lines of the transcript heading, whereas on an AI-topic episode those same phrases appear in the transcript as *subject matter* and would downgrade provenance on topical content. **Fail observation: zero matches ⇒ `provenance unverified`, never `human-edited`.** Never let the null select the stronger claim.
 - **Names — compare the matched tokens, not the match count.** A stem grep is non-empty whether the two halves agree or diverge, so hit-count cannot detect garbling. Extract and diff the actual tokens, one side at a time:
@@ -126,7 +126,7 @@ if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no h
   A turn whose timestamp falls inside a segment naming one participant is that participant, and the show-notes prose says who argued what. **Fail observation: no line carrying a leading timestamp ⇒ there is no usable segment map — fall back to conversational cues, and attribute nothing you cannot place.** A non-empty *outline* is not a usable map; the map must carry times.
 - **Never edit the verbatim body to match** (per §14) — correct the header/synthesis and report the divergence.
 
-⚠️ The word/leak gate above tests a fixed tag set, so inline tags outside it survive into `$BODY` — which matters here in a way it doesn't for verbatim appending, because a surviving tag run buries the divergence mid-line inside multi-thousand-character prose. Pipe through `sed -E 's/<[^>]+>//g'` when resolving identity, and count what actually survived — `grep -coE '<[a-z][^>]*>' "$BODY"` — since the gate itself can only ever report on the tags it enumerates. A non-zero count is the reason to widen that set for the next run.
+⚠️ The word/leak gate above tests a fixed tag set, so inline tags outside it survive into `$BODY` — which matters here in a way it doesn't for verbatim appending, because a surviving tag run buries the divergence mid-line inside multi-thousand-character prose. Pipe through `sed -E 's/<[^>]+>//g'` when resolving identity, and count what actually survived — `rg -c '<[a-z][^>]*>' "$BODY" || echo 0` — since the gate itself can only ever report on the tags it enumerates. A non-zero count is the reason to widen that set for the next run.
 
 **Fallback (no published transcript / JS-rendered):** machine-transcribe the audio/video instead — the WhisperX path (`$transcribe` locally, `$transcribecloud` on a cloud GPU). Much heavier; tell the user before launching a batch.
 
