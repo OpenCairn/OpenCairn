@@ -551,7 +551,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
    **Upgrade OTS proofs:**
-   For entries with OTS status "pending", try `ots upgrade` on the corresponding `.ots` file in `07 System/.Provenance/` (calendar servers — works without a node). If upgrade succeeds, update the provenance log entry to "confirmed".
+   For entries with OTS status "pending", resolve the row's proof before upgrading. Current proofs carry the first 8 characters of the logged hash:
+   ```bash
+   ls "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".ots 2>/dev/null | head -1
+   ```
+   A printed path is the proof. No output → look for a proof named after the row's file instead (older naming), in `07 System/.Provenance/` or beside the resolved target. Still nothing → the row is an **orphan log entry**: it says pending but has no proof to upgrade, so no later sweep can confirm it. Report it by row, separately from pending; don't count it there.
+
+   For each resolved proof, run `ots upgrade` (calendar servers — works without a node). `Success! Timestamp complete` (exit 0) → update the provenance log entry to "confirmed". `Failed! Timestamp not complete` (exit 1) → **genuinely pending**: the proof exists and the calendars have not anchored it yet.
 
    **Verify OTS proofs:**
    For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
@@ -716,7 +722,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Hash mismatches: N (files edited after logging; git fallback found no matching blob)
    - Missing files: N
    - OTS confirmed: N
-   - OTS pending: N
+   - OTS pending: N (proof present, not yet anchored)
+   - OTS orphan log entries: N (row says pending, no proof file) [rows or "none"]
    - OTS upgraded this sweep: N
 
    ## Context File Staleness
