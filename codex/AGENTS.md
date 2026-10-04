@@ -10,6 +10,10 @@ The Obsidian vault is at `$VAULT_PATH` (normally `$HOME/Files`). Before vault wo
 
 If that errors, stop and report — do not guess a path.
 
+## Artifact prerequisites
+
+Before an artifact authoring operation, read the selected skill’s actual runtime requirements. Diagnose missing plumbing with `{VAULT}/.claude/scripts/artifact-runtime-preflight.py` and its companion guide: select only the required profile and honour permitted fallbacks. Inspect authoring and binary-ingress results separately. Marker presence and a successful import do not certify marker invocation, artifact QA or whole-skill support.
+
 ## Vault writes take the lock
 
 This vault runs concurrent agent sessions. ALL writes inside `$VAULT_PATH` — creates, edits, appends, any file — go through the locking wrapper, never through direct file writes, `sed -i`, `tee`, or editor tools:
