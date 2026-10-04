@@ -400,6 +400,12 @@ Weekly review saved. Calendar scheduling stays with the user unless explicitly r
 The user manages the calendar; This Week tasks fill daily gaps. Daily execution need not reread the strategy or weekly values section.
 ```
 
+10. **Offer capture triage — do not wait to be asked.** The review inspects capture surfaces; it does not empty them, and nothing else in the weekly rhythm starts that work. In the same response as the confirmation, when Task-surface coverage lists untriaged capture surfaces (the quick-capture inbox, scratchpads carrying a hygiene marker, capture destinations holding unprocessed items):
+   - Name each surface with its item count, then present the first surface's captures as one numbered proposal: each capture's wording, with a proposed home from the review map's capture routes or a disposition (delete as already done / leave in place). Group captures you cannot place and say so; do not guess a home.
+   - The user accepts or overrides by number in one reply. File accepted items through `locked-edit.sh`, read back each destination, and remove the surface's hygiene marker once it no longer meets the marker's threshold. Captures the user leaves stay in place verbatim.
+   - Then offer the next surface. The user may stop at any point; untriaged surfaces remain listed under **Still due**.
+   - If no capture surface is untriaged, say so in one line. Listing triage under **Still due** without making this offer is the failure this step exists to prevent.
+
 ## Guidelines
 
 - **Always check current date:** First step - run `date` command to calculate accurate week boundaries. Never assume.
