@@ -16,7 +16,7 @@
 #   [git-history] vault commits inside the window, with name-status per commit;
 #                preserves intermediate paths that automatic commits removed
 #   [vault]      visible vault-body files modified inside the window, excluding
-#                transient roots and hidden metadata directories
+#                hidden metadata directories (all visible body roots included)
 #   [transient]  vault transient-surface *.md modified inside the window
 #                (01 Now, 02 Inbox - never a find from the vault root: .git crawl)
 #
@@ -118,7 +118,6 @@ find "$VAULT" -maxdepth 1 -type f ! -name '.*' \
     | sed 's/^/[vault]\t/' || true
 for body_root in "$VAULT"/*; do
     [ -d "$body_root" ] || continue
-    case "$body_root" in "$VAULT/01 Now"|"$VAULT/02 Inbox") continue ;; esac
     find "$body_root" \( -type d \( -name '.*' -o -name __pycache__ \) \) -prune -o \
         -type f \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
         | sed 's/^/[vault]\t/' || true
