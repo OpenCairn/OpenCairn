@@ -553,13 +553,27 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
    **Upgrade OTS proofs:**
-   For entries with OTS status "pending", resolve the row's proof before upgrading. Current proofs carry the first 8 characters of the logged hash:
+   For entries with OTS status "pending", find the row's proof and confirm it is this row's before upgrading. A proof is named either with the first 8 characters of the logged hash (`/provenance`) or after the row's file — in `07 System/.Provenance/`, or beside the target, where `ots stamp` writes `<file>.ots`. A name only makes a candidate; the digest inside the proof decides (`ots info` prints the file hash on its first line):
    ```bash
-   ls "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".ots 2>/dev/null | head -1
+   # FILE = the row's File column, TARGET = the resolved target path (empty when the row is MISSING)
+   LOGGED="<logged 16-hex short hash>"; FILE="<File column>"; TARGET="<resolved target path>"
+   P="{VAULT}/07 System/.Provenance"; BN=$(basename "$FILE"); N=0; LAST=
+   [ -d "$P" ] || { echo "ERROR: no $P — nothing searched"; exit 1; }
+   for C in "$P/"*-"${LOGGED:0:8}".ots "$P/$BN.ots" "$P/${BN%.*}.ots" ${TARGET:+"$TARGET.ots"}; do
+     [ -f "$C" ] && [ "$C" != "$LAST" ] || continue; LAST=$C
+     D=$(ots info "$C" 2>/dev/null | head -1); D=${D##* }
+     if [ -n "$D" ] && [ "${D:0:16}" = "$LOGGED" ]; then N=$((N+1)); echo "PROOF: $C"; else echo "NOT THIS ROW'S PROOF (digest ${D:-unreadable}): $C"; fi
+   done
+   echo "$N matching proofs"
    ```
-   A printed path is the proof. No output → look for a proof named after the row's file instead (older naming), in `07 System/.Provenance/` or beside the resolved target. Still nothing → the row is an **orphan log entry**: it says pending but has no proof to upgrade, so no later sweep can confirm it. Report it by row, separately from pending; don't count it there.
-
-   For each resolved proof, run `ots upgrade` (calendar servers — works without a node). `Success! Timestamp complete` (exit 0) → update the provenance log entry to "confirmed". `Failed! Timestamp not complete` (exit 1) → **genuinely pending**: the proof exists and the calendars have not anchored it yet.
+   - **`1 matching proofs`** → run `ots upgrade "<the PROOF path>" 2>&1` (calendar servers — works without a node) and classify by its output, not its exit code:
+     - `Success! Timestamp complete` → update the provenance log entry to "confirmed".
+     - a `Calendar <url>:` line carrying the calendar's own reply — `Pending confirmation in Bitcoin blockchain`, or `Timestamped by transaction … waiting for N confirmations` → **genuinely pending**: a calendar was reached and has not anchored the proof yet.
+     - anything else → **upgrade inconclusive**: report the output and leave the status unchanged. Unreachable calendars land here — they end in the same `Failed! Timestamp not complete` and exit 1 as a pending proof, with a connection error on every `Calendar` line.
+   - **Several matching proofs** → report them; upgrade nothing and write nothing.
+   - **`0 matching proofs` with a `NOT THIS ROW'S PROOF` line** → report the line; the row stays pending and is not an orphan.
+   - **`0 matching proofs` and no other line** → report the row as an **orphan log entry — no proof at the names searched**, by row, apart from pending, status unchanged. That is a statement about these names only; a proof filed under another name is not ruled out.
+   - **`ERROR`** → nothing was searched; fix the vault path and re-run before reporting the row.
 
    **Verify OTS proofs:**
    For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
@@ -724,8 +738,9 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Hash mismatches: N (files edited after logging; git fallback found no matching blob)
    - Missing files: N
    - OTS confirmed: N
-   - OTS pending: N (proof present, not yet anchored)
-   - OTS orphan log entries: N (row says pending, no proof file) [rows or "none"]
+   - OTS pending: N (a calendar was reached and has not anchored the proof)
+   - OTS not upgraded: N (upgrade inconclusive, several matching proofs, or a name-matched proof with another digest) [rows with reason, or "none"]
+   - OTS orphan log entries: N (row says pending; no proof at the names searched) [rows or "none"]
    - OTS upgraded this sweep: N
 
    ## Context File Staleness
