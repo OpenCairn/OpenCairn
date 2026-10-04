@@ -247,19 +247,6 @@ rg -n -F -t md -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- "$H" 
 
 `STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
 
-Then collapse, in two calls, so nothing you have not read is removed. Pass the day's current heading line exactly as it stands in the file:
-
-```bash
-TW="{VAULT}/01 Now/This Week.md"; LE="{VAULT}/.claude/scripts/locked-edit.sh"
-"$LE" "$TW" --show-section '## OLD HEADING LINE'   # prints the section; stderr ends "Section sha256: <hash>"
-cat << 'EOF' | "$LE" "$TW" --delete-section '## OLD HEADING LINE' <hash>
-## [emoji] [Day] [Date] — [Theme] ✅
-[One sentence.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
-EOF
-```
-
-Read what `--show-section` printed before the second call: a `- [ ]` in it means Step 9 missed an item, so route that item first and show the section again. Exit 2 on `--delete-section` means the section changed after you read it (or a code fence in the file is never closed): nothing was written, so show it again and redo the call with the new hash.
-
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
 
 ```bash
@@ -293,6 +280,19 @@ This is the load-bearing half. The instruction to count accurately has always be
 Sweep all past days, not just today. Earlier days may still be verbose if a previous `$goodnight` run predates this step or was interrupted. Any day before tomorrow should be a one-liner.
 
 Nothing with `- [ ]` should remain in any collapsed section. If it does, something was missed in step 9 — route it before collapsing.
+
+**Then collapse — last, once the locators are captured and any counts are derived and shown.** Two calls, so nothing you have not read is removed. Pass the day's current heading line exactly as it stands in the file:
+
+```bash
+TW="{VAULT}/01 Now/This Week.md"; LE="{VAULT}/.claude/scripts/locked-edit.sh"
+"$LE" "$TW" --show-section '## OLD HEADING LINE'   # prints the section; stderr ends "Section sha256: <hash>"
+cat << 'EOF' | "$LE" "$TW" --delete-section '## OLD HEADING LINE' <hash>
+## [emoji] [Day] [Date] — [Theme] ✅
+[One sentence.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
+EOF
+```
+
+Read what `--show-section` printed before the second call: a `- [ ]` in it means Step 9 missed an item, so route that item first and show the section again. Exit 2 on `--delete-section` means the section changed after you read it (or a code fence in the file is never closed): nothing was written, so show it again and redo the call with the new hash.
 
 ### 11. Maintain rolling 7-day horizon
 
