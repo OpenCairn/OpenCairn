@@ -49,7 +49,7 @@ Compare the draft's `SNAPSHOT-LEDGER-LINES: K` against `LEDGER NOW`. K is the ex
 
 Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses. Bare and escalated parks run Steps 2, 4–5 and 8–11 in full; an eligible explicit quick park follows the checked branch below. A parboil trigger that fires after this park has begun is satisfied by the active park; do not write or refresh a shadow snapshot mid-park.
 
-**Full-path evidence receipts.** Do not create evidence or pre-state receipts before the explicit quick gate. If quick mode escalates—or the invocation is not exactly `--quick`—capture relevant load-bearing excerpts for Step 9 instead of reconstructing them later:
+**Full-path evidence receipts.** Do not create evidence or pre-state receipts before the explicit quick gate. If quick mode escalates—or the invocation is not exactly `--quick`—capture source text for Step 9 using §16's source-size and per-claim coverage rules instead of reconstructing it later:
 
 ```bash
 python3 "$PARK_REVIEW" capture --kind prestate --label "<what this establishes>" --source "<path/tool>" <<'EOF'
@@ -61,7 +61,7 @@ python3 "$PARK_REVIEW" capture --kind evidence --label "<source name>" --source 
 EOF
 ```
 
-Use `secondary` or `unverified` where §16 requires it. Add receipts as evidence arrives; all excerpts for the same `--source` are retained in capture order. A later excerpt does not replace an earlier one. On a bare or escalated full path, do §16's source-union sweep once and capture only the load-bearing excerpts. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript. An eligible quick path creates only its verifier receipt.
+Use `secondary` or `unverified` where §16 requires it. Add receipts as evidence arrives; all excerpts for the same `--source` are retained in capture order. A later excerpt does not replace an earlier one. On a bare or escalated full path, follow §16's source-union, source-size and per-claim coverage rules: capture short sources whole and the supporting passages from longer sources. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript. An eligible quick path creates only its verifier receipt.
 
 ### 1. Merge-continuation check
 
