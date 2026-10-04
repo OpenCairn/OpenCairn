@@ -122,6 +122,13 @@ if [ $# -lt 2 ]; then
 fi
 
 TARGET="$1"
+case "$TARGET" in
+    /*|[A-Za-z]:[\\/]*) ;;
+    *)
+        echo "Target must be an absolute path (got: $TARGET). Resolve the vault path first." >&2
+        exit 1
+        ;;
+esac
 MODE="$2"
 EXPECTED_SNAPSHOT=""
 MOVE_DESTINATION=""

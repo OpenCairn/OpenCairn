@@ -213,6 +213,23 @@ class LockedEditReplaceManyTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertFalse(self.target.exists())
 
+    def test_relative_target_is_refused(self) -> None:
+        self.target.write_text("one\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [str(SCRIPT), "Plan.md", "--append"],
+            input="two\n",
+            check=False,
+            capture_output=True,
+            text=True,
+            env=self.environment(),
+            cwd=self.vault,
+        )
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("absolute path", result.stderr)
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "one\n")
+
     def test_single_replace_mode_is_unchanged(self) -> None:
         self.target.write_text("one\ntwo\n", encoding="utf-8")
 
