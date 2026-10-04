@@ -24,6 +24,16 @@ park-time delta, not an inferred inventory; the normal locked backfill script
 preserves existing descriptions. Explicitly extend descriptions and close log
 open loops through their normal steps before calling the helper.
 
+An older session log changed only by `add-forward-link.sh` needs no handmade
+large-file receipt when its exact producer proof validates. The helper verifies
+the saved preimage, reconstructs the entire metadata insertion, checks source
+and target session numbers and current bytes, and requires the session ledger
+to name only producer operations for this path, with a complete before/after
+hash chain for every operation ending at current bytes. Explicit coverage wins.
+Changed/invalid proofs or intervening other writes use normal coverage;
+neither the filename nor success stdout grants an exemption. The current log
+still receives its normal selected-session review.
+
 `evidence` and `prestate` use the same fields, with provenance `primary`,
 `secondary` or `unverified`. Derive evidence coverage per shared §16; an empty
 list is not proof that no evidence was used. Supply real text, never a guessed
