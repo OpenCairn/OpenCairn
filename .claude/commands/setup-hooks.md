@@ -20,7 +20,7 @@ other. `all` (the default) applies to both:
 
 ## What the skill-edit hook does
 
-Two scripts work together:
+The marker and survey work together:
 - `skill-edit-marker.sh` (PostToolUse on `Write|Edit`) — notes, per session, when a file
   under any `.claude/commands/` directory is edited.
 - `skill-edit-survey.sh` (Stop) — if a command file was edited this session, it blocks the
@@ -30,6 +30,10 @@ Two scripts work together:
   infrastructure, then log a one-line outcome to `cross-pollination.log` (which
   `/quarterly-hygiene` consumes). Trivial edits — typo, wording, one-liner — are carved out
   of the survey.
+
+The reminder requests the literal prescribed check, its pass/fail observation,
+and positive and negative scratch fixtures. It is a one-time model reminder,
+not a mechanical test-receipt validator.
 
 **Trade-off to state plainly before enabling:** when you edit a skill file, the hook adds
 **one extra turn per edit batch** — a session with several separate rounds of skill edits
@@ -43,7 +47,7 @@ is dominated by model turns, and per-turn cost rises with the context it runs in
 - `session-ledger.sh` (PostToolUse on `Write|Edit`) — records every file this session
   writes, keyed on the session id. Step 2a's enumeration becomes exact instead of
   reconstructed from mtimes, and §20 attribution comes free.
-- `parboil-check.sh` (UserPromptSubmit) — **ships DISABLED**; wiring it is inert until you
+- `parboil-check.sh` (UserPromptSubmit and Stop) — **ships DISABLED**; wiring it is inert until you
   set `OPENCAIRN_PARBOIL_TOKENS` (try `150000`) in `settings.json`'s `env` block. Its payback
   is unproven — it consolidates park's work rather than removing it — so it is opt-in on top
   of the opt-in. Once enabled: when context passes that threshold and the session has written files, it asks for
@@ -51,6 +55,15 @@ is dominated by model turns, and per-turn cost rises with the context it runs in
   loops, drafted from context already held. `/park` Step 0 adopts or patches it. Refires
   each further `OPENCAIRN_PARBOIL_INTERVAL_TOKENS` of growth, but only when the ledger has
   grown too.
+
+Explicit park requests suppress snapshots while park is active. A Stop completion
+message records the ledger-line count; snapshots stay suppressed until a new write
+changes that count. The Stop observer emits no context and does not block a stop.
+
+Both sets use `mcp-write-ledger.sh` for resolved response paths from the named
+Obsidian write, append, patch and replace tools. Unknown or unresolved responses
+are not attributed; other writes still need the inventory backstop. The adapter
+records an already-landed write; it does not enforce the vault lock or formatting.
 
 **Trade-off to state plainly before enabling:** the ledger is free (shell only) and is the
 part worth having. The parboil is the experimental half and is off unless its env var is
@@ -61,9 +74,10 @@ set — each snapshot is **one extra turn**, wasted entirely on a session that n
 Each snippet resolves the config root inline — shell state does not carry between calls,
 so never assign it once and reference it later.
 
-1. **Prerequisite — `jq`.** The hook scripts and the wiring script all require it:
+1. **Prerequisites — `jq` and Python 3.** The hooks and MCP adapter require them:
    ```bash
    command -v jq >/dev/null 2>&1 && echo "jq: ok" || echo "jq: MISSING"
+   command -v python3 >/dev/null 2>&1 && echo "python3: ok" || echo "python3: MISSING"
    ```
    If missing, stop and give the install hint for the user's OS
    (`sudo apt install jq` / `brew install jq` / `sudo dnf install jq`).
@@ -81,11 +95,13 @@ so never assign it once and reference it later.
    # skill-edit set (run only if that set is selected)
    CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/skill-edit-marker.sh" \
          "$CD/scripts/skill-edit-survey.sh" "$CD/scripts/wire-skill-edit-hook.sh" \
-         "$CD/scripts/lib-lock.sh" 2>&1
+         "$CD/scripts/lib-lock.sh" "$CD/scripts/mcp-write-ledger.sh" \
+         "$CD/scripts/resolve-vault.sh" 2>&1
    # park set (run only if that set is selected)
    CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/session-ledger.sh" \
          "$CD/scripts/parboil-check.sh" "$CD/scripts/wire-park-hooks.sh" \
-         "$CD/scripts/lib-lock.sh" 2>&1
+         "$CD/scripts/lib-lock.sh" "$CD/scripts/mcp-write-ledger.sh" \
+         "$CD/scripts/resolve-vault.sh" 2>&1
    ```
    If any are missing, instruct the user to run `/update` first, then re-run `/setup-hooks`.
 
