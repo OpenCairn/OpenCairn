@@ -42,6 +42,7 @@ or synthetic report. All provided excerpts remain separate.
 Ordinary UTF-8 files up to 64 KiB are included in full. Carry Step 2's exceptions
 in `coverage` before invoking the helper:
 
+- Bounded semantic override: `{"path":"<exact Files row path>","kind":"semantic"}`. This requires ordinary full content coverage and disables automatic forward-link proof coverage. Large semantic files still use the explicit `large` form below.
 - Imported reference: `{"path":"<exact Files row path>","kind":"reference","receipt":"<absolute park-artifact receipt path>","targets":["<passage actually used>"]}`.
 - Large semantic artefact: `{"path":"<exact Files row path>","kind":"large","receipt":"<absolute park-artifact receipt path>","targets":["<authored pages, sections or rendered regions inspected>"]}`.
 - Remote or secret-bearing file: `{"path":"<exact Files row path>","kind":"nonlocal"}`; represent it through the supplied evidence. No source body is packaged.

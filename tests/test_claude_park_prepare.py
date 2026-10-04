@@ -212,6 +212,19 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'explicit inspection targets'):
             self.run_prepare()
 
+    def test_explicit_bounded_semantic_coverage_overrides_forward_link_proof(self):
+        older = self.vault / 'older.md'
+        older.write_text('# Earlier record\n\nMeaning-bearing content.\n')
+        self.log.write_text(self.log.read_text().replace(
+            '### Files Updated\n', '### Files Updated\n- older.md - correction\n'))
+        self.handoff['coverage'] = [{'path': 'older.md', 'kind': 'semantic'}]
+        with mock.patch.object(prepare, 'forward_link_proof') as finder:
+            self.assertEqual(self.run_prepare(), 0)
+        finder.assert_not_called()
+        packet = self.outputs('audit-inputs.md')[0].read_text()
+        self.assertIn('Meaning-bearing content.', packet)
+        self.assertNotIn('Mechanical forward-link insertion only', packet)
+
     def test_fixture_writer_ledger_and_receipts_stay_in_fixture_state(self):
         import subprocess
         result = subprocess.run([str(REPO / '.claude/scripts/locked-edit.sh'),
