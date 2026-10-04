@@ -18,8 +18,8 @@
 # ledger records the session id at write time, so attribution is exact rather
 # than inferred. It does NOT replace park-files.sh: writes that bypass the Write
 # and Edit tools (shell redirection, scripts, formatting hooks, and MCP write
-# tools — whose tool names never match a Write|Edit matcher, so e.g. a notes
-# app's MCP write/patch tools mutate files with no ledger row) are invisible
+# tools outside the named Obsidian mutators covered by mcp-write-ledger.sh when
+# that PostToolUse adapter is wired) are invisible
 # here, so the mtime sweep stays as the backstop for those. Exception:
 # locked-edit.sh self-ledgers (tool column "locked-edit", agent "?" when the
 # environment does not identify one), so planning-file edits made through it

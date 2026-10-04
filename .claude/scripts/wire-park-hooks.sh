@@ -44,6 +44,7 @@ CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 SETTINGS="$CONFIG_DIR/settings.json"
 LEDGER_CMD="$CONFIG_DIR/scripts/session-ledger.sh"
 PARBOIL_CMD="$CONFIG_DIR/scripts/parboil-check.sh"
+MCP_CMD="\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --ledger"
 
 # Both hook-wiring scripts mutate the same settings file. Hold its canonical
 # lock across creation, read, merge, validation, backup and atomic replacement.
@@ -73,7 +74,7 @@ fi
 TMP=$(mktemp "${SETTINGS}.tmp.XXXXXX")
 
 if [ "$MODE" = "add" ]; then
-  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" '
+  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" '
     # Add {type,command,timeout} under .hooks[event] for the given matcher.
     # Idempotent: keyed on the command STRING, so a future timeout change does not
     # create a duplicate. Appends to an existing matcher block; creates one if absent.
@@ -88,11 +89,12 @@ if [ "$MODE" = "add" ]; then
         else .hooks[$event] += [{matcher:$matcher, hooks:[{type:"command", command:$cmd, timeout:$timeout}]}]
         end;
     add_hook("PostToolUse"; "Write|Edit"; $ledger; 5)
+    | add_hook("PostToolUse"; "^mcp__obsidian__obsidian_(write_note|append_to_note|patch_note|replace_in_note)$"; $mcp; 5)
     | add_hook("UserPromptSubmit"; ".*"; $parboil; 10)
     | add_hook("Stop"; ".*"; $parboil; 10)
   ' "$SETTINGS" > "$TMP"
 else
-  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" '
+  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" '
     # Remove the command from every matcher block in the event, then drop any matcher
     # block left with an empty hooks array (inert — safe regardless of who created it).
     def strip($event; $cmd):
@@ -101,6 +103,7 @@ else
                                | map(select((.hooks | length) > 0)) )
       else . end;
     strip("PostToolUse"; $ledger)
+    | strip("PostToolUse"; $mcp)
     | strip("UserPromptSubmit"; $parboil)
     | strip("Stop"; $parboil)
   ' "$SETTINGS" > "$TMP"
