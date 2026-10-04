@@ -97,7 +97,7 @@ def probe_command(client):
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "requires AF_UNIX")
 class SocketClientTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = tempfile.TemporaryDirectory(dir=os.path.realpath("/tmp"))
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.runtime = self.root / "runtime"
