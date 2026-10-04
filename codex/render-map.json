@@ -64,8 +64,8 @@
     "complete-project": {
       "source": ".claude/commands/complete-project.md",
       "render": "codex/skills/complete-project/SKILL.md",
-      "source_sha256": "2db86f834aad6a15a99a7d71db8e099ca98300cfe556d1ad8afc282949946501",
-      "render_sha256": "a53f92e55439f1aa6dad477767ee47972c92fcb55bb9bd17652e8b5dada6f0e3"
+      "source_sha256": "e8b0af1b9779a290c14db4541a43289927afa28a833e5709dabdafae947e50ae",
+      "render_sha256": "6bfa5b251b3919410dea0ebcd003da191c0976f0fa59008c9fa24a5b942b5914"
     },
     "cornerstones": {
       "source": ".claude/commands/cornerstones.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "76a7344d6ecad71b0a43369d45d11c1677ebfbb902c761400cb183baa2f6281b",
-      "render_sha256": "2425b64fe5364132871d6de536eb9012011ef8eea256b3599e6887fcff584ce4"
+      "source_sha256": "796994c9fef6a5dbde7ebf6378ac13af5551ac77cc5de4cda5ac619fbd0ae953",
+      "render_sha256": "48797bf164382b14edf00795b3acb7b490dda81c848a3214ad9e38c16ec8d3db"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
@@ -280,8 +280,8 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "c5f54a4bf88f14edfd009ca7045dd239e34c554d6ddef416afb7848bc7f0d973",
-      "render_sha256": "4435bfe8898b9472c2986ae46f812b83f1aa19e44d283a6c1badd688a89835aa"
+      "source_sha256": "c8182933f41c603aa58f3866383da04e066f0ac2d5b18e51e210e7fc9d8ebd0f",
+      "render_sha256": "bfd7771adb1e8867072fd3dec707c8ebc54a26d81667da639f8a383578924659"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
