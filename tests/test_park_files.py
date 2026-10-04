@@ -140,7 +140,14 @@ class VaultInventoryTests(unittest.TestCase):
         self.assertNotIn(str(hidden), output)
         self.assertNotIn(str(state), output)
         self.assertIn("[transient]\t" + str(transient), output)
-        self.assertNotIn("[vault]\t" + str(transient), output)
+        self.assertIn("[vault]\t" + str(transient), output)
+
+    def test_transient_roots_include_binary_and_deep_text_work(self) -> None:
+        paths = [self.write("02 Inbox/source/report.pdf"),
+                 self.write("01 Now/working/deep/result.txt")]
+        output = self.inventory()
+        for path in paths:
+            self.assertIn("[vault]\t" + str(path) + "\n", output)
 
     def test_working_tree_deletes_and_staged_moves_keep_old_paths(self) -> None:
         self.init_git()
