@@ -37,6 +37,16 @@ def verify(vault: Path, log: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 class ParkVerifyTests(unittest.TestCase):
+    def test_broken_installed_symlink_does_not_count_as_checked_content(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            link = vault / 'installed.md'
+            link.symlink_to(vault / 'missing-source.md')
+            log = write_log(vault, updated=['`installed.md` - installed link'])
+            result = verify(vault, log, '--touched', str(link))
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn('FAIL touched:', result.stdout)
+
     def test_reverse_coverage_skips_deleted_rows_and_off_host_forms(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = make_vault(Path(tmp))

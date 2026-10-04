@@ -22,6 +22,18 @@ SPEC.loader.exec_module(park_artifact)
 
 
 class ParkArtifactTests(unittest.TestCase):
+    def test_original_symlink_spelling_is_retained_with_shared_physical_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'source.txt'
+            source.write_text('Shared source bytes\n')
+            installed = root / 'installed.txt'
+            installed.symlink_to(source)
+            first = park_artifact.prepare(source, source, root / 'state')
+            linked = park_artifact.prepare(installed, installed, root / 'state')
+            self.assertEqual(linked['original_path'], str(installed))
+            self.assertEqual(linked['source_snapshot'], first['source_snapshot'])
+
     def test_png_and_tar_receipts_remain_binary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

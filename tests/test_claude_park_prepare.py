@@ -149,6 +149,16 @@ class ClaudeParkPrepareTests(unittest.TestCase):
             self.run_prepare()
         self.assertEqual(self.log.read_bytes(), before)
 
+    def test_symlink_aliases_survive_physical_input_deduplication(self):
+        link = self.vault / 'installed.md'
+        link.symlink_to(self.note)
+        self.log.write_text(self.log.read_text().replace('### Files Updated\n',
+                                                        '### Files Updated\n- installed.md - installed link\n'))
+        self.run_prepare()
+        manifest = json.loads(self.outputs('manifest.json')[0].read_text())
+        row = next(r for r in manifest['paths'] if r['path'] == str(self.note))
+        self.assertEqual(set(row['aliases']), {str(self.note), str(link)})
+
 
 if __name__ == '__main__':
     unittest.main()
