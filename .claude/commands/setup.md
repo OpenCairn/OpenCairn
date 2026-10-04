@@ -41,7 +41,7 @@ Run all checks first, display the result, then act on what's missing.
 
 3. **Check template remote:**
    ```bash
-   git remote -v 2>/dev/null | grep -i "OpenCairn" || echo "NO_TEMPLATE_REMOTE"
+   git remote -v 2>/dev/null | rg -i "OpenCairn" || echo "NO_TEMPLATE_REMOTE"
    ```
 
 4. **Check VAULT_PATH:**
@@ -97,7 +97,7 @@ Run all checks first, display the result, then act on what's missing.
    ```bash
    if [[ ! -f CLAUDE.md ]]; then
      echo "CLAUDE_MD_MISSING"
-   elif grep -q '\[Your name\]' CLAUDE.md 2>/dev/null; then
+   elif rg -q '\[Your name\]' CLAUDE.md 2>/dev/null; then
      echo "CLAUDE_MD_UNPERSONALISED"
    else
      echo "CLAUDE_MD_PERSONALISED"

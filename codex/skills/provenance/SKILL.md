@@ -160,7 +160,7 @@ Append each emitted row to the log via `locked-edit.sh --append` (`_shared-rules
 cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --append
 <row emitted above, pasted verbatim — one line per row>
 EOF
-grep -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md"   # must be 0
+rg -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md" || echo 0   # must be 0
 ```
 
 The heredoc must be quoted (`<< 'EOF'`): the row carries backticks around the hash, and an unquoted string would run the hash as a command and append a row with an empty hash column.
@@ -176,7 +176,7 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Pr
 ========OPENCAIRN-LOCKED-EDIT-SEP========
 <same row, OTS column now: superseded>
 EOF
-grep -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md"   # must be 0
+rg -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md" || echo 0   # must be 0
 ```
 3. **Update the flag file's "Hashed Immediately" entry** to the new hash + timestamp (the original attestation lives on in the log and in its snapshot/proof files).
 

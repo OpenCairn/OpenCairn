@@ -135,7 +135,7 @@ EOF
 
 Three distinct failure modes can trip up file edits during a skill's execution. Each has a different root cause and a different remediation. **Diagnose before treating.**
 
-> **Portability note:** the diagnostic commands below (`fuser`, `/proc/<PID>/wchan`, `pkill`, GNU `stat -c`) are Linux-specific. On macOS/Windows Git Bash, identify hung script processes with `ps -ef | grep <script-name>` and kill by PID; skip the `/proc` checks.
+> **Portability note:** the diagnostic commands below (`fuser`, `/proc/<PID>/wchan`, `pkill`, GNU `stat -c`) are Linux-specific. On macOS/Windows Git Bash, identify hung script processes with `ps -ef | rg <script-name>` and kill by PID; skip the `/proc` checks.
 
 #### Failure mode A: an editor-tool patch fails because the file changed underneath it
 
@@ -171,7 +171,7 @@ Likely cause: **a prior invocation of the same script is still running and holds
 # List processes holding the lock
 fuser "{VAULT}/06 Archive/OpenCairn/Session Logs/.lock"
 # Inspect them
-ps -ef | grep -E "write-session|update-session-section|backfill-files|add-forward-link" | grep -v grep
+ps -ef | rg "write-session|update-session-section|backfill-files|add-forward-link" | rg -v -w rg
 # Confirm they're blocked on stdin pipe (expect anon_pipe_read)
 cat /proc/<PID>/wchan
 ```

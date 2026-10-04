@@ -155,7 +155,7 @@ Check whether any existing skill domains now have mature external alternatives t
 
 Every comparative claim this step produces is bound by the **⛔ Read-the-source gate** at the top of Instructions — read `/X`'s source this run, record `Source read: <path>`, drop the claim if no file exists.
 
-If the vault contains a capability-audit project doc, update the relevant domain section. Locate it rather than assuming a filename — `ls "{VAULT}/03 Projects/" | grep -i 'capability audit'` — and if nothing matches, say so instead of creating one. It's a planning file, so write it through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool.
+If the vault contains a capability-audit project doc, update the relevant domain section. Locate it rather than assuming a filename — `ls "{VAULT}/03 Projects/" | rg -i 'capability audit'` — and if nothing matches, say so instead of creating one. It's a planning file, so write it through `locked-edit.sh` per `_shared-rules.md` §5, not the Edit tool.
 
 ### 9. Classify findings
 

@@ -48,7 +48,7 @@ Per `_shared-rules-content.md` §14:
 
 2. **Dedupe**, keyed on the canonical source URL (catches retitled/renamed notes that a filename check misses), then title/date:
    ```bash
-   grep -rl --fixed-strings "<canonical_url>" "<TRANSCRIPT_FOLDER>" || echo "no existing note"
+   rg -l --hidden --no-ignore --fixed-strings "<canonical_url>" "<TRANSCRIPT_FOLDER>" || echo "no existing note"
    ```
    If it exists, report it and ask whether to update or skip — don't write a duplicate. **Update means rebuild, not edit:** write the new header to a fresh file, append the body from `<BODY_FILE>` again, then `mv` it over the old note. Never `Edit` a note that already carries an appended body.
 

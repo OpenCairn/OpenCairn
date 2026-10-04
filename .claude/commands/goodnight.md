@@ -260,7 +260,7 @@ awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- /'  "$REPORT" | wc 
 awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- ✓/' "$REPORT" | wc -l   # N — closed
 # Sessions — the close-out entry is not appended until Step 14, so this counts the day's work
 # sessions, which is what the heading means. The daily report's Sessions list carries one more.
-grep -c '^## Session ' "{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md"
+rg -c '^## Session ' "{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md" || echo 0
 ```
 
 Then phrase by the result:
