@@ -62,7 +62,6 @@ PROJECT_TAG="<tag from Step 2>"
 TODAY=$(date +"%Y-%m-%d")
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 FLAG_DIR="{VAULT}/07 System/.Provenance/pending"
-mkdir -p "$FLAG_DIR"
 SAFE_TAG=$(echo "$PROJECT_TAG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
 [[ -z "$SAFE_TAG" ]] && SAFE_TAG="untagged"   # punctuation/non-ASCII-only tags would otherwise yield "YYYY-MM-DD-.md"
 FLAG_FILE="$FLAG_DIR/${TODAY}-${SAFE_TAG}.md"
@@ -85,7 +84,7 @@ tag: Project Tag Here
 - 05 Resources/Commentary/other-file.md
 
 ## Hashed Immediately
-- 05 Resources/Commentary/filename.md — `abc123def456` (OTS: pending) [YYYY-MM-DD HH:MM]
+- 05 Resources/Commentary/filename.md — `abc123def4567890` (OTS: pending) [YYYY-MM-DD HH:MM]
 ```
 
 The timestamp in frontmatter reflects the most recent `$provenance` call. The "Hashed Immediately" entries include their own timestamps so each hash is traceable to when it was taken.
@@ -96,89 +95,31 @@ If any work products are already final (won't be edited further), hash them now 
 
 **Skip files already hashed:** If the flag file already has an entry for a given file in "Hashed Immediately", skip it — don't re-hash or re-stamp. If the file has been *edited* since the last hash (user explicitly says so), run the re-hash path below.
 
-**⛔ The provenance log is append-only.** Never rewrite an existing row's hash or timestamp — the earlier attestation is exactly what establishes priority, and a log whose normal operation includes rewriting rows is indistinguishable from a tampered one. A re-hash appends a NEW row and marks the old row's OTS column `superseded`.
+**The provenance log is append-only.** All attestation writes go through `provenance-write.py`; never paste rows into the log or use `locked-edit.sh --replace` on an old attestation. The writer appends through the canonical `locked-edit.sh` lock, rejects hashes other than 16 lowercase hexadecimal characters, and requires a matching byte-exact snapshot. `pending` and `confirmed` also require an existing `.ots` whose full digest matches the snapshot (`ots info`, a local inspection).
 
-**Initial hash** (no existing entry in flag file). Run as ONE shell call — variables set in a prior shell call don't survive to the next — with `PROJECT_TAG` and the file list bound at the top of the same block:
+**Initial hash:** bind the verified context date, tag and absolute file list in one shell call. The helper stages each target outside the vault, hashes and stamps those same bytes, and retains its snapshot/proof through `locked-ingress.sh`. OTS failure is recorded honestly as `none (stamp failed)`; absent OTS as `none (ots unavailable)`. A live-file edit or re-export cannot change the stamped preimage.
 
 ```bash
-TODAY=$(date +"%Y-%m-%d")
-TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
+PROVENANCE_DAY="<verified YYYY-MM-DD>"
 PROJECT_TAG="<tag from Step 2>"
 FINAL_PRODUCTS=("<absolute path 1>" "<absolute path 2>")
-
 for DOC in "${FINAL_PRODUCTS[@]}"; do
-  [[ -f "$DOC" ]] || { echo "MISSING: $DOC"; continue; }
-  # cut, not awk '{print ...}' — the slash-command loader substitutes bare $0-$9 as argument placeholders
-  DOC_HASH=$(sha256sum "$DOC" | cut -d' ' -f1)
-  DOC_SHORT="${DOC_HASH:0:16}"
-  RELATIVE_PATH="${DOC#{VAULT}/}"
-  # Keep the real extension — a non-markdown work product must not be snapshotted as .md
-  BASE=$(basename "$DOC")
-  EXT=""
-  [[ "$BASE" == *.* ]] && EXT=".${BASE##*.}"
-  SAFE_NAME=$(basename "$BASE" "$EXT" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')
-
-  # The leading dot is load-bearing — do NOT rename this to a plain folder.
-  # Snapshots are byte-exact preimages, and a markdown preimage sitting in an
-  # indexed folder is treated by the editor as ordinary vault content: renaming
-  # or moving any note the snapshot happens to link to rewrites those links
-  # INSIDE the frozen copy, silently breaking the hash it is named after. A
-  # dot-prefixed folder is outside the index, so link-healing never reaches it.
-  # Cost of the dot: snapshots cannot be wikilinked from notes (reference them
-  # by path instead). Verify before changing: preimages must stay byte-stable.
-  mkdir -p "{VAULT}/07 System/.Provenance"
-  # Preimage snapshot — a hash without the exact bytes proves nothing. The work product is a
-  # living document; once it's edited, this snapshot is the only copy that matches the proof.
-  # Explicit existence guards, not cp/mv -n (deprecated in newer coreutils, non-portable).
-  SNAP="{VAULT}/07 System/.Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.snapshot${EXT}"
-  [[ -e "$SNAP" ]] || cp "$DOC" "$SNAP"
-
-  # OTS stamp — the logged status comes from the OUTCOME, never assumed. DOC_SHORT in the
-  # proof name prevents same-basename collisions. Don't suppress stderr — a stamp failure's
-  # reason gets reported, not buried.
-  OTS_DEST="{VAULT}/07 System/.Provenance/${TODAY}-${SAFE_NAME}-${DOC_SHORT:0:8}.ots"
-  OTS_STATUS="none (ots unavailable)"
-  if command -v ots &>/dev/null; then
-    if ots stamp "$DOC"; then
-      if [[ -e "$OTS_DEST" ]]; then
-        rm "${DOC}.ots"   # identical content already proven today — keep the EARLIER proof (priority)
-      else
-        mv "${DOC}.ots" "$OTS_DEST"
-      fi
-      OTS_STATUS="pending"
-    else
-      OTS_STATUS="none (stamp failed)"
-    fi
-  fi
-  echo "| $TIMESTAMP | $PROJECT_TAG | $RELATIVE_PATH | \`$DOC_SHORT\` | $OTS_STATUS |"
+  python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" attest \
+    --date "$PROVENANCE_DAY" --tag "$PROJECT_TAG" --file "$DOC" || exit 1
 done
 ```
 
-Append each emitted row to the log via `locked-edit.sh --append` (`_shared-rules.md` §5 — all of the log's writers serialise on its canonical lock):
+Each successful call prints a JSON receipt with `file`, `hash`, `status`, `snapshot` and `proof`. Record the receipt's 16-character hash/status in the flag's "Hashed Immediately" section through `locked-edit.sh`. The leading dot in `.Provenance` excludes frozen preimages from Obsidian indexing and link-healing; do not rename it. The helper retains each source extension and keys new artefact filenames by the full 16-character logged hash; existing snapshots/proofs are never overwritten. Legacy 8-character filename suffixes remain verifiable.
+
+**Re-hash:** run the same `attest` command with `--supersedes "<old 16-hex hash>"`. It validates that the old attestation exists for this tag/file, appends the new attestation, and appends a relationship row whose OTS column is ``supersedes `<old hash>` ``. The old row and its earlier proof stay untouched. Update the flag's entry to the returned hash/status through `locked-edit.sh`; keep the flag on any failure.
+
+**Verification annotations:** after a proof is independently verified, append a `confirmed` row using the validated writer rather than changing its earlier `pending` row. A locator repair likewise appends a row with the new relative file path, original hash, matching snapshot and the honestly observed status; never rewrite the historical locator. Use the original snapshot/proof, not newly hashed live bytes:
 
 ```bash
-cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --append
-<row emitted above, pasted verbatim — one line per row>
-EOF
-rg -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md" || echo 0   # must be 0
+python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" append \
+  --tag "<tag>" --file "<vault-relative file>" --hash "<16-hex hash>" \
+  --status "confirmed" --snapshot "<absolute snapshot path>" --proof "<absolute .ots path>"
 ```
-
-The heredoc must be quoted (`<< 'EOF'`): the row carries backticks around the hash, and an unquoted string would run the hash as a command and append a row with an empty hash column.
-
-**Re-hash** (file edited since last hash — existing entry in flag file and provenance log):
-
-1. **Re-run the initial-hash block** for the file. The new hash gives the snapshot and `.ots` new `DOC_SHORT`-suffixed filenames, so the original proof and snapshot are untouched; append the new row to the log as above.
-2. **Mark the OLD row superseded:** Read the log, copy the old row **verbatim**, and `locked-edit.sh --replace` it with the identical row, OTS column rewritten to `superseded`. Literal match only — no regex, no sed. The old row goes above the separator line, the rewritten row below:
-
-```bash
-cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/AI Provenance Log.md" --replace
-<old row, verbatim>
-========OPENCAIRN-LOCKED-EDIT-SEP========
-<same row, OTS column now: superseded>
-EOF
-rg -c 'OPENCAIRN-LOCKED-EDIT-SEP' "{VAULT}/07 System/AI Provenance Log.md" || echo 0   # must be 0
-```
-3. **Update the flag file's "Hashed Immediately" entry** to the new hash + timestamp (the original attestation lives on in the log and in its snapshot/proof files).
 
 Transcript and session log hashing is always deferred to `$goodnight` — they're not final yet.
 
@@ -202,13 +143,16 @@ Transcript and session log hashing is always deferred to `$goodnight` — they'r
 ### `$goodnight` (step 17)
 
 Processes today's flag files:
-1. Read each flag in `07 System/.Provenance/pending/` matching today's date
-2. Hash any work products listed but not yet hashed (check "Hashed Immediately" section). **For entries already in "Hashed Immediately", re-hash and compare against the recorded hash** — a silent edit between the immediate hash and goodnight is otherwise undetectable; on mismatch, announce it and run the Step 5 re-hash path (superseding row), don't skip silently
-3. Hash and snapshot the exported session transcript (re-export can change the live file)
-4. Hash and snapshot the final session log (later appends or link-healing can change the live file)
-5. OTS stamp all newly hashed files
-6. Append all entries to `07 System/AI Provenance Log.md` (via `locked-edit.sh --append`, per Step 5)
-7. Delete the flag file **only after verifying every listed item has a log row** — a partially processed flag (missing rows) stays in `pending/` for `$weekly-hygiene`'s straggler pass
+1. Read each flag in `07 System/.Provenance/pending/` matching today's date.
+2. Attest each work product with Step 5's writer. Compare immediately recorded hashes to the current file first; on change, announce it and use `--supersedes` instead of skipping it.
+3. After export/final writes, attest the transcript and session log with the same writer. Both retain exact snapshots because re-export and link-healing can change their live bytes.
+4. Finish each flag through the completion wrapper:
+
+```bash
+"{VAULT}/.claude/scripts/provenance-finish.sh" "{VAULT}" "<absolute flag path>"
+```
+
+This takes the flag's canonical lock and removes it **only** after the validator finds a same-tag, current-digest attestation with a matching retained snapshot (and matching proof for pending/confirmed) for every work product, that date's transcript, and that date's session log. Missing targets/rows/evidence, changed bytes or failed validation return nonzero and leave the flag pending. It never removes a source, snapshot or proof. To inspect without removing, run `provenance-write.py --vault "{VAULT}" check-flag --flag "<absolute flag path>"`; stdout lists missing targets and exit 0 means complete.
 
 ### `$goodnight` Catch-up mode (invoked by `$morning`)
 
@@ -228,8 +172,8 @@ Catches stragglers and verifies:
 - **Work products can be hashed immediately** if they're final, giving you the strongest proof (hash taken at creation time, not end of day).
 - **Idempotent.** Multiple `$provenance` calls in the same session with the same tag merge new work products into the existing flag file — no duplicates, no second flag. If the tag changes between calls, a separate flag file is created (different tags = different provenance entries).
 - **Relative paths.** Work products are logged with vault-relative paths (e.g., `05 Resources/Commentary/file.md`) to avoid collisions and enable verification from any machine.
-- **Append-only log.** Rows are never rewritten — re-hashes append a superseding row and mark the old one `superseded`. A mutable log can't be distinguished from a tampered one.
-- **Snapshots preserve the preimage.** Each immediate hash copies the exact hashed bytes to `07 System/.Provenance/` beside the `.ots` proof — without them, the first edit to the living document makes the proof unverifiable.
+- **Append-only log.** Rows are never rewritten — re-hashes append a new attestation and a separate `supersedes` relationship. A mutable log can't be distinguished from a tampered one.
+- **Snapshots preserve the preimage.** Every attestation retains the exact hashed bytes in `07 System/.Provenance/` beside the `.ots` proof — without them, the first edit to the living document makes the proof unverifiable.
 - **OTS is best-effort, and the log says so honestly.** Requires network access to Bitcoin calendar servers. The OTS column records the outcome — `pending` only when a stamp actually succeeded; `none (ots unavailable)` / `none (stamp failed)` otherwise — so a missing proof never masquerades as a pending one.
 
 ## Integration
