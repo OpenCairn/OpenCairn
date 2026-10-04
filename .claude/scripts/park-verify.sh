@@ -9,7 +9,10 @@
 #              A doc name, a common word or a link target is not distinctive either:
 #              it matches every open item that mentions or links that doc. Prefer
 #              the completed item's own wording.
-#   --touched  each file the session+park created or edited (repeatable)
+#   --touched  each file the session+park created or edited (repeatable). A
+#              value that is not a path on disk but is a Files row's own text
+#              ("[[Note]]", or an existing "path <sep> description") is resolved
+#              the way that row is
 #   --reference PATH SHA256  preserved external reference, hash-bound by the
 #              review wrapper; still checked for Files-list coverage
 #   --nonlocal PATH  explicitly classified remote/secret-bearing artefact;
@@ -39,12 +42,20 @@
 #               means the preceding character is the same kind as the ident's
 #               first (letter after letter, digit after digit); a digit ident
 #               after letters, or the reverse, counts as [text]
-#   touched     each --touched path exists, unless a Files Deleted row or
-#               --nonlocal accounts for it
-#   backfill    each touched file matches a Files Created / Files Updated /
-#               Files Deleted row by complete resolved path; reverse coverage compares
-#               Created/Updated rows only, minus off-host forms ("host:/path",
-#               "C:\path") that name nothing local to lint
+#   touched     each --touched path exists, unless a Files Deleted row accounts
+#               for it, --nonlocal classifies it, or it is an off-host form
+#               ("host:/path", "C:\path", a URL) that names nothing local
+#   backfill    each touched path matches a Files Created / Files Updated /
+#               Files Deleted row by complete resolved path. Case-sensitive:
+#               a row spelled in another case matches only when one row path
+#               and one touched path fold together and are not two files on
+#               disk. Row forms and the bare-wikilink rule are documented at
+#               the coverage helper. Reverse coverage reports rows no --touched
+#               path matched; off-host forms and Files Deleted rows whose path
+#               is gone name nothing local to lint and are counted, not
+#               compared. REVIEW also for a row that cannot be tied to one
+#               file: a bare [[Note]] shared by several vault files, or an
+#               unquoted row matched only through a truncated prefix
 #
 # Output: "PASS|FAIL|REVIEW <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
 # Exit 1 if any FAIL, else 0 (REVIEW lines need caller triage but are not failures).
@@ -190,6 +201,535 @@ if [ -n "$PROJ" ]; then
     pass project "$PROJ"
 else
     fail project "Session $N has no '**Project:**' line in Pickup Context"
+fi
+
+# --- Files-list coverage: computed here, reported under "backfill" below ------
+# Row parsing, path identity and both coverage directions run in one python3
+# process, so every path on either side is canonicalised by the same mechanism
+# (os.path.realpath: no dependence on GNU `realpath -m`, missing paths allowed)
+# and compared as a COMPLETE, case-sensitive resolved path. A substring test
+# accepts a truncated --touched value ("docs/Plan" for "docs/Plan - draft.md")
+# against the full row, and nothing downstream notices: every content check
+# silently skips a path that is not a file.
+#
+# It runs before the content checks because a "[[Note]]" string passed as
+# --touched is replaced by the file it resolves to, so that file is linted.
+#
+# Row forms (bullets "-", "*", "+"; a trailing CR is dropped):
+#   `path` ...          exact; nothing outside the backticks is read
+#   [[folder/Note]]     resolved by path (".md" optional)
+#   [[Note]]            the ONE vault file of that name (".git" is the only
+#                       directory not searched). Several -> REVIEW, covers
+#                       nothing. None -> the deleted-note case: covers the one
+#                       absent in-vault --touched path with that basename
+#   [label](path) ...   the link target
+#   **path** ...        the emphasised text
+#   path <sep> text     <sep> is " - ", an em or en dash with spaces, ": " or
+#                       " (". The longest left side that is an existing regular
+#                       file wins, so a filename containing a separator is not
+#                       truncated and a directory that merely prefixes the
+#                       filename is not taken for it; nor is an extensionless
+#                       file that prefixes a longer file-shaped name.
+# Known gap: an unquoted row whose file is absent cannot be split mechanically.
+# Every " - " boundary, plus any other boundary whose left side exists or ends
+# in a file extension, is then a candidate, so a truncated --touched value equal
+# to one of those candidates still matches. One shape is recognisable and
+# raises REVIEW: the next " - " segment completes a file-shaped name and more
+# text follows ("docs/Plan" against "docs/Plan - draft.md - text"). Without a
+# trailing description, or when the real name has no extension, the truncated
+# value passes. Backticks close the gap.
+IFS= read -r -d '' COVERAGE_PY <<'PY' || true
+import os
+import re
+import sys
+from urllib.parse import unquote
+
+vault, log, number = sys.argv[1:4]
+home = os.environ.get("HOME", "")
+touched_args, nonlocal_args = [], set()
+rest = sys.argv[4:]
+for flag, value in zip(rest[0::2], rest[1::2]):
+    if flag == "--touched":
+        touched_args.append(value)
+    else:
+        nonlocal_args.add(value)
+block = sys.stdin.buffer.read().decode("utf-8", "surrogateescape")
+
+OFFHOST = re.compile(r"^[A-Za-z0-9._-]+:/|(^|\s)[A-Za-z]:\\")
+EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,10}$")
+MDLINK = re.compile(r"\[[^\]]*\]\(<?([^)>]+)>?\)")
+OTHER_SEPARATORS = (" \u2014 ", " \u2013 ", ": ", " (")
+root = os.path.realpath(vault)
+out = []
+row_text = {}   # canonical "path <sep> description" spelling -> the row's file
+
+
+def norm(path):
+    """Mirror of the shell norm_path: absolute, ~-prefixed or vault-relative."""
+    if path.startswith("./"):
+        path = path[2:]
+    if path.startswith("/"):
+        return path
+    if path.startswith("~/"):
+        return home + "/" + path[2:]
+    return vault + "/" + path
+
+
+def canon(path):
+    return os.path.realpath(norm(path))
+
+
+def is_file(path):
+    return os.path.isfile(norm(path))
+
+
+def on_disk(path):
+    return os.path.lexists(norm(path))
+
+
+def stem(path):
+    name = os.path.basename(path)
+    return name[:-3] if name.endswith(".md") else name
+
+
+def in_vault(key):
+    return key.startswith(root + "/")
+
+
+def show_touched(path):
+    if path.startswith(vault + "/"):
+        return path[len(vault) + 1:]
+    if home and path.startswith(home + "/"):
+        return "~/" + path[len(home) + 1:]
+    return path
+
+
+def truncation(candidate, candidates):
+    """True when `candidate` may be a cut-off form of a longer, file-shaped one."""
+    return not EXTENSION.search(candidate) and any(
+        len(c) > len(candidate) and EXTENSION.search(c) for c in candidates)
+
+
+def unquoted(value):
+    """Candidate paths for an unquoted row -> (candidates, display, resolved)."""
+    legacy, other = [], []
+    for index in range(1, len(value)):
+        if value.startswith(" - ", index):
+            legacy.append(value[:index])
+        elif value.startswith(OTHER_SEPARATORS, index):
+            other.append(value[:index])
+    ordered = sorted(dict.fromkeys([value] + legacy + other), key=len, reverse=True)
+    for candidate in ordered:
+        if is_file(candidate):
+            if truncation(candidate, ordered):
+                break   # an extensionless file that prefixes a file-shaped name
+            # The row's text cut at a later boundary (path plus some or all of
+            # the description) is how a caller that splits rows differently
+            # names this file; a cut that is itself file-shaped is not assumed
+            # to be one.
+            for longer in ordered:
+                if len(longer) > len(candidate) and not EXTENSION.search(longer):
+                    row_text.setdefault(canon(longer), candidate)
+            return [candidate], candidate, True
+    if on_disk(value):
+        return [value], value, True
+    # Nothing here is a file. The old first-separator rule cannot tell filename
+    # from description, so keep every " - " boundary; another separator counts
+    # only where its left side exists or ends in a file extension.
+    kept = [value] + legacy + [c for c in other if on_disk(c) or EXTENSION.search(c)]
+    kept = list(dict.fromkeys(kept))
+    return kept, min(kept, key=len), False
+
+
+def wiki_target(text):
+    return text.split("|")[0].split("#")[0].strip()
+
+
+def wiki_paths(target):
+    options = [target] if target.endswith(".md") else [target + ".md", target]
+    hit = next((o for o in options if is_file(o)), None)
+    return [hit] if hit else options
+
+
+rows, touched, bare_names = [], [], set()
+
+
+def add_row(section, raw, show, candidates, multi=False, bare=None):
+    rows.append({"sec": section, "raw": raw, "show": show, "cands": candidates,
+                 "keys": [canon(c) for c in candidates], "multi": multi,
+                 "bare": bare, "hits": None, "skip": False})
+
+
+section = ""
+for line in block.split("\n"):
+    line = line.rstrip("\r")
+    if line.startswith("### Files Created"):
+        section = "C"
+        continue
+    if line.startswith("### Files Updated"):
+        section = "U"
+        continue
+    if line.startswith("### Files Deleted"):
+        section = "D"
+        continue
+    if line.startswith("### "):
+        section = ""
+    if not section:
+        continue
+    row = line.strip()
+    if row[:2] not in ("- ", "* ", "+ "):
+        continue
+    value = row[2:].strip()
+    if not value or value.lower() == "none":
+        continue
+    if value.startswith("[["):
+        end = value.find("]]")
+        if end < 0:
+            out.append("REVIEW backfill: unterminated wiki Files path: " + row)
+            continue
+        target = wiki_target(value[2:end])
+        if not target:
+            out.append("REVIEW backfill: wiki Files row names no file; write the vault-relative path instead: " + row)
+        elif "/" in target:
+            add_row(section, row, target, wiki_paths(target))
+        else:
+            name = target[:-3] if target.endswith(".md") else target
+            bare_names.add(name)
+            add_row(section, row, target, [], bare=name)
+        continue
+    if value.startswith("`"):
+        end = value.find("`", 1)
+        if end < 0:
+            out.append("REVIEW backfill: unterminated quoted Files path: " + row)
+        else:
+            add_row(section, row, value[1:end], [value[1:end]])
+        continue
+    candidates, show, resolved = unquoted(value)
+    if not resolved:
+        link = MDLINK.match(value)
+        closing = value.find("**", 2) if value.startswith("**") else -1
+        if link:
+            target = link.group(1).strip()
+            options = list(dict.fromkeys([target, unquote(target)]))
+            hit = next((o for o in options if is_file(o)), None)
+            candidates = [hit] if hit else options
+            show = candidates[0]
+            resolved = True
+        elif closing > 2:
+            candidates, show, resolved = unquoted(value[2:closing] + value[closing + 2:])
+    if show.lower() == "none":
+        continue
+    add_row(section, row, show, candidates, multi=not resolved and len(candidates) > 1)
+
+for index, path in enumerate(touched_args):
+    entry = {"path": path, "show": show_touched(path), "keys": [canon(path)],
+             "exists": os.path.lexists(path), "bare": None, "ambiguous": None,
+             "skip": path == log}
+    touched.append(entry)
+    relative = entry["keys"][0][len(root) + 1:] if in_vault(entry["keys"][0]) else ""
+    link = re.fullmatch(r"\[\[([^\]]+)\]\]", relative)
+    if entry["exists"]:
+        continue
+    # Not a path on disk but a row's own text, path plus description: it
+    # stands for the file that row resolves to.
+    if entry["keys"][0] in row_text and path not in nonlocal_args:
+        target = row_text[entry["keys"][0]]
+        entry["keys"], entry["exists"] = [canon(target)], True
+        out.append("T\t%d\t%s" % (index, norm(target)))
+        continue
+    if not link:
+        continue
+    # A wikilink string is what a Files row holds, not a path; resolve it the
+    # way the row is resolved.
+    target = wiki_target(link.group(1))
+    if "/" in target:
+        options = wiki_paths(target)
+        entry["keys"] = [canon(o) for o in options]
+        entry["exists"] = len(options) == 1 and is_file(options[0])
+        if entry["exists"] and path not in nonlocal_args:
+            out.append("T\t%d\t%s" % (index, norm(options[0])))
+    elif target:
+        entry["bare"] = target[:-3] if target.endswith(".md") else target
+        entry["keys"] = []
+        bare_names.add(entry["bare"])
+
+# One walk of the vault, and only when a bare wikilink has to be resolved.
+named, folded = {}, {}
+if bare_names:
+    wanted = {name.casefold() for name in bare_names}
+    for directory, subdirs, files in os.walk(root):
+        subdirs[:] = [d for d in subdirs if d != ".git"]
+        for name in files:
+            key = name[:-3] if name.endswith(".md") else name
+            if key.casefold() in wanted:
+                real = os.path.realpath(os.path.join(directory, name))
+                named.setdefault(key, set()).add(real)
+                folded.setdefault(key.casefold(), set()).add(real)
+
+
+def vault_files(name):
+    return sorted(named.get(name) or folded.get(name.casefold()) or ())
+
+
+def vault_relative(real):
+    return real[len(root) + 1:] if in_vault(real) else real
+
+
+for row in rows:
+    if row["bare"] is None:
+        continue
+    hits = vault_files(row["bare"])
+    if len(hits) == 1:
+        row["keys"], row["show"], row["hits"] = hits, vault_relative(hits[0]), hits
+        row["bare"] = None
+    elif hits:
+        row["skip"] = True
+        out.append("REVIEW backfill: ambiguous wikilink Files row '%s': %d vault files are named '%s' (%s); write the full vault-relative path instead"
+                   % (row["raw"], len(hits), row["bare"], "; ".join(vault_relative(h) for h in hits[:4])))
+ambiguous_touched = []
+for index, entry in enumerate(touched):
+    if entry["bare"] is None:
+        continue
+    hits = vault_files(entry["bare"])
+    if len(hits) == 1:
+        entry["keys"], entry["exists"], entry["bare"] = hits, True, None
+        if entry["path"] not in nonlocal_args:
+            out.append("T\t%d\t%s" % (index, vault + hits[0][len(root):] if in_vault(hits[0]) else hits[0]))
+    elif hits:
+        entry["ambiguous"] = hits
+        ambiguous_touched.append("%s (%s)" % (entry["show"], "; ".join(vault_relative(h) for h in hits[:4])))
+
+# --- matching ----------------------------------------------------------------
+covers = {index: set() for index in range(len(touched))}   # touched -> rows
+covered = {index: set() for index in range(len(rows))}     # row -> touched
+via = {}
+
+
+def link_up(row_index, touched_index, candidate=None):
+    covers[touched_index].add(row_index)
+    covered[row_index].add(touched_index)
+    if candidate is not None:
+        via.setdefault((row_index, touched_index), candidate)
+
+
+live = [i for i, entry in enumerate(touched) if not entry["skip"] and not entry["ambiguous"]]
+by_key = {}
+for index in live:
+    for key in touched[index]["keys"]:
+        by_key.setdefault(key, []).append(index)
+
+# 1. The same resolved path.
+for row_index, row in enumerate(rows):
+    if row["skip"]:
+        continue
+    for position, key in enumerate(row["keys"]):
+        for index in by_key.get(key, ()):
+            link_up(row_index, index, row["cands"][position] if row["cands"] else None)
+
+
+def same(a, b):
+    return a == b
+
+
+def same_folded(a, b):
+    return a.casefold() == b.casefold()
+
+
+# 2. A bare wikilink naming no vault file: the deleted note. It stands for one
+#    absent path inside the vault with that basename, never for several.
+for row_index, row in enumerate(rows):
+    if row["skip"] or row["bare"] is None:
+        continue
+    for equal in (same, same_folded):
+        hits = [i for i in live if (
+            touched[i]["bare"] is not None and equal(touched[i]["bare"], row["bare"])
+        ) or (
+            touched[i]["bare"] is None and not touched[i]["exists"]
+            and any(in_vault(k) and equal(stem(k), row["bare"]) for k in touched[i]["keys"])
+        )]
+        if hits:
+            break
+    if len(hits) == 1:
+        link_up(row_index, hits[0])
+    elif hits:
+        row["skip"] = True
+        out.append("REVIEW backfill: ambiguous wikilink Files row '%s': %d --touched paths share that name (%s); write the full vault-relative path instead"
+                   % (row["raw"], len(hits), "; ".join(touched[i]["show"] for i in hits[:4])))
+for index in live:
+    entry = touched[index]
+    if entry["bare"] is None or covers[index]:
+        continue
+    hits = [r for r, row in enumerate(rows) if not row["skip"] and row["bare"] is None
+            and not any(on_disk(c) for c in row["cands"])
+            and any(in_vault(k) and stem(k) == entry["bare"] for k in row["keys"])]
+    if len(hits) == 1:
+        link_up(hits[0], index)
+
+# 3. A home path written without "~/": the row is a relative path of three or
+#    more components that names nothing in the vault and is the tail of exactly
+#    one --touched path under $HOME outside the vault.
+for row_index, row in enumerate(rows):
+    if row["skip"]:
+        continue
+    for candidate in row["cands"]:
+        tail = candidate[2:] if candidate.startswith("./") else candidate
+        if tail.startswith(("/", "~/")) or tail.count("/") < 2 or on_disk(candidate):
+            continue
+        hits = [i for i in live if home and touched[i]["path"].startswith(home + "/")
+                and not any(in_vault(k) for k in touched[i]["keys"])
+                and touched[i]["path"].endswith("/" + tail)]
+        if len(hits) == 1:
+            link_up(row_index, hits[0])
+
+# 4. Case. Keys are case-sensitive, so two files differing only in case never
+#    cover each other. A row spelled in a different case from its file still
+#    matches when the pairing is unambiguous: exactly one row path and exactly
+#    one --touched path fold to the same string, and they are not two distinct
+#    files on disk.
+row_fold, touched_fold = {}, {}
+for row in rows:
+    if not row["skip"]:
+        for key in row["keys"]:
+            row_fold.setdefault(key.casefold(), set()).add(key)
+for index in live:
+    for key in touched[index]["keys"]:
+        touched_fold.setdefault(key.casefold(), set()).add(key)
+
+
+def distinct_files(a, b):
+    if not (os.path.lexists(a) and os.path.lexists(b)):
+        return False
+    try:
+        return not os.path.samefile(a, b)
+    except OSError:
+        return True
+
+
+for index in live:
+    if covers[index]:
+        continue
+    for key in touched[index]["keys"]:
+        row_keys = row_fold.get(key.casefold(), set())
+        if len(row_keys) != 1 or len(touched_fold[key.casefold()]) != 1:
+            continue
+        row_key = next(iter(row_keys))
+        if row_key == key or distinct_files(row_key, key):
+            continue
+        for row_index, row in enumerate(rows):
+            if not row["skip"] and row_key in row["keys"]:
+                link_up(row_index, index)
+
+# An unsplittable row matched through a candidate that looks like a truncation.
+for (row_index, index), candidate in sorted(via.items()):
+    row = rows[row_index]
+    # Flagged only in the one shape that is recognisable: the next " - " segment
+    # completes a file-shaped name and more text follows it ("docs/Plan" in
+    # "docs/Plan - draft.md - text"). A directory row whose description merely
+    # ends in something extension-like is left alone. An existing regular file
+    # was at least linted as itself.
+    if not row["multi"] or is_file(candidate) or EXTENSION.search(candidate):
+        continue
+    full = max(row["cands"], key=len)
+    longer = [c for c in row["cands"] if c.startswith(candidate + " - ")
+              and " - " not in c[len(candidate) + 3:] and full.startswith(c + " - ")
+              and EXTENSION.search(c)]
+    if longer:
+        out.append("REVIEW backfill: Files row '%s' matched --touched '%s' only through the prefix '%s', but the row may name '%s'; write the row's path in backticks"
+                   % (row["raw"], touched[index]["show"], candidate, min(longer, key=len)))
+
+# --- report --------------------------------------------------------------------
+if ambiguous_touched:
+    out.append("FAIL touched: wikilink passed to --touched names several vault files; pass the full path instead: "
+               + "; ".join(ambiguous_touched) + "; ")
+absent = missing = ""
+for index, entry in enumerate(touched):
+    if entry["ambiguous"]:
+        missing += entry["show"] + "; "
+    if entry["skip"] or entry["ambiguous"]:
+        continue
+    if not covers[index]:
+        missing += entry["show"] + "; "
+    # A target that is not on disk was never linted or separator-scanned. Only a
+    # Files Deleted row, an explicit --nonlocal classification, or an off-host
+    # form (which names nothing on this machine) explains that.
+    if (not entry["exists"] and entry["path"] not in nonlocal_args
+            and not OFFHOST.search(entry["show"])
+            and not any(rows[r]["sec"] == "D" for r in covers[index])):
+        absent += entry["show"] + "; "
+if absent:
+    out.append("FAIL touched: path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped?): " + absent)
+if missing:
+    out.append("FAIL backfill: touched but absent from Session %s Files lists (a row must begin with the complete path; backtick a path the row does not end at): %s"
+               % (number, missing))
+else:
+    # Scoped to the ARGUMENTS, not to the session. "all N touched files recorded"
+    # read as a coverage statement about the run and was written up as one, off a
+    # --touched list narrower than the log's own Files list. The check can only
+    # ever speak for what it was handed; the reverse-coverage REVIEW below is what
+    # speaks for the rest.
+    out.append("PASS backfill: all %d path(s) PASSED TO --touched are recorded in Files lists (says nothing about paths not passed)"
+               % len(touched))
+
+# Reverse coverage: does the log list files --touched never saw? Two kinds of
+# row name nothing local to lint and are counted, not compared: an off-host form
+# ("host:/path", "C:\path"), and a Files Deleted row whose path is gone. A
+# Deleted row whose path is still on disk is compared like any other.
+log_key = os.path.realpath(log)
+uncovered, off_host, deleted_absent = "", 0, 0
+for row_index, row in enumerate(rows):
+    if row["skip"] or norm(row["show"]) == log or log_key in row["keys"]:
+        continue   # the log may list itself; it is checked separately
+    present = bool(row["hits"]) or any(
+        on_disk(c) and not (row["multi"] and truncation(c, row["cands"])) for c in row["cands"])
+    if not present and OFFHOST.search(row["show"]):
+        off_host += 1
+    elif not present and row["sec"] == "D":
+        deleted_absent += 1
+    elif not covered[row_index]:
+        uncovered += row["show"] + "; "
+if uncovered:
+    out.append("REVIEW backfill: Files lists name path(s) not passed to --touched, so no lint/separator check ran on them: " + uncovered)
+else:
+    notes = []
+    if off_host:
+        notes.append("%d off-host path form(s) not compared" % off_host)
+    if deleted_absent:
+        notes.append("%d absent Files Deleted row(s) not compared" % deleted_absent)
+    out.append("PASS backfill: --touched covers every path the Session %s Files lists name%s"
+               % (number, " (" + "; ".join(notes) + ")" if notes else ""))
+
+for line in out:
+    if not line.startswith("T\t"):
+        line = "O\t" + line
+    sys.stdout.buffer.write((line + "\n").encode("utf-8", "surrogateescape"))
+PY
+COVERAGE_ARGS=()
+for t in "${TOUCHED[@]:-}"; do [ -n "$t" ] && COVERAGE_ARGS+=(--touched "$t"); done
+for t in "${NONLOCAL[@]:-}"; do [ -n "$t" ] && COVERAGE_ARGS+=(--nonlocal "$t"); done
+# With no --touched path and no Files row there is nothing to compare, and the
+# verdict does not depend on python3. Otherwise a missing or broken helper must
+# not read as "nothing to report".
+FILE_ROWS=$(awk '
+    /^### Files (Created|Updated|Deleted)/{s=1;next} /^### /{s=0} !s{next}
+    {sub(/\r$/,""); sub(/^[[:space:]]+/,""); sub(/[[:space:]]+$/,"")}
+    /^[-*+] / && tolower(substr($0,3)) !~ /^[[:space:]]*none$/ {n++}
+    END{print n+0}' <<< "$BLOCK")
+if [ "${#COVERAGE_ARGS[@]}" -eq 0 ] && [ "$FILE_ROWS" -eq 0 ]; then
+    COVERAGE=$'O\tPASS backfill: all 0 path(s) PASSED TO --touched are recorded in Files lists (says nothing about paths not passed)\n'"O"$'\t'"PASS backfill: --touched covers every path the Session $N Files lists name"
+elif ! COVERAGE=$(python3 -c "$COVERAGE_PY" "$VAULT" "$LOG" "$N" ${COVERAGE_ARGS[@]+"${COVERAGE_ARGS[@]}"} <<< "$BLOCK"); then
+    fail backfill "Files-list coverage helper failed (python3 required); nothing was compared"
+    echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+    exit 1
+fi
+COVERAGE_LINES=()
+while IFS= read -r line; do
+    case "$line" in
+        T$'\t'*) line="${line#T$'\t'}"; TOUCHED[${line%%$'\t'*}]="${line#*$'\t'}" ;;
+        O$'\t'*) COVERAGE_LINES+=("${line#O$'\t'}") ;;
+    esac
+done <<< "$COVERAGE"
+if [ "${#TOUCHED[@]}" -gt 0 ]; then
+    mapfile -t TOUCHED < <(printf '%s\n' "${TOUCHED[@]}" | awk '!seen[$0]++')
 fi
 
 # --- separator tokens --------------------------------------------------------
@@ -350,169 +890,14 @@ done
 [ "${#IDENTS[@]}" -eq 0 ] && pass closure "no idents supplied (nothing completed to grep)"
 
 # --- backfill coverage -------------------------------------------------------
-# Both directions compare COMPLETE resolved paths. A substring test accepts a
-# truncated --touched value ("docs/Plan" for "docs/Plan - draft.md") against the
-# full row, and nothing downstream notices: every content check silently skips
-# a path that is not a file.
-canon() {
-    local p
-    p="$(norm_path "$1")"
-    p="$(realpath -m -- "$p" 2>/dev/null || printf '%s\n' "$p")"
-    [ "$p" = / ] || p="${p%/}"
-    printf '%s\n' "${p,,}"
-}
-# One key set per side. Resolved paths start with "/", so the two prefixed
-# spellings cannot collide with them: "name:" is a bare wikilink (resolved by
-# note name, as the vault does) and "alt:" the short home-relative suffix a
-# human-written row may use for a path outside the vault.
-declare -A ROW_KEY=() DEL_KEY=() TOUCHED_KEY=()
-LOGGED=(); LOGGED_KEYS=()
-record_row() {   # <section C|U|D> <display path> <wikilink 0|1> <candidate path>...
-    local sec="$1" show="$2" wiki="$3" cand key keys=""
-    shift 3
-    for cand in "$@"; do
-        key="$(canon "$cand")"
-        keys="$keys$key"$'\n'
-        [ "$sec" = D ] && DEL_KEY[$key]=1
-        cand="${cand#./}"; cand="${cand,,}"
-        case "$cand" in
-            /*|"~/"*) ;;
-            */*) keys="${keys}alt:$cand"$'\n' ;;
-            *)   [ "$wiki" = 1 ] && keys="${keys}name:${cand%.md}"$'\n' ;;
-        esac
-    done
-    while IFS= read -r key; do
-        [ -n "$key" ] && ROW_KEY[$key]=1
-    done <<< "$keys"
-    # Reverse coverage speaks only for rows that could have been linted: a
-    # Files Deleted row names a file that no longer exists.
-    if [ "$sec" != D ]; then LOGGED+=("$show"); LOGGED_KEYS+=("$keys"); fi
-}
-# Parse explicit backtick paths atomically. For unquoted paths prefer the
-# longest existing prefix, so a filename containing " - " is not truncated.
-while IFS= read -r row; do
-    sec="${row:0:1}"; row="${row:1}"
-    row="${row#"${row%%[![:space:]]*}"}"
-    case "$row" in '- '*) value="${row#- }" ;; *) continue ;; esac
-    case "$value" in ''|[Nn][Oo][Nn][Ee]) continue ;; esac
-    if [[ "$value" == \[\[* ]]; then
-        if [[ "$value" == *\]\]* ]]; then
-            value="${value#\[\[}"
-            value="${value%%\]\]*}"
-            value="${value%%|*}"
-            value="${value%%#*}"
-            case "$value" in
-                *.md) record_row "$sec" "$value" 1 "$value" ;;
-                *)    record_row "$sec" "$value" 1 "$value" "$value.md" ;;
-            esac
-        else
-            review backfill "unterminated wiki Files path: $row"
-        fi
-        continue
-    fi
-    if [[ "$value" == \`* ]]; then
-        value="${value#\`}"
-        if [[ "$value" == *\`* ]]; then
-            record_row "$sec" "${value%%\`*}" 0 "${value%%\`*}"
-        else
-            review backfill "unterminated quoted Files path: $row"
-        fi
-        continue
-    fi
-    candidate="$value"
-    while [[ "$candidate" == *' - '* ]] && [ ! -e "$(norm_path "$candidate")" ]; do
-        candidate="${candidate% - *}"
-    done
-    if [ -e "$(norm_path "$candidate")" ]; then
-        record_row "$sec" "$candidate" 0 "$candidate"
-    else
-        # An absent unquoted path gives no way to tell filename from description,
-        # so every " - " boundary is a candidate; display the first-separator form.
-        cands=("$value"); candidate="$value"
-        while [[ "$candidate" == *' - '* ]]; do
-            candidate="${candidate% - *}"
-            cands+=("$candidate")
-        done
-        record_row "$sec" "${value%% - *}" 0 "${cands[@]}"
-    fi
-done < <(printf '%s\n' "$BLOCK" | awk '
-    /^### Files Created/{s="C";next} /^### Files Updated/{s="U";next}
-    /^### Files Deleted/{s="D";next} /^### /{s=""} s!=""{print s $0}')
-
-# Home paths keep a short alternate suffix for human-written Files rows. Other
-# absolute paths stay absolute: reconstructing a three-component suffix turns a
-# root-level path such as /tmp/file into the nonexistent //tmp/file.
-MISSING=""
-ABSENT=""
-for t in "${TOUCHED[@]:-}"; do
-    [ -n "$t" ] || continue
-    [ "$t" = "$LOG" ] && continue   # the log never lists itself
-    d1="$(dirname "$t")"; d2="$(dirname "$d1")"
-    suffix="$(basename "$d2")/$(basename "$d1")/$(basename "$t")"
-    case "$t" in
-        "$VAULT"/*) needle="${t#"$VAULT"/}"; alt="" ;;
-        # A file one level under a home dotdir reduces to "<user>/.config/x.json",
-        # which no sane log entry contains - it is written "~/.config/x.json". Prefer
-        # the ~-form and keep the suffix as an alternate for logs using the long form.
-        "$HOME"/*)  needle="~/${t#"$HOME"/}"; alt="alt:${suffix,,}" ;;
-        *)          needle="$t"; alt="" ;;
+# Computed by the coverage helper above; printed here to keep the report order.
+for line in ${COVERAGE_LINES[@]+"${COVERAGE_LINES[@]}"}; do
+    echo "$line"
+    case "$line" in
+        FAIL\ *)   FAILS=$((FAILS+1)) ;;
+        REVIEW\ *) REVIEWS=$((REVIEWS+1)) ;;
     esac
-    key="$(canon "$t")"
-    name="${t##*/}"; name="name:${name%.md}"; name="${name,,}"
-    TOUCHED_KEY[$key]=1; TOUCHED_KEY[$name]=1
-    [ -n "$alt" ] && TOUCHED_KEY[$alt]=1
-    if [ -z "${ROW_KEY[$key]:-}" ] && [ -z "${ROW_KEY[$name]:-}" ] \
-        && { [ -z "$alt" ] || [ -z "${ROW_KEY[$alt]:-}" ]; }; then
-        MISSING="$MISSING$needle; "
-    fi
-    # A target that is not on disk was never linted or separator-scanned. Only a
-    # Files Deleted row or an explicit --nonlocal classification explains that.
-    if [ ! -e "$t" ] && [ ! -L "$t" ] && ! is_nonlocal "$t" && [ -z "${DEL_KEY[$key]:-}" ]; then
-        ABSENT="$ABSENT$needle; "
-    fi
 done
-if [ -n "$ABSENT" ]; then
-    fail touched "path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped?): $ABSENT"
-fi
-if [ -n "$MISSING" ]; then
-    fail backfill "touched but absent from Session $N Files lists: $MISSING"
-else
-    # Scoped to the ARGUMENTS, not to the session. "all N touched files recorded"
-    # read as a coverage statement about the run and was written up as one, off a
-    # --touched list narrower than the log's own Files list. The check can only
-    # ever speak for what it was handed; the reverse-coverage REVIEW below is what
-    # speaks for the rest.
-    pass backfill "all ${#TOUCHED[@]} path(s) PASSED TO --touched are recorded in Files lists (says nothing about paths not passed)"
-fi
-
-# --- reverse coverage: does the log list files --touched never saw? ----------
-# An off-host form names a file this machine cannot read, so reporting it as
-# "not passed to --touched" is a REVIEW no rerun can clear.
-OFFHOST_RE='^[A-Za-z0-9._-]+:/|(^|[[:space:]])[A-Za-z]:\\'
-UNCOVERED=""
-OFFHOST=0
-for i in "${!LOGGED[@]}"; do
-    lp="${LOGGED[$i]}"
-    case "$lp" in [Nn][Oo][Nn][Ee]) continue ;; esac
-    lp_abs="$(norm_path "$lp")"
-    [ "$lp_abs" = "$LOG" ] && continue   # the log may list itself; it is checked separately
-    if [ ! -e "$lp_abs" ] && [[ "$lp" =~ $OFFHOST_RE ]]; then
-        OFFHOST=$((OFFHOST + 1))
-        continue
-    fi
-    hit=""
-    while IFS= read -r key; do
-        [ -n "$key" ] && [ -n "${TOUCHED_KEY[$key]:-}" ] && hit=1
-    done <<< "${LOGGED_KEYS[$i]}"
-    [ -z "$hit" ] && UNCOVERED="$UNCOVERED$lp; "
-done
-if [ -n "$UNCOVERED" ]; then
-    review backfill "Files lists name path(s) not passed to --touched, so no lint/separator check ran on them: $UNCOVERED"
-else
-    NOTE=""
-    [ "$OFFHOST" -gt 0 ] && NOTE=" ($OFFHOST off-host path form(s) not compared)"
-    pass backfill "--touched covers every path the Session $N Files lists name$NOTE"
-fi
 
 # --- result ------------------------------------------------------------------
 if [ "$FAILS" -gt 0 ]; then
