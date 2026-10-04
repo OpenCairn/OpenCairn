@@ -97,7 +97,9 @@ EOF
 # Use it for bulk corrections instead of N --replace calls or an unlocked pass.
 # --delete-section '<full heading line>' (the section through to the next heading of the same or
 # higher level, or EOF; empty stdin deletes it, non-empty stdin replaces it; the removed block
-# is printed to stdout). Use it to remove or collapse a section instead of retyping it as OLD.
+# is printed to stdout). It has NO preimage check: it removes whatever sits under the heading at
+# lock time, and an unclosed code fence in the section extends the removal to EOF. Do not use it
+# on a shared planning file; collapse or remove a section there with --replace on the text you read.
 # --move <destination> <expected-source-sha256> (link-healing compare-and-move;
 # both paths must be inside VAULT_PATH; a missing destination directory is created).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under
