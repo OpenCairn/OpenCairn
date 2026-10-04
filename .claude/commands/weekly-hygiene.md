@@ -486,6 +486,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Hash any work products not already hashed
    - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
    - Hash the session log for that date: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
+   - Snapshot the exact bytes of every newly hashed target — work products, transcript and session log — beside its proof using the provenance Step 5 mechanism. Re-export and link-healing can change the live transcript/log; their proof must remain verifiable without source JSONL retention.
    - OTS stamp all newly hashed files
    - Append entries to `07 System/AI Provenance Log.md`
    - Delete the processed flag file
@@ -581,7 +582,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Verify OTS proofs:**
    For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
 
-   **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches would be suspicious. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
+   **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches can follow re-export; verify the retained snapshot before reporting an integrity failure. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
 14. **Supply-chain config tripwire** (AI-assistant hook integrity)
 
