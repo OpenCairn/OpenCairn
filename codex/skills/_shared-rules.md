@@ -95,12 +95,16 @@ EOF
 # --replace-many (several exactly-once replacements under one lock and one write; stdin is a
 # JSON array [{"old": "...", "new": "..."}, ...]; any failing pair writes nothing and is named).
 # Use it for bulk corrections instead of N --replace calls or an unlocked pass.
-# Do not use --delete-section on any vault file until it has a preimage check; remove or collapse
-# a section with --replace on the text you read.
+# --show-section '<full heading line>' (read-only: prints the section, heading through to the next
+# heading of the same or higher level or EOF, to stdout, and "Section sha256: <hash>" to stderr).
+# --delete-section '<full heading line>' <section-sha256> [--no-replacement] (compare-and-swap on the
+# section: pass the hash --show-section printed. Non-empty stdin replaces the section; a pure
+# delete needs --no-replacement. Exit 2 = the section changed since you read it, or a code fence
+# in the file is never closed: nothing was written, so run --show-section again.)
 # --move <destination> <expected-source-sha256> (link-healing compare-and-move;
 # both paths must be inside VAULT_PATH; a missing destination directory is created).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under
-# --replace/--replace-many, or overlapping --replace-many pairs).
+# --replace/--replace-many, overlapping --replace-many pairs, or a duplicated section heading).
 # For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
 # For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
 # Exit 1 with a lock message means another writer holds the lock past the timeout — that is

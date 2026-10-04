@@ -20,7 +20,7 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
-**Write mechanism — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9, collapses in Step 10), use `--replace` — NOT `--append`, which adds at EOF outside any day section.
+**Write mechanism — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9), use `--replace` — NOT `--append`, which adds at EOF outside any day section. Step 10's collapses use `--show-section` then `--delete-section`.
 
 ### 0. Resolve Vault Path
 
@@ -235,6 +235,19 @@ After all undone items have been routed, collapse today's section — and any ea
 ## [emoji] [Day] [Date] — [Theme] ✅
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
+
+Collapse in two calls, so nothing you have not read is removed. Pass the day's current heading line exactly as it stands in the file:
+
+```bash
+TW="{VAULT}/01 Now/This Week.md"; LE="{VAULT}/.claude/scripts/locked-edit.sh"
+"$LE" "$TW" --show-section '## OLD HEADING LINE'   # prints the section; stderr ends "Section sha256: <hash>"
+cat << 'EOF' | "$LE" "$TW" --delete-section '## OLD HEADING LINE' <hash>
+## [emoji] [Day] [Date] — [Theme] ✅
+[One sentence.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
+EOF
+```
+
+Read what `--show-section` printed before the second call: a `- [ ]` in it means Step 9 missed an item, so route that item first and show the section again. Exit 2 on `--delete-section` means the section changed after you read it (or a code fence in the file is never closed): nothing was written, so show it again and redo the call with the new hash.
 
 **⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so links to that day's section stop resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with `H` set to the old heading line as it stands in the file, minus its leading `## `:
 
