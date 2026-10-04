@@ -67,6 +67,8 @@ python3 "$PARK_REVIEW" capture --kind evidence --label "<source name>" --source 
 EOF
 ```
 
+For each decision-bearing command, retain its literal invocation, working directory, exit status and discriminating stdout/stderr before cleanup or brief assembly. State which observation separates pass from fail; include empty/error output when it controls a conclusion. A prose success summary, recreated command or bare exit 0 is not the evidence. Preserve the raw result in the full-path evidence/pre-state handoff, with an exact path and digest for any companion file the reviewer must inspect. Capture that raw result with `capture --kind evidence` or `--kind prestate` as appropriate.
+
 Use `secondary` or `unverified` where §16 requires it. Add receipts as evidence arrives; all excerpts for the same `--source` are retained in capture order. A later excerpt does not replace an earlier one. On a bare or escalated full path, follow §16's source-union, source-size and per-claim coverage rules: capture short sources whole and the supporting passages from longer sources. Step 9 then assembles the brief from receipts; it never reconstructs it from the transcript. An eligible quick path creates only its verifier receipt.
 
 ### 1. Merge-continuation check
