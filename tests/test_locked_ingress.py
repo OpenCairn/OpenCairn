@@ -3,7 +3,10 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from session_isolation import isolated_os_environ
+try:
+    from session_isolation import isolated_os_environ
+except ImportError:  # python -m unittest tests.<module>
+    from tests.session_isolation import isolated_os_environ
 
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/locked-ingress.sh"

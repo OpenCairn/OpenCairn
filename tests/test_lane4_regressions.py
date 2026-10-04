@@ -6,7 +6,10 @@ import subprocess
 import tempfile
 import unittest
 
-from session_isolation import isolate_session
+try:
+    from session_isolation import isolate_session
+except ImportError:  # python -m unittest tests.<module>
+    from tests.session_isolation import isolate_session
 
 ROOT = Path(__file__).parents[1]
 SCRIPTS = ROOT / '.claude/scripts'
