@@ -12,6 +12,7 @@ At the end of the run, **log observations — do not propose skill edits in-sess
 { printf '## %s — $<skill>\n' "$(date +%F)"; cat <<'EOF'
 - [gap observed]: [specific suggested edit]
 EOF
+printf '\n'
 } | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/07 System/Skill Monitor Log.md" --append
 ```
 

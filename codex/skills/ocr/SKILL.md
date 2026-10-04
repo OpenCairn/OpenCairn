@@ -284,7 +284,7 @@ Skip this phase entirely if `--no-preprocess` was passed and the Phase 1 size ch
    done
    shopt -u nullglob nocaseglob
    ```
-4. **Only on paths that inspect images:** attempt the preprocessed image read. If Codex rejects a dimension or batch, downscale progressively (720 → 640 → 512 → 448) or split the batch. Skip this on easyocr-only runs.
+4. **Only on paths that inspect images:** if a file exceeds the image-read limit, measure its current width with `magick identify -format '%w' "$IMAGE"`. Consider 720 → 640 → 512 → 448 → 384 → 320 → 256, retaining only widths strictly below both the resolved caller `WIDTH` and this file's current width. Re-encode that file at the next eligible width, measure again and stop when it fits; never upscale a 400px delegating caller. If no eligible width works, split the batch or report the read limit rather than retrying the same dimensions. Skip this on easyocr-only runs.
 5. Report briefly: `"N files, source avg X MB → resized avg Y KB, width Wpx, quality Q."`
 6. **If `--preprocess-only`, stop here.** Emit one final line — `"Preprocessed → <absolute DST path>"` — and end the skill. No Vision read, no transcript, no interactive prompt. Delegating callers consume the DST path and handle extraction themselves.
 

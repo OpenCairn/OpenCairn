@@ -21,11 +21,15 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   ```
   Copy the pre-flight baseline (target bytes plus SHA-256s) into `<run-dir>/baseline/` so the archive carries the target as reviewed.
 
+  **Grok helper path:** resolve the installed `xai_client.py`, not the user settings root. Under Claude, it is in `scripts/` beside this loaded commands tree; under Codex use the resolved `{VAULT}/.claude/scripts/` installation. Check the exact file exists and is executable, then substitute that absolute path for `"<xai-client>"` in every probe and call. An absent helper is unavailable, never a reason to guess a config-root script path; credentials still follow the client's existing resolution.
+
+  **Prepared shared packet:** a caller that needs identical substantive input across all seats must run `"<xai-client>" --prepare-panel <brief> --source <target> [--source <target> ...] --output <new-packet>` before dispatch. Retain the returned packet path/hash/source manifest; use that file as every seat's brief. Grok receives `--panel-review <packet> --prepared` with no `--source` (combining them fails). Preparation is local, refuses an existing output, and fails before publication on missing/oversized sources. Legacy callers with an unprepared brief keep the `--source` form below. Round-2 replay prepares a fresh packet with the earlier review files in its source list; never append them a second time during sending.
+
   Per seat, one Bash call each, concurrent (stdout → `<seat>.out`, stderr → `<seat>.err` where Codex prints its model and session id and Grok its usage/cost line, wall seconds → `<seat>.time`, exit status → `<seat>.exit`):
   ```bash
   s=$(date +%s); cat <run-dir>/brief.md | gemini -p "Follow the instructions in the piped input exactly." --policy <run-dir>/gemini-ro-policy -o text --include-directories <root> > <run-dir>/gemini.out 2> <run-dir>/gemini.err; echo $? > <run-dir>/gemini.exit; echo $(( $(date +%s) - s )) > <run-dir>/gemini.time
   s=$(date +%s); cat <run-dir>/brief.md | codex exec --sandbox read-only --skip-git-repo-check -C <root> - > <run-dir>/codex.out 2> <run-dir>/codex.err; echo $? > <run-dir>/codex.exit; echo $(( $(date +%s) - s )) > <run-dir>/codex.time
-  s=$(date +%s); ~/.claude/scripts/xai_client.py --panel-review <run-dir>/brief.md --source <target> [--source <target> ...] > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
+  s=$(date +%s); "<xai-client>" --panel-review <run-dir>/brief.md --source <target> [--source <target> ...] > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
   ```
   Claude seat: when the Agent returns, write its final message verbatim to `<run-dir>/claude.out` with the Write tool (a heredoc mangles backticks and `$`) and keep its Agent id; `panel-run-record.sh --claude-agent <id>` reads the seat's model and wall seconds from the seat's own transcript, so neither is typed.
 

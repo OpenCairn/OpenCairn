@@ -23,6 +23,10 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   ```
   Copy the pre-flight baseline (target bytes plus SHA-256s) into `<run-dir>/baseline/` so the archive carries the target as reviewed.
 
+  **Grok helper path:** resolve the installed `xai_client.py`, not the user settings root. Under Claude, it is in `scripts/` beside this loaded commands tree; under Codex use the resolved `{VAULT}/.claude/scripts/` installation. Check the exact file exists and is executable, then substitute that absolute path for `"<xai-client>"` in every probe and call. An absent helper is unavailable, never a reason to guess a config-root script path; credentials still follow the client's existing resolution.
+
+  **Prepared shared packet:** a caller that needs identical substantive input across all seats must run `"<xai-client>" --prepare-panel <brief> --source <target> [--source <target> ...] --output <new-packet>` before dispatch. Retain the returned packet path/hash/source manifest; use that file as every seat's brief. Grok receives `--panel-review <packet> --prepared` with no `--source` (combining them fails). Preparation is local, refuses an existing output, and fails before publication on missing/oversized sources. Legacy callers with an unprepared brief keep the `--source` form below. Round-2 replay prepares a fresh packet with the earlier review files in its source list; never append them a second time during sending.
+
   Per seat, one call each (`T` resolves the 1,500-second ceiling in the same call; stdout → `<seat>.out`, stderr → `<seat>.err`, wall seconds → `<seat>.time`, exit status → `<seat>.exit`; under Codex retain the yielded session_id and poll with `write_stdin`):
   ```bash
   T=$(command -v timeout || command -v gtimeout) || { echo 'needs GNU timeout/gtimeout' >&2; exit 1; }
@@ -30,7 +34,7 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s codex exec --sandbox read-only --skip-git-repo-check -C <root> - > <run-dir>/codex.out 2> <run-dir>/codex.err; echo $? > <run-dir>/codex.exit; echo $(( $(date +%s) - s )) > <run-dir>/codex.time
   # Claude seat, when Claude Code is available (keep the raw JSON; .result is the review; .session_id is the Mode B handle):
   s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit" > <run-dir>/claude.json 2> <run-dir>/claude.err; echo $? > <run-dir>/claude.exit; echo $(( $(date +%s) - s )) > <run-dir>/claude.time; jq -r .result <run-dir>/claude.json > <run-dir>/claude.out
-  s=$(date +%s); "$T" 1500s "{VAULT}/.claude/scripts/xai_client.py" --panel-review <run-dir>/brief.md --source <target> [--source <target> ...] > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
+  s=$(date +%s); "$T" 1500s "<xai-client>" --panel-review <run-dir>/brief.md --source <target> [--source <target> ...] > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
   ```
   `panel-run-record.sh` reads the Claude model from `claude.json`, so it is never typed.
 

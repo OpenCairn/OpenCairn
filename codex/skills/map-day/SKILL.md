@@ -41,11 +41,13 @@ of places to plot. Works for any city, in or out of China.
   AirDrop/Quick Share, or email-to-self. Phase 4 falls through channels; if none is
   reachable, leave the file in the vault and say so.
 
+Exact POI cache keys preserve the supplied capitalisation. Older case-folded Overpass entries are ignored in a separate cache namespace (retained on disk), so a corrected-case lookup can refresh an old zero with network access; cache-only mode leaves that lookup unresolved rather than treating an old zero as authority.
+
 ## Arguments
 
 Interpret the free-text arguments following `$map-day` as one of:
 - a **date** (e.g. `today`, `Tue`, `2026-06-29`) → read that day's block from
-  `01 Now/This Week.md`;
+  `{VAULT}/01 Now/This Week.md`;
 - a **list of places** (pasted) → use those directly;
 - empty → default to today.
 
@@ -55,7 +57,7 @@ Interpret the free-text arguments following `$map-day` as one of:
 Run `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`. Abort if it fails.
 
 ### Phase 1: Gather the stops
-- If given a date, read the matching day block from `01 Now/This Week.md`. Day blocks
+- If given a date, read the matching day block from `{VAULT}/01 Now/This Week.md`. Day blocks
   are flat task checklists, not itineraries — most lines carry no location at all, and
   a past day may be collapsed to a single prose paragraph with no list left. Pull out
   only the lines that name a place: name, any address/cross-street/district already in

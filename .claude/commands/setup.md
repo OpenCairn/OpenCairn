@@ -270,7 +270,9 @@ Capture: principles (optional — the template already includes two defaults).
 
 ### Phase 4: Write CLAUDE.md
 
-Use the Edit tool to replace bracketed placeholders with the user's answers:
+If Phase 2 found an already-personalised CLAUDE.md and the user chose the update interview, re-read its actual current fields and replace only the uniquely anchored values the user changed; preserve unasked fields and locally owned sections. Do not retry absent placeholder strings or regenerate the file from the template. Read back each changed field. Use the locked wrapper if this file is inside the vault.
+
+For an unpersonalised template, replace the bracketed placeholders with the user's answers:
 
 1. Replace `[Your Name]` in the H1 title line with the user's name
 2. Delete the instructional HTML comment block at the top of the file (the one beginning `INSTRUCTIONS:`) — it sits above the first section, so the section-scoped cleanup below won't catch it
