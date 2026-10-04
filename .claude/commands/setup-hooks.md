@@ -58,7 +58,7 @@ is dominated by model turns, and per-turn cost rises with the context it runs in
 
 Explicit park requests suppress snapshots while park is active. A Stop completion
 message records the ledger-line count; snapshots stay suppressed until a new write
-changes that count. The Stop observer emits no context and does not block a stop.
+changes that count. A successful completion retires the saved-work draft; the next trigger creates a fresh snapshot. The post-park watermark is consumed only when that trigger fires. The Stop observer emits no context and does not block a stop.
 
 Both sets use `mcp-write-ledger.sh` for resolved response paths from the named
 Obsidian write, append, patch and replace tools. Unknown or unresolved responses
