@@ -64,8 +64,8 @@
     "complete-project": {
       "source": ".claude/commands/complete-project.md",
       "render": "codex/skills/complete-project/SKILL.md",
-      "source_sha256": "9134f82ecf7ebb323238443163ac0633f11d16249dc920357b60b1aaa86b46cb",
-      "render_sha256": "eef3d6b4eb634071bbfd014dcf6f177bc53ed40dee7f230c82245658335b6be1"
+      "source_sha256": "af7e45a086fe47c66f1fbc687ea84a723f7b70c46ddd6db7e51bd00fd8886846",
+      "render_sha256": "98ca3506d00587452463611b99b2b5af8c33680bc20685b474b35b218b9e1fee"
     },
     "cornerstones": {
       "source": ".claude/commands/cornerstones.md",
