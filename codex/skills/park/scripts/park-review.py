@@ -30,6 +30,8 @@ SEP_RE = re.compile(
 JOINED_LIST_RE = re.compile(r"[^\s=`]- \[[ x]\]")
 ATTEST_RE = re.compile(r"^ATTEST ([0-9a-fA-F]{64}) (/.+)$", re.MULTILINE)
 REMOTE_PATH_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+# Media types whose full-read review copy is text read by line range.
+TEXT_REVIEW_MEDIA_TYPES = ("text/plain", "application/pdf")
 AUDIT_TABLE = """| Seat can reach | Required attestation |
 |---|---|
 | The filesystem | The list of files it read |
@@ -79,6 +81,11 @@ def is_binary_artifact(data: bytes) -> bool:
         or data.startswith(b"\x89PNG\r\n\x1a\n")
         or b"\x00" in data[:8192]
     )
+
+
+def needs_binary_review(data: bytes) -> bool:
+    """True for non-PDF bytes that cannot be reviewed as text by line range."""
+    return not data.startswith(b"%PDF-") and (is_binary_artifact(data) or not is_utf8(data))
 
 
 def decode_utf8(data: bytes, path: Path) -> str:
@@ -184,12 +191,23 @@ def semantic_review_copy(
 ) -> tuple[str, Path, Path, str, str, str]:
     """Return immutable source/review paths for a session-authored semantic file."""
     digest, snapshot_path = write_snapshot(root, data)
-    if not data.startswith(b"%PDF-"):
+    binary = needs_binary_review(data)
+    if not binary and not data.startswith(b"%PDF-"):
         review_text = decode_utf8(data, source)
         return digest, snapshot_path, snapshot_path, digest, review_text, "text/plain"
     receipt = classification.get("artifact") if isinstance(classification, dict) else None
     if not isinstance(receipt, dict) or receipt.get("source_sha256") != digest:
         receipt = prepare_artifact(root, vault, snapshot_path, source)
+    if binary:
+        # No text copy exists: the reviewer inspects the immutable source bytes
+        # with a tool for the media type, and there is no text locator to own.
+        source_snapshot = Path(str(receipt.get("source_snapshot", "")))
+        if not source_snapshot.is_file() or sha256(source_snapshot) != digest:
+            die(f"artefact source snapshot missing or corrupt: {source_snapshot}")
+        media_type = receipt.get("media_type")
+        if not isinstance(media_type, str) or media_type in TEXT_REVIEW_MEDIA_TYPES:
+            media_type = "application/octet-stream"
+        return digest, source_snapshot, source_snapshot, digest, "", media_type
     if receipt.get("text_status") != "available":
         die(
             f"semantic PDF has no extractable text: {source}; use format-specific authored-output "
@@ -556,7 +574,12 @@ def cmd_classify(args: argparse.Namespace) -> int:
             die("targeted semantic review requires at least one --inspection-target")
         inspection_scope = "targeted" if args.reference or args.targeted else "full"
         artifact = None
-        if path.read_bytes().startswith(b"%PDF-") or inspection_scope == "targeted":
+        data = path.read_bytes()
+        if (
+            data.startswith(b"%PDF-")
+            or inspection_scope == "targeted"
+            or needs_binary_review(data)
+        ):
             artifact = prepare_artifact(root, vault, path, path)
         manifest[str(path)] = {
             "mode": "reference" if args.reference else "semantic",
@@ -1279,6 +1302,7 @@ def group_full_reads(files: list[dict]) -> list[dict]:
             groups[digest] = {
                 "sha256": digest,
                 "read_path": item.get("review_path", item["snapshot_path"]),
+                "media_type": item.get("media_type", "text/plain"),
                 "review_sha256": item.get("review_sha256", digest),
                 "hash_path": item["snapshot_path"],
                 "paths": [],
@@ -1456,7 +1480,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             else:
                 if is_binary_artifact(data) or not is_utf8(data):
                     die(f"unclassified non-text artefact: {path}; use classify --reference "
-                        "for imported sources or --semantic --targeted with inspection targets")
+                        "for imported sources, --semantic for a bounded authored output, "
+                        "or --semantic --targeted with inspection targets")
                 warnings.append(f"defaulted unclassified file to semantic: {path}")
             (
                 snapshot_digest,
@@ -1543,13 +1568,21 @@ def cmd_build(args: argparse.Namespace) -> int:
     if read_groups:
         for group in read_groups:
             reasons = "; ".join(group["reasons"])
-            group["lines"] = count_lines(Path(str(group["read_path"])))
-            lines.append(
-                f"- Read immutable review copy once: `{group['read_path']}` — "
-                f"lines `{group['lines']}` — "
-                f"review-copy SHA-256 `{group['review_sha256']}` — "
-                f"verify source bytes at `{group['hash_path']}` → `{group['sha256']}` — {reasons}"
-            )
+            if group["media_type"] in TEXT_REVIEW_MEDIA_TYPES:
+                group["lines"] = count_lines(Path(str(group["read_path"])))
+                lines.append(
+                    f"- Read immutable review copy once: `{group['read_path']}` — "
+                    f"lines `{group['lines']}` — "
+                    f"review-copy SHA-256 `{group['review_sha256']}` — "
+                    f"verify source bytes at `{group['hash_path']}` → `{group['sha256']}` — {reasons}"
+                )
+            else:
+                group["bytes"] = Path(str(group["read_path"])).stat().st_size
+                lines.append(
+                    f"- Inspect immutable binary snapshot once: `{group['read_path']}` — "
+                    f"media type `{group['media_type']}` — bytes `{group['bytes']}` — "
+                    f"SHA-256 `{group['sha256']}` — {reasons}"
+                )
             lines.append("  - Original path(s) covered by this snapshot:")
             for path in group["paths"]:
                 lines.append(f"    - `{path}`")
@@ -1722,6 +1755,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             "Use bounded line ranges covering line 1 through the stated line count, including a final "
             "unterminated line. Report the ranges read; retry a truncated range in smaller chunks. "
             "Run `sha256sum` on the listed source-bytes path and return that SHA-256.",
+            "- Each `Inspect immutable binary snapshot once` row in that section is a session-authored "
+            "non-text artefact. Do not read it as text or by line range, and do not open the live original. "
+            "Run `sha256sum` on the snapshot path and return that SHA-256, then inspect the whole snapshot "
+            "with a tool suited to the stated media type: render an image, or list an archive's members and "
+            "read those a session claim depends on. Report the tool used and what it showed. A snapshot you "
+            "cannot inspect that way is a coverage gap, not a clean read.",
             "- Include exactly one machine-readable attestation line for every original path represented "
             "by those groups: `ATTEST <sha256> <absolute-original-path>`. Byte-identical aliases are attested but "
             "not reread. Do not wrap either field in backticks and do not leave trailing whitespace.",
