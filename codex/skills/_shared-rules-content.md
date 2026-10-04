@@ -4,16 +4,23 @@ Read only the numbered sections needed for the current operation. Core rules and
 
 ---
 
-## 14. Verbatim External Text vs In-Place Formatting Hooks
+## 14. Verbatim External Text and Citation Fidelity
 
-When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — an automatic in-place formatting hook can silently corrupt it. The Claude Code side of this vault runs such a hook (a spelling normaliser that fires on that harness's editor-tool writes to `.md` files and de-Americanises text in place, e.g. `color`→`colour`); **no equivalent hook is currently wired into Codex**, so a write from Codex cannot fire it — but the files a Codex skill writes remain reachable by the other harness, and if a Codex hook replacement lands (Codex hooks are beta), this section binds again in full. The word-level ignore files cannot help either way — you can't enumerate every foreign-spelled word a speaker might use.
+Protect exact external wording and identifiers from **any** formatter or editor transformation, regardless of harness, write route or extension. This includes quoted passages and transcripts; proper nouns, institution and journal names in citations; URL bytes; and Markdown/wikilink targets, anchors and aliases. Scratch `.txt` files, including scratchpad extracts, receive the same protection as final Markdown notes. Normalise only the author's own prose, never the quoted source or its identifiers.
 
-**Rules that stay live under Codex:**
+**Stage and compare.** Retain the source text unchanged outside the vault. Assemble the complete intended note there, including its header, verbatim body and exact citation/link identifiers; make any intended locale edits before staging. Save through the vault's locked writer (§5), then compare the saved file with those staged bytes:
 
-1. **Never let a hooked harness re-edit a verbatim note.** Write the synthesis header however you like, but the verbatim body is appended via the shell (`printf '\n' >> "$dest"; cat "$body_file" >> "$dest"`) and the note is never rewritten wholesale afterwards — any full-file rewrite by a hooked harness re-fires that harness's hook on the whole body.
-2. **Path-level exclude is the robust defence.** If a formatting hook reads an exclude list (`exclude_paths` in a `config.local.json`-style file), the verbatim-output folder belongs on it — that holds regardless of which harness writes, and it is the only defence that survives collateral edits (adding wikilinks to a note that itself holds verbatim quotes).
-3. **Inline identifiers and bare URLs.** In normalised prose, wrap stray foreign-spelled tokens and every bare URL in an inline code span (backticks) — a normaliser matches inside a URL's path segments, silently turning a correct citation into a 404 that reads to a later reader as fabricated. After writing any note carrying citations, extract its URLs (`rg -o 'https?://[^ )`]*' <file>`) and confirm each still matches the source — verify after the write, not before.
-4. **A hook's actual matcher is established empirically, never assumed.** Before relying on any bypass (shell append vs editor write), write a control file containing a known-rewritable token via each write route, re-read it, and record the result in the project's own reference doc.
+```bash
+cmp "<STAGED_NOTE>" "<SAVED_NOTE>"
+```
+
+Exit 0 means byte-identical; exit 1 means different; another non-zero exit is a failed comparison. A word count, plausible tail or URL-only scan cannot establish fidelity. For an authorised later edit, rebuild the intended note in scratch and repeat the locked save and comparison. Never rewrite a retained source file just to make a failed comparison pass.
+
+**Establish the actual transformation boundary.** Before relying on a write route, use a control containing a quoted foreign-spelled word, a proper noun/journal name and a navigable Markdown/wikilink target. Write it through that route, then compare its saved bytes with the unchanged control. Check which paths and extensions the formatter reaches, including scratch `.txt`; do not assume editor-only hooks, shell bypasses or code-span protection. Keep the observation in the project's own reference doc, not a version claim copied into skills.
+
+**Use path exclusion when required.** If a formatter changes protected bytes, use its authorised path exclusion for the affected note or output folder, then rerun the control and saved-file comparison. Do not disable global formatting silently. If the same material needs a second repair, stop repairing around the formatter: establish a working path exclusion before another write. Without a proven preserving route, report the fidelity gap and leave the source intact. A later edit from another harness must honour the same protection.
+
+**Preserve navigable identifiers as identifiers.** Backticks are an option for an isolated literal token only when the control proves they protect it. Do not turn a citation or wikilink into code merely to evade formatting when it must remain clickable; exclude its path and preserve the complete construct instead. Verify all protected citation identifiers after the final write, not just URLs.
 
 ---
 
