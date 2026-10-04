@@ -235,13 +235,16 @@ After all undone items have been routed, collapse today's section — and any ea
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
 
-**⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so every `[[01 Now/This Week#…]]` anchor and prose locator naming that day stops resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with the day number and month exactly as the old heading writes them:
+**⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so links to that day's section stop resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with `H` set to the old heading line as it stands in the file, minus its leading `## `:
 
 ```bash
-rg -n -g '!**/06 Archive/**' -e 'This Week.*\b[DD] [Mon]\b' -e '\[\[#[^\]]*\b[DD] [Mon]\b' "{VAULT}"
+H='OLD HEADING TEXT'
+TW="{VAULT}/01 Now/This Week.md"
+[ "$(rg -c -F -x -- "## $H" "$TW")" = 1 ] || { echo "STOP: \"## $H\" is not exactly one line of This Week.md" >&2; exit 1; }
+rg -n -F -t md -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- "$H" "{VAULT}"
 ```
 
-Exit 1 with no output means nothing points at the day. Otherwise read each hit and keep the ones that locate this day's section; a line that merely mentions the date is not one. After the collapse, repoint each kept hit via `locked-edit.sh`: a reference to a task Step 9 carried forward targets the destination day's heading; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. The archive is excluded on purpose: session logs and daily reports record the heading as it stood. Re-run the command — a pass is no locator for that day left in the output — and emit `Inbound locators: [Day] [DD] [Mon] — [N] found, [N] repointed`.
+`STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
 
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
 
@@ -354,7 +357,7 @@ The audit runs in a fresh context via `collaboration.spawn_agent`, NOT inline. $
 $goodnight's distinctive Layer 3 substrate (use as a checklist when enumerating):
 - Completed-loop identifiers (text marked `[x]` in This Week.md, deleted from Tickler, or marked done in a project file via Step 4 / Step 6)
 - Items moved between day sections in Step 9 (old day → new day)
-- Day-section collapses in Step 10 (verbose section → one-liner; the outbound `[[…|Full report]]` link must resolve to a real file)
+- Day-section collapses in Step 10 (verbose section → one-liner; the outbound `[[…|Full report]]` link must resolve to a real file) and their inbound-locator repoints (old target → new target, per file)
 - New day sections added by rolling-window maintenance in Step 11
 - Project-doc Current Objective / Next Actions changes from Step 14a (especially propagation-from-debrief edits)
 - NEW: today's daily report file at `06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
@@ -367,7 +370,7 @@ Identifiers in scope:
 [OR (nil case, formatted as enumerated checklist, not bare assertion):]
 - Completed-loop status flips: none
 - Day-section moves (Step 9): none
-- Day-section collapses (Step 10): none / Daily-report wikilink targets: none broken
+- Day-section collapses (Step 10): none / Daily-report wikilink targets: none broken / Inbound-locator repoints: none
 - Rolling-window day additions (Step 11): none
 - Project-doc Current Objective/Next Actions changes: none
 - New named state introduced (daily report, goodnight session entry): always at least these two — list them
@@ -525,7 +528,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans.
    b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via $morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
-   d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint (carried tasks' destination is today's section) and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
+   d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel $park or $goodnight invocations):
 
       ```bash
@@ -542,7 +545,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       - 06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md
 
       ### Files Updated
-      - [Items routed by C1.c/d]
+      - [Items routed by C1.c/d; files repointed by Step 10's inbound-locator rule]
 
       ### Pickup Context
       **For next session:** [pickup pointer for today]
@@ -554,7 +557,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
    g. **Run $audit via a fresh sub-agent on the catch-up** — apply $goodnight Step 15 sub-steps (a)–(f) verbatim (including the (f) Files-Updated backfill, scoped to the catch-up session entry). Catch-up performs the same state-propagating actions as $goodnight (status flips on items the user may have already marked, day-section collapses, item routing, session-log writes) and is subject to the same Layer 3 failure mode (stale phase/status framings in project hubs and area files that referenced the caught-up day's now-historical state). Inline audit suffers the same cognitive-load / enumeration-scoping / recency-bias mechanisms $park's audit step names. **Unconditional, not gated on substrate size:** even a "trivial" catch-up writes a NEW daily report file + NEW catch-up session entry, so the enumeration floor is never zero — same logic as $goodnight Step 15.
 
       Substrate-specific notes (when applying Step 15's checklist to the catch-up):
-      - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — C1 generally inherits state, doesn't flip), day-section moves from C1.c, day-section collapses from C1.d, NEW daily report file from C1.b, NEW catch-up session entry from C1.e. The last two are always present.
+      - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — C1 generally inherits state, doesn't flip), day-section moves from C1.c, day-section collapses and inbound-locator repoints from C1.d, NEW daily report file from C1.b, NEW catch-up session entry from C1.e. The last two are always present.
       - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from C1.e's `Session number assigned: N` stdout), the file list (different from $goodnight's — assemble from C1.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`~/.codex/skills/audit/SKILL.md` Phase 2 Layers 1–5 — Layer 0 deliberately out of scope for this bookkeeping audit), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace $morning’s landscape pass (its Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when $morning Step 3 runs.
       - **Pre-state authority in the audit brief:** the authoritative pre-catch-up state is the main session's own Read of This Week.md at catch-up time — embed the relevant pre-collapse content in the brief if the auditor needs it. Do NOT direct the sub-agent to reconstruct pre-state from vault auto-save git: commit boundaries are arbitrary, and a morning-window commit typically captures the *user's own* pre-/morning edits, so its diff mis-attributes user actions to the catch-up. Any git-derived data-loss finding must be verified against the specific commit's diff content and timing before remediation.
       - After the sub-agent returns: verify any remediation edits were backfilled to the catch-up session entry via `backfill-files-updated.sh`. If not, run the backfill from the file list the sub-agent reported.
