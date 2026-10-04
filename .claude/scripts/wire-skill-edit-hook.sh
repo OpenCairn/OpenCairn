@@ -39,7 +39,7 @@ SURVEY_CMD="\"$SCRIPT_DIR/skill-edit-survey.sh\""
 MCP_CMD="\"$SCRIPT_DIR/mcp-write-ledger.sh\" --marker"
 
 # Narrow compatibility aliases: the old current-config commands only.
-LEGACY_HOOKS=$(jq -cn --arg marker "$CONFIG_DIR/scripts/skill-edit-marker.sh" --arg survey "$CONFIG_DIR/scripts/skill-edit-survey.sh" --arg mcp "\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --marker" '[["PostToolUse",$marker], ["Stop",$survey], ["PostToolUse",$mcp]]')
+LEGACY_HOOKS=$(jq -cn --arg current_mcp "$MCP_CMD" --arg marker "$CONFIG_DIR/scripts/skill-edit-marker.sh" --arg survey "$CONFIG_DIR/scripts/skill-edit-survey.sh" --arg mcp "\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --marker" '[["PostToolUse",$marker], ["Stop",$survey], ["PostToolUse",$mcp]] | map(select(.[1] != $current_mcp))')
 
 # Both hook-wiring scripts mutate the same settings file. Hold its canonical
 # lock across creation, read, merge, validation, backup and atomic replacement.

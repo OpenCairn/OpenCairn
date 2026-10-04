@@ -5,11 +5,31 @@ import os
 import subprocess
 import tempfile
 import unittest
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class HookInstallation(unittest.TestCase):
+    def test_both_sets_are_idempotent_when_config_and_installation_share_root(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = Path(d) / 'config'
+            scripts = cfg / 'scripts'
+            shutil.copytree(ROOT / '.claude/scripts', scripts)
+            env = dict(os.environ, CLAUDE_CONFIG_DIR=str(cfg), HOME=d)
+            wires = [scripts / 'wire-park-hooks.sh', scripts / 'wire-skill-edit-hook.sh']
+            for wire in wires:
+                subprocess.run([str(wire)], env=env, capture_output=True, check=True)
+            settings = cfg / 'settings.json'
+            before = settings.read_bytes()
+            backups = sorted(cfg.glob('settings.json.bak-*'))
+            for wire in wires:
+                result = subprocess.run([str(wire)], env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('No changes', result.stdout)
+                self.assertEqual(settings.read_bytes(), before)
+            self.assertEqual(sorted(cfg.glob('settings.json.bak-*')), backups)
+
     def test_separate_config_root_wires_and_removes_actual_installed_helpers(self):
         with tempfile.TemporaryDirectory() as d:
             cfg = Path(d) / 'different config root';cfg.mkdir()

@@ -271,7 +271,7 @@ class ParboilCheckTests(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             data = json.loads((self.config / 'settings.json').read_text())
             stops = [h for b in data.get('hooks', {}).get('Stop', [])
-                     for h in b['hooks'] if h['command'].endswith('/parboil-check.sh')]
+                     for h in b['hooks'] if h['command'].strip('"').endswith('/parboil-check.sh')]
             self.assertEqual(len(stops), 0 if mode == 'remove' else 1)
 
 

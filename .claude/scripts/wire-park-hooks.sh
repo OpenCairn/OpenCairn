@@ -47,7 +47,7 @@ PARBOIL_CMD="\"$SCRIPT_DIR/parboil-check.sh\""
 MCP_CMD="\"$SCRIPT_DIR/mcp-write-ledger.sh\" --ledger"
 
 # Narrow compatibility aliases: the old current-config commands only.
-LEGACY_HOOKS=$(jq -cn --arg ledger "$CONFIG_DIR/scripts/session-ledger.sh" --arg parboil "$CONFIG_DIR/scripts/parboil-check.sh" --arg mcp "\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --ledger" '[["PostToolUse",$ledger], ["UserPromptSubmit",$parboil], ["Stop",$parboil], ["PostToolUse",$mcp]]')
+LEGACY_HOOKS=$(jq -cn --arg current_mcp "$MCP_CMD" --arg ledger "$CONFIG_DIR/scripts/session-ledger.sh" --arg parboil "$CONFIG_DIR/scripts/parboil-check.sh" --arg mcp "\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --ledger" '[["PostToolUse",$ledger], ["UserPromptSubmit",$parboil], ["Stop",$parboil], ["PostToolUse",$mcp]] | map(select(.[1] != $current_mcp))')
 
 # Both hook-wiring scripts mutate the same settings file. Hold its canonical
 # lock across creation, read, merge, validation, backup and atomic replacement.
