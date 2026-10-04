@@ -31,9 +31,10 @@ of places to plot. Works for any city, in or out of China.
 **Hard — verify these, and stop if either is missing:**
 - `python3` (stdlib only — no pip installs). Check with `command -v python3`.
 - Network at build time for geocoding (the resulting map is fully offline).
-  Successful lookups are cached to `~/.cache/itinerary-map/geocode-cache.json`, so a
-  re-run of an unchanged day is offline — but any new or edited `query` still needs
-  the network.
+  Successful lookups are cached to `~/.cache/itinerary-map/geocode-cache.json`. An
+  unchanged day can rerun offline only when every required lookup is populated in
+  the current cache namespace. Older case-folded POI hits need a networked refresh
+  before offline reuse; new or edited queries may also need the network.
 
 **Soft — can't be checked from the laptop; tell the user, don't block on them:**
 - **Organic Maps** installed on the phone with the destination region downloaded.
@@ -149,8 +150,9 @@ python3 "$VAULT_PATH/.claude/scripts/itinerary-map.py" <input.json> \
   order; it also **ignores every `fixed` anchor**, so time order survives only if the
   input is already in it); `--max-spread-km <km>` tunes the wrong-city guard (default
   50; `0` disables it, e.g. for a genuine multi-city day); `--no-network` is
-  cache-only — never calls Nominatim/Overpass, so anything not already cached comes
-  back unresolved.
+  cache-only — never calls Nominatim/Overpass, so any required lookup absent from
+  the current namespace is unresolved, including POIs present only in the older
+  case-folded cache. A networked refresh populates the exact-case namespace.
 - Output folder: a `Maps/` subfolder of the relevant trip, so artefacts live with the
   trip and sync with the vault. Create it if absent. If the day has no obvious trip folder
   (a pasted list, a home-city day), **ask the user where to save** rather than guessing.

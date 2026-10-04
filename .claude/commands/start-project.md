@@ -174,7 +174,7 @@ Report whichever the test returned in Step 8 — `mkdir -p` silently adopts a co
 ✓ Project created: [actual file path — 03 Projects/[Project Name].md, or Backlog/ form]
 ✓ Registered by location: [03 Projects root (active) / Backlog] — folder is status
 [⚠ Root count now N (cap M) — consider moving [candidate] to Cold — omit when at or under the cap, or under --backlog]
-[✓ Linked from initiative: [Initiative Name] — omit this line entirely when there's no initiative]
+[✓ Linked from initiative: [actual hub path] — only after Step 6 verified the reciprocal links | ⚠ Initiative backlink pending: [actual hub path and failed/missing link] — after a Step 6 failure; omit when no initiative]
 [✓ Resources folder created: 05 Resources/[Project Name]/ | ✓ Resources folder already existed: … — whichever the Step 7 test returned]
 
 Project ready. What's the first action?

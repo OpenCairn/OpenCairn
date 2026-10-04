@@ -270,7 +270,9 @@ Capture: principles (optional — the template already includes two defaults).
 
 ### Phase 4: Write CLAUDE.md
 
-If CLAUDE.md is already personalised and the user chose the update interview, re-read its actual current fields and replace only the uniquely anchored values the user changed; preserve unasked fields and locally owned sections. Do not retry absent placeholder strings or regenerate the file from the template. Read back each changed field. Use the locked wrapper if this file is inside the vault.
+Throughout this phase, edit `{VAULT}/CLAUDE.md` through the canonical `locked-edit.sh` wrapper with exact unique old text, then read back the saved fields. Exit 2/3 means re-read and recompute the anchor; never fall back to an editor.
+
+If CLAUDE.md is already personalised and the user chose the update interview, re-read its actual current fields and replace only the uniquely anchored values the user changed; preserve unasked fields and locally owned sections. Anchor each replacement on the complete current field or its uniquely bounded section, never on a bare repeated name/value. Update the H1 name and identity field separately when needed. Do not retry absent placeholder strings or regenerate the file from the template. Read back each changed field.
 
 For an unpersonalised template, replace the bracketed placeholders with the user's answers:
 
@@ -289,7 +291,7 @@ For an unpersonalised template, replace the bracketed placeholders with the user
     ```
 11. Replace `[Add your own principles here]` with the user's principles (keep the two default principles above)
 
-Remove HTML comments (`<!-- ... -->`) from sections that have been filled in — they're instructions for setup, not permanent content.
+For template fields just personalised, remove only their template-instruction HTML comments (`<!-- ... -->`); preserve existing locally owned comments.
 
 After editing, display: `✓ CLAUDE.md personalised`
 
@@ -324,21 +326,23 @@ mkdir -p "07 System"
 
 **Direction.md setup** (if user opted in):
 
-If the user provided Direction answers, edit `07 System/Context - Direction.md`:
+If the user provided Direction answers, read `{VAULT}/07 System/Context - Direction.md` and edit through `locked-edit.sh` with exact unique preimages. For an already populated field/section, update only the supplied replacements or additions using its complete field/section anchor; never retry absent placeholders or regenerate the template. Preserve unasked entries, locally owned content, existing strategic plans and tracking sections. Existing anti-goal dates stay unless explicitly corrected; a new date must come from the user's answer, otherwise leave it blank. Read back the changed sections before reporting personalised.
+
+For fields that still contain template placeholders, use these replacements:
 1. Replace `[List the roles that matter to you and what each means]` with the user's roles
 2. Replace `[The principles you try to live by — not aspirational platitudes, but things you actually use to make decisions]` with the user's values
 3. Replace the `- [ ] [Discipline N — ...]` placeholder items with the user's actual disciplines
-4. Replace the anti-goals table placeholder row with the user's anti-goals (one row per item). The Date column records when each decision was made — ask the user when they decided each one; use today's date only if they can't say (these are usually pre-existing decisions, and stamping the interview date fabricates a value the user didn't give)
-5. Leave the strategic plan sections (Career, Personal) as placeholders — these require deeper thought than a setup interview
+4. Replace the anti-goals table placeholder row with the user's anti-goals (one row per item). The Date column records when each decision was made — ask when each decision was made and leave the date blank if unknown; never substitute the interview date
+5. Leave strategic plan sections (Career, Personal) untouched — preserve existing plans or unfilled placeholders; these require deeper thought than a setup interview
 
-If the user said "I'll fill this in later", leave the template as-is — the placeholders are self-explanatory.
+If the user said "I'll fill this in later", leave the current Direction content untouched, whether populated or still a template.
 
 After creating stubs, display:
 ```
 ✓ Created context file stubs:
   - 07 System/Context - [Domain1].md
   - 07 System/Context - [Domain2].md (already existed — left untouched)
-  - 07 System/Context - Direction.md (personalised / template — fill in later)
+  - 07 System/Context - Direction.md ([personalised from supplied answers / already populated — unchanged / template — fill in later], matching the saved file)
   ...
 ```
 
