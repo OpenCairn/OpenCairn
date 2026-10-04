@@ -57,7 +57,7 @@ This procedure keeps the rolling 7-day window current. It runs during `/morning`
 Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
 
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
-2. For each day section, compute `today_date - section_date`. If > 3 calendar days, execute /goodnight Step 9 with source = that section and destination = today’s section. Only after its open tasks are safely carried forward, delete the old day section. Completed items remain in their Daily Report.
+2. For each day section, compute `today_date - section_date`. If > 3 calendar days, execute /goodnight Step 9 with source = that section and destination = today’s section. Only after its open tasks are safely carried forward, run /goodnight Step 10's inbound-locator rule for that section's heading (find links to it, repoint them), then delete the old day section. Completed items remain in their Daily Report.
 3. Keep the 3 most recent past days for quick reference. Today and future days are never trimmed.
 
 ### Extend the window
