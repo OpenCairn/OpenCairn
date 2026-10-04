@@ -1,0 +1,4 @@
+interface:
+  display_name: "Batch engineering tickets"
+  short_description: "Run reviewed file-isolated ticket batches"
+  default_prompt: "Use $batch to clear the supplied engineering queue with its runbook."
