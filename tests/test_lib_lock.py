@@ -57,5 +57,27 @@ class LibLockFallbackTests(unittest.TestCase):
             self.assertTrue((lock_dir / "owner").is_file())
 
 
+class LibLockUnlockTests(unittest.TestCase):
+    def test_unlock_leaves_the_callers_stderr_open(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [
+                    "/bin/bash",
+                    "-c",
+                    'source "$1"; _lock "$2" 5; _unlock; echo after-unlock >&2',
+                    "bash",
+                    str(LIB_LOCK),
+                    str(Path(tmp) / "record.lock"),
+                ],
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("after-unlock", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

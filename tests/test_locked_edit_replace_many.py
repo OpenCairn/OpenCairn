@@ -268,6 +268,19 @@ class LockedEditReplaceManyTests(unittest.TestCase):
         modes = sorted(path.stat().st_mode & 0o777 for path in root.iterdir())
         self.assertEqual(modes, [0o600, 0o600])
 
+    def test_receipt_storage_failure_is_reported_after_the_edit_lands(self) -> None:
+        self.target.write_text("alpha\n", encoding="utf-8")
+        state = self.config / ".session-state"
+        state.mkdir(parents=True)
+        # A file where the receipt directory belongs makes storage fail.
+        (state / f"{SESSION}.locked-edit-receipts").write_text("", encoding="utf-8")
+
+        result = self.run_many([{"old": "alpha", "new": "ALPHA"}])
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "ALPHA\n")
+        self.assertIn("WARNING: locked-edit receipt directory unavailable", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
