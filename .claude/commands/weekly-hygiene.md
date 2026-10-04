@@ -278,6 +278,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    fi
    ```
 
+   **Path listings must be vault-relative before `filter`.** Absolute paths can all match an exclusion such as `^/`, hiding real findings. The filtered `find` path listings below emit relative paths; prefix them with `{VAULT}/` when opening or diffing a reported file.
+
    **Unresolved (broken) links:**
    ```bash
    # CLI (preferred): queries Obsidian's index directly
@@ -311,7 +313,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
      | sort -u > "$LINKED"
    find "{VAULT}/03 Projects" "{VAULT}/04 Areas" -name '*.md' -type f 2>/dev/null \
-     | while read -r f; do rg -q -x -F "$(basename "$f" .md)" "$LINKED" || echo "$f"; done | filter
+     | while read -r f; do rg -q -x -F "$(basename "$f" .md)" "$LINKED" || printf '%s\n' "${f#"{VAULT}/"}"; done | filter
    rm -f "$LINKED"
    ```
 
@@ -385,7 +387,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    # define `filter` in this same Bash call first, per the excludes block above
    find "{VAULT}" \( -name '*.sync-conflict-*' -o -iname '*conflicted copy*' \) \
-     -not -path '*/.stversions/*' -type f 2>/dev/null | filter
+     -not -path '*/.stversions/*' -type f -printf '%P\n' 2>/dev/null | filter
    ```
    `*.sync-conflict-*` is Syncthing's pattern; a filename containing `conflicted copy` is Obsidian Sync's. (`06 Archive/` is deliberately **not** excluded — a conflict file beside an archived note is still live data-divergence.) For each hit, derive the base note and `diff` against it — the two schemes derive differently:
    - Syncthing `notes.sync-conflict-<date>-<time>-<id>.md` → remove the `.sync-conflict-<date>-<time>-<id>` infix, **keeping the real extension** → `notes.md`. The extension stays at the end and the infix sits before it (`document.txt` → `document.sync-conflict-20210507-080621-CEIVOCO.txt`), so do *not* strip to end-of-string — that drops the `.md`.
