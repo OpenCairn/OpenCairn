@@ -69,7 +69,15 @@ class VerifyPathsTests(unittest.TestCase):
         for section in ("Created", "Updated"):
             with self.subTest(section=section):
                 self.assert_uncovered(self.verify([path], section=section), path)
-        # Deleted rows are outside reverse coverage; they still satisfy the forward check.
+        # A Deleted row whose file is still on disk is compared like any other.
+        self.assert_uncovered(self.verify([path], section="Deleted"), path)
+        result = self.verify([path], touched=[path], section="Deleted")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("REVIEW backfill:", result.stdout)
+        self.assertIn("RESULT: PASS", result.stdout)
+        # Once it is gone, the row is outside reverse coverage but still
+        # satisfies the forward check.
+        (self.vault / path).unlink()
         for touched in ((), (path,)):
             with self.subTest(section="Deleted", touched=touched):
                 result = self.verify([path], touched=touched, section="Deleted")

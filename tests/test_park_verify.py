@@ -509,5 +509,252 @@ class ParkVerifyTests(unittest.TestCase):
             self.assertNotIn("FAIL lint", result.stdout)
 
 
+
+def touch(vault: Path, *names: str) -> None:
+    for name in names:
+        target = vault / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("body\n", encoding="utf-8")
+
+
+def lines_of(result: subprocess.CompletedProcess, prefix: str) -> list:
+    return [l for l in result.stdout.splitlines() if l.startswith(prefix)]
+
+
+class CoverageIdentityTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+        self.vault = make_vault(self.base)
+
+    def run_rows(self, *touched: str, env=None, **sections) -> subprocess.CompletedProcess:
+        log = write_log(self.vault, **sections)
+        args = [a for t in touched for a in ("--touched", t)]
+        return subprocess.run([str(SCRIPT), str(self.vault), str(log), "1", *args],
+                              check=False, capture_output=True, text=True, env=env)
+
+    def assert_pass(self, result) -> None:
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("RESULT: PASS", result.stdout)
+
+    # --- bare wikilink rows are an identity, not a basename ------------------
+    def test_bare_wikilink_row_is_not_covered_by_a_same_named_file_outside_the_vault(self) -> None:
+        touch(self.vault, "01 Now/Inbox.md")
+        touch(self.base, "elsewhere/Inbox.md")
+        result = self.run_rows(str(self.base / "elsewhere/Inbox.md"), updated=["[[Inbox]]"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        review = lines_of(result, "REVIEW backfill: Files lists name path(s) not passed")
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertIn("01 Now/Inbox.md", review[0])
+        # The one vault note of that name is what the row means.
+        self.assert_pass(self.run_rows("01 Now/Inbox.md", updated=["[[Inbox]]"]))
+
+    def test_bare_wikilink_row_shared_by_several_vault_files_is_ambiguous(self) -> None:
+        touch(self.vault, "01 Now/Inbox.md", "06 Archive/Inbox.md")
+        result = self.run_rows("01 Now/Inbox.md", updated=["[[Inbox]] - triaged"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        review = [l for l in lines_of(result, "REVIEW backfill: ") if "ambiguous" in l]
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertIn("[[Inbox]] - triaged", review[0])
+        self.assertIn("full vault-relative path", review[0])
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        # A folder-qualified link still resolves by path.
+        self.assert_pass(self.run_rows("01 Now/Inbox.md", updated=["[[01 Now/Inbox]] - triaged"]))
+
+    def test_bare_wikilink_deleted_row_covers_one_absent_vault_path_only(self) -> None:
+        # Defect: the deleted-row exemption used a vault-root key, so a note
+        # deleted from a subfolder passed backfill and then failed `touched`.
+        self.assert_pass(self.run_rows("03 Projects/Old Note.md", deleted=["[[Old Note]]"]))
+        self.assert_pass(self.run_rows("03 Projects/Old Note.md", deleted=["[[Old Note]] - merged"]))
+        outside = self.run_rows(str(self.base / "elsewhere/Old Note.md"), deleted=["[[Old Note]]"])
+        self.assertEqual(outside.returncode, 1, outside.stdout)
+        self.assertIn("FAIL backfill: touched but absent", outside.stdout)
+        both = self.run_rows("03 Projects/Old Note.md", "04 Areas/Old Note.md", deleted=["[[Old Note]]"])
+        self.assertEqual(both.returncode, 1, both.stdout)
+        self.assertTrue(any("ambiguous" in l for l in lines_of(both, "REVIEW backfill: ")), both.stdout)
+
+    def test_wikilink_string_passed_as_touched_follows_its_row(self) -> None:
+        for spelling in ("[[Old Note]]", str(self.vault / "[[Old Note]]")):
+            with self.subTest(spelling=spelling):
+                self.assert_pass(self.run_rows(spelling, deleted=["[[Old Note]]"]))
+        self.assert_pass(self.run_rows("[[03 Projects/Old Note]]", deleted=["[[03 Projects/Old Note]] - gone"]))
+        # A live note named by wikilink is checked as the file it resolves to.
+        touch(self.vault, "03 Projects/Live Note.md")
+        self.assert_pass(self.run_rows("[[Live Note]]", updated=["[[Live Note]]"]))
+        (self.vault / "03 Projects/Live Note.md").write_text("joined- [ ] item\n", encoding="utf-8")
+        linted = self.run_rows("[[Live Note]]", updated=["[[Live Note]]"])
+        self.assertIn("FAIL lint: ", linted.stdout)
+        # Naming several vault files, it names none of them.
+        touch(self.vault, "04 Areas/Live Note.md")
+        shared = self.run_rows("[[Live Note]]", updated=["03 Projects/Live Note.md"])
+        self.assertEqual(shared.returncode, 1, shared.stdout)
+        self.assertIn("FAIL touched: wikilink passed to --touched names several vault files", shared.stdout)
+        self.assertNotIn("PASS backfill: all", shared.stdout)
+        # Not listed at all: still a failure.
+        unlisted = self.run_rows("[[Other Note]]", deleted=["[[Old Note]]"])
+        self.assertEqual(unlisted.returncode, 1, unlisted.stdout)
+        self.assertIn("FAIL backfill: touched but absent", unlisted.stdout)
+
+    # --- keys are case-sensitive --------------------------------------------
+    def test_distinct_files_differing_only_in_case_do_not_cover_each_other(self) -> None:
+        touch(self.vault, "notes/README.md", "notes/readme.md")
+        if (self.vault / "notes/README.md").samefile(self.vault / "notes/readme.md"):
+            self.skipTest("case-insensitive filesystem")
+        result = self.run_rows("notes/readme.md", updated=["notes/README.md - edited"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        self.assertIn("not passed to --touched", result.stdout)
+        both = self.run_rows("notes/README.md", updated=["`notes/README.md`", "`notes/readme.md`"])
+        review = lines_of(both, "REVIEW backfill: ")
+        self.assertEqual(len(review), 1, both.stdout)
+        self.assertTrue(review[0].endswith(": notes/readme.md; "), review[0])
+
+    def test_row_spelled_in_a_different_case_still_matches_its_only_file(self) -> None:
+        touch(self.vault, "notes/README.md")
+        for row in ("notes/readme.md - edited", "`Notes/Readme.md`", "[[notes/readme]]", "[[readme]]"):
+            with self.subTest(row=row):
+                self.assert_pass(self.run_rows("notes/README.md", updated=[row]))
+
+    # --- a directory is not the row's path -----------------------------------
+    def test_directory_prefix_of_a_separator_bearing_filename_is_not_the_row_path(self) -> None:
+        (self.vault / "docs/Plan").mkdir(parents=True)
+        row = "docs/Plan - draft.md - rewrote intro"
+        # File gone, directory present: the real path must still match its row.
+        self.assert_pass(self.run_rows("docs/Plan - draft.md", deleted=[row]))
+        # ... and the directory matching through the truncated prefix is flagged.
+        result = self.run_rows("docs/Plan", updated=[row])
+        self.assertNotIn("RESULT: PASS", result.stdout)
+        review = [l for l in lines_of(result, "REVIEW backfill: ") if "backticks" in l]
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertIn(row, review[0])
+        # File present: the directory does not match at all.
+        touch(self.vault, "docs/Plan - draft.md")
+        result = self.run_rows("docs/Plan", updated=[row])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        self.assertIn("not passed to --touched", result.stdout)
+        self.assert_pass(self.run_rows("docs/Plan - draft.md", updated=[row]))
+
+    def test_directory_row_with_a_description_still_matches_the_directory(self) -> None:
+        (self.vault / "docs/Plan").mkdir(parents=True)
+        for row in ("docs/Plan - new folder", "docs/Plan/ - exports, including summary.txt",
+                    "docs/Plan (holds drafts) - see index.md"):
+            with self.subTest(row=row):
+                self.assert_pass(self.run_rows("docs/Plan", created=[row]))
+
+    # --- Files Deleted rows that still exist ---------------------------------
+    def test_deleted_row_whose_file_still_exists_stays_in_reverse_coverage(self) -> None:
+        touch(self.vault, "docs/a.md", "docs/kept.md")
+        result = self.run_rows("docs/a.md", updated=["docs/a.md"],
+                               deleted=["docs/kept.md - removed", "docs/gone.md - removed"])
+        review = lines_of(result, "REVIEW backfill: ")
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertTrue(review[0].endswith(": docs/kept.md; "), review[0])
+        clean = self.run_rows("docs/a.md", updated=["docs/a.md"], deleted=["docs/gone.md - removed"])
+        self.assert_pass(clean)
+        self.assertIn("1 absent Files Deleted row(s) not compared", clean.stdout)
+
+    # --- legacy row shapes ----------------------------------------------------
+    def test_legacy_unquoted_row_shapes_resolve_to_their_path(self) -> None:
+        path = "03 Projects/Alpha.md"
+        touch(self.vault, path)
+        for row in (path + " \u2014 updated status", path + ": updated status",
+                    path + " (updated status)", "**" + path + "** - updated status",
+                    "**" + path + "**", "[Alpha](" + path + ") - updated status",
+                    "[Alpha](03%20Projects/Alpha.md)"):
+            with self.subTest(row=row):
+                self.assert_pass(self.run_rows(path, updated=[row]))
+                short = self.run_rows("03 Projects/Alpha", updated=[row])
+                self.assertEqual(short.returncode, 1, short.stdout)
+        # Absent file: a split is taken only where the left side has an extension.
+        for row in ("docs/Gone.md \u2014 superseded", "docs/Gone.md: superseded", "docs/Gone.md (superseded)"):
+            with self.subTest(row=row):
+                self.assert_pass(self.run_rows("docs/Gone.md", deleted=[row]))
+                self.assertEqual(self.run_rows("docs/Gone", deleted=[row]).returncode, 1)
+
+    def test_star_and_plus_bullets_are_rows(self) -> None:
+        touch(self.vault, "docs/a.md", "docs/b.md")
+        log = write_log(self.vault, updated=["docs/a.md - edited"])
+        log.write_text(log.read_text().replace("- docs/a.md - edited", "* docs/a.md - edited\n+ docs/b.md"),
+                       encoding="utf-8")
+        result = verify(self.vault, log, "--touched", "docs/a.md", "--touched", "docs/b.md")
+        self.assert_pass(result)
+        result = verify(self.vault, log, "--touched", "docs/a.md")
+        self.assertTrue(lines_of(result, "REVIEW backfill: ")[0].endswith(": docs/b.md; "), result.stdout)
+
+    def test_existing_filenames_containing_the_new_separators_are_not_split(self) -> None:
+        names = ("docs/Report (v2).md", "docs/Plan \u2014 draft.md", "docs/Note: one.md")
+        touch(self.vault, *names)
+        for name in names:
+            for row in (name, name + " - edited", name + " \u2014 edited", "`" + name + "` - edited"):
+                with self.subTest(row=row):
+                    self.assert_pass(self.run_rows(name, updated=[row]))
+        # Backticked rows stay exact: no separator handling inside or after them.
+        touch(self.vault, "docs/a.md")
+        result = self.run_rows("docs/a.md", updated=["`docs/a.md \u2014 edited`"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+
+    def test_row_text_passed_verbatim_as_touched_is_checked_as_the_row_file(self) -> None:
+        # A caller that splits rows differently hands over "path <sep> description".
+        touch(self.vault, "docs/a.md")
+        row = "docs/a.md \u2014 collapsed one section"
+        self.assert_pass(self.run_rows(row, updated=[row]))
+        (self.vault / "docs/a.md").write_text("joined- [ ] item\n", encoding="utf-8")
+        self.assertIn("FAIL lint: ", self.run_rows(row, updated=[row]).stdout)
+        # So is the row cut at a later separator, as a last-" - " splitter does.
+        cut = "docs/a.md (old copy)"
+        self.assertIn("FAIL lint: ", self.run_rows(cut, deleted=[cut + " - merged; original binned"]).stdout)
+        (self.vault / "docs/a.md").write_text("body\n", encoding="utf-8")
+        self.assert_pass(self.run_rows(cut, deleted=[cut + " - merged; original binned"]))
+        # A cut that is itself file-shaped may be a different, absent file.
+        result = self.run_rows("docs/a.md - v2.md", updated=["docs/a.md - v2.md - compared"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        # Text that is not the row's own stays an absent, unlisted path.
+        result = self.run_rows("docs/a.md \u2014 other words", updated=[row])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL touched: ", result.stdout)
+
+    # --- off-host path passed as --touched ------------------------------------
+    def test_off_host_touched_path_is_not_an_absent_target(self) -> None:
+        for row, touched in (("nas:/share/file - mirrored copy", "nas:/share/file"),
+                             ("`Other PC C:\\Users\\x\\file` - consumer copy", "Other PC C:\\Users\\x\\file"),
+                             ("`https://example.org/doc` - published", "https://example.org/doc")):
+            with self.subTest(touched=touched):
+                result = self.run_rows(touched, updated=[row])
+                self.assertNotIn("FAIL touched", result.stdout)
+                self.assert_pass(result)
+        # An absent local path is still a failure.
+        result = self.run_rows("docs/typo.md", updated=["docs/typo.md"])
+        self.assertIn("FAIL touched: ", result.stdout)
+
+    # --- canonicalisation without GNU realpath --------------------------------
+    def test_path_spellings_match_without_gnu_realpath(self) -> None:
+        touch(self.vault, "docs/a.md", "docs/sub/x.md")
+        (self.vault / "docs/link.md").symlink_to(self.vault / "docs/a.md")
+        shim = self.base / "bin"
+        shim.mkdir()
+        (shim / "realpath").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        (shim / "realpath").chmod(0o755)
+        env = dict(os.environ, PATH=str(shim) + os.pathsep + os.environ.get("PATH", os.defpath))
+        for row, touched in (("`docs/sub/../a.md`", "docs/a.md"), ("docs/a.md", "docs/sub/../a.md"),
+                             ("docs/link.md - edited", "docs/a.md"), ("docs/a.md", "docs/link.md")):
+            with self.subTest(row=row, touched=touched):
+                self.assert_pass(self.run_rows(touched, env=env, updated=[row]))
+
+    # --- CRLF session logs -----------------------------------------------------
+    def test_crlf_session_log_rows_match(self) -> None:
+        touch(self.vault, "docs/a.md")
+        log = write_log(self.vault, updated=["docs/a.md", "`docs/b.md` - gone later", "[[docs/a]]"],
+                        deleted=["docs/b.md - removed"])
+        log.write_bytes(log.read_bytes().replace(b"\n", b"\r\n"))
+        result = verify(self.vault, log, "--touched", "docs/a.md")
+        review = lines_of(result, "REVIEW backfill: ")
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertTrue(review[0].endswith(": docs/b.md; "), review[0])
+        self.assertNotIn("FAIL backfill", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
