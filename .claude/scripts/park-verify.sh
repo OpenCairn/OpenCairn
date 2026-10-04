@@ -219,10 +219,14 @@ fi
 #   `path` ...          exact; nothing outside the backticks is read
 #   [[folder/Note]]     resolved by path (".md" optional)
 #   [[Note]]            the ONE vault file of that name (".git" is the only
-#                       directory not searched). Several -> REVIEW, covers
-#                       nothing. None -> the deleted-note case: covers the one
-#                       absent in-vault --touched path with that basename
-#   [label](path) ...   the link target
+#                       directory not searched; directory symlinks are
+#                       followed, each real directory once). Several -> REVIEW,
+#                       covers nothing. None, or any bare link under Files
+#                       Deleted -> the deleted-note case: covers the one absent
+#                       in-vault --touched path with that basename, and never a
+#                       surviving note of the same name
+#   [label](path "t")   the link destination; an optional title and <angle>
+#                       brackets are not part of it
 #   **path** ...        the emphasised text
 #   path <sep> text     <sep> is " - ", an em or en dash with spaces, ": " or
 #                       " (". The longest left side that is an existing regular
@@ -237,7 +241,8 @@ fi
 # raises REVIEW: the next " - " segment completes a file-shaped name and more
 # text follows ("docs/Plan" against "docs/Plan - draft.md - text"). Without a
 # trailing description, or when the real name has no extension, the truncated
-# value passes. Backticks close the gap.
+# value passes. Two different --touched paths matching one such row also raise
+# REVIEW and neither is covered. Backticks close the gap.
 IFS= read -r -d '' COVERAGE_PY <<'PY' || true
 import os
 import re
@@ -257,7 +262,7 @@ block = sys.stdin.buffer.read().decode("utf-8", "surrogateescape")
 
 OFFHOST = re.compile(r"^[A-Za-z0-9._-]+:/|(^|\s)[A-Za-z]:\\")
 EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,10}$")
-MDLINK = re.compile(r"\[[^\]]*\]\(<?([^)>]+)>?\)")
+MDTITLE = re.compile(r"""^(.*?)\s+("[^"]*"|'[^']*'|\([^()]*\))$""")
 OTHER_SEPARATORS = (" \u2014 ", " \u2013 ", ": ", " (")
 root = os.path.realpath(vault)
 out = []
@@ -326,7 +331,9 @@ def unquoted(value):
             # The row's text cut at a later boundary (path plus some or all of
             # the description) is how a caller that splits rows differently
             # names this file; a cut that is itself file-shaped is not assumed
-            # to be one.
+            # to be one. Live consumer: parse_file_lines in
+            # codex/skills/park/scripts/park-review.py splits only on " - " and
+            # passes the whole row text as --touched. Not dead code.
             for longer in ordered:
                 if len(longer) > len(candidate) and not EXTENSION.search(longer):
                     row_text.setdefault(canon(longer), candidate)
@@ -339,6 +346,44 @@ def unquoted(value):
     kept = [value] + legacy + [c for c in other if on_disk(c) or EXTENSION.search(c)]
     kept = list(dict.fromkeys(kept))
     return kept, min(kept, key=len), False
+
+
+def markdown_link(value):
+    """Destinations a `[label](destination "title")` row may name, best first."""
+    opening = re.match(r"\[[^\]]*\]\(", value)
+    if not opening:
+        return []
+    depth, quote, end = 1, "", -1
+    for index in range(opening.end(), len(value)):
+        char = value[index]
+        if quote:
+            quote = "" if char == quote else quote
+        elif char in "\"'" and value[index - 1].isspace():
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if not depth:
+                end = index
+                break
+    if end < 0:
+        return []
+    body = value[opening.end():end].strip()
+    titled = MDTITLE.match(body)
+    if body.startswith("<") and ">" in body:
+        destinations = [body[1:body.index(">")]]
+    elif titled:
+        # The whole body is tried first on disk: a destination may itself end
+        # in "(...)". Absent, the part before the title is the destination.
+        destinations = [titled.group(1).strip()]
+        if is_file(body):
+            return [body]
+    else:
+        destinations = [body]
+    destinations = [d for d in dict.fromkeys(destinations + [unquote(d) for d in destinations]) if d]
+    hit = next((d for d in destinations if is_file(d)), None)
+    return [hit] if hit else destinations
 
 
 def wiki_target(text):
@@ -406,15 +451,10 @@ for line in block.split("\n"):
         continue
     candidates, show, resolved = unquoted(value)
     if not resolved:
-        link = MDLINK.match(value)
+        link = markdown_link(value)
         closing = value.find("**", 2) if value.startswith("**") else -1
         if link:
-            target = link.group(1).strip()
-            options = list(dict.fromkeys([target, unquote(target)]))
-            hit = next((o for o in options if is_file(o)), None)
-            candidates = [hit] if hit else options
-            show = candidates[0]
-            resolved = True
+            candidates, show, resolved = link, link[0], True
         elif closing > 2:
             candidates, show, resolved = unquoted(value[2:closing] + value[closing + 2:])
     if show.lower() == "none":
@@ -454,15 +494,28 @@ for index, path in enumerate(touched_args):
         bare_names.add(entry["bare"])
 
 # One walk of the vault, and only when a bare wikilink has to be resolved.
-named, folded = {}, {}
+named, folded, within = {}, {}, {}   # within: real path -> its spelling inside the vault
 if bare_names:
     wanted = {name.casefold() for name in bare_names}
-    for directory, subdirs, files in os.walk(root):
-        subdirs[:] = [d for d in subdirs if d != ".git"]
+    # Directory symlinks are followed: a note beneath one is in the vault as
+    # far as a wikilink is concerned. Each real directory is entered once,
+    # which both ends a symlink cycle and stops one directory reached by two
+    # names from counting as two notes.
+    entered = {root}
+    for directory, subdirs, files in os.walk(root, followlinks=True):
+        keep = []
+        for name in subdirs:
+            real = os.path.realpath(os.path.join(directory, name))
+            if name != ".git" and real not in entered:
+                entered.add(real)
+                keep.append(name)
+        subdirs[:] = keep
         for name in files:
             key = name[:-3] if name.endswith(".md") else name
             if key.casefold() in wanted:
-                real = os.path.realpath(os.path.join(directory, name))
+                spelled = os.path.join(directory, name)
+                real = os.path.realpath(spelled)
+                within.setdefault(real, spelled[len(root) + 1:])
                 named.setdefault(key, set()).add(real)
                 folded.setdefault(key.casefold(), set()).add(real)
 
@@ -472,11 +525,15 @@ def vault_files(name):
 
 
 def vault_relative(real):
-    return real[len(root) + 1:] if in_vault(real) else real
+    return within.get(real) or (real[len(root) + 1:] if in_vault(real) else real)
 
 
+# A bare wikilink under Files Deleted names a note that is gone. Notes of that
+# name still in the vault are other notes: the row is not resolved to them, and
+# a "[[Note]]" --touched value that repeats the row is not either.
+deleted_names = {row["bare"] for row in rows if row["sec"] == "D" and row["bare"] is not None}
 for row in rows:
-    if row["bare"] is None:
+    if row["bare"] is None or row["sec"] == "D":
         continue
     hits = vault_files(row["bare"])
     if len(hits) == 1:
@@ -488,13 +545,13 @@ for row in rows:
                    % (row["raw"], len(hits), row["bare"], "; ".join(vault_relative(h) for h in hits[:4])))
 ambiguous_touched = []
 for index, entry in enumerate(touched):
-    if entry["bare"] is None:
+    if entry["bare"] is None or entry["bare"] in deleted_names:
         continue
     hits = vault_files(entry["bare"])
     if len(hits) == 1:
         entry["keys"], entry["exists"], entry["bare"] = hits, True, None
         if entry["path"] not in nonlocal_args:
-            out.append("T\t%d\t%s" % (index, vault + hits[0][len(root):] if in_vault(hits[0]) else hits[0]))
+            out.append("T\t%d\t%s" % (index, norm(vault_relative(hits[0]))))
     elif hits:
         entry["ambiguous"] = hits
         ambiguous_touched.append("%s (%s)" % (entry["show"], "; ".join(vault_relative(h) for h in hits[:4])))
@@ -568,6 +625,9 @@ for index in live:
 # 3. A home path written without "~/": the row is a relative path of three or
 #    more components that names nothing in the vault and is the tail of exactly
 #    one --touched path under $HOME outside the vault.
+#    A path some other row already covers is not claimed again: the longest
+#    tail is tried first, and the shorter row stays uncovered.
+tails = []
 for row_index, row in enumerate(rows):
     if row["skip"]:
         continue
@@ -575,11 +635,13 @@ for row_index, row in enumerate(rows):
         tail = candidate[2:] if candidate.startswith("./") else candidate
         if tail.startswith(("/", "~/")) or tail.count("/") < 2 or on_disk(candidate):
             continue
-        hits = [i for i in live if home and touched[i]["path"].startswith(home + "/")
-                and not any(in_vault(k) for k in touched[i]["keys"])
-                and touched[i]["path"].endswith("/" + tail)]
-        if len(hits) == 1:
-            link_up(row_index, hits[0])
+        tails.append((-len(tail), row_index, tail))
+for _, row_index, tail in sorted(tails):
+    hits = [i for i in live if home and touched[i]["path"].startswith(home + "/")
+            and not any(in_vault(k) for k in touched[i]["keys"])
+            and touched[i]["path"].endswith("/" + tail)]
+    if len(hits) == 1 and not covers[hits[0]] - {row_index}:
+        link_up(row_index, hits[0])
 
 # 4. Case. Keys are case-sensitive, so two files differing only in case never
 #    cover each other. A row spelled in a different case from its file still
@@ -619,6 +681,23 @@ for index in live:
             if not row["skip"] and row_key in row["keys"]:
                 link_up(row_index, index)
 
+# An unsplittable row names ONE file, whichever of its candidates that is. When
+# two different --touched paths both match it, at least one of them is not that
+# file, and nothing here can say which: neither is covered.
+for row_index, row in enumerate(rows):
+    if row["skip"] or not row["multi"]:
+        continue
+    distinct = {frozenset(touched[i]["keys"]) for i in covered[row_index]}
+    if len(distinct) < 2:
+        continue
+    out.append("REVIEW backfill: Files row '%s' matched %d different --touched paths (%s) and names only one file; write the row's path in backticks; not counted for any of them"
+               % (row["raw"], len(distinct), "; ".join(touched[i]["show"] for i in sorted(covered[row_index]))))
+    for index in covered[row_index]:
+        covers[index].discard(row_index)
+        via.pop((row_index, index), None)
+    covered[row_index] = set()
+    row["skip"] = True
+
 # An unsplittable row matched through a candidate that looks like a truncation.
 for (row_index, index), candidate in sorted(via.items()):
     row = rows[row_index]
@@ -657,7 +736,7 @@ for index, entry in enumerate(touched):
             and not any(rows[r]["sec"] == "D" for r in covers[index])):
         absent += entry["show"] + "; "
 if absent:
-    out.append("FAIL touched: path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped?): " + absent)
+    out.append("FAIL touched: path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped? a path on another host or a glob needs --nonlocal): " + absent)
 if missing:
     out.append("FAIL backfill: touched but absent from Session %s Files lists (a row must begin with the complete path; backtick a path the row does not end at): %s"
                % (number, missing))
@@ -679,8 +758,12 @@ uncovered, off_host, deleted_absent = "", 0, 0
 for row_index, row in enumerate(rows):
     if row["skip"] or norm(row["show"]) == log or log_key in row["keys"]:
         continue   # the log may list itself; it is checked separately
+    # A regular file on disk is present whatever the description looks like;
+    # only a directory or other non-file prefix of a file-shaped name is not
+    # taken as the row's own path.
     present = bool(row["hits"]) or any(
-        on_disk(c) and not (row["multi"] and truncation(c, row["cands"])) for c in row["cands"])
+        on_disk(c) and (is_file(c) or not (row["multi"] and truncation(c, row["cands"])))
+        for c in row["cands"])
     if not present and OFFHOST.search(row["show"]):
         off_host += 1
     elif not present and row["sec"] == "D":
