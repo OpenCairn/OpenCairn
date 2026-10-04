@@ -78,6 +78,19 @@ class ForwardLinkProofTests(unittest.TestCase):
         proof = json.loads(found.stdout)
         self.assertEqual(proof['post_sha256'], __import__('hashlib').sha256(self.log.read_bytes()).hexdigest())
 
+    def test_missing_session_id_warns_and_preserves_landed_link(self):
+        env = dict(self.env)
+        for key in ('OPENCAIRN_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID'):
+            env.pop(key, None)
+        result = subprocess.run(
+            ['bash', str(SCRIPT), '--continued-in', str(self.log), '1', '2',
+             'Later', self.target.name], env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Forward link added', result.stdout)
+        self.assertIn('WARNING: forward link landed without proof', result.stderr)
+        self.assertIn('Next session', self.log.read_text())
+        self.assertFalse(list(self.config.glob('.session-state/*forward-link-receipts/*.json')))
+
     def test_both_fresh_consumers_accept_proof_and_refuse_changed_or_other_writes(self):
         before = self.log.read_text()
         self.log.write_text(before.replace('Old prose.', 'Old prose.' + ' x' * 40000))

@@ -242,7 +242,7 @@ import datetime, hashlib, json, os, pathlib, re, sys, uuid
 def check(condition):
     if not condition: raise ValueError("invalid forward-link proof")
 pre_path,target,sid,state,prev,new,topic,kind,date,line,index,agent,vault=sys.argv[1:]
-if not sid: raise SystemExit(0)
+if not sid: raise SystemExit('session id unavailable for forward-link proof')
 check(re.fullmatch(r'[A-Za-z0-9._-]+',sid))
 target=pathlib.Path(target).resolve(); state=pathlib.Path(state).resolve()
 check(bool(vault) and not state.is_relative_to(pathlib.Path(vault).resolve()))
