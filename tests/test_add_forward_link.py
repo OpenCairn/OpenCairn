@@ -88,7 +88,7 @@ class ForwardLinkProofTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Forward link added', result.stdout)
         self.assertIn('WARNING: forward link landed without proof', result.stderr)
-        self.assertIn('Next session', self.log.read_text())
+        self.assertIn('**Continued in:**', self.log.read_text())
         self.assertFalse(list(self.config.glob('.session-state/*forward-link-receipts/*.json')))
 
     def test_both_fresh_consumers_accept_proof_and_refuse_changed_or_other_writes(self):
