@@ -2,6 +2,7 @@
 # Backfill "### Files Updated" section in a session log entry
 # Usage: backfill-files-updated.sh <session-file> <session-num>
 #   File list is read from stdin, one "- path - description" per line
+#   (the leading "- " is optional; every written row carries exactly one)
 #
 # If the session's "### Files Updated" section contains "None", replaces it.
 # Otherwise appends after the last entry in that section.
@@ -94,6 +95,23 @@ SECTION_CONTENT=$(awk -v start="$FILES_UPDATED_ABS" -v end="$SECTION_END" '
     NR > start && NR < end
 ' "$SESSION_FILE")
 
+# --- Row normalisation -------------------------------------------------------
+# A file row is written with exactly one leading "- ", whether the caller sent
+# it bare, indented, doubled, or under another list marker. A marker is "-",
+# "*" or "+" followed by whitespace, so a dash-led filename keeps its dash.
+_bullet_row() {
+    local row="$1"
+    row="${row#"${row%%[![:space:]]*}"}"
+    while :; do
+        case "$row" in
+            [-*+][[:space:]]*) row="${row:1}"; row="${row#"${row%%[![:space:]]*}"}" ;;
+            *) break ;;
+        esac
+    done
+    [ -n "$row" ] || return 0
+    printf -- '- %s' "$row"
+}
+
 # --- Path extraction ---------------------------------------------------------
 # Backticks delimit a path atomically, including extensionless separator names.
 # Legacy descriptive rows retain extension anchoring so "Context - Example.md"
@@ -165,6 +183,8 @@ DEDUPED_LIST=""
 ADDED=0
 SKIPPED=0
 while IFS= read -r line; do
+    line=$(_bullet_row "$line")
+    [ -n "$line" ] || continue  # blank input line: not a row
     FILE_PATH=$(_extract_path "$line")
     if [ -n "$FILE_PATH" ]; then
         NORM_PATH=$(_norm_path "$FILE_PATH")
