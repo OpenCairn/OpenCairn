@@ -715,6 +715,7 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
     imported = 0
     moves = 0
     unverified = 0
+    incomplete: list[str] = []
     for move_path in sorted(receipt_dir.glob("*.json")):
         receipt = load_json(move_path, None)
         if not isinstance(receipt, dict) or receipt.get("schema") != 2:
@@ -726,6 +727,7 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
             die(f"project-move destination is missing: {destination}")
         moves += 1
         unverified += len(receipt.get("unverified_files", []))
+        imported_before = imported
         for item in receipt.get("affected_files", []):
             if not isinstance(item, dict):
                 die(f"malformed affected-file row: {move_path}")
@@ -751,10 +753,24 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
                 "verification": result,
             }
             imported += 1
+        if receipt.get("complete") is False:
+            # The move landed but failed its postcheck. Each heal imported above
+            # was verified on its own; the move as a whole was not.
+            postcheck = receipt.get("postcheck")
+            reason = postcheck.get("reason") if isinstance(postcheck, dict) else None
+            incomplete.append(
+                f"MOVE_INCOMPLETE {move_path}: the move failed its postcheck "
+                f"({reason or 'no reason recorded'}); "
+                f"{imported - imported_before} verified link-healed file(s) imported, "
+                f"{len(receipt.get('unverified_files', []))} file(s) left for semantic review"
+            )
     atomic_json(manifest_path, manifest)
+    for line in incomplete:
+        print(line)
     print(
         f"MOVE_HEALS imported {moves} move(s), {imported} link-healed file(s), "
         f"{unverified} file(s) left for semantic review"
+        + (f", {len(incomplete)} incomplete move(s)" if incomplete else "")
     )
     return 0
 
