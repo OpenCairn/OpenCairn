@@ -241,8 +241,8 @@ fi
 # raises REVIEW: the next " - " segment completes a file-shaped name and more
 # text follows ("docs/Plan" against "docs/Plan - draft.md - text"). Without a
 # trailing description, or when the real name has no extension, the truncated
-# value passes. Two different --touched paths matching one such row also raise
-# REVIEW and neither is covered. Backticks close the gap.
+# value passes. Two different --touched paths that only such a row accounts for
+# also raise REVIEW and neither is covered. Backticks close the gap.
 IFS= read -r -d '' COVERAGE_PY <<'PY' || true
 import os
 import re
@@ -682,20 +682,23 @@ for index in live:
                 link_up(row_index, index)
 
 # An unsplittable row names ONE file, whichever of its candidates that is. When
-# two different --touched paths both match it, at least one of them is not that
-# file, and nothing here can say which: neither is covered.
+# two different --touched paths rely on it alone, at least one of them is not
+# that file, and nothing here can say which: neither is covered. A path that
+# another row also covers does not rely on this one (two rows for one file, one
+# of them carrying a parenthetical, is an ordinary log shape).
 for row_index, row in enumerate(rows):
     if row["skip"] or not row["multi"]:
         continue
-    distinct = {frozenset(touched[i]["keys"]) for i in covered[row_index]}
+    sole = sorted(i for i in covered[row_index] if covers[i] == {row_index})
+    distinct = {frozenset(touched[i]["keys"]) for i in sole}
     if len(distinct) < 2:
         continue
     out.append("REVIEW backfill: Files row '%s' matched %d different --touched paths (%s) and names only one file; write the row's path in backticks; not counted for any of them"
-               % (row["raw"], len(distinct), "; ".join(touched[i]["show"] for i in sorted(covered[row_index]))))
-    for index in covered[row_index]:
+               % (row["raw"], len(distinct), "; ".join(touched[i]["show"] for i in sole)))
+    for index in sole:
         covers[index].discard(row_index)
+        covered[row_index].discard(index)
         via.pop((row_index, index), None)
-    covered[row_index] = set()
     row["skip"] = True
 
 # An unsplittable row matched through a candidate that looks like a truncation.
