@@ -598,6 +598,15 @@ Do this immediately after retrieving results. Confirm destruction to the user. *
 
 ### Phase 8: Post-process to markdown
 
+**Batch step first: cross-file speaker map (multi-file diarised batches).** Diarisation clusters each file on its own, so `SPEAKER_00` in one file need not be the same person in the next. When the files are one conversation split across recordings, or a series with recurring speakers, build one map for the whole batch before the per-file loop (a single file, or unrelated recordings: skip this and number per file):
+
+- **Which clusters take part.** Only a cluster with a `cluster_embeddings` vector whose `cluster_span_durations` value is at least 5 s and at least 1/50 of the longest in its file (the span thresholds `assign_names` uses). A cluster named from a voice reference keeps that name and takes no part.
+- **Match.** Take files in filename order. Compare each such cluster with each batch identity by cosine **similarity** (dot product over the two norms, 1 = identical; not the cosine *distance* scipy returns). Highest pair first, a pair at or above 0.65 (the voice-reference `SIMILARITY_THRESHOLD`; change both together) joins that identity, at most one cluster per identity within a file.
+- **New identities.** Every cluster left over gets a new batch number. One that takes part becomes a batch identity that later files are compared against; one that does not is numbered but never matched, in either direction. `Speaker N` runs in order of first appearance across the batch.
+- **Show the map and wait.** One row per file and raw cluster: batch label, best similarity and the identity it was against, and whether it joined, is new, or was not compared (short span, no vector); then each batch speaker's word count and first substantive utterance. 0.65 was calibrated against reference clips, not cluster to cluster, so the map is a proposal: **wait for the user to accept or correct it, and to give any names, before any file is formatted or saved.** The loop below renders every label from the accepted map (raw cluster to label, per file); a label is never fixed afterwards by text substitution in a formatted or saved transcript.
+
+This needs only the retrieved JSONs and a few lines of Python: no pod, no pinned venv.
+
 For each JSON transcript file:
 
 1. **Parse segments.**
@@ -616,8 +625,6 @@ For each JSON transcript file:
    ```
    **Speaker name mapping.** The Phase 5 script saves a `cluster_embeddings` field in the JSON (one voice-print vector per diarised cluster, extracted from each cluster's longest contiguous span). If voice-reference files exist for any known speakers (see "Voice references" section below), run cosine similarity between each `cluster_embeddings` entry and each reference embedding. Assign the reference name to the closest match above the similarity threshold. Clusters without a high-confidence match fall back to `Speaker N` in order of first appearance. If `cluster_embeddings` is absent (older JSON, or embedding pass failed) or no voice references exist, use `Speaker N` for all clusters.
 
-   **Cross-file speaker consistency (multi-file diarised batches).** Diarisation clusters each file on its own, so `SPEAKER_00` — and with it first-appearance `Speaker 1` — in one file need not be the same person in the next. When the files are one conversation split across recordings, or a series with recurring speakers, reconcile across the whole batch **before numbering any file** (unrelated recordings: skip this and number per file). Taking files in filename order, compare each cluster's `cluster_embeddings` vector by cosine similarity against the batch identities established so far (the first file's clusters seed them), assigning best match first and at most one cluster per identity within a file. A match at or above the voice-reference threshold with an `ok` quality flag takes that identity. Anything else — below threshold, a low-confidence or suspect flag, a file with no `cluster_embeddings` — is never merged on a guess: it gets a new batch number and is marked unreconciled. `Speaker N` is then numbered once for the batch, in order of first appearance across files, so a label means the same voice in every transcript. Clusters already named from a voice reference are consistent by name and sit out. The threshold was calibrated against reference clips, not cluster-to-cluster, so a merge is a proposal until the user has seen it (step 4). This needs only the retrieved JSONs — a plain cosine, no pod and no pinned venv.
-
 3. **LLM cleanup pass** (skip if `--raw` was passed):
 
    **This means reading the transcript paragraph by paragraph, not running regex patterns.** Regex handles known-entity capitalisation (city names, product names); homophones (peace/piece, their/there) and garbled proper nouns (WhisperX maps unfamiliar names to common English words) only surface by reading in context. A regex-only pass will miss these and produce a transcript that looks clean but isn't.
@@ -634,7 +641,7 @@ For each JSON transcript file:
 
    Process the full transcript in a single pass. If the transcript exceeds ~50KB of text, split into ~20KB chunks with 2-paragraph overlap to preserve context at boundaries.
 
-4. **If diarisation was used**, show the user a summary of each speaker (word count + first substantive utterance) and ask if they want to rename the `Speaker N` labels (e.g. "Speaker 1 is Mum, Speaker 3 is Dad"). Apply renames before saving. For a reconciled batch, first show the cross-file map (file, raw cluster, batch speaker, similarity, unreconciled marks) and take corrections to it; then summarise per batch speaker and apply each rename to every file.
+4. **If diarisation was used**, show the user a summary of each speaker (word count + first substantive utterance) and ask if they want to rename the `Speaker N` labels (e.g. "Speaker 1 is Mum, Speaker 3 is Dad"). Apply renames before saving. With an accepted batch map, skip this step: labels and names come from the map.
 
 5. **Save as markdown** in the output directory:
 
