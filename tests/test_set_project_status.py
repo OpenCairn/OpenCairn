@@ -1,3 +1,5 @@
+import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -6,12 +8,70 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 
 from tests.test_locked_edit_move import MOCK_OBSIDIAN
 
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/set-project-status.py"
 PARK_REVIEW = Path(__file__).parents[1] / "codex/skills/park/scripts/park-review.py"
+
+
+SPEC = importlib.util.spec_from_file_location("set_project_status", SCRIPT)
+STATUS_MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(STATUS_MODULE)
+
+
+class UnresolvedTotalTests(unittest.TestCase):
+    @staticmethod
+    def result(stdout: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, stdout, "launcher diagnostic\n")
+
+    def read_count(self, outputs):
+        with mock.patch.object(STATUS_MODULE.subprocess, "run", side_effect=outputs) as run:
+            with mock.patch("time.sleep") as sleep:
+                with mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                    count = STATUS_MODULE.unresolved_total()
+        self.last_diagnostic = stderr.getvalue()
+        return count, run, sleep
+
+    def test_requires_three_agreeing_bare_integer_readings(self) -> None:
+        count, run, sleep = self.read_count([self.result("7\n")] * 3)
+        self.assertEqual(count, 7)
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+        for call in run.call_args_list:
+            self.assertEqual(call.args[0][1:], ["unresolved", "total"])
+            self.assertEqual(call.kwargs["stdin"], subprocess.DEVNULL)
+            self.assertEqual(call.kwargs["timeout"], 15)
+
+    def test_retries_entire_reading_after_disagreement(self) -> None:
+        count, run, _ = self.read_count(
+            [self.result(f"{value}\n") for value in (1, 2, 2, 4, 4, 4)]
+        )
+        self.assertEqual(count, 4)
+        self.assertEqual(run.call_count, 6)
+
+    def test_stops_after_three_unsettled_attempts(self) -> None:
+        count, run, _ = self.read_count(
+            [self.result("1\n"), self.result("2\n"), self.result("2\n")] * 3
+        )
+        self.assertIsNone(count)
+        self.assertEqual(run.call_count, 9)
+        self.assertIn("link integrity: UNVERIFIED", self.last_diagnostic)
+        self.assertIn(str(["1", "2", "2"] * 3), self.last_diagnostic)
+
+    def test_blank_and_non_integer_output_are_not_counts(self) -> None:
+        for output in ("", "usage\n0\n", "NaN\n"):
+            with self.subTest(output=output):
+                count, run, _ = self.read_count([self.result(output)] * 9)
+                self.assertIsNone(count)
+                self.assertEqual(run.call_count, 9)
+
+    def test_timeout_is_unverified_after_bounded_retries(self) -> None:
+        count, run, _ = self.read_count([subprocess.TimeoutExpired("obsidian", 15)] * 9)
+        self.assertIsNone(count)
+        self.assertEqual(run.call_count, 9)
 
 
 class SetProjectStatusTests(unittest.TestCase):
