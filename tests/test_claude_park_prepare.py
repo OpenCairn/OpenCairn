@@ -197,7 +197,7 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         self.assertIn('Locked edit applied', result.stdout)
         state = self.config / '.session-state'
         ledger = state / 'fixture.tsv'
-        self.assertIn('\tlocked-edit\t' + str(self.note) + '\t?', ledger.read_text())
+        self.assertIn('\tlocked-edit\t' + str(self.note) + '\tcodex:fixture', ledger.read_text())
         receipts = list((state / 'fixture.locked-edit-receipts').glob('receipt.*'))
         self.assertTrue(receipts)
         for receipt in receipts:
