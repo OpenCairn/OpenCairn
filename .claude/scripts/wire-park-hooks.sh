@@ -2,6 +2,8 @@
 # Wire (or remove) the /park acceleration hooks into the user's Claude Code
 # settings. Invoked by the /setup-hooks command; safe to run directly.
 #
+#   harness-semantics-check.py SessionStart - advisory drift only
+#   park-preflight.py UserPromptSubmit - read-only startup receipts
 #   session-ledger.sh   PostToolUse on Write|Edit - exact per-session file ledger
 #   parboil-check.sh    UserPromptSubmit + Stop   - trigger + completed-park watermark
 #
@@ -45,6 +47,8 @@ SETTINGS="$CONFIG_DIR/settings.json"
 LEDGER_CMD="\"$SCRIPT_DIR/session-ledger.sh\""
 PARBOIL_CMD="\"$SCRIPT_DIR/parboil-check.sh\""
 MCP_CMD="\"$SCRIPT_DIR/mcp-write-ledger.sh\" --ledger"
+SEMANTICS_CMD="python3 \"$SCRIPT_DIR/harness-semantics-check.py\""
+PREFLIGHT_CMD="python3 \"$SCRIPT_DIR/park-preflight.py\""
 
 # Narrow compatibility aliases: the old current-config commands only.
 LEGACY_HOOKS=$(jq -cn --arg current_mcp "$MCP_CMD" --arg ledger "$CONFIG_DIR/scripts/session-ledger.sh" --arg parboil "$CONFIG_DIR/scripts/parboil-check.sh" --arg mcp "\"$CONFIG_DIR/scripts/mcp-write-ledger.sh\" --ledger" '[["PostToolUse",$ledger], ["UserPromptSubmit",$parboil], ["Stop",$parboil], ["PostToolUse",$mcp]] | map(select(.[1] != $current_mcp))')
@@ -77,7 +81,7 @@ fi
 TMP=$(mktemp "${SETTINGS}.tmp.XXXXXX")
 
 if [ "$MODE" = "add" ]; then
-  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" --argjson legacy "$LEGACY_HOOKS" '
+  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" --arg semantics "$SEMANTICS_CMD" --arg preflight "$PREFLIGHT_CMD" --argjson legacy "$LEGACY_HOOKS" '
     # Add {type,command,timeout} under .hooks[event] for the given matcher.
     # Idempotent: keyed on the command STRING, so a future timeout change does not
     # create a duplicate. Appends to an existing matcher block; creates one if absent.
@@ -99,11 +103,13 @@ if [ "$MODE" = "add" ]; then
     reduce $legacy[] as $old (. ; strip($old[0]; $old[1]))
     | add_hook("PostToolUse"; "Write|Edit"; $ledger; 5)
     | add_hook("PostToolUse"; "^mcp__obsidian__obsidian_(write_note|append_to_note|patch_note|replace_in_note)$"; $mcp; 5)
+    | add_hook("SessionStart"; "startup|resume|clear|compact"; $semantics; 10)
+    | add_hook("UserPromptSubmit"; ".*"; $preflight; 20)
     | add_hook("UserPromptSubmit"; ".*"; $parboil; 10)
     | add_hook("Stop"; ".*"; $parboil; 10)
   ' "$SETTINGS" > "$TMP"
 else
-  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" --argjson legacy "$LEGACY_HOOKS" '
+  jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" --arg mcp "$MCP_CMD" --arg semantics "$SEMANTICS_CMD" --arg preflight "$PREFLIGHT_CMD" --argjson legacy "$LEGACY_HOOKS" '
     # Remove the command from every matcher block in the event, then drop any matcher
     # block left with an empty hooks array (inert — safe regardless of who created it).
     def strip($event; $cmd):
@@ -114,6 +120,8 @@ else
     reduce $legacy[] as $old (. ; strip($old[0]; $old[1]))
     | strip("PostToolUse"; $ledger)
     | strip("PostToolUse"; $mcp)
+    | strip("SessionStart"; $semantics)
+    | strip("UserPromptSubmit"; $preflight)
     | strip("UserPromptSubmit"; $parboil)
     | strip("Stop"; $parboil)
   ' "$SETTINGS" > "$TMP"
