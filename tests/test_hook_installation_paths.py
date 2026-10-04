@@ -7,6 +7,18 @@ import tempfile
 import unittest
 import shutil
 
+try:
+    from session_isolation import isolate_session
+except ImportError:
+    from tests.session_isolation import isolate_session
+
+
+def fixture_env(home, config):
+    environment = isolate_session(dict(os.environ), config, 'hook-install-fixture')
+    environment['HOME'] = home
+    return environment
+
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,7 +28,7 @@ class HookInstallation(unittest.TestCase):
             cfg = Path(d) / 'config'
             scripts = cfg / 'scripts'
             shutil.copytree(ROOT / '.claude/scripts', scripts)
-            env = dict(os.environ, CLAUDE_CONFIG_DIR=str(cfg), HOME=d)
+            env = fixture_env(d, cfg)
             wires = [scripts / 'wire-park-hooks.sh', scripts / 'wire-skill-edit-hook.sh']
             for wire in wires:
                 subprocess.run([str(wire)], env=env, capture_output=True, check=True)
@@ -33,7 +45,7 @@ class HookInstallation(unittest.TestCase):
     def test_separate_config_root_wires_and_removes_actual_installed_helpers(self):
         with tempfile.TemporaryDirectory() as d:
             cfg = Path(d) / 'different config root';cfg.mkdir()
-            env = dict(os.environ, CLAUDE_CONFIG_DIR=str(cfg), HOME=d)
+            env = fixture_env(d, cfg)
             scripts = ROOT / '.claude/scripts'
             for wire in ['wire-skill-edit-hook.sh', 'wire-park-hooks.sh']:
                 r = subprocess.run([str(scripts/wire)], env=env, capture_output=True, text=True)
@@ -55,7 +67,7 @@ class HookInstallation(unittest.TestCase):
             old=str(cfg/'scripts/skill-edit-marker.sh')
             foreign='"/other/tool.sh"'
             (cfg/'settings.json').write_text(json.dumps({'hooks':{'PostToolUse':[{'matcher':'Write|Edit','hooks':[{'type':'command','command':old,'timeout':5},{'type':'command','command':foreign,'timeout':5}]}]}}))
-            env=dict(os.environ,CLAUDE_CONFIG_DIR=str(cfg),HOME=d)
+            env=fixture_env(d, cfg)
             wire=ROOT/'.claude/scripts/wire-skill-edit-hook.sh'
             for _ in range(2):
                 r=subprocess.run([str(wire)],env=env,capture_output=True,text=True);self.assertEqual(0,r.returncode,r.stderr)
@@ -68,7 +80,7 @@ class HookInstallation(unittest.TestCase):
     def test_invalid_settings_preserved_and_unknown_old_root_not_claimed_absent(self):
         with tempfile.TemporaryDirectory() as d:
             cfg=Path(d)/'cfg';cfg.mkdir()
-            env=dict(os.environ,CLAUDE_CONFIG_DIR=str(cfg),HOME=d)
+            env=fixture_env(d, cfg)
             settings=cfg/'settings.json';settings.write_text('{invalid')
             wire=ROOT/'.claude/scripts/wire-skill-edit-hook.sh'
             r=subprocess.run([str(wire),'--remove'],env=env,capture_output=True,text=True)
