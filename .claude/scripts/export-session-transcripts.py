@@ -316,11 +316,6 @@ SEPARATOR = "\n---\n\n"
 SESSION_BOUNDARY = re.compile(
     re.escape(SEPARATOR) + r"(?=### \S+ \((?:\d{2}:\d{2}|unknown)\)\s*\n|\s*\Z)"
 )
-# Whole separators that earlier exporter versions appended to a body's end on
-# every re-export. Matched on the raw chunk, before rstrip(): residue always
-# ends in the separator's blank line, while a message that genuinely ends in a
-# horizontal rule ends `---\n` (format_session) or `---` (a carried body).
-SEPARATOR_RESIDUE = re.compile(r"(?:\n---\n\n)+\Z")
 
 
 def parse_exported_text(text):
@@ -337,8 +332,9 @@ def parse_exported_text(text):
     a session. A body quoting `---` followed by a header-shaped line at column 0
     can still split; that pre-dates this parser.
 
-    Trailing separator residue written by earlier versions is removed
-    (SEPARATOR_RESIDUE), so affected files converge on the first re-export.
+    Preserve body suffixes: a real Write-tool payload can end in the same
+    horizontal-rule bytes as old writer residue. Repair residue only during
+    merging when a fresh source body proves the retained prefix unchanged.
 
     Keyed on (slug, start) rather than slug alone. Claude Code reuses a slug
     across a parent/child session split, so two genuinely distinct sessions can
@@ -350,7 +346,7 @@ def parse_exported_text(text):
         if not m:
             continue  # file preamble, or the empty tail after the final separator
         key = (m.group(1), m.group(2))
-        body = SEPARATOR_RESIDUE.sub("", chunk[m.end():]).rstrip()
+        body = chunk[m.end():].rstrip()
         if key not in out or len(body) > len(out[key]):
             out[key] = body
     return out
@@ -380,6 +376,21 @@ def render_day_file(date_str, merged):
     return content
 
 
+def session_identity(slug, start_time):
+    """Codex filename slugs name one rollout; Claude slugs can name splits."""
+    return (slug, None) if slug.startswith("codex-") else (slug, start_time)
+
+
+def source_backed_body(existing, incoming):
+    """Repair only separator suffixes beyond a complete matching source body."""
+    previous, current = existing.strip(), incoming.strip()
+    if current and previous.startswith(current):
+        suffix = previous[len(current):]
+        if suffix and re.fullmatch(r"(?:\n+---\n*)+", suffix):
+            return incoming
+    return existing
+
+
 def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
     """Merge and atomically replace one day file under its canonical lock.
 
@@ -387,16 +398,24 @@ def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
     lock. Exit 2 means a concurrent exporter won after our read, so re-read,
     re-merge, and retry instead of clobbering its sessions.
     """
-    incoming_keys = {(slug, start_time) for start_time, slug, _body in sessions}
+    incoming_keys = {session_identity(slug, start_time) for start_time, slug, _body in sessions}
 
     for attempt in range(attempts):
         merged, expected = read_exported_snapshot(output_file)
-        on_disk_keys = set(merged)
+        on_disk_keys = {session_identity(slug, start) for slug, start in merged}
 
         for start_time, slug, body in sessions:
             key = (slug, start_time)
-            if key not in merged or len(body) > len(merged[key]):
-                merged[key] = body
+            identity = session_identity(slug, start_time)
+            prior_keys = [old for old in merged if session_identity(*old) == identity]
+            retained = [source_backed_body(merged[old], body) for old in prior_keys]
+            # Prompt recovery can move a Codex header to an earlier minute.
+            # Coalesce that rollout without weakening Claude split preservation
+            # or replacing a richer retained body with a shortened source.
+            richest = max([body, *retained], key=len)
+            for old in prior_keys:
+                del merged[old]
+            merged[key] = richest
 
         content = render_day_file(date_str, merged).encode("utf-8")
         result = subprocess.run(

@@ -114,6 +114,61 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
         date_str = datetime.fromtimestamp(rollout.stat().st_mtime).strftime("%Y-%m-%d")
         return vault / "06 Archive/OpenCairn/.Session Transcripts" / f"{date_str}.md"
 
+    def test_recovered_codex_prompt_reuses_existing_rollout_section(self) -> None:
+        # Older app exports started at the first assistant minute. Recovering
+        # the earlier user prompt changes the displayed time, not the rollout.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            rollout = self.make_codex_rollout(home, cwd)
+            records = [json.loads(line) for line in rollout.read_text().splitlines()]
+            records.pop(1)
+            records[-1]["timestamp"] = "2026-08-16T00:01:02Z"
+            prompt = {"timestamp": "2026-08-16T00:00:59Z", "type": "response_item",
+                "payload": {"type": "message", "role": "user",
+                    "content": [{"type": "input_text", "text": "Recovered exact prompt"}],
+                    "internal_chat_message_metadata_passthrough": {"content_item_kinds": ["user.text"]}}}
+            records.insert(1, prompt)
+            rollout.write_text("".join(json.dumps(record) + "\n" for record in records))
+            output = self.export_day_path(vault, rollout)
+            output.parent.mkdir(parents=True)
+            slug = "codex-019c1234-5678"
+            old_body = exporter.format_session([("codex", "Codex-only response", "2026-08-16T00:01:02Z")], slug, "00:01").split("\n", 1)[1]
+            output.write_text(exporter.render_day_file(output.stem, {(slug, "00:01"): old_body}))
+            result = self.run_exporter(home, vault, cwd, "--all-projects")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            text = output.read_text()
+            self.assertEqual(text.count("Codex-only response"), 1)
+            self.assertEqual(text.count("Recovered exact prompt"), 1)
+            self.assertEqual(len(exporter.parse_exported_text(text)), 1)
+            self.assertIn(f"### {slug} (00:00)", text)
+            self.assertNotIn("Sessions carried forward", result.stdout)
+
+    def test_carried_write_tool_trailing_rule_survives_without_source(self) -> None:
+        # Write inputs keep their trailing newline, unlike plain message text.
+        # This is an ordinary producer of the same suffix as old separator junk.
+        record = {"timestamp": "2026-08-16T00:00:00Z", "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "Write",
+                "input": {"file_path": "Example.md", "content": "# Example\n\n---\n"}}]}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            jsonl = root / "old.jsonl"
+            jsonl.write_text(json.dumps(record) + "\n")
+            messages = exporter.parse_session(jsonl)
+            body = exporter.format_session(messages, "carried-rule", "00:00").split("\n", 1)[1]
+            jsonl.unlink()  # the day file is now the only retained source
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir()
+            output = self.export_day_path(vault, self.make_codex_rollout(home, cwd))
+            output.parent.mkdir(parents=True)
+            output.write_text(exporter.render_day_file(output.stem, {("carried-rule", "00:00"): body}))
+            for _ in range(2):
+                result = self.run_exporter(home, vault, cwd, "--all-projects")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                carried = exporter.parse_exported_text(output.read_text())[("carried-rule", "00:00")]
+                self.assertTrue(carried.endswith("---"), carried)
+
     def test_reexport_is_byte_stable(self) -> None:
         # The day file's final separator must not be read back as body text:
         # the old parser grew the last session by one `---` per re-export.
@@ -239,7 +294,11 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
         for residue in ("\n---\n\n", "\n---\n\n\n", "\n---\n\n" * 5):
             with self.subTest(residue=repr(residue)):
                 parsed = exporter.parse_exported_text(clean + residue)
-                self.assertEqual(exporter.render_day_file("2026-08-16", parsed), clean)
+                # A parser cannot identify source-free horizontal rules as junk.
+                # Only a freshly regenerated matching body licenses repair.
+                retained = parsed[("kept", "09:00")]
+                repaired = exporter.source_backed_body(retained, merged[("kept", "09:00")])
+                self.assertEqual(exporter.render_day_file("2026-08-16", {("kept", "09:00"): repaired}), clean)
         mixed = clean.replace("### kept (09:00)\n", "### kept (09:00)\r\n")
         self.assertEqual(exporter.render_day_file("2026-08-16", exporter.parse_exported_text(mixed)), clean)
 
