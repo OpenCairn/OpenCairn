@@ -63,6 +63,40 @@ class ParboilCheckTests(unittest.TestCase):
     def test_expanded_park_prompt_does_not_trigger(self):
         self.assertEqual(self.hook('<command-name>/park</command-name>\n<command-args/>'), '')
 
+    def test_checkpoint_alias_prompt_is_suppressed_without_trigger_marker(self):
+        for prompt in ['/checkpoint', '/checkpoint --quick',
+                       '<command-name>/checkpoint</command-name>\n<command-args/>',
+                       '<command-message>checkpoint</command-message>\n<command-name>/checkpoint</command-name>',
+                       '<skill><name>checkpoint</name><instructions>/park</instructions></skill>']:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.hook(prompt), '')
+                self.assertFalse((self.state / f'{self.sid}.parboil.state').exists())
+
+    def test_checkpoint_alias_stays_active_for_followup_answers(self):
+        for invocation in ['/checkpoint',
+                           '<command-name>/checkpoint</command-name>',
+                           '<skill><name>checkpoint</name><instructions>/park</instructions></skill>']:
+            with self.subTest(invocation=invocation):
+                self.records = []
+                self.add('assistant', 'Working.', 160000)
+                self.add('user', '/park')
+                self.add('user', invocation)
+                self.assertEqual(self.hook(), '')
+                self.assertEqual(self.hook('Keep the session title.'), '')
+                self.assertFalse((self.state / f'{self.sid}.parboil.state').exists())
+                self.add('user', 'Start the next task.')
+                self.assertIn('<parboil-trigger', self.hook())
+                (self.state / f'{self.sid}.parboil.state').unlink()
+
+    def test_checkpoint_alias_does_not_repeat_ignored_snapshot_trigger(self):
+        self.assertIn('<parboil-trigger', self.hook())
+        marker = self.state / f'{self.sid}.parboil.state'
+        original = marker.read_bytes()
+        self.assertEqual(self.hook('/checkpoint'), '')
+        self.add('user', '/checkpoint')
+        self.assertEqual(self.hook('Use that summary.'), '')
+        self.assertEqual(marker.read_bytes(), original)
+
     def test_active_park_in_transcript_is_suppressed(self):
         self.add('user', '/park')
         self.add('assistant', [{'type': 'text', 'text': 'Checking the session.'}], 220000)
