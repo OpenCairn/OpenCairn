@@ -43,7 +43,7 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Read `~/.claude/commands/goodnight.md` and execute its **Catch-up mode**, passing the current date from Step 1. Goodnight owns missed-day detection, close-out recovery and late-session reconciliation. Retain its returned dates, report paths and deferred debriefs for Steps 4–5, then continue to the landscape. Do not implement a second catch-up procedure here.
 
-**Every catch-up collapse rewrites a day heading**, which orphans the `[[01 Now/This Week#…]]` anchors and prose locators pointing at it. /goodnight Step 10's inbound-locator rule (capture before the rewrite, repoint after) is part of each collapse, not an optional extra: one `Inbound locators:` line per collapsed day must appear in this run's output.
+For each day Catch-up mode collapsed, the `Inbound locators:` line from /goodnight Step 10 must appear in this run's output; when it collapsed no day, there is no such line.
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
@@ -205,7 +205,7 @@ If This Week.md doesn't exist or is stale (today outside the date range), offer 
 Find today’s day section using `_shared-rules-planning.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work. Keep the existing heading line byte-identical (emoji and theme suffix included); inbound anchors resolve on its exact text:
 
 ````
-## [Day] [DD] [Mon]
+[the existing heading line, unchanged]
 
 ### Morning (HH:MM–HH:MM)
 - [ ] **HH:MM Scheduled block (1h30m)**
@@ -262,7 +262,7 @@ Completed items get `[x]` in the timeline (standard Obsidian checkbox: `- [x] Ta
 **Creation:** If This Week.md is stale or missing:
 > "This Week.md is [stale/missing]. Want me to create one for this week?"
 
-If yes — and if replacing a stale file, carry every unchecked item from the old This Week.md forward intact; do not require the user to choose the same work again. Then create `{VAULT}/01 Now/This Week.md` — today + 6 future days (7 sections). Today gets the full timeline (including carried-forward items); future days get simple task lists:
+If yes — and if replacing a stale file, carry every unchecked item from the old This Week.md forward intact; do not require the user to choose the same work again. Replacing the file removes its day headings, so run /goodnight Step 10's inbound-locator rule for each of them first. Then create `{VAULT}/01 Now/This Week.md` — today + 6 future days (7 sections). Today gets the full timeline (including carried-forward items); future days get simple task lists:
 
 ````
 # This Week — [DD] [Mon] – [DD] [Mon] [YYYY]
