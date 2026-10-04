@@ -178,7 +178,7 @@ def prepare(args, data):
         checks = {str(log): hashlib.sha256(log_bytes).hexdigest()}
         chunks = [f'# Audit inputs — Session {args.number}\n\nVault: `{vault}`\nLog: `{log}`\n\n## Session record\n\n{block}']
         reference_args = []
-        for row in rows:
+        for index, row in enumerate(rows):
             path = Path(row['path'])
             item = coverage.get(row['raw']) or coverage.get(row['path']) or {}
             if item.get('kind') == 'nonlocal':
@@ -195,7 +195,14 @@ def prepare(args, data):
             if path == log:
                 chunks.append('Review the Session record above; other sessions are outside scope.')
             elif item.get('kind') in {'reference', 'large'}:
-                receipt_path = Path(item['receipt']).expanduser().resolve()
+                if item['receipt'] == 'auto':
+                    generated = command(f'artifact-{index}', [sys.executable,
+                        str(Path(__file__).with_name('park-artifact.py')),
+                        '--source', str(path), '--original', row['aliases'][0],
+                        '--state-dir', str(out / 'artifacts')])
+                    receipt_path = Path(json.loads(generated)['receipt_path'])
+                else:
+                    receipt_path = Path(item['receipt']).expanduser().resolve()
                 receipt = json.loads(receipt_path.read_text())
                 snapshot = Path(receipt.get('source_snapshot', ''))
                 if receipt.get('source_sha256') != digest or not snapshot.is_file() or sha(snapshot) != digest:

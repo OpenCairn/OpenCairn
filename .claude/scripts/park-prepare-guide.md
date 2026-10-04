@@ -33,8 +33,23 @@ Ordinary UTF-8 files up to 64 KiB are included in full. Carry Step 2's exception
 in `coverage` before invoking the helper:
 
 - Imported reference: `{"path":"<exact Files row path>","kind":"reference","receipt":"<absolute park-artifact receipt path>","targets":["<passage actually used>"]}`.
-- Large semantic artefact: the same fields with `kind: "large"` and explicit targets.
+- Large semantic artefact: `{"path":"<exact Files row path>","kind":"large","receipt":"<absolute park-artifact receipt path>","targets":["<authored pages, sections or rendered regions inspected>"]}`.
 - Remote or secret-bearing file: `{"path":"<exact Files row path>","kind":"nonlocal"}`; represent it through the supplied evidence. No source body is packaged.
+
+For a binary or large file whose receipt has not been prepared, use
+`"receipt":"auto"` in its explicit reference/large coverage entry. The helper
+prepares the hash-bound snapshot and review copy under the current attempt's
+`artifacts/` directory, batching every such entry in one call. For example:
+
+```json
+{"coverage":[{"path":"<authored image path>","kind":"large","receipt":"auto","targets":["<rendered region actually inspected>"]}]}
+```
+
+Keep the real propagation report and other handoff fields alongside that entry.
+Automatic receipts do not choose a classification or waive inspection targets.
+Older session logs touched by forward-link insertion still require normal
+coverage unless byte-exact pre/post evidence proves the link-only delta; a
+filename or a forward-link line alone is not that proof.
 
 The helper runs locked backfill, derives and deduplicates all Files-list paths,
 runs the existing verifier, checks that inputs stayed unchanged, and writes a

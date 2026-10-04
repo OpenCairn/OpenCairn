@@ -159,6 +159,32 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         row = next(r for r in manifest['paths'] if r['path'] == str(self.note))
         self.assertEqual(set(row['aliases']), {str(self.note), str(link)})
 
+    def test_auto_receipts_batch_explicit_binary_and_large_inspection(self):
+        image = self.vault / 'plot.png'
+        image.write_bytes(b'\x89PNG\r\n\x1a\nfixture')
+        self.note.write_text('x' * (prepare.MAX_INLINE + 1))
+        self.log.write_text(self.log.read_text().replace('### Files Updated\n',
+                                                        '### Files Updated\n- plot.png - rendered plot\n'))
+        self.handoff['coverage'] = [
+            {'path': str(image), 'kind': 'large', 'receipt': 'auto', 'targets': ['Rendered plot']},
+            {'path': str(self.note), 'kind': 'large', 'receipt': 'auto', 'targets': ['Authored result']},
+        ]
+        self.assertEqual(self.run_prepare(), 0)
+        packet = self.outputs('audit-inputs.md')[0].read_text()
+        self.assertIn('Rendered plot', packet)
+        self.assertIn('Authored result', packet)
+        receipts = list(self.root.glob('*/artifacts/receipts/*.json'))
+        self.assertEqual(len(receipts), 2)
+        for path in receipts:
+            receipt = json.loads(path.read_text())
+            self.assertTrue(Path(receipt['source_snapshot']).is_relative_to(self.root))
+            self.assertEqual(prepare.sha(Path(receipt['source_snapshot'])), receipt['source_sha256'])
+
+    def test_auto_receipt_does_not_waive_inspection_targets(self):
+        self.handoff['coverage'] = [{'path': str(self.note), 'kind': 'large', 'receipt': 'auto'}]
+        with self.assertRaisesRegex(ValueError, 'explicit inspection targets'):
+            self.run_prepare()
+
 
 if __name__ == '__main__':
     unittest.main()
