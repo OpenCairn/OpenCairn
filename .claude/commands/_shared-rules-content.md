@@ -4,30 +4,23 @@ Read only the numbered sections needed for the current operation. Core rules and
 
 ---
 
-## 14. Verbatim External Text vs In-Place Formatting Hooks
+## 14. Verbatim External Text and Citation Fidelity
 
-When a skill writes **verbatim external text** to the vault — a transcript, a quoted source passage, an interview excerpt, anything whose exact wording must survive — a `PostToolUse` formatting hook will silently corrupt it. Some vaults run such a hook (a spelling normaliser) that fires on every `Write`/`Edit` to a `.md` file and rewrites the file **in place** (e.g. de-Americanising a US speaker's quotes: `color`→`colour`, `analyze`→`analyse`); if one is configured, the rule below is mandatory whenever exact wording matters. The existing word-level ignore files cannot help — you can't enumerate every foreign-spelled word a speaker might use.
+Protect exact external wording and identifiers from **any** formatter or editor transformation, regardless of harness, write route or extension. This includes quoted passages and transcripts; proper nouns, institution and journal names in citations; URL bytes; and Markdown/wikilink targets, anchors and aliases. Scratch `.txt` files, including scratchpad extracts, receive the same protection as final Markdown notes. Normalise only the author's own prose, never the quoted source or its identifiers.
 
-**The hook fires on `Write`/`Edit`, not on a shell write (`cat`/`printf`).** That asymmetry is the lever.
+**Stage and compare.** Retain the source text unchanged outside the vault. Assemble the complete intended note there, including its header, verbatim body and exact citation/link identifiers; make any intended locale edits before staging. Save through the vault's locked writer (§5), then compare the saved file with those staged bytes:
 
-**Two defences (use both for belt-and-braces):**
+```bash
+cmp "<STAGED_NOTE>" "<SAVED_NOTE>"
+```
 
-1. **Hook-safe append.** Write only your *own* prose (frontmatter + synthesis header) with the editor tool, then append the verbatim body via the shell:
-   ```bash
-   printf '\n' >> "$dest"      # guarantee a newline boundary
-   cat "$body_file" >> "$dest" # bypasses the PostToolUse hook
-   ```
-   Then **never `Write`/`Edit` that note again** — any later edit re-fires the hook on the whole file, body included.
+Exit 0 means byte-identical; exit 1 means different; another non-zero exit is a failed comparison. A word count, plausible tail or URL-only scan cannot establish fidelity. For an authorised later edit, rebuild the intended note in scratch and repeat the locked save and comparison. Never rewrite a retained source file just to make a failed comparison pass.
 
-2. **Path-level exclude.** If the hook supports it, exclude the verbatim-output folder once so fidelity holds regardless of write method (if the hook reads an `exclude_paths` allowlist from a `config.local.json`-style file, add the verbatim-output folder there). This is the robust default; the append trick is the portable fallback for vaults without an exclude.
+**Establish the actual transformation boundary.** Before relying on a write route, use a control containing a quoted foreign-spelled word, a proper noun/journal name and a navigable Markdown/wikilink target. Write it through that route, then compare its saved bytes with the unchanged control. Check which paths and extensions the formatter reaches, including scratch `.txt`; do not assume editor-only hooks, shell bypasses or code-span protection. Keep the observation in the project's own reference doc, not a version claim copied into skills.
 
-**Precondition for the append trick:** it only holds if the hook's matcher is `Write|Edit` and does **not** intercept shell writes. Verify the matcher before relying on it; if a hook matches `Bash`/shell writes, the append silently corrupts the body with no error — fall back to the path-exclude.
+**Use path exclusion when required.** If a formatter changes protected bytes, use its authorised path exclusion for the affected note or output folder, then rerun the control and saved-file comparison. Do not disable global formatting silently. If the same material needs a second repair, stop repairing around the formatter: establish a working path exclusion before another write. Without a proven preserving route, report the fidelity gap and leave the source intact. A later edit from another harness must honour the same protection.
 
-**Collateral edits.** Adding wikilinks/back-references to *other* notes (a dossier, a hub) after creating verbatim content also fires the hook on those notes. Short edits to already-normalised hub prose are safe; but if the target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
-
-**Inline identifiers.** For a stray foreign-spelled token in otherwise-normalised prose (a product name, a US institution, a code symbol), wrap it in an inline code span (backticks) — the markdown strategy preserves code spans. Use this for one-off tokens, not whole bodies.
-
-⛔ **Bare URLs are rewritten too, and this one does not announce itself.** A normaliser matches inside a URL's path segments like any other text, so a link can be silently altered into one that 404s — which reads to a later reader as a *fabricated citation* rather than a formatting artefact. That makes it the highest-consequence case in this section and the one most likely to reach a research or reference note, where citations are the point. Two rules: wrap bare URLs in the same inline code span you'd use for any other protected token, and **verify after the write, not before** — the hook fires on every `Write`/`Edit`, so a link that was correct when composed can be wrong on disk. Checkable: after writing any note carrying citations, extract its URLs (`rg -o 'https?://[^ )`]*' <file>`) and confirm each still matches the source. Which constructs a given normaliser leaves alone is an implementation detail that changes with its version — establish it empirically once (write a control file containing a known-rewritable token in each construct, then re-read it) and record the result in your project's own reference doc rather than assuming it here. The same applies to verbatim quotations in prose: backticks render them as code, so paraphrase the clause or exclude the whole doc by path instead.
+**Preserve navigable identifiers as identifiers.** Backticks are an option for an isolated literal token only when the control proves they protect it. Do not turn a citation or wikilink into code merely to evade formatting when it must remain clickable; exclude its path and preserve the complete construct instead. Verify all protected citation identifiers after the final write, not just URLs.
 
 ---
 
