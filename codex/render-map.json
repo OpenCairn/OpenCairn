@@ -166,8 +166,8 @@
     "provenance": {
       "source": ".claude/commands/provenance.md",
       "render": "codex/skills/provenance/SKILL.md",
-      "source_sha256": "eea4360da4099cfba1b24a34825ec1f81495df141da4d4d85a90ccde13ffbf7b",
-      "render_sha256": "060e5a676e9d9a8e27f9000dce7699588b215842575e0251efbf17d9bb36f569"
+      "source_sha256": "d5f98d8fe1b05f829faa17199d32954f46f3784265bb50eb67d0a1b67c2367aa",
+      "render_sha256": "9815f8621f5a83e82e3eed1830894ad93b5ce115aed3327dae2678e857ab9d5e"
     },
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "a39b20d4508aa6425fce8b60cdda8454a2632d3bed00a2247004314cde92a09f",
-      "render_sha256": "3158f0a03b2a50dbba00220f9f0036ec57adba51b76c4ec5d88a44f2041b8dd5"
+      "source_sha256": "d5ea0a925a241a776c1542b46c6e58205870fbf36712577876438b2fe70305b6",
+      "render_sha256": "ec7fa76d7cb0e10c7fe9cc33011888ce134d9f9ec255fb0bd373a2da53d6be0f"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
