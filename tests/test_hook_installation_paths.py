@@ -96,4 +96,36 @@ class HookInstallation(unittest.TestCase):
             self.assertNotIn('already in their target state',r.stdout)
 
 
+    def test_park_startup_helpers_use_installer_root_and_preserve_foreign_settings(self):
+        with tempfile.TemporaryDirectory() as d:
+            cfg = Path(d) / 'separate config'; cfg.mkdir()
+            settings = cfg / 'settings.json'
+            foreign = {'type': 'command', 'command': 'foreign-startup-command', 'timeout': 9}
+            initial = {'permissions': {'allow': ['Read']}, 'env': {'KEEP': 'value'},
+                       'hooks': {'SessionStart': [{'matcher': 'startup', 'hooks': [foreign]}]}}
+            settings.write_text(json.dumps(initial))
+            env = fixture_env(d, cfg)
+            wire = ROOT / '.claude/scripts/wire-park-hooks.sh'
+            for _ in range(2):
+                result = subprocess.run([str(wire)], env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            added = json.loads(settings.read_text())
+            self.assertEqual(added['permissions'], initial['permissions'])
+            self.assertEqual(added['env'], initial['env'])
+            for event, name in [('SessionStart', 'harness-semantics-check.py'),
+                                ('UserPromptSubmit', 'park-preflight.py')]:
+                commands = [h['command'] for row in added['hooks'][event] for h in row['hooks']]
+                expected = 'python3 "' + str(ROOT / '.claude/scripts' / name) + '"'
+                self.assertEqual(commands.count(expected), 1, commands)
+                self.assertFalse(any(str(cfg / 'scripts') in c for c in commands))
+            result = subprocess.run([str(wire), '--remove'], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            remaining = json.loads(settings.read_text())
+            commands = [h['command'] for rows in remaining['hooks'].values() for row in rows for h in row['hooks']]
+            self.assertEqual(commands, ['foreign-startup-command'])
+            self.assertEqual(remaining['permissions'], initial['permissions'])
+            self.assertEqual(remaining['env'], initial['env'])
+            self.assertFalse((cfg / 'harness-semantics.json').exists())
+
+
 if __name__ == '__main__':unittest.main()
