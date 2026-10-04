@@ -6,6 +6,13 @@
 # If the session's "### Files Updated" section contains "None", replaces it.
 # Otherwise appends after the last entry in that section.
 #
+# A path already in Files Created/Updated is skipped: its existing row and
+# description stay, and the incoming row is printed, not written. Every run that
+# reaches the dedup ends with a "<N> added, <M> skipped" line.
+#
+# Exit codes: 0 at least one row written (or empty stdin) · 1 usage, lock or
+# missing session/section · 3 nothing written because every row was skipped.
+#
 # Examples (use heredocs, not printf — printf interprets % as format specifiers):
 #   cat << 'EOF' | "$VAULT_PATH/.claude/scripts/backfill-files-updated.sh" "/path/to/2026-03-12.md" 25
 #   - 03 Projects/Website rebuild.md - Updated Current Objective and Next Actions
@@ -155,12 +162,16 @@ while IFS= read -r existing; do
 done <<< "$CREATED_CONTENT"
 
 DEDUPED_LIST=""
+ADDED=0
+SKIPPED=0
 while IFS= read -r line; do
     FILE_PATH=$(_extract_path "$line")
     if [ -n "$FILE_PATH" ]; then
         NORM_PATH=$(_norm_path "$FILE_PATH")
         if printf '%s' "$SEEN_PATHS" | grep -qxF -- "$NORM_PATH"; then
             printf 'skipped (already listed in Created/Updated): %s\n' "$FILE_PATH"
+            printf '  incoming row not written: %s\n' "$line"
+            SKIPPED=$((SKIPPED + 1))
             continue  # already listed (or already accepted earlier in this batch)
         fi
         SEEN_PATHS="${SEEN_PATHS}${NORM_PATH}
@@ -168,12 +179,14 @@ while IFS= read -r line; do
     fi
     DEDUPED_LIST="${DEDUPED_LIST:+$DEDUPED_LIST
 }$line"
+    ADDED=$((ADDED + 1))
 done <<< "$FILE_LIST"
 
 if [ -z "$DEDUPED_LIST" ]; then
     echo "All files already listed, nothing to backfill"
+    echo "0 added, ${SKIPPED} skipped"
     _unlock
-    exit 0
+    exit 3
 fi
 FILE_LIST="$DEDUPED_LIST"
 
@@ -220,3 +233,4 @@ chmod "$ORIG_PERMS" "$SESSION_FILE"
 _unlock
 
 echo "Files Updated backfilled for Session ${SESSION_NUM}"
+echo "${ADDED} added, ${SKIPPED} skipped"

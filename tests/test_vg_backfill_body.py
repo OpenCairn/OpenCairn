@@ -30,10 +30,12 @@ class BackfillBodyTests(unittest.TestCase):
 
     def assert_skipped(self, before, incoming, path):
         result, after = self.run_helper(before, incoming)
-        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(result.returncode, 3, result.stdout)
         self.assertEqual(after, before)
         self.assertIn('skipped (already listed in Created/Updated): ' + path, result.stdout)
+        self.assertIn('  incoming row not written: ' + incoming.rstrip('\n'), result.stdout)
         self.assertIn('All files already listed, nothing to backfill', result.stdout)
+        self.assertTrue(result.stdout.endswith('0 added, 1 skipped\n'), result.stdout)
 
     def test_final_existing_row_is_deduplicated(self):
         prefix = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n- B.md - original'
@@ -56,7 +58,8 @@ class BackfillBodyTests(unittest.TestCase):
         result, after = self.run_helper(before, '- A.md - incoming\n')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(after, before.replace('None\n', '- A.md - incoming\n'))
-        self.assertNotIn('skipped', result.stdout)
+        self.assertNotIn('skipped (', result.stdout)
+        self.assertTrue(result.stdout.endswith('1 added, 0 skipped\n'), result.stdout)
 
     def test_append_stays_in_target_session(self):
         before = ('## Session 1 - Fixture\n### Files Updated\n- Z.md - current\n'
@@ -96,6 +99,7 @@ class BackfillBodyTests(unittest.TestCase):
         result, after = self.run_helper(before, first + '\n- `Notes/Context - Example.md`\n- tools/check\n')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(after, before.replace('None', first + '\n- tools/check'))
+        self.assertTrue(result.stdout.endswith('2 added, 1 skipped\n'), result.stdout)
         self.assertIn('skipped (already listed in Created/Updated): Notes/Context - Example.md', result.stdout)
 
     def test_unrecognised_body_is_preserved(self):
