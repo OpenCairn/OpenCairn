@@ -87,13 +87,22 @@ def rows(log: Path) -> list[list[str]]:
     return result
 
 
-def proof_matches(proof: Path, snapshot: Path) -> bool:
+def proof_digest(proof: Path) -> str:
+    """Inspect an existing proof locally; do not infer identity from its name."""
     if not proof.is_file() or not shutil.which('ots'):
-        return False
+        raise ValueError('existing proof and local ots info are required')
     info = subprocess.run(['ots', 'info', str(proof)], text=True, capture_output=True)
-    # The Python OTS client's local info command exposes the full file digest.
     found = re.search(r'File sha256 hash:\s*([0-9a-f]{64})', info.stdout, re.I)
-    return info.returncode == 0 and bool(found) and found.group(1).lower() == digest(snapshot)
+    if info.returncode != 0 or not found:
+        raise ValueError(f'cannot inspect proof digest: {proof}')
+    return found.group(1).lower()
+
+
+def proof_matches(proof: Path, snapshot: Path) -> bool:
+    try:
+        return proof_digest(proof) == digest(snapshot)
+    except (ValueError, OSError):
+        return False
 
 
 def validate_evidence(vault: Path, value: str, status: str, snapshot: Path, proof: Path | None,
@@ -114,12 +123,14 @@ def validate_evidence(vault: Path, value: str, status: str, snapshot: Path, proo
 
 
 def append(vault: Path, rel: str, tag: str, value: str, status: str,
-           snapshot: Path, proof: Path | None, supersedes: str | None) -> dict:
+           snapshot: Path, proof: Path | None, supersedes: str | None,
+           evidence_only: bool = False, allow_historical_no_proof: bool = False) -> dict:
     cell(tag)
     cell(rel)
     snapshot = snapshot.resolve()
     proof = proof.resolve() if proof else None
-    validate_evidence(vault, value, status, snapshot, proof)
+    validate_evidence(vault, value, status, snapshot, proof,
+                      allow_historical_no_proof=allow_historical_no_proof)
     log = vault / '07 System/AI Provenance Log.md'
     existing = rows(log)
     if supersedes:
@@ -129,7 +140,9 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
     timestamp = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     additions = []
     attestations = read_attestations(existing, tag, rel, value)
-    if not attestations or read_status(attestations[-1][4]) != status:
+    if evidence_only and not attestations:
+        raise ValueError('original legacy attestation no longer exists')
+    if not evidence_only and (not attestations or read_status(attestations[-1][4]) != status):
         additions.append(f'| {timestamp} | {tag} | {rel} | `{value}` | {status} |\n')
     relationship = f'supersedes `{supersedes}`' if supersedes else None
     if relationship and not any(r[1:] == [tag, rel, f'`{value}`', relationship] for r in existing):
@@ -280,6 +293,74 @@ def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
             'proof': str(proof) if proof else None, 'selection': selection, 'raw_status': raw_status}
 
 
+def retain_legacy(vault: Path, args: argparse.Namespace) -> dict:
+    """Explicitly retain a proven live preimage; preserve the historical row/status."""
+    value = short_hash(args.hash)
+    tag = cell(args.tag)
+    rel = relative(vault, args.file)
+    recorded = rows(vault / '07 System/AI Provenance Log.md')
+    attestations = read_attestations(recorded, tag, rel, value)
+    if not attestations:
+        raise ValueError('original legacy attestation not found for tag/file/hash')
+    raw_status = attestations[-1][4]
+    status = read_status(raw_status)
+    no_proof = status_without_footnotes(raw_status) == 'superseded (no proof)'
+    if any(r[1:4] == [tag, rel, f'`{value}`'] and r[4].startswith('evidence: ') for r in recorded):
+        # Retention never overwrites an already chosen locator; broken choices
+        # still fail, while a valid retained preimage is an idempotent no-op.
+        return locate(vault, tag, rel, value)
+    source = Path(args.source).expanduser().resolve(strict=True) if args.source else vault / rel
+    if not source.is_file():
+        raise ValueError('resolved live source is missing')
+    temporary_root = Path(tempfile.gettempdir()).resolve()
+    if temporary_root.is_relative_to(vault):
+        raise ValueError('legacy staging directory must be outside the vault')
+    with tempfile.TemporaryDirectory(prefix='opencairn-retain-', dir=temporary_root) as temporary:
+        staging = Path(temporary)
+        staged = staging / ('preimage' + Path(rel).suffix)
+        shutil.copyfile(source, staged)
+        full_hash = digest(staged)
+        if full_hash[:16] != value:
+            raise ValueError('staged source does not match logged digest')
+        artifacts = vault / '07 System/.Provenance'
+        if args.proof:
+            proof = Path(args.proof).expanduser().resolve(strict=True)
+            proof.relative_to(vault)
+            if proof.suffix != '.ots' or proof_digest(proof) != full_hash:
+                raise ValueError('selected proof does not match full staged digest')
+        else:
+            matches, unknown = [], []
+            # Complete candidate scope, including arbitrary/old names and nested
+            # directories. An unreadable candidate cannot prove uniqueness.
+            for candidate in sorted(artifacts.rglob('*.ots')):
+                try:
+                    candidate_hash = proof_digest(candidate)
+                except (ValueError, OSError):
+                    unknown.append(str(candidate))
+                    continue
+                if candidate_hash == full_hash:
+                    matches.append(candidate)
+            if unknown:
+                raise ValueError(f'proof search inconclusive: {len(unknown)} unreadable candidates; supply --proof')
+            if len(matches) != 1 and not (no_proof and not matches):
+                raise ValueError(f'{len(matches)} matching proofs; supply an explicit --proof')
+            proof = matches[0] if matches else None
+        if not artifacts.is_dir():
+            empty = staging / 'empty'
+            empty.mkdir()
+            ingress(vault, empty, artifacts)
+        snapshots = [p for p in sorted(artifacts.glob('*.snapshot*'))
+                     if p.is_file() and digest(p) == full_hash]
+        snapshot = snapshots[0] if snapshots else artifacts / f'legacy-{value}.snapshot{Path(rel).suffix}'
+        if not snapshots:
+            ingress(vault, staged, snapshot)
+        # A locator is the only new row. No stamp, fresh attestation timestamp,
+        # status promotion, or rewrite of an original historical row.
+        append(vault, rel, tag, value, status, snapshot, proof, None,
+               evidence_only=True, allow_historical_no_proof=no_proof)
+    return locate(vault, tag, rel, value)
+
+
 def evidence_for(vault: Path, tag: str, rel: str, value: str) -> bool:
     try:
         return locate(vault, tag, rel, value)['status'] in STATUSES
@@ -343,6 +424,11 @@ def main() -> int:
     locator = commands.add_parser('locate', help='read-only chosen evidence lookup; does not verify Bitcoin attestation')
     for field in ('tag', 'file', 'hash'):
         locator.add_argument('--' + field, required=True)
+    retention = commands.add_parser('retain-legacy', help='retain a matching legacy preimage and evidence locator; never stamp or promote status')
+    for field in ('tag', 'file', 'hash'):
+        retention.add_argument('--' + field, required=True)
+    retention.add_argument('--source', help='explicit resolved source when the original locator is stale')
+    retention.add_argument('--proof', help='explicit existing proof path; full digest still validated')
     args = parser.parse_args()
     try:
         vault = Path(args.vault).expanduser().resolve(strict=True)
@@ -351,6 +437,8 @@ def main() -> int:
         elif args.command == 'append':
             result = append(vault, relative(vault, args.file), args.tag, args.hash, args.status,
                             Path(args.snapshot), Path(args.proof) if args.proof else None, args.supersedes)
+        elif args.command == 'retain-legacy':
+            result = retain_legacy(vault, args)
         elif args.command == 'locate':
             result = locate(vault, args.tag, relative(vault, args.file), args.hash)
         else:

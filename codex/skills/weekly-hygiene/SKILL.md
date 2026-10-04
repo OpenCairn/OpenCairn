@@ -566,6 +566,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    New rows use the latest validated evidence-locator annotation, even while older proofs survive. A broken selected locator is an evidence gap: report it, leave the flag/status intact, and do not fall back to an older proof. Legacy rows without locators retain the hash-keyed/basename search; zero or several matching proofs fail closed for explicit source-backed annotation. Never infer proof identity from its filename alone.
 
+   **Legacy row with no snapshot:** if an **unannotated** legacy lookup reports `matching retained snapshot not found`, check the resolved live source. Only when its bytes still hash to the logged digest may you explicitly retain that preimage, then retry `locate`:
+   ```bash
+   python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" retain-legacy \
+     --tag "<row tag>" --file "<File column>" --hash "<logged 16-hex short hash>" \
+     --source "<resolved live source path>"
+   ```
+   Keep `--file` as the original row's File column, even if the resolved source moved. An authoritative existing proof path can be supplied with `--proof`; its full digest must match the staged source, never merely its filename or short prefix. Otherwise the writer inspects all `.ots` candidates under `.Provenance`, including nested/arbitrary names, and requires a unique full-digest match. Unknown/ambiguous proofs fail closed. Only the explicit historical `superseded (no proof)` shape permits missing proof. The operation retains exact staged bytes through locked ingress and appends only an evidence locator, preserving the original row/status and making no new stamp or Bitcoin-verification claim. Existing valid locators are idempotent; broken chosen locators are not silently replaced. Missing/evolved live bytes remain a genuine recovery gap; do not force this path or rewrite history. `locate` itself remains read-only.
+
    **Upgrade OTS proofs:** for a selected `pending` proof, copy it to a temporary directory outside the vault and run `ots upgrade` on that copy. Classify the actual output, not its exit code: a reached calendar explicitly replying pending is pending; a connection/read failure is inconclusive. Keep the original proof untouched. When the proof bytes changed, retain them using a name containing **both** the source digest and the upgraded proof-content digest, then append a `pending` row/locator using the selected snapshot:
    ```bash
    set -e
