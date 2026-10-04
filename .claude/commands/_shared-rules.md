@@ -92,9 +92,16 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/03 Projects/Pro
 EOF
 # Other modes: --replace-all (every occurrence), --append (stdin appended at EOF),
 # --replace-whole <expected-sha256|MISSING> (atomic compare-and-swap from stdin).
+# --replace-many (several exactly-once replacements under one lock and one write; stdin is a
+# JSON array [{"old": "...", "new": "..."}, ...]; any failing pair writes nothing and is named).
+# Use it for bulk corrections instead of N --replace calls or an unlocked pass.
+# --delete-section '<full heading line>' (the section through to the next heading of the same or
+# higher level, or EOF; empty stdin deletes it, non-empty stdin replaces it; the removed block
+# is printed to stdout). Use it to remove or collapse a section instead of retyping it as OLD.
 # --move <destination> <expected-source-sha256> (link-healing compare-and-move;
 # both paths must be inside VAULT_PATH; a missing destination directory is created).
-# Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace).
+# Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under
+# --replace/--replace-many, overlapping --replace-many pairs, or a duplicated --delete-section heading).
 # For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
 # For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
 # Exit 1 with a lock message means another writer holds the lock past the timeout — that is
