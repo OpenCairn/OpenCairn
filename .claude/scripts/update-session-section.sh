@@ -5,6 +5,8 @@
 #   Default: append after last entry (replaces "None" lines automatically)
 #   --replace: replace entire section content
 #   Section name without "### " prefix (e.g. "Summary", "Files Created")
+#   "Files Created" / "Files Updated" rows are written with exactly one leading
+#   "- " whether or not the caller supplied it; other sections stay verbatim
 #
 # Examples (use heredocs, not printf — printf interprets % as format specifiers):
 #   # Append to Summary (leading blank line creates paragraph break)
@@ -64,6 +66,39 @@ if [ -z "$CONTENT" ]; then
     echo "No content provided on stdin"
     exit 0
 fi
+
+# A file-list row is written with exactly one leading "- ", whether the caller sent
+# it bare, indented, doubled, or under another list marker. A marker is "-",
+# "*" or "+" followed by whitespace, so a dash-led filename keeps its dash.
+_bullet_row() {
+    local row="$1"
+    row="${row#"${row%%[![:space:]]*}"}"
+    while :; do
+        case "$row" in
+            [-*+][[:space:]]*) row="${row:1}"; row="${row#"${row%%[![:space:]]*}"}" ;;
+            *) break ;;
+        esac
+    done
+    [ -n "$row" ] || return 0
+    printf -- '- %s' "$row"
+}
+
+# Only the file-list sections hold one row per line; every other section is
+# prose and stays verbatim. Blank lines and a "None" placeholder pass through.
+case "$SECTION_NAME" in
+    'Files Created'|'Files Updated')
+        NORMALISED=""
+        while IFS= read -r line; do
+            case "$line" in
+                None*) ;;
+                *[![:space:]]*) line=$(_bullet_row "$line") ;;
+            esac
+            NORMALISED="${NORMALISED}${line}
+"
+        done <<< "$CONTENT"
+        CONTENT="${NORMALISED%$'\n'}"
+        ;;
+esac
 
 # Validate file exists
 if [ ! -f "$SESSION_FILE" ]; then

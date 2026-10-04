@@ -102,12 +102,46 @@ class BackfillBodyTests(unittest.TestCase):
         self.assertTrue(result.stdout.endswith('2 added, 1 skipped\n'), result.stdout)
         self.assertIn('skipped (already listed in Created/Updated): Notes/Context - Example.md', result.stdout)
 
-    def test_unrecognised_body_is_preserved(self):
+    def test_unrecognised_body_is_kept_as_a_bulleted_row(self):
         before = '## Session 1 - Fixture\n### Files Updated\nNone\n\n### Notes\nKeep\n'
         incoming = 'Preserved prose\n- `unterminated path\n'
         result, after = self.run_helper(before, incoming)
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(after, before.replace('None\n', incoming))
+        self.assertEqual(after, before.replace('None\n', '- ' + incoming))
+
+    def test_every_written_row_carries_exactly_one_bullet(self):
+        shapes = ('A.md - changed', '- A.md - changed', '  - A.md - changed',
+                  '\t- A.md - changed', '* A.md - changed', '+ A.md - changed',
+                  '- - A.md - changed', '-\tA.md - changed')
+        sections = ('None\n', '- None\n', '', '- Z.md - original\n')
+        for existing in sections:
+            for shape in shapes:
+                with self.subTest(existing=existing, shape=shape):
+                    before = ('## Session 1 - Fixture\n### Files Updated\n' + existing
+                              + '\n### Notes\nKeep\n')
+                    result, after = self.run_helper(before, shape + '\nB.md - later row\n')
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    kept = existing if existing.startswith('- Z') else ''
+                    self.assertEqual(after, '## Session 1 - Fixture\n### Files Updated\n' + kept
+                                     + '- A.md - changed\n- B.md - later row\n\n### Notes\nKeep\n')
+                    self.assertTrue(result.stdout.endswith('2 added, 0 skipped\n'), result.stdout)
+
+    def test_unbulleted_row_is_deduplicated_against_listed_path(self):
+        before = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n\n### Notes\nKeep\n'
+        for shape in ('A.md - incoming', '  - A.md - incoming', '* A.md - incoming'):
+            with self.subTest(shape=shape):
+                result, after = self.run_helper(before, shape + '\n')
+                self.assertEqual(result.returncode, 3, result.stdout)
+                self.assertEqual(after, before)
+                self.assertIn('  incoming row not written: - A.md - incoming', result.stdout)
+                self.assertTrue(result.stdout.endswith('0 added, 1 skipped\n'), result.stdout)
+
+    def test_dash_led_filename_and_blank_lines_are_not_mangled(self):
+        before = '## Session 1 - Fixture\n### Files Updated\nNone\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, '-option.md - changed\n\n   \n- [x] B.md - done\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace('None\n', '- -option.md - changed\n- [x] B.md - done\n'))
+        self.assertTrue(result.stdout.endswith('2 added, 0 skipped\n'), result.stdout)
 
     def test_missing_session_fails_without_mutation(self):
         before = '## Session 1 - Fixture\n### Files Updated\nNone\n'
