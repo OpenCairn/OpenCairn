@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "5efbfa93d9e12d7b6f4b207ec0207a135af7295e2969f1f00c292deb2a7bac80",
-      "render_sha256": "bc3978e7d9569cbfff42e8063efabe6a580dae59087f4dd5427b8208c1b9f86a"
+      "source_sha256": "d4e884c58fb4a615a78875be37a00babcd8824b04be39e5464b3ae39383e434e",
+      "render_sha256": "0812e81609b5c7f4516401d5190ad75b9f4ab8b44cadadd4926f443138f461c3"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
