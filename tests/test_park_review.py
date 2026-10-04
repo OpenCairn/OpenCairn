@@ -8,11 +8,15 @@ import io
 import json
 import os
 from pathlib import Path
+import struct
 import subprocess
+import sys
+import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest import mock
+import zlib
 
 
 HELPER = Path(__file__).parents[1] / "codex/skills/park/scripts/park-review.py"
@@ -1115,6 +1119,175 @@ class ParkReviewTests(unittest.TestCase):
             self.assertEqual(
                 park_review.current_audit_receipts(state / ".park-audit-receipts"), []
             )
+
+
+def png_fixture() -> bytes:
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        return (struct.pack(">I", len(payload)) + kind + payload
+                + struct.pack(">I", zlib.crc32(kind + payload)))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"\x00\xff"))
+            + chunk(b"IEND", b""))
+
+
+def tar_fixture() -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        payload = b"plain member text\n"
+        member = tarfile.TarInfo("payload.txt")
+        member.size = len(payload)
+        archive.addfile(member, io.BytesIO(payload))
+    return buffer.getvalue()
+
+
+class AuthoredBinaryReviewTests(unittest.TestCase):
+    """Drive the CLI end to end: classify, build, then record the audit."""
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix="park-review-binary-")
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name).resolve()
+        self.config = base / "config"
+        self.root = self.config / ".session-state/binary-fixture.park-review"
+        self.vault = base / "vault"
+        self.vault.mkdir()
+        self.log = self.vault / "log.md"
+        self.env = {"PATH": os.environ.get("PATH", os.defpath), "HOME": str(base),
+                    "VAULT_PATH": str(self.vault), "CLAUDE_CONFIG_DIR": str(self.config),
+                    "OPENCAIRN_SESSION_ID": "binary-fixture"}
+
+    def run_review(self, *args: str, stdin: str | None = None) -> subprocess.CompletedProcess:
+        return subprocess.run([sys.executable, str(HELPER), *args], env=self.env, input=stdin,
+                              text=True, capture_output=True, timeout=60)
+
+    def write_log(self, created: list[Path], updated: list[Path]) -> None:
+        rows = lambda paths: "".join(f"- {path} - fixture\n" for path in paths) or "None\n"
+        self.log.write_text(
+            "# Sessions\n\n## Session 1 - Fixture\n\n### Summary\nDone.\n\n"
+            "### Key Insights / Decisions\n- None\n\n### Next Steps / Open Loops\n- None\n\n"
+            f"### Files Created\n{rows(created)}\n"
+            f"### Files Updated\n{rows([*updated, self.log])}\n"
+            "### Pickup Context\n**For next session:** None.\n**Project:** None\n",
+            encoding="utf-8",
+        )
+        captures = self.root / "captures"
+        captures.mkdir(parents=True, exist_ok=True)
+        park_review.atomic_json(captures / "propagation.json",
+                                {"kind": "propagation", "captured_at": "1", "text": "checked"})
+        park_review.atomic_json(captures / "verifier.json",
+                                {"kind": "verifier", "captured_at": "2", "text": "RESULT: PASS",
+                                 "returncode": 0})
+
+    def classify(self, path: Path) -> subprocess.CompletedProcess:
+        result = self.run_review("classify", "--vault", str(self.vault), "--path", str(path),
+                                 "--semantic", "--reason", "fixture")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
+    def build(self) -> dict:
+        result = self.run_review("build", "--vault", str(self.vault), "--session-log",
+                                 str(self.log), "--number", "1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads((self.root / "review-brief-manifest.json").read_text(encoding="utf-8"))
+
+    def full_read_item(self, manifest: dict, path: Path) -> dict:
+        return next(item for item in manifest["full_read"] if item["path"] == str(path))
+
+    def assert_binary_review(self, manifest: dict, path: Path, data: bytes, media_type: str) -> None:
+        item = self.full_read_item(manifest, path)
+        self.assertEqual(item["media_type"], media_type)
+        self.assertEqual(item["sha256"], park_review.sha256_bytes(data))
+        self.assertEqual(item["owned_locators"], [])
+        snapshot = Path(item["snapshot_path"])
+        self.assertEqual(item["review_path"], str(snapshot))
+        self.assertEqual(snapshot.read_bytes(), data)
+        self.assertNotEqual(snapshot, path)
+        brief = (self.root / "review-brief.md").read_text(encoding="utf-8")
+        self.assertIn(f"Inspect immutable binary snapshot once: `{snapshot}` — "
+                      f"media type `{media_type}` — bytes `{len(data)}`", brief)
+        self.assertNotIn(f"Read immutable review copy once: `{snapshot}`", brief)
+        self.assertIn("Do not read it as text", brief)
+        self.assertEqual(self.full_read_item(manifest, self.log)["media_type"], "text/plain")
+        self.assertIn("Read immutable review copy once:", brief)
+
+    def test_bounded_authored_png_is_classified_reviewed_and_receipted(self) -> None:
+        chart = self.vault / "chart.png"
+        chart.write_bytes(png_fixture())
+        self.write_log([chart], [])
+        classified = self.classify(chart)
+        self.assertIn(f"SEMANTIC {chart} (image/png;", classified.stdout)
+        self.assertIn("text=unsupported", classified.stdout)
+        self.classify(self.log)
+        recorded = json.loads((self.root / "files.json").read_text(encoding="utf-8"))[str(chart)]
+        self.assertEqual(recorded["inspection_scope"], "full")
+        self.assertEqual(recorded["artifact"]["media_type"], "image/png")
+
+        manifest = self.build()
+        self.assertEqual(manifest["targeted_review"], [])
+        self.assert_binary_review(manifest, chart, png_fixture(), "image/png")
+        item = self.full_read_item(manifest, chart)
+
+        wrong = self.run_review(
+            "record-audit", "--reviewer", "fixture", "--from-brief",
+            stdin=(f"ATTEST {'0' * 64} {chart}\n"
+                   f"ATTEST {self.full_read_item(manifest, self.log)['sha256']} {self.log}\n"
+                   "Terminal state: clean\n"))
+        self.assertNotEqual(wrong.returncode, 0)
+        self.assertIn("attests wrong SHA-256", wrong.stderr)
+
+        report = "".join(f"ATTEST {entry['sha256']} {entry['path']}\n"
+                         for entry in manifest["full_read"]) + "Terminal state: clean\n"
+        audited = self.run_review("record-audit", "--reviewer", "fixture", "--from-brief",
+                                  stdin=report)
+        self.assertEqual(audited.returncode, 0, audited.stderr)
+        receipts = [json.loads(path.read_text(encoding="utf-8"))
+                    for path in (self.config / ".session-state/.park-audit-receipts").glob("audit-*.json")]
+        self.assertEqual(len(receipts), 1)
+        self.assertEqual(receipts[0]["status"], "clean")
+        self.assertIn({"path": str(chart), "sha256": item["sha256"]}, receipts[0]["files"])
+
+        chart.write_bytes(png_fixture() + b"trailing")
+        self.assertEqual(Path(item["snapshot_path"]).read_bytes(), png_fixture())
+        stale = self.run_review("record-audit", "--reviewer", "fixture", "--from-brief",
+                                stdin=report)
+        self.assertNotEqual(stale.returncode, 0)
+        self.assertIn("untraceable live change after review snapshot", stale.stderr)
+
+    def test_authored_tar_is_never_reviewed_as_text(self) -> None:
+        bundle = self.vault / "bundle.tar"
+        bundle.write_bytes(tar_fixture())
+        self.assertTrue(park_review.is_utf8(tar_fixture()))
+        for classify_first in (False, True):
+            with self.subTest(classified=classify_first):
+                self.write_log([bundle], [])
+                if classify_first:
+                    self.assertIn("(application/x-tar;", self.classify(bundle).stdout)
+                self.classify(self.log)
+                self.assert_binary_review(self.build(), bundle, tar_fixture(), "application/x-tar")
+
+    def test_classified_updated_binary_takes_the_binary_review(self) -> None:
+        chart = self.vault / "chart.png"
+        chart.write_bytes(png_fixture())
+        blob = self.vault / "state.bin"
+        blob.write_bytes(b"text with a\x00separator\n")
+        self.write_log([], [chart, blob])
+        for path in (chart, blob, self.log):
+            self.classify(path)
+        manifest = self.build()
+        self.assert_binary_review(manifest, chart, png_fixture(), "image/png")
+        self.assert_binary_review(manifest, blob, blob.read_bytes(), "application/octet-stream")
+
+    def test_unclassified_updated_binary_still_fails_closed(self) -> None:
+        chart = self.vault / "chart.png"
+        chart.write_bytes(png_fixture())
+        self.write_log([], [chart])
+        self.classify(self.log)
+        result = self.run_review("build", "--vault", str(self.vault), "--session-log",
+                                 str(self.log), "--number", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unclassified non-text artefact", result.stderr)
 
 
 class RemoteFilesRowTests(unittest.TestCase):
