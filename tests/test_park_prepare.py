@@ -82,6 +82,9 @@ class ParkPrepareTests(unittest.TestCase):
         manifest = json.loads((self.root / 'review-brief-manifest.json').read_text())
         self.assertEqual({x['path'] for x in manifest['full_read']}, {str(self.note), str(self.log)})
         self.assertIn('touched paths from session Files lists: 2', output)
+        brief = (self.root / "review-brief.md").read_text()
+        for guard in ("reading its argument handling", "invocation is read-only", "--help is not evidence", "disposable scratch directory outside the vault", "never weaken host policy"):
+            self.assertIn(guard, brief)
         timing = json.loads(next((self.root / 'prepare-runs').glob('*.json')).read_text())
         self.assertEqual(timing['status'], 'passed')
         self.assertEqual([x['name'] for x in timing['steps']], ['classify-1', 'classify-2', 'capture', 'verify', 'build'])
