@@ -75,15 +75,21 @@ class VerifyPathsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertNotIn("REVIEW backfill:", result.stdout)
         self.assertIn("RESULT: PASS", result.stdout)
-        # Once it is gone, the row is outside reverse coverage but still
-        # satisfies the forward check.
+        # Once it is gone the row still satisfies the forward check. The shorter
+        # sibling is a regular file on disk and may be what the row names, so
+        # the row stays in reverse coverage until that sibling goes too.
         (self.vault / path).unlink()
-        for touched in ((), (path,)):
-            with self.subTest(section="Deleted", touched=touched):
-                result = self.verify([path], touched=touched, section="Deleted")
-                self.assertEqual(result.returncode, 0, result.stdout)
-                self.assertNotIn("REVIEW backfill:", result.stdout)
-                self.assertIn("RESULT: PASS", result.stdout)
+        result = self.verify([path], touched=[path], section="Deleted")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("REVIEW backfill:", result.stdout)
+        self.assertIn("RESULT: PASS", result.stdout)
+        self.assert_uncovered(self.verify([path], section="Deleted"), "03 Projects/Report")
+        (self.vault / "03 Projects/Report").unlink()
+        result = self.verify([path], section="Deleted")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("REVIEW backfill:", result.stdout)
+        self.assertIn("1 absent Files Deleted row(s) not compared", result.stdout)
+        self.assertIn("RESULT: PASS", result.stdout)
 
     def test_legacy_description_preserves_longest_existing_filename(self):
         path = "03 Projects/Report - draft - final.md"

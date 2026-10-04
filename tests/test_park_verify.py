@@ -756,5 +756,101 @@ class CoverageIdentityTests(unittest.TestCase):
         self.assertNotIn("FAIL backfill", result.stdout)
 
 
+class CoverageRoundTwoTests(unittest.TestCase):
+    setUp = CoverageIdentityTests.setUp
+    run_rows = CoverageIdentityTests.run_rows
+    assert_pass = CoverageIdentityTests.assert_pass
+
+    def test_deleted_row_for_an_extensionless_file_still_on_disk_is_compared(self) -> None:
+        touch(self.vault, "scripts/deploy")
+        result = self.run_rows(deleted=["scripts/deploy - replaced by deploy.sh"])
+        review = lines_of(result, "REVIEW backfill: ")
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertTrue(review[0].endswith(": scripts/deploy; "), review[0])
+        self.assertNotIn("absent Files Deleted", result.stdout)
+
+    def test_absent_touched_message_names_nonlocal(self) -> None:
+        result = self.run_rows("/mnt/other-host/fetch.sh", "docs/f*.md",
+                               updated=["/mnt/other-host/fetch.sh - remote script", "docs/f*.md - many notes"])
+        fails = lines_of(result, "FAIL touched: ")
+        self.assertEqual(len(fails), 1, result.stdout)
+        self.assertIn("path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped?", fails[0])
+        self.assertIn("a path on another host or a glob needs --nonlocal", fails[0])
+        self.assertTrue(fails[0].endswith(": /mnt/other-host/fetch.sh; docs/f*.md; "), fails[0])
+
+    def test_markdown_link_row_with_a_title_or_angle_destination(self) -> None:
+        touch(self.vault, "hosts", "docs/My Note.md", "docs/Report (v2).md")
+        for row, path in (('[Hosts](hosts "System hosts")', "hosts"),
+                          ("[Hosts](hosts 'System hosts') - edited", "hosts"),
+                          ("[Hosts](hosts (System hosts))", "hosts"),
+                          ('[Note](<docs/My Note.md> "Mine") - edited', "docs/My Note.md"),
+                          ("[Note](<docs/My Note.md>)", "docs/My Note.md"),
+                          ('[Note](docs/My%20Note.md "Mine")', "docs/My Note.md"),
+                          ("[Report](docs/Report (v2).md) - edited", "docs/Report (v2).md")):
+            with self.subTest(row=row):
+                self.assert_pass(self.run_rows(path, updated=[row]))
+        # An absent destination is still reported by its path, not path-plus-title.
+        result = self.run_rows(updated=['[Gone](docs/gone.md "Old")'])
+        self.assertTrue(lines_of(result, "REVIEW backfill: ")[0].endswith(": docs/gone.md; "), result.stdout)
+
+    def test_bare_wikilink_resolves_beneath_a_directory_symlink(self) -> None:
+        touch(self.base, "shared/theme/Main.qml")
+        (self.vault / "theme").symlink_to(self.base / "shared/theme")
+        (self.base / "shared/theme/loop").symlink_to(self.base / "shared/theme")   # a cycle
+        (self.vault / "again").symlink_to(self.base / "shared/theme")             # same directory twice
+        self.assert_pass(self.run_rows("theme/Main.qml", updated=["[[Main.qml]]"]))
+        self.assert_pass(self.run_rows("[[Main.qml]]", updated=["[[Main.qml]]"]))
+        result = self.run_rows(updated=["[[Main.qml]]"])
+        self.assertEqual(len(lines_of(result, "REVIEW backfill: Files lists name")), 1, result.stdout)
+        self.assertNotIn("ambiguous", result.stdout)
+
+    def test_one_ambiguous_row_does_not_cover_two_touched_paths(self) -> None:
+        row = "missing - draft.md"
+        result = self.run_rows("missing", "missing - draft.md", deleted=[row])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        review = [l for l in lines_of(result, "REVIEW backfill: ") if "backticks" in l]
+        self.assertEqual(len(review), 1, result.stdout)
+        self.assertIn("- " + row, review[0])
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        self.assertNotIn("PASS backfill: all", result.stdout)
+        # Each on its own is unchanged, and backticks settle which one is meant.
+        self.assert_pass(self.run_rows("missing - draft.md", deleted=[row]))
+        quoted = self.run_rows("missing", "missing - draft.md", deleted=["`" + row + "`"])
+        self.assertIn("FAIL backfill: touched but absent from Session 1 Files lists", quoted.stdout)
+        self.assertNotIn("backticks;", quoted.stdout)
+        self.assertTrue(lines_of(quoted, "FAIL backfill: ")[0].endswith(": missing; "), quoted.stdout)
+
+    def test_bare_wikilink_deleted_row_ignores_surviving_notes_of_that_name(self) -> None:
+        touch(self.vault, "sub/Note.md")
+        (self.vault / "sub/Note.md").write_text("joined- [ ] item\n", encoding="utf-8")
+        for touched in ("[[Note]]", "03 Projects/Note.md"):
+            with self.subTest(survivors=1, touched=touched):
+                result = self.run_rows(touched, deleted=["[[Note]]"])
+                self.assertNotIn("FAIL lint", result.stdout)
+                self.assert_pass(result)
+        touch(self.vault, "other/Note.md")
+        for touched in ("[[Note]]", "03 Projects/Note.md"):
+            with self.subTest(survivors=2, touched=touched):
+                self.assert_pass(self.run_rows(touched, deleted=["[[Note]]"]))
+        # The survivor itself is not what the row deleted.
+        result = self.run_rows("other/Note.md", deleted=["[[Note]]"])
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("FAIL backfill: touched but absent", result.stdout)
+
+    def test_home_tail_row_does_not_relink_an_already_covered_path(self) -> None:
+        home = self.base / "home"
+        touch(home, "repos/proj/tests/t.py")
+        env = dict(os.environ, HOME=str(home))
+        for rows in (["repos/proj/tests/t.py - added a case", "proj/tests/t.py - other checkout"],
+                     ["proj/tests/t.py - other checkout", "repos/proj/tests/t.py - added a case"],
+                     ["~/repos/proj/tests/t.py - added a case", "proj/tests/t.py - other checkout"]):
+            with self.subTest(rows=rows):
+                result = self.run_rows("~/repos/proj/tests/t.py", env=env, updated=rows)
+                review = lines_of(result, "REVIEW backfill: ")
+                self.assertEqual(len(review), 1, result.stdout)
+                self.assertTrue(review[0].endswith(": proj/tests/t.py; "), review[0])
+        self.assert_pass(self.run_rows("~/repos/proj/tests/t.py", env=env, updated=["proj/tests/t.py - edited"]))
+
+
 if __name__ == "__main__":
     unittest.main()
