@@ -24,7 +24,7 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         self.vault = self.base / 'vault'
         self.scripts = self.vault / '.claude/scripts'
         self.scripts.mkdir(parents=True)
-        for name in ['park-verify.sh', 'backfill-files-updated.sh', 'lib-lock.sh']:
+        for name in ['park-verify.sh', 'backfill-files-updated.sh', 'lib-lock.sh', 'lib-session.sh']:
             shutil.copy2(REPO / '.claude/scripts' / name, self.scripts / name)
         self.note = self.vault / 'Context - Example.md'
         self.note.write_text('# Result\n\nVerified content.\n')
