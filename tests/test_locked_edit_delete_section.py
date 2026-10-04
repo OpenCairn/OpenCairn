@@ -56,16 +56,40 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tempdir.cleanup()
 
-    def run_delete(self, heading: str, replacement: str = "") -> subprocess.CompletedProcess[str]:
+    def environment(self) -> dict[str, str]:
         environment = isolate_session(os.environ.copy(), self.config, SESSION)
         environment["VAULT_PATH"] = str(self.vault)
+        return environment
+
+    def run_show(self, heading: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(SCRIPT), str(self.target), "--delete-section", heading],
+            [str(SCRIPT), str(self.target), "--show-section", heading],
+            stdin=subprocess.DEVNULL,
+            check=False,
+            capture_output=True,
+            text=True,
+            env=self.environment(),
+        )
+
+    def section_sha(self, heading: str) -> str:
+        """The hash a caller holds after reading the section, or a dummy one."""
+        shown = self.run_show(heading)
+        if shown.returncode != 0:
+            return "0" * 64
+        return shown.stderr.strip().rsplit(" ", 1)[-1]
+
+    def run_delete(
+        self, heading: str, replacement: str = "", sha: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        if sha is None:
+            sha = self.section_sha(heading)
+        return subprocess.run(
+            [str(SCRIPT), str(self.target), "--delete-section", heading, sha],
             input=replacement,
             check=False,
             capture_output=True,
             text=True,
-            env=environment,
+            env=self.environment(),
         )
 
     def text(self) -> str:
@@ -83,7 +107,7 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
             + summary
             + "\n## Tue 2 — Errands\n\n- [ ] fourth item\n",
         )
-        self.assertEqual(result.stdout, MONDAY)
+        self.assertEqual(result.stdout, MONDAY + "\n")
         self.assertIn("Locked edit applied", result.stderr)
 
     def test_empty_stdin_deletes_the_section_and_its_trailing_blank_lines(self) -> None:
@@ -177,18 +201,42 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertEqual(self.text(), PLAN)
 
-    def test_requires_the_heading_argument(self) -> None:
-        result = subprocess.run(
-            [str(SCRIPT), str(self.target), "--delete-section"],
-            input="",
-            check=False,
-            capture_output=True,
-            text=True,
-            env=isolate_session(os.environ.copy(), self.config, SESSION),
-        )
+    def test_requires_the_heading_and_the_section_hash(self) -> None:
+        for arguments in ([], ["## Mon 1 — Deep work"], ["## Mon 1 — Deep work", "not-a-hash"]):
+            with self.subTest(arguments=arguments):
+                result = subprocess.run(
+                    [str(SCRIPT), str(self.target), "--delete-section", *arguments],
+                    input="replacement\n",
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    env=self.environment(),
+                )
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(self.text(), PLAN)
 
-        self.assertEqual(result.returncode, 1)
+    def test_show_section_prints_the_section_and_its_hash_without_writing(self) -> None:
+        result = self.run_show("## Mon 1 — Deep work")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, MONDAY + "\n")
+        digest = hashlib.sha256((MONDAY + "\n").encode("utf-8")).hexdigest()
+        self.assertEqual(result.stderr.strip(), f"Section sha256: {digest}")
         self.assertEqual(self.text(), PLAN)
+        self.assertFalse((self.config / ".session-state").exists())
+
+    def test_line_added_by_another_writer_after_the_read_blocks_the_collapse(self) -> None:
+        sha = self.section_sha("## Mon 1 — Deep work")
+        changed = PLAN.replace("- [x] third item\n", "- [x] third item\n- [x] added by another writer\n")
+        self.target.write_text(changed, encoding="utf-8")
+
+        result = self.run_delete("## Mon 1 — Deep work", "## Mon 1 — Deep work ✅\nDone.\n", sha)
+
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("changed", result.stderr)
+        self.assertEqual(self.text(), changed)
+        self.assertIn("- [x] added by another writer\n", self.text())
+        self.assertEqual(result.stdout, "")
 
 
 if __name__ == "__main__":
