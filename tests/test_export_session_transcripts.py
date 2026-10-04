@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import shutil
@@ -10,6 +11,10 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/export-session-transcripts.py"
 SCRIPTS = SCRIPT.parent
+
+_spec = importlib.util.spec_from_file_location("transcript_exporter", SCRIPT)
+exporter = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(exporter)
 
 try:
     from session_isolation import isolate_session
@@ -104,6 +109,139 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
         self.assertIn("Codex-only prompt", text)
         self.assertIn("Codex-only response", text)
         self.assertFalse((vault / "06 Archive/Claude").exists())
+
+    def export_day_path(self, vault: Path, rollout: Path) -> Path:
+        date_str = datetime.fromtimestamp(rollout.stat().st_mtime).strftime("%Y-%m-%d")
+        return vault / "06 Archive/OpenCairn/.Session Transcripts" / f"{date_str}.md"
+
+    def test_reexport_is_byte_stable(self) -> None:
+        # The day file's final separator must not be read back as body text:
+        # the old parser grew the last session by one `---` per re-export.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            output = self.export_day_path(vault, self.make_codex_rollout(home, cwd))
+
+            snapshots = []
+            for _ in range(3):
+                result = self.run_exporter(home, vault, cwd, "--all-projects")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                snapshots.append(output.read_bytes())
+
+            self.assertEqual(snapshots[0], snapshots[1])
+            self.assertEqual(snapshots[1], snapshots[2])
+
+    def test_accumulated_separator_residue_collapses_on_reexport(self) -> None:
+        # Files written by the old parser carry extra trailing separators;
+        # one re-export must remove them.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            output = self.export_day_path(vault, self.make_codex_rollout(home, cwd))
+
+            self.assertEqual(self.run_exporter(home, vault, cwd, "--all-projects").returncode, 0)
+            clean = output.read_bytes()
+            output.write_bytes(clean + b"\n---\n\n" * 5)
+
+            result = self.run_exporter(home, vault, cwd, "--all-projects")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(output.read_bytes(), clean)
+
+    def test_carried_forward_sessions_survive_reexport(self) -> None:
+        # Sessions with no JSONL behind them exist only in the day file, so the
+        # parser's output is what gets written back. A message ending in `---`
+        # must not fuse the next session into it, and a separator run inside a
+        # body must survive.
+        a_body = (
+            "\n**User (09:00):**\nfirst\n\n**Claude (09:01):**\n"
+            "rule below\n\n---\n\n\n---\n\nafter the rules\n\n---\n"
+        )
+        b_body = "\n**User (09:30):**\nsecond session\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            output = self.export_day_path(vault, self.make_codex_rollout(home, cwd))
+            output.parent.mkdir(parents=True)
+            output.write_text(
+                f"# Session Transcripts — {output.stem}\n\n"
+                "Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files.\n\n---\n\n"
+                f"### carried-a (00:01)\n{a_body}\n---\n\n"
+                f"### carried-b (00:02)\n{b_body}\n---\n\n",
+                encoding="utf-8",
+            )
+
+            snapshots = []
+            for _ in range(2):
+                result = self.run_exporter(home, vault, cwd, "--all-projects")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                snapshots.append(output.read_text(encoding="utf-8"))
+
+            text = snapshots[-1]
+            self.assertEqual(snapshots[0], snapshots[1])
+            self.assertEqual(text.count("### carried-a (00:01)"), 1)
+            self.assertEqual(text.count("### carried-b (00:02)"), 1)
+            self.assertEqual(text.count("second session"), 1)
+            self.assertIn(a_body.rstrip(), text)
+            self.assertIn("Codex-only response", text)
+            a_section = text.split("### carried-a (00:01)", 1)[1].split("### carried-b", 1)[0]
+            self.assertNotIn("second session", a_section)
+
+    def test_explicit_codex_user_text_is_exported_without_injected_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            rollout = self.make_codex_rollout(home, cwd)
+            records = [json.loads(line) for line in rollout.read_text().splitlines()]
+            records.pop(1)  # Current app rollouts have no event_msg/user_message.
+            prompt = "Please preserve this exact prompt."
+            for content, kinds in (
+                (["injected instructions", "environment"], ["agents_md.instructions", "environments.environment_context"]),
+                (["injected skill"], ["skills.selected_skill_instructions"]),
+                ([prompt], ["user.text"]),
+            ):
+                records.insert(-1, {
+                    "timestamp": "2026-08-16T00:00:01Z", "type": "response_item",
+                    "payload": {"type": "message", "role": "user",
+                        "content": [{"type": "input_text", "text": text} for text in content],
+                        "internal_chat_message_metadata_passthrough": {"content_item_kinds": kinds}},
+                })
+            rollout.write_text("".join(json.dumps(r) + "\n" for r in records))
+            result = self.run_exporter(home, vault, cwd)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            text = self.export_day_path(vault, rollout).read_text()
+            self.assertIn(prompt, text)
+            self.assertNotIn("injected instructions", text)
+            self.assertNotIn("environment", text)
+            self.assertNotIn("injected skill", text)
+            self.assertIn("Codex-only response", text)
+
+    def test_legacy_codex_user_message_does_not_duplicate_wrapped_response(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            rollout = self.make_codex_rollout(home, cwd)
+            with rollout.open("a") as f:
+                f.write(json.dumps({"type": "response_item", "payload": {
+                    "type": "message", "role": "user", "content": [
+                        {"type": "input_text", "text": "Codex-only prompt"}]}}) + "\n")
+            result = self.run_exporter(home, vault, cwd)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(self.export_day_path(vault, rollout).read_text().count("Codex-only prompt"), 1)
+
+    def test_separator_residue_and_header_line_endings_converge(self) -> None:
+        merged = {("kept", "09:00"): "**User:**\nkept text"}
+        clean = exporter.render_day_file("2026-08-16", merged)
+        for residue in ("\n---\n\n", "\n---\n\n\n", "\n---\n\n" * 5):
+            with self.subTest(residue=repr(residue)):
+                parsed = exporter.parse_exported_text(clean + residue)
+                self.assertEqual(exporter.render_day_file("2026-08-16", parsed), clean)
+        mixed = clean.replace("### kept (09:00)\n", "### kept (09:00)\r\n")
+        self.assertEqual(exporter.render_day_file("2026-08-16", exporter.parse_exported_text(mixed)), clean)
 
     def test_all_projects_works_without_claude_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

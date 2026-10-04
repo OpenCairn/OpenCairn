@@ -161,9 +161,10 @@ def _codex_block_text(content):
 def parse_codex_session(jsonl_path):
     """Parse a Codex rollout into (role, text, ts) tuples.
 
-    user turns come from event_msg/user_message (the clean prompt — the
-    response_item user/developer messages carry injected wrappers and
-    environment context). Assistant text comes from response_item messages;
+    User turns come from event_msg/user_message in CLI rollouts, or explicitly
+    tagged user.text response items in current app rollouts. Untagged user
+    response items and context/skill injections are excluded. Assistant text
+    comes from response_item messages;
     tool calls (exec / apply_patch / collaboration.*) are rendered truncated,
     matching the Claude source's Write/Edit/Agent treatment. Tool outputs,
     reasoning, and token/world-state bookkeeping are skipped as bulk noise.
@@ -189,11 +190,24 @@ def parse_codex_session(jsonl_path):
                     if isinstance(text, str) and text.strip():
                         messages.append(("user", text.strip(), ts))
                 elif dtype == "response_item" and ptype == "message":
-                    if payload.get("role") != "assistant":
-                        continue
-                    text = _codex_block_text(payload.get("content"))
-                    if text.strip():
-                        messages.append(("codex", text.strip(), ts))
+                    role = payload.get("role")
+                    if role == "assistant":
+                        text = _codex_block_text(payload.get("content"))
+                        if text.strip():
+                            messages.append(("codex", text.strip(), ts))
+                    elif role == "user":
+                        # Current app rollouts tag actual user input explicitly;
+                        # context and selected-skill injections have other kinds.
+                        metadata = payload.get("internal_chat_message_metadata_passthrough") or {}
+                        kinds = metadata.get("content_item_kinds", [])
+                        content = payload.get("content", [])
+                        if isinstance(content, list):
+                            text = _codex_block_text([
+                                block for block, kind in zip(content, kinds)
+                                if kind == "user.text"
+                            ])
+                            if text.strip():
+                                messages.append(("user", text.strip(), ts))
                 elif dtype == "response_item" and ptype in ("function_call", "custom_tool_call"):
                     name = payload.get("name", "?")
                     args = payload.get("arguments") or payload.get("input") or ""
@@ -296,36 +310,49 @@ SESSION_HDR = re.compile(r'^### (\S+) \((\d{2}:\d{2}|unknown)\)\s*\n')
 SEPARATOR = "\n---\n\n"
 
 
+# A writer separator is `SEPARATOR` immediately followed by the next session's
+# header (same grammar as SESSION_HDR) or by end of file. A separator followed
+# by anything else is body text.
+SESSION_BOUNDARY = re.compile(
+    re.escape(SEPARATOR) + r"(?=### \S+ \((?:\d{2}:\d{2}|unknown)\)\s*\n|\s*\Z)"
+)
+# Whole separators that earlier exporter versions appended to a body's end on
+# every re-export. Matched on the raw chunk, before rstrip(): residue always
+# ends in the separator's blank line, while a message that genuinely ends in a
+# horizontal rule ends `---\n` (format_session) or `---` (a carried body).
+SEPARATOR_RESIDUE = re.compile(r"(?:\n---\n\n)+\Z")
+
+
 def parse_exported_text(text):
     """Split exported transcript text into {(slug, start): body}.
 
     Inverse of format_session() + the day-file writer.
 
-    Anchored on the `\\n---\\n\\n` separator the writer emits between sessions,
-    NOT on header lines alone. Transcript bodies routinely quote header-shaped
-    text (a session that ran `head` on a transcript embeds `### <slug> (HH:MM)`
-    at column 0), and matching those splits one real session into two, inventing
-    a phantom that is then carried forward forever. A chunk that does not open
-    with a header is continuation text and is reattached to the session before
-    it, so a body containing its own `---` survives the round trip intact.
+    Splits only on a `SEPARATOR` that is directly followed by a session header
+    or end of file (SESSION_BOUNDARY), never on header lines alone and never on
+    a separator that merely occurs inside a body. Transcript bodies routinely
+    contain `---` (horizontal rules, quoted day files), and a message that ends
+    in `---` places a body separator right before the writer's own; splitting
+    on every separator fused the next session into that body and dropped it as
+    a session. A body quoting `---` followed by a header-shaped line at column 0
+    can still split; that pre-dates this parser.
+
+    Trailing separator residue written by earlier versions is removed
+    (SEPARATOR_RESIDUE), so affected files converge on the first re-export.
 
     Keyed on (slug, start) rather than slug alone. Claude Code reuses a slug
     across a parent/child session split, so two genuinely distinct sessions can
     share one — keying on slug silently collapses them and drops a session.
     """
     out = {}
-    last = None
-    for chunk in text.split(SEPARATOR):
+    for chunk in SESSION_BOUNDARY.split(text):
         m = SESSION_HDR.match(chunk)
-        if m:
-            key = (m.group(1), m.group(2))
-            body = chunk[m.end():].rstrip()
-            if key not in out or len(body) > len(out[key]):
-                out[key] = body
-                last = key
-        elif last is not None:
-            # Continuation: the body itself contained a separator.
-            out[last] = f"{out[last]}{SEPARATOR}{chunk.rstrip()}"
+        if not m:
+            continue  # file preamble, or the empty tail after the final separator
+        key = (m.group(1), m.group(2))
+        body = SEPARATOR_RESIDUE.sub("", chunk[m.end():]).rstrip()
+        if key not in out or len(body) > len(out[key]):
+            out[key] = body
     return out
 
 
@@ -565,6 +592,7 @@ def main():
 
     # Summary to stdout for the hygiene report
     print(f"Sessions exported: {exported} ({codex_exported} Codex)")
+    print("Export counts JSONL source files, not parked session-log entries.")
     print(f"Sessions skipped (empty): {skipped}")
     print(f"Transcript files written: {files_written}")
     if carried_total:
