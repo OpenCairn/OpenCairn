@@ -192,6 +192,8 @@ Rules that span multiple commands. Violating these causes bugs.
 
 6. **Checkpoint stays an alias.** Its behaviour is the `/park` contract, not a separately maintained subset.
 
+7. **Verify fan-out in both directions.** After propagating a change, search the old value for missed references and the new value for intended destinations; use stable subject/container anchors when wording varies. Triage the full hit sets under [shared rules §12](.claude/commands/_shared-rules.md), preserving historical records.
+
 ---
 
 ## File Organisation
