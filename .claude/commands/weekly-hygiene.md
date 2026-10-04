@@ -519,7 +519,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Never auto-repoint a stale locator on the strength of a snapshot.** The self-heal at the top of this step is licensed by a hash match against the *live* file, which proves it is the same artefact relocated. A snapshot match proves only that the attested bytes survive somewhere — it says nothing about which live file, if any, is the row's subject. Report `verified via snapshot — locator stale` with the resolved snapshot path and leave the row alone; where the log declares itself append-only, rewriting the File column would breach that contract anyway, and the correct repair is an appended annotation the human writes.
 
-   **Git-history fallback for MISMATCH** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. Walk the file's history for a blob whose hash matches the logged one:
+   **Git-history fallback for MISMATCH, and for MISSING with no snapshot hit** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. A MISSING row runs both rungs too, with the logged path as `REL`: history keeps a path the working tree has lost. Walk the file's history for a blob whose hash matches the logged one:
    ```bash
    cd "{VAULT}"
    # REL = vault-relative path, LOGGED = logged 16-hex short hash
@@ -529,14 +529,21 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      [ "$H" = "$LOGGED" ] && { echo "VERIFIED via git history: ${C:0:7} ($(git show -s --format=%ci "$C"))"; break; }
    done < <(git log --format=%H -- "$REL")
    ```
-   **Second rung — a path renamed after attestation.** That walk follows only the current path, so bytes committed under an earlier one are invisible to it. When it prints nothing, try every blob history holds under the file's basename; the logged hash is still the gate, so an unrelated file of the same name cannot pass:
+   **Second rung — a path renamed after attestation.** That walk follows only the current path, so bytes committed under an earlier one are invisible to it. When it prints nothing, hash every blob history holds under the file's basename. The fence stands alone — set `REL` and `LOGGED` inside it, since nothing survives from the walk above:
    ```bash
-   while read -r B; do
-     [ "$(git cat-file blob "$B" 2>/dev/null | sha256sum | cut -c1-16)" = "$LOGGED" ] \
-       && { echo "VERIFIED via git history (earlier path): $(git log --all --format='%h (%ci)' --find-object="$B" | tail -1)"; break; }
-   done < <(git log --all --format= --raw --no-abbrev -- ":(glob)**/$(basename "$REL")" | cut -d' ' -f4 | sort -u)
+   REL="<vault-relative path>"; LOGGED="<logged 16-hex short hash>"
+   git -C "{VAULT}" rev-parse --git-dir >/dev/null 2>&1 || { echo "ERROR: no git repo at {VAULT} — nothing searched"; exit 1; }
+   N=0; HIT=
+   while read -r _ _ _ B _ P; do
+     [ -n "${B//0/}" ] || continue   # empty or all-zero id (a deletion): nothing to hash
+     H=$(set -o pipefail; git -C "{VAULT}" cat-file blob "$B" 2>/dev/null | sha256sum | cut -c1-16) || continue   # never hash a failed read
+     N=$((N+1))
+     [ "$H" = "$LOGGED" ] || continue
+     HIT=1; echo "VERIFIED via git history (earlier path): $P @ $(git -C "{VAULT}" log --all --format='%h (%ci)' --find-object="$B" | tail -1)"; break
+   done < <(git -C "{VAULT}" log --all --no-renames --format= --raw --no-abbrev -- ":(glob)**/$(basename "$REL")" | sort -u -k4,4)
+   [ -n "$HIT" ] || echo "MISS: $N blobs tried under basename $(basename "$REL"), none hashes to $LOGGED"
    ```
-   A `VERIFIED` line is a hit; no output is a miss. A hit on either rung upgrades the row from MISMATCH to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering. No hit leaves it a MISMATCH, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later), that predates git tracking of that path, or whose basename also changed — assess those against mtime and known tooling behaviour, and say which case applies.
+   The fence always ends in one line. `VERIFIED` is a hit and prints the path the blob was committed at: the logged hash shows the attested bytes existed there, not that the path is this row's file, so carry the path into the report. `MISS` is a miss; `0 blobs tried` means history holds nothing under that basename, so check `REL` before recording it. `ERROR` means nothing was searched. A hit on either rung upgrades a MISMATCH row to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering — and a MISSING row to **"verified via git history — locator stale"**, reported with the path and never repointed, as for a snapshot hit. No hit leaves the row as it was, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later), that predates git tracking of that path, whose basename also changed or contains `[`…`]` (the pathspec reads brackets as a character class), or that entered history only through a merge commit (the walk reads no merge diffs) — assess those against mtime and known tooling behaviour, and say which case applies.
 
    **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/.Provenance/`) can still be verified against each other.
 
@@ -713,7 +720,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Stale flags processed: N [OR "none"]
    - Entries verified: N
    - Hash matches: N
-   - Verified via git history: N (mismatch cleared by a historical blob matching the logged hash)
+   - Verified via git history: N (mismatch or missing row cleared by a historical blob matching the logged hash; path found at, when not the logged one)
    - Hash mismatches: N (files edited after logging; git fallback found no matching blob)
    - Missing files: N
    - OTS confirmed: N
