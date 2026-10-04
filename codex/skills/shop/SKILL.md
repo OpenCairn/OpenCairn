@@ -44,6 +44,8 @@ Once the why is clear, run the quiz conversationally. Up to 2 batches, ≤4 ques
 
 - **Comparative verdicts need fresh research.** Search the current market — models refresh, prices move, last year's "best X" is stale. Never recommend from memory alone.
 - Check availability and pricing in the user's region (locale from AGENTS.md or ask).
+- **Retailer pages scrape unreliably — work down a ladder, and treat the result as provisional.** Listings are script-rendered, bot-gated and region-switched, so a plain fetch can return an empty shell, another region's storefront or a stale price. Stop at the first rung that returns the listing itself: (1) fetch the product page directly; (2) retry through a reader/extraction fetch that renders the page to text, if one is available; (3) search-result snippets, as a last resort — they lag the page. Carry every scraped price and stock status into the table labelled unconfirmed, with the rung it came from; a snippet figure is never stated as current.
+- **Confirm before "ruled out".** A scrape alone never rules a candidate out on price, stock or regional availability. First confirm the figure is the listing's main buy-box offer (not a third-party seller, another variant or a bundle) and that the page served was the user's region; if neither can be confirmed, ask the user to open the listing, or keep the candidate in as unconfirmed. Rule-outs on spec or a hard requirement don't need this.
 - **Verify decision-bearing claims against primary sources** — manufacturer spec sheets and measured/tested reviews, not aggregator listicles or marketing copy. Note where a load-bearing claim is marketing-only.
 - **Check whether a hard requirement is a platform behaviour, not a product differentiator.** Some stated requirements are governed by the user's phone/OS/ecosystem rather than the product itself. Verify the mechanism before filtering candidates on it — if it's platform-level, say so and stop using it as a filter.
 - Generate 5-8 candidates → filter to 2-3 finalists against the ranked hard requirements, checking recent-review red flags.
@@ -53,7 +55,7 @@ Once the why is clear, run the quiz conversationally. Up to 2 batches, ≤4 ques
 
 - Compact comparison table: price, the ranked requirements, key deltas. Keep prose reasoning outside the cells.
 - **One recommendation**, with reasoning tied explicitly back to the Phase 1 why (where Phase 1 ran; on `--quick`, tie it to the quiz answers instead).
-- Explicit "Ruled out" lines for transparency.
+- Explicit "Ruled out" lines for transparency — a price, stock or availability rule-out only after the Phase 3 confirmation; otherwise the line reads "unconfirmed", not "ruled out".
 - Verbatim source quotes for load-bearing facts (specs, measured results) — protects against quick-read errors.
 - **"Don't buy" is a valid verdict.** If the incumbent is fine, a model refresh is imminent, or nothing justifies the price, say so.
 - **"Buy later" needs a dated backstop.** A wait verdict (sale cycle, imminent refresh) with no trigger is a revisit that silently evaporates. On vault installs, offer to write one dated line ("revisit [item] — [trigger]") to `{VAULT}/01 Now/Tickler.md`; derive the date from the trigger event, and skip if the user declines. To find the vault, run:
