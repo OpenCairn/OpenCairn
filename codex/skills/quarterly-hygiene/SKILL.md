@@ -122,37 +122,20 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      git -C "{VAULT}" log --format=%ad --date=short --reverse -S"<the item's bold title, with the leading '- [ ] [Pn] ' stripped>" -- "<queue path>" "<each prior path>" | head -1
      ```
      No git, or no hit → keep the item and count it under `age unknown`. An item whose age sorts strictly before `CUTOFF` moves — P1 included, unless its line names data loss, corruption or an urgent blocker. Per item: if its line is not already under `## Expired — re-raise on recurrence` in the history doc, write it there (`locked-edit.sh --replace` on that section's last line; create the heading with `--append` if absent) and read it back; then remove the line from the queue with `--replace`. A line already in history skips only the insertion — the queue removal still runs, so an interrupted run finishes on retry without duplicating. Count completed transfers. Expiry is lossy: the skill monitor re-raises only gaps that recur in a running skill, so expired ordinary work returns only when someone re-raises it. Report verbatim: `Work queue expired: N items older than <CUTOFF> → history doc; age unknown: K`.
-   - **Cross-pollination log roll (reuse the printed `CUTOFF`).** This step owns pruning of the Claude-side skill-edit hooks' append-only `cross-pollination.log` where an installation keeps one; nothing else rotates it. Ungated and runs unattended, like the expiry above. Lines dated before the cutoff move to `cross-pollination-YYYY.log` beside the live file, by the year of their own timestamp; undated lines stay. The hooks read only the live file, and the size check stops a line appended mid-run from being dropped:
+   - **Cross-pollination log: owner, size report only.** This step owns the Claude-side skill-edit hooks' append-only `cross-pollination.log`, where an installation keeps one; nothing else watches its growth. Read-only, so it runs unattended too:
      ```bash
-     python3 - "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log" "<CUTOFF>" <<'PY'
-     import os, re, sys
-     log, cutoff = sys.argv[1:3]
-     if not os.path.isfile(log):
-         print("Cross-pollination log rolled: n/a — no log"); sys.exit(0)
-     size, old, keep = os.path.getsize(log), {}, []
-     for ln in open(log, "rb").read().splitlines(keepends=True):
-         m = re.match(rb"(\d{4})-\d\d-\d\d", ln)
-         (old.setdefault(m.group(1).decode(), []) if m and m.group(0).decode() < cutoff else keep).append(ln)
-     if old:
-         tmp = log + ".tmp"
-         open(tmp, "wb").writelines(keep)
-         if os.path.getsize(log) != size:
-             os.remove(tmp); sys.exit("ABORT: log appended to mid-run; nothing changed")
-         for y, ls in old.items():
-             open(f"{log[:-4]}-{y}.log", "ab").writelines(ls)
-         os.replace(tmp, log)
-     print(f"Cross-pollination log rolled: {sum(map(len, old.values()))} lines older than {cutoff} → year files; {len(keep)} kept")
-     PY
+     LOG="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log"
+     if [ -f "$LOG" ]; then echo "Cross-pollination log: $(wc -c < "$LOG" | tr -d ' ') bytes, $(wc -l < "$LOG" | tr -d ' ') lines"; else echo "Cross-pollination log: n/a — no log"; fi
      ```
-     Report the printed line verbatim. On `ABORT`, re-run once.
+     Report the printed line verbatim. Above 5 MB (5242880 bytes), add a proposal to roll it and let the user decide; never rewrite the log in this run — other sessions' hooks append to it without a lock.
 
 7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
-   The library-level layer of the cross-pollination system uses `${CODEX_HOME:-$HOME/.codex}/skills/_shared-patterns.md` as its index. Some installations also maintain a Claude-side skill-edit Stop hook and `~/.claude/cross-pollination.log`; treat those as optional evidence, not Codex prerequisites. Once a quarter, look across the **user-authored skill library** for infrastructure that's been reinvented rather than shared. System skills under `.system/` and versioned plugin-cache skills are vendor-owned and explicitly out of scope; proposing their consolidation into a personal index would create unstable pointers. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
+   The library-level layer of the cross-pollination system uses `${CODEX_HOME:-$HOME/.codex}/skills/_shared-patterns.md` as its index. Some installations also maintain a Claude-side skill-edit Stop hook and `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log`; treat those as optional evidence, not Codex prerequisites. Once a quarter, look across the **user-authored skill library** for infrastructure that's been reinvented rather than shared. System skills under `.system/` and versioned plugin-cache skills are vendor-owned and explicitly out of scope; proposing their consolidation into a personal index would create unstable pointers. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
    - **Inventory** first-level personal `${CODEX_HOME:-$HOME/.codex}/skills/*/SKILL.md` files and any project-local `.agents/skills/*/SKILL.md` files. State this scope in the report. Derive the search targets rather than working a fixed list — a hardcoded list drifts into naming only mechanisms already indexed, which makes the "unindexed" branch unreachable and the audit a no-op:
      - Extract the already-indexed mechanisms from `_shared-patterns.md` (its entry headings / `→` reference targets). These are the *divergence* candidates.
      - Then grep the skills for repeated constructs **not** on that list — recurring bash idioms, repeated prose contracts, shared prereq/estimation/progress/despatch shapes, any block that reads as copied between skills — and count distinct skills implementing each. These are the *discovery* candidates, and they are the point of the pass.
    - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
-   - **Read `~/.claude/cross-pollination.log` only if it exists** (`[ -f ~/.claude/cross-pollination.log ]`), together with any `cross-pollination-YYYY.log` year files step 6 rolled beside it: index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. If absent, record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
+   - **Read `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log` only if it exists** (`[ -f "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log" ]`): index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. If absent, record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
    - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.
 
 8. **Cross-model panel model-currency check.** (if any of the panel seats from `_shared-rules-reviewer.md` §10 are installed; if none are, note "no cross-model panel configured — model-currency check skipped" in the report)
@@ -204,7 +187,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Skipped (already archived): N — flat copies whose year folder already holds that basename; duplication surfaced, nothing deleted [list or "none"]
    - Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    - Work queue expired: N items older than YYYY-MM-DD → history doc; age unknown: K (or "none" / "n/a — no queue doc")
-   - Cross-pollination log rolled: N lines older than YYYY-MM-DD → year files; K kept (or "n/a — no log")
+   - Cross-pollination log: N bytes, N lines (or "n/a — no log") [roll proposed if above 5 MB]
 
    ## Skill-Library Flywheel (draft)
    - Proposed new index entries (≥2 reuses, unindexed): [list or "none"]
@@ -240,7 +223,6 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ Daily reports: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
    ✓ Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    ✓ Work queue expired: [N items older than YYYY-MM-DD / none / n/a — no queue doc]
-   ✓ Cross-pollination log rolled: [N lines older than YYYY-MM-DD / n/a — no log]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Panel model currency: [N seats checked, M stale/unstable pins flagged / no panel configured]
    ✓ Skill self-review: [no gaps / N observations logged]
@@ -265,4 +247,4 @@ Quarterly (last week of March, June, September, December), or as a precursor to 
 
 - **Feeds `$quarterly-review`:** the strategic review consumes this report for its Vault Health section.
 - **Consumes `$weekly-hygiene`:** carries forward unresolved structural findings rather than re-scanning.
-- **Archives session logs and daily reports:** inventories files older than 90 days and rolls confirmed files into `Session Logs/YYYY/` and `Daily Reports/YYYY/` through `locked-edit.sh --move`; unattended runs stop after the dry run.
+- **Archives session logs and daily reports:** inventories files older than 90 days and rolls confirmed files into `Session Logs/YYYY/` and `Daily Reports/YYYY/` through `locked-edit.sh --move`; an unattended run moves no files, and still expires the work queue and reports the cross-pollination log's size.
