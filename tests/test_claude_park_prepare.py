@@ -38,7 +38,10 @@ class ClaudeParkPrepareTests(unittest.TestCase):
             '### Pickup Context\n**For next session:** None.\n**Project:** None\n')
         self.config = self.base / 'config'
         self.root = self.config / '.session-state/fixture.park-prepare'
-        env = mock.patch.dict(os.environ, {'CLAUDE_CONFIG_DIR': str(self.config), 'OPENCAIRN_SESSION_ID': 'fixture'})
+        env = mock.patch.dict(os.environ, {
+            'CLAUDE_CONFIG_DIR': str(self.config), 'CODEX_HOME': str(self.base / 'codex'),
+            'OPENCAIRN_SESSION_ID': 'fixture', 'CLAUDE_CODE_SESSION_ID': 'fixture',
+            'CODEX_THREAD_ID': 'fixture', 'VAULT_PATH': str(self.vault)})
         env.start()
         self.addCleanup(env.stop)
         self.args = SimpleNamespace(vault=str(self.vault), session_log=str(self.log), number=1)
@@ -184,6 +187,22 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         self.handoff['coverage'] = [{'path': str(self.note), 'kind': 'large', 'receipt': 'auto'}]
         with self.assertRaisesRegex(ValueError, 'explicit inspection targets'):
             self.run_prepare()
+
+    def test_fixture_writer_ledger_and_receipts_stay_in_fixture_state(self):
+        import subprocess
+        result = subprocess.run([str(REPO / '.claude/scripts/locked-edit.sh'),
+                                 str(self.note), '--append'],
+                                input='Fixture addition.\n', capture_output=True,
+                                text=True, env=os.environ.copy(), check=True)
+        self.assertIn('Locked edit applied', result.stdout)
+        state = self.config / '.session-state'
+        ledger = state / 'fixture.tsv'
+        self.assertIn('\tlocked-edit\t' + str(self.note) + '\t?', ledger.read_text())
+        receipts = list((state / 'fixture.locked-edit-receipts').glob('receipt.*'))
+        self.assertTrue(receipts)
+        for receipt in receipts:
+            self.assertTrue(receipt.is_relative_to(self.base))
+            self.assertEqual(json.loads(receipt.read_text())['target'], str(self.note))
 
 
 if __name__ == '__main__':
