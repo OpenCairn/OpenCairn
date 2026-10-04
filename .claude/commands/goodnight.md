@@ -201,6 +201,8 @@ N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 
 - Previous: [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
 ```
 
+**`## Blockers` is carried, not re-derived.** Start from the `## Blockers` list of the newest daily report dated before this one and copy each line byte-identical — a reworded blocker reads as a new one and loses its history. Delete a line only when this day's session log or the user shows it closed; add only blockers this day's session log or Step 7 surfaced. With no earlier report, build the list from those sources alone.
+
 Ensure directory exists first:
 ```bash
 mkdir -p "{VAULT}/06 Archive/OpenCairn/Daily Reports"
@@ -520,7 +522,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       ```
 
       Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans.
-   b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via /morning` as the close-out topic, matching C1.e. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
+   b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via /morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
    d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint (carried tasks' destination is today's section) and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel /park or /goodnight invocations):
