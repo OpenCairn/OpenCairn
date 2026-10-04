@@ -53,7 +53,7 @@ of places to plot. Works for any city, in or out of China.
 ## Workflow
 
 ### Phase 0: Resolve the vault
-Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`. Abort if it fails.
+Run `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`. Abort if it fails.
 
 ### Phase 1: Gather the stops
 - If given a date, read the matching day block from `01 Now/This Week.md`. Day blocks

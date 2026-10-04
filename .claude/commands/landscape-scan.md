@@ -39,7 +39,7 @@ This gate lives here, outside the numbered steps, because it is not conditional 
 ### 0. Resolve vault path and load shared rules
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
 If error, abort. Set **`COMMANDS_DIR`** = the directory holding this command's sibling files (`_shared-rules.md`, the profiles). Claude Code does not reliably expose a slash-command's own source path, so resolve it deterministically: take the **first candidate that actually contains a `landscape-profiles/` directory**, in this order —

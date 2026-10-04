@@ -18,7 +18,7 @@ The goal is to **preserve the ideas while replacing the AI delivery mechanism wi
 0. **Resolve Vault Path**
 
    ```bash
-   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
    ```
 
    If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition documented in the README's Quick Start). Read `_shared-rules.md` from `~/.codex/skills/` and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

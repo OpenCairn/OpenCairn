@@ -12,7 +12,7 @@ You are archiving an article into the vault as a structured reference note. The 
 ### Phase 0: Resolve vault path
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
 If error, abort — the usual cause is `VAULT_PATH` unset (a required install precondition; `/setup` documents how to set it per-OS). All paths below use `{VAULT}` as a placeholder — substitute the resolved vault path.

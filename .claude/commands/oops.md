@@ -92,7 +92,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 ### Phase 4: Write to Corrections Log
 
 6. **Resolve paths and date:**
-   - Run `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` — if it errors, abort (no vault accessible; don't fall back to a guessed path). Substitute the resolved path wherever `{VAULT}` appears below
+   - Run `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"` — if it errors, abort (no vault accessible; don't fall back to a guessed path). Substitute the resolved path wherever `{VAULT}` appears below
    - Corrections log: `{VAULT}/07 System/Claude Corrections Log.md`
    - Get date: `date +"%Y-%m-%d"`
 

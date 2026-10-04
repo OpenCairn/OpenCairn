@@ -27,7 +27,7 @@ This is the complement to `$morning` - morning surfaces the landscape, goodnight
 Determine the vault base path. Run:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
 ```
 

@@ -12,7 +12,7 @@ Batch transcribe audio or video files using WhisperX on a RunPod GPU instance. U
 
 ## Codex execution and authorisation
 
-Read supporting files relative to this skill directory. Resolve `VAULT_PATH` with `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"` before vault work; stop on failure. Every vault write uses `locked-edit.sh`, including transcript bodies and the batch index.
+Read supporting files relative to this skill directory. Resolve `VAULT_PATH` with `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"` before vault work; stop on failure. Every vault write uses `locked-edit.sh`, including transcript bodies and the batch index.
 
 Scope and estimate first. Before provisioning, present the chosen GPU, cloud tier, live quoted rate, expected total and output directory. Honour an already-authorised paid run or budget; otherwise obtain the user's choice before spending. A local-to-cloud suggestion alone is not permission to rent a pod. Do not re-ask for a destination or speaker names already supplied.
 
