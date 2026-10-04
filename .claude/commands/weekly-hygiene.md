@@ -529,7 +529,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      [ "$H" = "$LOGGED" ] && { echo "VERIFIED via git history: ${C:0:7} ($(git show -s --format=%ci "$C"))"; break; }
    done < <(git log --format=%H -- "$REL")
    ```
-   A hit upgrades the row from MISMATCH to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering. No hit leaves it a MISMATCH, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later) or that predates git tracking of that path — assess those against mtime and known tooling behaviour, and say which case applies.
+   **Second rung — a path renamed after attestation.** That walk follows only the current path, so bytes committed under an earlier one are invisible to it. When it prints nothing, try every blob history holds under the file's basename; the logged hash is still the gate, so an unrelated file of the same name cannot pass:
+   ```bash
+   while read -r B; do
+     [ "$(git cat-file blob "$B" 2>/dev/null | sha256sum | cut -c1-16)" = "$LOGGED" ] \
+       && { echo "VERIFIED via git history (earlier path): $(git log --all --format='%h (%ci)' --find-object="$B" | tail -1)"; break; }
+   done < <(git log --all --format= --raw --no-abbrev -- ":(glob)**/$(basename "$REL")" | cut -d' ' -f4 | sort -u)
+   ```
+   A `VERIFIED` line is a hit; no output is a miss. A hit on either rung upgrades the row from MISMATCH to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering. No hit leaves it a MISMATCH, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later) that predates git tracking of that path, or whose basename also changed — assess those against mtime and known tooling behaviour, and say which case applies.
 
    **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`/provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/.Provenance/`) can still be verified against each other.
 
