@@ -52,9 +52,10 @@
 # open at end of file the section's end cannot be known, so both modes exit 2
 # and nothing is written.
 #
-# --show-section is the read: under the lock, and without writing anything, it
-# prints the section to stdout and "Section sha256: <hash>" to stderr. The hash
-# is the SHA-256 of exactly the bytes printed.
+# --show-section is the read: under the lock, and leaving the file untouched
+# (only the lock file may be created beside it), it prints the section to
+# stdout and "Section sha256: <hash>" to stderr. The hash is the SHA-256 of
+# exactly the bytes printed.
 #
 # --delete-section is the compare-and-swap write. It takes the hash of the
 # section the caller read and, under the lock, recomputes it; if the section
