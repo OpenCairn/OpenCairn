@@ -134,7 +134,7 @@ class McpWriteLedgerTests(unittest.TestCase):
         self.assertEqual(len(mcp_hooks()), 2)
         r = subprocess.run(['bash', str(wire), '--remove'], env=self.env, capture_output=True)
         self.assertEqual(r.returncode, 0)
-        self.assertEqual(mcp_hooks(), ['"' + str(self.config / 'scripts/mcp-write-ledger.sh') + '" --marker'])
+        self.assertEqual(mcp_hooks(), ['"' + str(ROOT / '.claude/scripts/mcp-write-ledger.sh') + '" --marker'])
         r = subprocess.run(['bash', str(skill_wire), '--remove'], env=self.env, capture_output=True)
         self.assertEqual(r.returncode, 0)
         self.assertEqual(mcp_hooks(), [])

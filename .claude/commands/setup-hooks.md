@@ -63,7 +63,7 @@ changes that count. The Stop observer emits no context and does not block a stop
 Both sets use `mcp-write-ledger.sh` for resolved response paths from the named
 Obsidian write, append, patch and replace tools. Unknown or unresolved responses
 are not attributed; other writes still need the inventory backstop. The adapter
-records an already-landed write; it does not enforce the vault lock or formatting.
+records an already-landed write; it does not enforce the vault lock or formatting. The hook subprocess needs `VAULT_PATH`; if its launch does not inherit the shell variable, supply the existing vault path in Claude Code’s settings `env` and verify the resolver there. A missing value leaves MCP writes unattributed.
 
 **Trade-off to state plainly before enabling:** the ledger is free (shell only) and is the
 part worth having. The parboil is the experimental half and is off unless its env var is
@@ -71,16 +71,9 @@ set — each snapshot is **one extra turn**, wasted entirely on a session that n
 
 ## Steps
 
-Each snippet resolves the config root inline — shell state does not carry between calls,
-so never assign it once and reference it later.
+Resolve the installed `scripts/` directory beside this loaded commands tree. In each call substitute its absolute path for `<scripts-dir>`; `CLAUDE_CONFIG_DIR` selects settings/state only, not shipped scripts. Shell state does not carry between calls.
 
-1. **Prerequisites — `jq` and Python 3.** The hooks and MCP adapter require them:
-   ```bash
-   command -v jq >/dev/null 2>&1 && echo "jq: ok" || echo "jq: MISSING"
-   command -v python3 >/dev/null 2>&1 && echo "python3: ok" || echo "python3: MISSING"
-   ```
-   If a tool is missing, stop and name its install hint for the user's OS
-   (`sudo apt install jq python3` / `brew install jq python` / `sudo dnf install jq python3`).
+1. Wiring scripts own the `jq` prerequisite and its missing-tool error. The MCP adapter also requires Python 3: run `command -v python3` and stop with the OS-specific install hint if absent. Do not duplicate the scripts' `jq` preflight or claim dependencies passed without their results.
 
 2. **Parse and validate `$ARGUMENTS` FIRST, then check only the selected set's scripts.**
    Accepted tokens are a set name (`skill-edit`, `park`, `all`) and/or `--remove`, in either
@@ -93,15 +86,15 @@ so never assign it once and reference it later.
    hasn't synced yet:
    ```bash
    # skill-edit set (run only if that set is selected)
-   CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/skill-edit-marker.sh" \
-         "$CD/scripts/skill-edit-survey.sh" "$CD/scripts/wire-skill-edit-hook.sh" \
-         "$CD/scripts/lib-lock.sh" "$CD/scripts/mcp-write-ledger.sh" \
-         "$CD/scripts/resolve-vault.sh" 2>&1
+   ls -1 "<scripts-dir>/skill-edit-marker.sh" \
+         "<scripts-dir>/skill-edit-survey.sh" "<scripts-dir>/wire-skill-edit-hook.sh" \
+         "<scripts-dir>/lib-lock.sh" "<scripts-dir>/mcp-write-ledger.sh" \
+         "<scripts-dir>/resolve-vault.sh" 2>&1
    # park set (run only if that set is selected)
-   CD="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"; ls -1 "$CD/scripts/session-ledger.sh" \
-         "$CD/scripts/parboil-check.sh" "$CD/scripts/wire-park-hooks.sh" \
-         "$CD/scripts/lib-lock.sh" "$CD/scripts/mcp-write-ledger.sh" \
-         "$CD/scripts/resolve-vault.sh" 2>&1
+   ls -1 "<scripts-dir>/session-ledger.sh" \
+         "<scripts-dir>/parboil-check.sh" "<scripts-dir>/wire-park-hooks.sh" \
+         "<scripts-dir>/lib-lock.sh" "<scripts-dir>/mcp-write-ledger.sh" \
+         "<scripts-dir>/resolve-vault.sh" 2>&1
    ```
    If any are missing, instruct the user to run `/update` first, then re-run `/setup-hooks`.
 
@@ -111,19 +104,18 @@ so never assign it once and reference it later.
    both sets. Say so if the user runs it bare, and offer the targeted forms:
    ```bash
    # skill-edit set:  add / remove
-   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-skill-edit-hook.sh"
-   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-skill-edit-hook.sh" --remove
+   "<scripts-dir>/wire-skill-edit-hook.sh"
+   "<scripts-dir>/wire-skill-edit-hook.sh" --remove
    # park set:        add / remove
-   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-park-hooks.sh"
-   "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/wire-park-hooks.sh" --remove
+   "<scripts-dir>/wire-park-hooks.sh"
+   "<scripts-dir>/wire-park-hooks.sh" --remove
    ```
    **When both sets are selected, keep the documented sequential order.** Both scripts
    now take the same canonical `settings.json` lock across read → merge → atomic `mv`, so
    an accidental concurrent invocation waits instead of losing one set's hooks. Sequential
    execution avoids needless lock contention and keeps the output order deterministic.
 
-   Each script makes a timestamped backup, merges idempotently (no duplicates on re-run),
-   validates the JSON before replacing, and prints the resulting `.hooks` block.
+   Read each script's result and apply Step 4; only a changed result carries a backup and saved hooks block.
 
 4. **Confirm and report — branch on what each script actually printed**, per set. Report
    only what is in the output; never describe a backup or a `.hooks` block that wasn't
@@ -133,6 +125,7 @@ so never assign it once and reference it later.
    |---|---|
    | `Updated … Backup: …` plus a `.hooks` block | Show the user the `.hooks` block and the backup path. |
    | `No changes — hooks already in their target state (…)` | Say the settings already match the requested state; no backup was made and nothing changed. |
+   | `No changes — no matching hooks for this installation or current config root.` | No matching owned entries remained in those explicit paths; this does not establish absence after an arbitrary config-root migration. |
    | `No settings file at … — nothing to remove.` | Say there were no hooks to remove. |
    | Non-zero exit (missing `jq`, usage error, unparseable existing settings, produced-invalid-JSON abort) | Settings are unchanged. Show the script's error line verbatim, state the remedy it implies, and stop — do not retry or hand-edit `settings.json`. |
 
