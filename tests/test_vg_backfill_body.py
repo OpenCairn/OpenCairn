@@ -167,6 +167,17 @@ class BackfillBodyTests(unittest.TestCase):
             '- A.md - original\n', '- A.md - original\n- B.md - new\n  - kept detail\n'))
         self.assertTrue(result.stdout.endswith('1 added, 1 skipped\n'), result.stdout)
 
+    def test_second_backfill_lands_after_the_last_rows_nested_detail(self):
+        before = '## Session 1 - Fixture\n### Files Updated\nNone\n\n### Notes\nKeep\n'
+        first = '- A.md - restructured:\n  - moved a section up\n\tcontinued line\n'
+        result, after = self.run_helper(before, first)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace('None\n', first))
+        result, after = self.run_helper(after, '- B.md - changed\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace('None\n', first + '- B.md - changed\n'))
+        self.assertTrue(result.stdout.endswith('1 added, 0 skipped\n'), result.stdout)
+
     def test_placeholder_input_line_is_not_written_as_a_row(self):
         for existing in ('None\n', '- Z.md - original\n'):
             for placeholder in ('None', '- None', 'None.', 'None (nothing updated)'):

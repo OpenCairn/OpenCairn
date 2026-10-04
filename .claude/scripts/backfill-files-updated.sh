@@ -268,8 +268,14 @@ if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
         unset _AWK_NONE_LINE _AWK_FILE_LIST
     fi
 else
-    # Find the last "- " line in the section (last file entry) and append after it
-    LAST_ENTRY=$(printf '%s\n' "$SECTION_CONTENT" | { grep -n "^- " || true; } | tail -1 | cut -d: -f1)
+    # Append after the last file entry's whole block: its "- " line plus any
+    # indented lines (nested bullets, continuations) directly beneath it.
+    LAST_ENTRY=$(printf '%s\n' "$SECTION_CONTENT" | awk '
+        /^- / { last = NR; open = 1; next }
+        open && /^[ \t]+[^ \t]/ { last = NR; next }
+        { open = 0 }
+        END { if (last) print last }
+    ')
     if [ -n "$LAST_ENTRY" ]; then
         INSERT_AFTER=$((FILES_UPDATED_ABS + LAST_ENTRY))
     else
