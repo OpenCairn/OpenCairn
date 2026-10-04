@@ -106,7 +106,8 @@ if [ "$GIT_ROOT" = "$VAULT_ROOT" ]; then
     diff_candidates "$VAULT"
     git -C "$VAULT" -c core.quotePath=false log --since="$CUTOFF" --format= \
             --name-status -M -- 2>/dev/null \
-        | awk -v repo="$VAULT" 'NF { print "[git-history]\t" repo "\t" $0 }' || true
+        | awk -v repo="$VAULT" 'NF { print "[git-history]\t" repo "\t" $0 }' \
+        | sort -u || true
 fi
 
 # 5. Vault body. Enumerate only visible top-level roots, then prune hidden
