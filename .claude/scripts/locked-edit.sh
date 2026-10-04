@@ -101,6 +101,8 @@
 # reviewable exactly like a single --replace;
 # $park uses those receipts to review mechanical locator edits without rereading
 # the whole file. Receipt bookkeeping fails open and never reverses a landed edit.
+# The stdin and receipt temp files under $TMPDIR are owner-only and are removed
+# on every exit, whether or not a session id resolved.
 #
 # Platform: Linux, macOS, Windows (Git Bash). Locking via lib-lock.sh
 # (flock / mkdir fallback); literal string handling via python3.
@@ -805,7 +807,10 @@ if [ "$MODE" = "--show-section" ] && [ ! -f "$TARGET" ]; then
 fi
 STDIN_FILE="$(mktemp "${TMPDIR:-/tmp}/locked-edit-stdin.XXXXXX")"
 RECEIPT_TMP="$(mktemp "${TMPDIR:-/tmp}/locked-edit-receipt.XXXXXX")"
-trap 'rm -f "$STDIN_FILE" "$RECEIPT_TMP" "$RECEIPT_TMP".*' EXIT
+_le_cleanup() {
+    rm -f "$STDIN_FILE" "$RECEIPT_TMP" "$RECEIPT_TMP".*
+}
+trap '_le_cleanup' EXIT
 if [ "$MODE" = "--show-section" ] || { [ "$MODE" = "--delete-section" ] && [ -t 0 ]; }; then
     : > "$STDIN_FILE"
 else
@@ -816,6 +821,9 @@ LOCK_FILE="$(_lock_path_for "$TARGET")"
 mkdir -p "$(dirname "$TARGET")"
 
 _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock for $TARGET" >&2; exit 1; }
+# _lock replaces the EXIT trap with its own release; put the temp-file cleanup
+# back beside it so an exit while the lock is held does both.
+trap '_unlock; _le_cleanup' EXIT
 
 # All file I/O and matching happens in python (literal, atomic via os.replace),
 # while bash holds the cross-platform lock. python reads the payload from the
@@ -987,7 +995,9 @@ def write_receipt(before, after, old_text=None, new_text=None, occurrences=None,
         receipt_file = os.environ["_LE_RECEIPT_FILE"]
         if batch_index is not None:
             receipt_file += ".%04d" % batch_index
-        with open(receipt_file, "w", encoding="utf-8") as handle:
+        # Receipts carry file text: owner-only, like the mktemp file they sit beside.
+        descriptor = os.open(receipt_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with open(descriptor, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False)
             handle.write("\n")
     except Exception as exc:
@@ -1250,11 +1260,12 @@ if [ "$RC" -eq 0 ] && [ "$MODE" = "--delete-section" ]; then
 fi
 
 _unlock
+# _unlock clears the EXIT trap; re-arm the cleanup for the rest of the run.
+trap '_le_cleanup' EXIT
 unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT _LE_SECTION_HEADING _LE_SECTION_NO_REPLACEMENT _LE_RECEIPT_FILE
 
 # A read leaves no ledger row, no receipt and no confirmation line.
 if [ "$MODE" = "--show-section" ]; then
-    rm -f "$STDIN_FILE" "$RECEIPT_TMP"
     exit "$RC"
 fi
 
