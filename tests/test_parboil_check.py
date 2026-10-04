@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -137,6 +138,121 @@ class ParboilCheckTests(unittest.TestCase):
         self.add('user', '/park')
         self.add('user', 'Work on the next item.')
         self.assertIn('<parboil-trigger', self.hook())
+
+    def test_expanded_nonpark_invocations_release_active_park(self):
+        for invocation in ['<command-name>/morning</command-name>\n<command-args/>',
+                           '<command-message>morning</command-message>\n<command-name>/morning</command-name>',
+                           '<skill><name>morning</name><instructions>Start the day.</instructions></skill>',
+                           '<skill><name>plugin:morning</name><instructions>Start the day.</instructions></skill>']:
+            with self.subTest(invocation=invocation):
+                self.records = []
+                self.add('assistant', 'Working.', 160000)
+                self.add('user', '/park')
+                self.add('user', invocation)
+                self.assertIn('<parboil-trigger', self.hook())
+                (self.state / f'{self.sid}.parboil.state').unlink(missing_ok=True)
+
+    def test_current_expanded_nonpark_prompt_releases_active_park(self):
+        for prompt in ['<command-name>/morning</command-name>',
+                       '<skill><name>plugin:morning</name></skill>']:
+            with self.subTest(prompt=prompt):
+                self.add('user', '/park')
+                self.assertIn('<parboil-trigger', self.hook(prompt))
+                (self.state / f'{self.sid}.parboil.state').unlink(missing_ok=True)
+
+    def test_unknown_xml_and_quoted_invocations_do_not_release_active_park(self):
+        for text in ['<context>Continue working.</context>',
+                     '<quote><command-name>/morning</command-name></quote>',
+                     '> <command-name>/morning</command-name>',
+                     '"<command-name>/morning</command-name>"',
+                     "'<skill><name>morning</name></skill>'"]:
+            with self.subTest(text=text):
+                self.records = []
+                self.add('assistant', 'Working.', 160000)
+                self.add('user', '/park')
+                # Harness XML and quote blocks are not new user invocations.
+                self.add('user', text)
+                self.assertEqual(self.hook(), '')
+
+    def test_successful_stop_retires_prepark_draft_and_marker(self):
+        self.hook()
+        draft = self.state / f'{self.sid}.parboil.md'
+        draft.write_text('saved old work')
+        self.complete()
+        self.assertFalse(draft.exists())
+        self.assertFalse((self.state / f'{self.sid}.parboil.state').exists())
+        with self.ledger.open('a') as f:
+            f.write('new write\n')
+        output = self.hook()
+        self.assertIn('write a shadow-park snapshot to', output)
+        self.assertNotIn('Update the existing', output)
+
+    def test_failed_completion_watermark_keeps_existing_draft(self):
+        self.hook()
+        draft = self.state / f'{self.sid}.parboil.md'
+        draft.write_text('unsaved draft')
+        (self.state / f'{self.sid}.parked-ledger-lines').mkdir()
+        self.complete()
+        self.assertEqual(draft.read_text(), 'unsaved draft')
+        self.assertTrue((self.state / f'{self.sid}.parboil.state').exists())
+
+    def test_postpark_watermark_survives_below_threshold_and_missing_usage(self):
+        for tokens in [100000, None]:
+            with self.subTest(tokens=tokens):
+                self.records = []
+                self.add('assistant', 'Park complete.', 160000)
+                self.complete()
+                with self.ledger.open('a') as f:
+                    f.write('new write\n')
+                self.records = []
+                self.add('user', 'Continue working.')
+                if tokens is not None:
+                    self.add('assistant', 'Working.', tokens)
+                else:
+                    self.records[-1]['message'].pop('usage')
+                    self.transcript.write_text(json.dumps(self.records[-1]) + '\n')
+                self.assertEqual(self.hook(), '')
+                parked = self.state / f'{self.sid}.parked-ledger-lines'
+                self.assertTrue(parked.exists())
+                self.add('assistant', 'Working.', 160000)
+                self.assertIn('<parboil-trigger', self.hook())
+                self.assertFalse(parked.exists())
+
+    def test_padded_wc_count_and_watermark_are_numeric(self):
+        bindir = self.config / 'bin'
+        bindir.mkdir()
+        wc = shutil.which('wc')
+        shim = bindir / 'wc'
+        shim.write_text('#!/usr/bin/env bash\ncount=$("' + wc + '" "$@")\nprintf "%8s\\n" "$count"\n')
+        shim.chmod(0o755)
+        self.env['PATH'] = str(bindir) + os.pathsep + self.env['PATH']
+        output = self.hook()
+        self.assertIn('SNAPSHOT-LEDGER-LINES: 3', output)
+        self.complete()
+        parked = self.state / f'{self.sid}.parked-ledger-lines'
+        self.assertEqual(parked.read_text(), '3\n')
+        parked.write_text('       3  \n')
+        self.assertEqual(self.hook(), '')
+        with self.ledger.open('a') as f:
+            f.write('new write\n')
+        self.assertIn('SNAPSHOT-LEDGER-LINES: 4', self.hook())
+
+    def test_stop_and_current_park_skip_whole_transcript_scan(self):
+        bindir = self.config / 'bin'
+        bindir.mkdir()
+        calls = self.config / 'jq-calls'
+        shim = bindir / 'jq'
+        shim.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$1" >> "' + str(calls) + '"\nexec "' + shutil.which('jq') + '" "$@"\n')
+        shim.chmod(0o755)
+        self.env['PATH'] = str(bindir) + os.pathsep + self.env['PATH']
+        self.hook(event='Stop', last_assistant_message='Parked.')
+        self.assertNotIn('-n', calls.read_text().splitlines())
+        calls.write_text('')
+        self.hook('/park')
+        self.assertNotIn('-n', calls.read_text().splitlines())
+        calls.write_text('')
+        self.hook()
+        self.assertIn('-n', calls.read_text().splitlines())
 
     def test_disabled_hook_stays_silent(self):
         self.env['OPENCAIRN_PARBOIL_TOKENS'] = '0'

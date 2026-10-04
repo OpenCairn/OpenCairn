@@ -62,32 +62,9 @@ PARKED="$STATE_DIR/$SID.parked-ledger-lines"
 
 # Nothing written this session -> nothing worth pre-parking.
 [ -f "$LEDGER" ] || exit 0
-LEDGER_LINES=$(wc -l < "$LEDGER" 2>/dev/null || echo 0)
+# read trims BSD wc's padding without accepting nonnumeric watermark contents.
+read -r LEDGER_LINES <<< "$(wc -l < "$LEDGER" 2>/dev/null || echo 0)"
 [ "$LEDGER_LINES" -ge 3 ] 2>/dev/null || exit 0
-
-# Inspect genuine user requests, not skill text echoed by a tool, quoted advice,
-# compaction summaries or sub-agent records. Stream the whole transcript so an
-# active park does not disappear merely because it is older than the token tail.
-# A malformed transcript leaves this guard unknown and the hook fails open.
-ACTIVE_PARK=$(jq -n '
-    def body: if type == "string" then . else
-        [.[]? | select(.type == "text") | .text] | join("\n") end;
-    def park_request:
-        gsub("^\\s+|\\s+$"; "")
-        | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
-          or (startswith("<command-") and contains("<command-name>/park</command-name>"))
-          or test("^<skill>\\s*<name>park</name>");
-    reduce inputs as $r (false;
-        if $r.type == "user" and ($r.isMeta != true)
-           and ($r.isCompactSummary != true) and ($r.isSidechain != true)
-           and (($r.message.content | type) == "string"
-                or ([$r.message.content[]? | select(.type == "tool_result")] | length) == 0)
-        then ($r.message.content | body) as $text
-             | if ($text | park_request) then true
-               elif ($text | ltrimstr(" ") | startswith("<")) or $text == "" then .
-               else false end
-        else . end)
-' "$TRANSCRIPT" 2>/dev/null) || ACTIVE_PARK=false
 
 EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // "UserPromptSubmit"' 2>/dev/null) || exit 0
 if [ "$EVENT" = "Stop" ]; then
@@ -105,32 +82,73 @@ if [ "$EVENT" = "Stop" ]; then
           or test("(?m)^\\s*✓ Merged into Session [0-9]+")
     ' >/dev/null 2>&1; then
         mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
-        printf '%s\n' "$LEDGER_LINES" > "$PARKED" 2>/dev/null || true
+        if printf '%s\n' "$LEDGER_LINES" > "$PARKED" 2>/dev/null; then
+            # The draft covers the work just saved. A subsequent trigger starts
+            # a new snapshot, rather than patching that already-parked work.
+            rm -f "$DRAFT" "$MARKER"
+        fi
     fi
     exit 0
 fi
 [ "$EVENT" = "UserPromptSubmit" ] || exit 0
 
-# The current prompt may not yet be in the transcript. Suppress explicit park
-# invocation before recording a trigger, as well as an already-active park.
-if printf '%s' "$INPUT" | jq -e '
-    (.prompt // "") | gsub("^\\s+|\\s+$"; "")
-    | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
-      or (startswith("<command-") and contains("<command-name>/park</command-name>"))
-      or test("^<skill>\\s*<name>park</name>")
-' >/dev/null 2>&1 || [ "$ACTIVE_PARK" = "true" ]; then
+# The current prompt may not yet be in the transcript. Short-circuit explicit
+# park before the whole-transcript scan; Stop has already returned above.
+REQUEST_FILTER='
+    def park_request:
+        gsub("^\\s+|\\s+$"; "")
+        | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
+          or (startswith("<command-") and contains("<command-name>/park</command-name>"))
+          or test("^<skill>\\s*<name>park</name>");
+    def command_request:
+        gsub("^\\s+|\\s+$"; "")
+        | test("^<command-name>/[A-Za-z0-9_:-]+</command-name>(?:\\s|$)")
+          or (startswith("<command-message>")
+              and test("<command-name>/[A-Za-z0-9_:-]+</command-name>"))
+          or test("^<skill>\\s*<name>[A-Za-z0-9_:-]+</name>");
+'
+if printf '%s' "$INPUT" | jq -e "$REQUEST_FILTER"'
+    (.prompt // "") | park_request
+' >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Inspect genuine user requests, not skill text echoed by a tool, quoted advice,
+# compaction summaries or sub-agent records. Stream the whole transcript so an
+# active park does not disappear merely because it is older than the token tail.
+# A malformed transcript leaves this guard unknown and the hook fails open.
+ACTIVE_PARK=$(jq -n "$REQUEST_FILTER"'
+    def body: if type == "string" then . else
+        [.[]? | select(.type == "text") | .text] | join("\n") end;
+    reduce inputs as $r (false;
+        if $r.type == "user" and ($r.isMeta != true)
+           and ($r.isCompactSummary != true) and ($r.isSidechain != true)
+           and (($r.message.content | type) == "string"
+                or ([$r.message.content[]? | select(.type == "tool_result")] | length) == 0)
+        then ($r.message.content | body) as $text
+             | if ($text | park_request) then true
+               elif ($text | command_request) then false
+               elif ($text | test("^\\s*(?:<|>|```|~~~)"))
+                    or ($text | startswith("\"") or startswith("\u0027"))
+                    or $text == "" then .
+               else false end
+        else . end)
+' "$TRANSCRIPT" 2>/dev/null) || ACTIVE_PARK=false
+
+if [ "$ACTIVE_PARK" = "true" ] && ! printf '%s' "$INPUT" | jq -e "$REQUEST_FILTER"'
+    (.prompt // "") | command_request
+' >/dev/null 2>&1; then
     exit 0
 fi
 
 NEW_POST_PARK_WORK=0
 if [ -f "$PARKED" ]; then
-    PARKED_LINES=$(cat "$PARKED" 2>/dev/null)
+    read -r PARKED_LINES < "$PARKED" 2>/dev/null || PARKED_LINES=
     case "$PARKED_LINES" in ''|*[!0-9]*) ;; *)
         [ "$LEDGER_LINES" -ne "$PARKED_LINES" ] || exit 0
         # A prior session-log block is not a permanent suppression: a fresh
         # ledger delta resumes snapshots without waiting another token interval.
         NEW_POST_PARK_WORK=1
-        rm -f "$PARKED"
         ;;
     esac
 fi
@@ -181,6 +199,8 @@ fi
 
 mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
 printf '%s %s\n' "$PEAK" "$LEDGER_LINES" > "$MARKER" 2>/dev/null || exit 0
+# Consume the post-park delta only once a new snapshot trigger really fires.
+[ "$NEW_POST_PARK_WORK" -eq 0 ] || rm -f "$PARKED"
 
 if [ -f "$DRAFT" ]; then
     VERB="Update the existing shadow-park snapshot at"
@@ -214,7 +234,7 @@ Required format (first line exactly as shown — /park diffs against that count)
 
   SNAPSHOT-LEDGER-LINES: $LEDGER_LINES
 
-That number is the hook's exact \`wc -l < "$LEDGER"\` result at trigger time. It is not
+That number is the hook's whitespace-normalised \`wc -l < "$LEDGER"\` result at trigger time. It is not
 a count of bullets, files, or sections in the draft. If refreshing this draft
 manually later, recompute that ledger line count at the refresh and replace the
 header; never retain the old count beside a refreshed body.
