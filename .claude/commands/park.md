@@ -112,7 +112,7 @@ Across the applicable semantic coverage, fix broken syntax/links/paths, stale in
 
 **Wikilinks resolve through the structural index, not by eye.** Probe `obsidian version` first; a CLI that is absent or not responding means this check did not run, and the output says so (§24). When it runs: `obsidian unresolved` once, inspected for targets or basenames this session introduced, then `obsidian links` (argument form per `obsidian help links`, §24) on every edited file that added or changed a wikilink, confirming each new link resolves at file level. An empty result straight after edits can be a reindexing blank, not a pass (§24): re-query once settled. Heading anchors are outside the index: open each target and match the heading text exactly. An eyeball pass is the fallback for anchors only, never the file-level check.
 
-(c) **SOURCE check:** run `_shared-rules.md` §19 over the enumerated files; its required output line is part of this gate.
+(c) **SOURCE check:** run `_shared-rules.md` §19 over the enumerated files; its required output line is part of this gate. For each decision-bearing command, retain its literal invocation, working directory, exit status and discriminating stdout/stderr before cleanup or brief assembly. State which observation separates pass from fail; include empty/error output when it controls a conclusion. A prose success summary, recreated command or bare exit 0 is not the evidence. Preserve the raw result in the full-path evidence/pre-state handoff, with an exact path and digest for any companion file the reviewer must inspect.
 
 (d) **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
 
