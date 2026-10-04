@@ -35,7 +35,10 @@
 #               hit is labelled: [text] plain wording, [link] the visible name of
 #               an unaliased wikilink. Hits only in a hidden link target (aliased
 #               target, folder prefix, URL) or starting mid-word are listed as
-#               [link-target] / [word-part] but do not raise REVIEW
+#               [link-target] / [word-part] but do not raise REVIEW. Mid-word
+#               means the preceding character is the same kind as the ident's
+#               first (letter after letter, digit after digit); a digit ident
+#               after letters, or the reverse, counts as [text]
 #   touched     each --touched path exists, unless a Files Deleted row or
 #               --nonlocal accounts for it
 #   backfill    each touched file matches a Files Created / Files Updated /
@@ -310,7 +313,11 @@ for raw in sys.stdin.buffer:
     best = None
     for m in pattern.finditer(body):
         a, b = m.span()
-        if a and word_char(body[a - 1]) and word_char(ident[0]):
+        # Mid-word only when the match continues a run of its own kind: a
+        # letter after a letter, a digit after a digit. A digit ident after
+        # letters ("INV" + "20417") is a complete token and stays countable.
+        if (a and word_char(body[a - 1]) and word_char(ident[0])
+                and body[a - 1].isdigit() == ident[0].isdigit()):
             kind = "word-part"
         else:
             kind = max(set(kinds[a:b]), key=rank.get)

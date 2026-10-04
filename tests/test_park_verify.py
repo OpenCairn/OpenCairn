@@ -120,6 +120,18 @@ class ParkVerifyTests(unittest.TestCase):
         self.assertIn("[link-target] 1:- [ ] Check", uncounted)
         self.assertNotIn("4:", lines[0])
 
+    def test_ident_after_a_different_character_class_is_text(self) -> None:
+        # A digit ident after letters (or the reverse) is a whole token of its
+        # own, not the tail of a longer word or number.
+        for ident, week in (("20417", "- [ ] Pay INV20417\n"),
+                            ("kg", "- [ ] Order 25kg of flour\n")):
+            with self.subTest(ident=ident):
+                lines = self.closure_lines(week, ident)
+                self.assertEqual(len(lines), 1, lines)
+                self.assertTrue(lines[0].startswith("REVIEW closure: "), lines[0])
+                self.assertIn("[text] 1:- [ ] ", lines[0])
+                self.assertNotIn("not counted", lines[0])
+
     def test_truncated_touched_path_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = make_vault(Path(tmp))
