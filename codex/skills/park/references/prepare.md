@@ -5,6 +5,19 @@ backfill are complete. This batches already-decided mechanical work; it does
 not replace the quality pass, propagation review, source checks or independent
 audit. Keep early evidence capture at the point the evidence becomes available.
 
+Begin each full Park invocation once, before capturing or classifying inputs:
+
+```bash
+python3 "$PARK_REVIEW" begin-run
+```
+
+This selects a fresh generation under the real harness session ID, including
+same-session re-parks and merged entries. Capture, classify, verifier, prepare,
+build and record-audit use that generation. Keep it throughout remediation and
+re-audit; retries do not call `begin-run`. Earlier generations remain unchanged.
+Prior clean audit receipts are reusable only while their file hashes still match.
+Callers that have never begun a generation retain the legacy state location.
+
 ```bash
 python3 "$PARK_REVIEW" prepare --vault "{VAULT}" --session-log "<session log>" --number N <<'JSON'
 {
@@ -21,10 +34,10 @@ JSON
 
 - `classifications` contains argument arrays accepted by `classify`, without
   `--vault` or `--session-id`; both come from the enclosing invocation. Supply
-  new or changed classifications only. Existing classifications remain in use.
+  new or changed classifications only. Existing classifications in this run remain in use.
 - `captures` accepts evidence, prestate and propagation records. Evidence also
   needs `source` and `provenance`. Supply real excerpts/reports, never a made-up
-  receipt. Existing receipts can be reused by omitting this list. Exact repeated
+  receipt. Existing receipts in this run can be reused by omitting this list. Exact repeated
   evidence/prestate records are deduplicated; distinct excerpts are retained.
 - `identifiers` is the final Step 8 list, not a replacement for enumeration.
   Optional `accept_inherited_lint` lists only paths eligible under Step 8's

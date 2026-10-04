@@ -296,12 +296,36 @@ def state_paths(explicit_sid: str | None) -> tuple[str, Path, Path, Path]:
     sid = session_id(explicit_sid)
     config = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
     state = config / ".session-state"
+    root = state / f"{sid}.park-review"
+    active = load_json(root / "active-run.json", None)
+    if active is not None:
+        generation = active.get("generation") if isinstance(active, dict) else None
+        if not isinstance(generation, str) or not re.fullmatch(r"[a-f0-9]{32}", generation):
+            die("invalid active park generation; use begin-run")
+        root = root / "runs" / generation
+        if not (root / "run.json").is_file():
+            die("active park generation is missing; use begin-run")
     return (
         sid,
-        state / f"{sid}.park-review",
+        root,
         state / f"{sid}.locked-edit-receipts",
         state / ".park-audit-receipts",
     )
+
+
+def cmd_begin_run(args: argparse.Namespace) -> int:
+    """Start a new park, retaining earlier generations and clean audit receipts."""
+    sid = session_id(args.session_id)
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
+    base = config / ".session-state" / f"{sid}.park-review"
+    generation = uuid.uuid4().hex
+    root = base / "runs" / generation
+    record = {"schema": 1, "session_id": sid, "generation": generation,
+              "started_at": now(), "root": str(root)}
+    atomic_json(root / "run.json", record)
+    atomic_json(base / "active-run.json", record)
+    print(json.dumps(record))
+    return 0
 
 
 def canonical_path(raw: str, vault: Path | None = None) -> Path:
@@ -701,9 +725,9 @@ def verify_move_heal(path: Path, vault: Path, proof: dict) -> dict:
 
 def cmd_import_move_heals(args: argparse.Namespace) -> int:
     """Import link-target-only rewrites proved by locked Obsidian moves."""
-    sid, root, _, _ = state_paths(args.session_id)
+    sid, root, receipt_root, _ = state_paths(args.session_id)
     vault = canonical_path(args.vault)
-    receipt_dir = root.parent / f"{sid}.project-move-receipts"
+    receipt_dir = receipt_root.parent / f"{sid}.project-move-receipts"
     if not receipt_dir.is_dir():
         print("MOVE_HEALS none")
         return 0
@@ -789,6 +813,7 @@ def capture_record(
         die(f"refusing empty {kind} receipt")
     record = {
         "schema": 1,
+        "run_generation": root.name if (root / "run.json").is_file() else None,
         "captured_at": now(),
         "kind": kind,
         "label": label,
@@ -1530,6 +1555,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             )
 
     captures = load_captures(root)
+    generation = root.name if (root / "run.json").is_file() else None
+    if any(item.get("run_generation") != generation for item in captures):
+        die("capture belongs to a different park generation; recapture for this run")
     evidence = [item for item in captures if item.get("kind") == "evidence"]
     prestate = [item for item in captures if item.get("kind") == "prestate"]
     propagation_items = [item for item in captures if item.get("kind") == "propagation"]
@@ -1820,6 +1848,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     out.write_text(brief, encoding="utf-8")
     brief_manifest = {
         "schema": 2,
+        "run_generation": root.name if (root / "run.json").is_file() else None,
         "built_at": now(),
         "brief": str(out),
         "vault": str(vault),
@@ -1864,6 +1893,9 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         manifest = load_json(root / "review-brief-manifest.json", None)
         if not isinstance(manifest, dict):
             die("no review brief manifest; run build first")
+        generation = root.name if (root / "run.json").is_file() else None
+        if manifest.get("run_generation") != generation:
+            die("review brief belongs to a different park generation; run build first")
         files.extend(manifest.get("full_read", []))
         built_at = manifest.get("built_at", built_at)
         if vault is None and isinstance(manifest.get("vault"), str):
@@ -1879,7 +1911,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         print("No full-read files; no audit receipt written")
         return 0
     validate_report_attestations(report, files)
-    state_root = root.parent
+    state_root = receipt_root.parent
     reusable: list[dict] = []
     post_review_changes: list[dict] = []
     live_hashes: dict[str, str] = {}
@@ -1946,6 +1978,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             )
         receipt = {
             "schema": 2,
+            "run_generation": root.name if (root / "run.json").is_file() else None,
             "captured_at": now(),
             "status": "pending",
             "reviewer": args.reviewer,
@@ -2127,6 +2160,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--session-id", help="override harness session id")
     subparsers = parser.add_subparsers(dest="command_name", required=True)
+    begin = subparsers.add_parser("begin-run", help="start a fresh park generation for this session")
+    begin.set_defaults(func=cmd_begin_run)
 
     classify = subparsers.add_parser("classify", help="classify and verify a touched file")
     classify.add_argument("--vault", required=True)
