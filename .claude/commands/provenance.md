@@ -62,10 +62,17 @@ PROJECT_TAG="<tag from Step 2>"
 TODAY=$(date +"%Y-%m-%d")
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S %Z')
 FLAG_DIR="{VAULT}/07 System/.Provenance/pending"
-SAFE_TAG=$(echo "$PROJECT_TAG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
-[[ -z "$SAFE_TAG" ]] && SAFE_TAG="untagged"   # punctuation/non-ASCII-only tags would otherwise yield "YYYY-MM-DD-.md"
+SAFE_TAG=$(python3 - "$PROJECT_TAG" <<'PYTAG'
+import hashlib, re, sys
+original = sys.argv[1]
+slug = re.sub(r'[^a-z0-9-]', '', original.lower().replace(' ', '-')) or 'untagged'
+print(slug + '-' + hashlib.sha256(original.encode('utf-8')).hexdigest()[:16])
+PYTAG
+)
 FLAG_FILE="$FLAG_DIR/${TODAY}-${SAFE_TAG}.md"
 ```
+
+Before creating a new flag, read today's existing flags and reuse one only when its frontmatter `tag` exactly equals the original `PROJECT_TAG`; this also preserves an older unsuffixed flag. Never merge by sanitised filename alone. A filename occupied by a different tag is a conflict: preserve it and report the collision. Keep the original display tag in frontmatter and provenance rows; the suffix is filename identity only. Work-product snapshots/proofs use the writer's content digest identity, not this sanitised tag.
 
 **If the flag file already exists** (repeat `/provenance` call in the same session): read it, merge any new work products into the existing list (no duplicates), update the timestamp, and rewrite through `locked-edit.sh --replace` using the exact old content. Do not create a second flag file. Merge means exactly: union of the `## Work Products` lists, every existing `## Hashed Immediately` entry preserved untouched, frontmatter `timestamp` bumped to now.
 

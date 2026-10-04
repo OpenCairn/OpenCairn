@@ -44,6 +44,8 @@ This is the "return from sabbatical" complement to daily pickup.
    - Extract: active projects, open loops, deliberate deferrals, return priorities, expected return date
    - Calculate break duration: days between hibernate date and now
 
+Read `{VAULT}/01 Now/Tickler.md` before orientation. Compare its actual dated triggers with Step 1's current date and surface all unchecked due/overdue items alongside the snapshot loops. Keep future triggers and deliberate deferrals distinct. Surface does not mean complete or reschedule: leave each existing item in place until the user supplies its disposition. If Tickler is absent, report that bounded absence; a read failure is unverified.
+
 4. **Display snapshot summary:**
 
 ```

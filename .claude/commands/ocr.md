@@ -281,7 +281,7 @@ Skip this phase entirely if `--no-preprocess` was passed and the Phase 1 size ch
    done
    shopt -u nullglob nocaseglob
    ```
-4. **Only on paths that Read images** (the Vision path, and the Phase 0b smoke-test frames — same scoping as Phase 1 step 5): verify every file in `$DST` is under the Read-hook threshold (`stat -c%s`). For any that remain over, re-run `magick` on that single file with progressively smaller widths: 720 → 640 → 512 → 448. Stop when it fits. Skip this step entirely on an easyocr-only run — nothing there is Read, and the re-encode only costs time and attribution accuracy (narrower widths shift the Phase 3a bbox thresholds).
+4. **Only on paths that Read images** (Vision and Phase 0b smoke-test frames): verify each file in `$DST` is under the Read-hook threshold with `stat -c%s`. For any file still over that threshold, measure its current width with `magick identify -format '%w' "$IMAGE"`. Consider 720 → 640 → 512 → 448 → 384 → 320 → 256, retaining only widths strictly below both the resolved caller `WIDTH` and this file's current width. Re-encode that file at the next eligible width, measure again and stop when it fits; never upscale a 400px delegating caller. If no eligible width works, split the batch or report the read limit rather than retrying the same dimensions. Skip this on easyocr-only runs.
 5. Report briefly: `"N files, source avg X MB → resized avg Y KB, width Wpx, quality Q."`
 6. **If `--preprocess-only`, stop here.** Emit one final line — `"Preprocessed → <absolute DST path>"` — and end the skill. No Vision read, no transcript, no interactive prompt. Delegating callers consume the DST path and handle extraction themselves.
 

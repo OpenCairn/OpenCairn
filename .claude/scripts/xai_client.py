@@ -16,7 +16,9 @@ Usage:
   xai_client.py --probe                           report availability without an API call
 
 Options:
-  --panel-review FILE   brief file; sources are appended as a delimited manifest+appendix
+  --prepare-panel FILE --source FILE --output FILE   freeze one shared packet (no API)
+  --panel-review FILE --prepared   submit that packet verbatim (no --source)
+  --panel-review FILE   legacy brief; sources appended as a delimited manifest+appendix
   --source FILE         a file to inline (repeatable). Total capped at MAX_INLINE_BYTES.
   --dry-run             print the outbound payload (key redacted) and exit; no request
   --effort LEVEL        minimal|low|medium|high|xhigh (default xhigh for panel review)
@@ -320,8 +322,8 @@ def build_appendix(paths: list[str]) -> tuple[str, list[dict[str, Any]]]:
     )
     appendix = (
         "\n\n## Inlined source appendix\n\n"
-        "You have no filesystem access. The files below are the complete set you received;\n"
-        "you cannot read anything else. In place of a read-list, report an INLINED-SOURCE\n"
+        "For a seat without filesystem access, these are the complete files received;\n"
+        "do not infer other file contents. That seat reports an INLINED-SOURCE\n"
         "MANIFEST reproducing the lines below verbatim, and quote the passages you relied on.\n"
         "If a finding would require reading a file NOT listed here, say so explicitly rather\n"
         "than inferring its contents.\n\n"
@@ -330,11 +332,27 @@ def build_appendix(paths: list[str]) -> tuple[str, list[dict[str, Any]]]:
     return appendix, manifest
 
 
-def panel_review(brief_path: str, source_paths: list[str], *,
-                 effort: str = "xhigh", dry_run: bool = False) -> str:
+def prepare_panel_brief(brief_path: str, source_paths: list[str], output: str) -> dict:
+    """Freeze the shared user payload before any seat is dispatched; no API call."""
+    if not source_paths:
+        raise ValueError('panel preparation requires at least one source')
     with open(brief_path, encoding="utf-8") as fh:
         brief = fh.read()
     appendix, manifest = build_appendix(source_paths)
+    payload = (brief + appendix).encode('utf-8')
+    with open(output, 'xb') as fh:
+        fh.write(payload)
+    return {'path': os.path.abspath(output), 'sha256': hashlib.sha256(payload).hexdigest(),
+            'sources': manifest}
+
+
+def panel_review(brief_path: str, source_paths: list[str], *,
+                 effort: str = "xhigh", dry_run: bool = False, prepared: bool = False) -> str:
+    if prepared and source_paths:
+        raise ValueError("prepared panel brief cannot also receive source arguments")
+    with open(brief_path, encoding="utf-8") as fh:
+        brief = fh.read()
+    appendix, manifest = ("", []) if prepared else build_appendix(source_paths)
     for m in manifest:
         log.info("inlined %s (%d bytes)", m["path"], m["bytes"])
     return deep(
@@ -372,6 +390,19 @@ def _main(argv: list[str]) -> int:
         effort = argv[i + 1]
         del argv[i:i + 2]
 
+    if "--prepare-panel" in argv:
+        import argparse
+        parser = argparse.ArgumentParser(description="Freeze a shared panel packet; no API call")
+        parser.add_argument('--prepare-panel', required=True)
+        parser.add_argument('--source', action='append', required=True)
+        parser.add_argument('--output', required=True)
+        args = parser.parse_args(argv)
+        try:
+            print(json.dumps(prepare_panel_brief(args.prepare_panel, args.source, args.output)))
+        except (OSError, ValueError, InlineTooLarge) as e:
+            sys.exit(str(e))
+        return 0
+
     if "--panel-review" in argv:
         i = argv.index("--panel-review")
         brief = argv[i + 1]
@@ -381,11 +412,16 @@ def _main(argv: list[str]) -> int:
             j = argv.index("--source")
             sources.append(argv[j + 1])
             del argv[j:j + 2]
-        if not sources:
-            sys.exit("--panel-review requires at least one --source FILE")
+        prepared = "--prepared" in argv
+        if prepared:
+            argv.remove("--prepared")
+        if argv or (prepared and sources):
+            sys.exit("prepared panel review accepts no source arguments or unknown options")
+        if not sources and not prepared:
+            sys.exit("--panel-review requires --source FILE or --prepared")
         try:
-            print(panel_review(brief, sources, effort=effort, dry_run=dry_run))
-        except InlineTooLarge as e:
+            print(panel_review(brief, sources, effort=effort, dry_run=dry_run, prepared=prepared))
+        except (OSError, ValueError, InlineTooLarge) as e:
             sys.exit(str(e))
         return 0
 

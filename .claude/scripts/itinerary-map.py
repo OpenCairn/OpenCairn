@@ -175,7 +175,9 @@ def overpass_geocode(name, bbox, cache, allow_network):
     under that name — a successful zero is cached; only network failures
     raise)."""
     s, w, n, e = bbox
-    key = f"overpass::{name.strip().lower()}::{s:.3f},{w:.3f},{n:.3f},{e:.3f}"
+    # v2 isolates earlier case-folded hits/zeros without deleting recovery data.
+    # Overpass equality is case-sensitive, so cache identity must be too.
+    key = f"overpass-v2::{name.strip()}::{s:.3f},{w:.3f},{n:.3f},{e:.3f}"
     if key in cache:
         return cache[key]
     if not allow_network:

@@ -30,8 +30,10 @@ The canonical procedure for pulling an **already-published** transcript (a podca
 
 **Prereqs** — confirm before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe:
 ```bash
-command -v curl pandoc python3 || echo "MISSING a core tool"
-python3 -c 'import bs4, lxml' || echo "MISSING python bs4/lxml"
+for tool in curl pandoc python3; do
+  command -v "$tool" >/dev/null 2>&1 || { printf 'MISSING: %s\n' "$tool" >&2; exit 1; }
+done
+python3 -c 'import bs4, lxml' || { echo "MISSING python bs4/lxml" >&2; exit 1; }
 ```
 If a tool is missing, stop and tell the user (or fall back to machine transcription — see the fallback note below).
 

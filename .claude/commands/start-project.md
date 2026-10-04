@@ -69,6 +69,8 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
   - `Cold/` or `Backlog/` → offer to activate it via `/set-project-status [Project Name] active`.
   - Elsewhere in the vault → offer a different name or abort. Restoring a completed project is a separate workflow.
 
+**Initiative preflight:** when an initiative was selected, locate and read its actual hub before creating the child or writing its `**Initiative:**` link. If missing or ambiguous, show the candidates and ask for the existing hub or permission to proceed without an initiative; do not invent the hub. Record the resolved path, a unique backlink section anchor and the child's actual path. If the hub has no suitable section, confirm where to add one before writing.
+
 ### 4. Create project file
 
 Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
@@ -85,7 +87,7 @@ bucket: [bucket from step 2]
 # [Project Name]
 
 **Created:** [Date]
-**Initiative:** [[03 Projects/[Initiative Name]]]
+**Initiative:** [[resolved initiative path without .md]]
 
 ---
 
@@ -146,11 +148,13 @@ If the count exceeds the **active project cap** (resolve it first: `rg -F '**Act
 
 If initiative specified:
 - **Write mechanism (F1):** initiative hubs live in `03 Projects/` — edit via `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5)
-- Read initiative file at `{VAULT}/03 Projects/[Initiative Name].md`
-- Add link to new project in appropriate section, using the file's actual path (`Backlog/` form if `--backlog`):
+- Re-read the hub at the exact path resolved by the initiative preflight, then use its selected section anchor
+- Add the backlink in that preflighted section, using the file's actual path (`Backlog/` form if `--backlog`):
   ```markdown
   - [[03 Projects/[Project Name]]] - [brief description]
   ```
+
+Read back the saved hub section and child's initiative link. Report `Linked from initiative` only when both resolve to the actual files. A missing/changed section or failed locked replacement is a pending backlink, not successful linkage; retain the child and report the exact repair needed.
 
 ### 7. Create resources folder (optional)
 
