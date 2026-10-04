@@ -20,7 +20,7 @@ This is the complement to `/morning` - morning surfaces the landscape, goodnight
 
 ## Instructions
 
-**Write mechanism — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9, collapses in Step 10), use `--replace` — NOT `--append`, which adds at EOF outside any day section.
+**Write mechanism — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, and project/area hub files in this skill go through `locked-edit.sh`, not the Edit tool (see `_shared-rules.md` §5 — incl. the `write-tickler.sh`-vs-`locked-edit.sh` split for Tickler and exit-code handling). For This Week.md day-section edits (item moves in Step 9), use `--replace` — NOT `--append`, which adds at EOF outside any day section. Step 10's collapses use `--delete-section`.
 
 ### 0. Resolve Vault Path
 
@@ -234,6 +234,17 @@ After all undone items have been routed, collapse today's section — and any ea
 ## [emoji] [Day] [Date] — [Theme] ✅
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
+
+Collapse with one call: pass the day's current heading line exactly as it stands in the file, and the collapsed form on stdin. Do not retype the section as a `--replace` old string:
+
+```bash
+cat << 'EOF' | "{VAULT}/.claude/scripts/locked-edit.sh" "{VAULT}/01 Now/This Week.md" --delete-section '## [emoji] [Day] [Date] — [Theme]'
+## [emoji] [Day] [Date] — [Theme] ✅
+[One sentence.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
+EOF
+```
+
+stdout is the removed section verbatim: a `- [ ]` in it means Step 9 missed an item, so re-add that item under its destination day. Exit 2 = heading line not found (re-read the file and copy it exactly); exit 3 = the heading appears more than once.
 
 **⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so every `[[01 Now/This Week#…]]` anchor and prose locator naming that day stops resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with the day number and month exactly as the old heading writes them:
 
