@@ -40,14 +40,14 @@
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "549e3611295fc33048b78e8b3e21fa455a98c7982feed2a48e90882f10b44fc3",
-      "render_sha256": "832a84c9f6e24d8facf42bafffac47c3c606a604606aa88dbab8366fcd0243c8"
+      "source_sha256": "4b7d3923faa0c3a550bf4f5daf2995f1f1b755a3c48df3220ad95a589467cb74",
+      "render_sha256": "36abb1b3c62a04b9c43c3a37b812911f66b95b7321d15dc86fa8f3ea199b96a7"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
       "render": "codex/skills/awaken/SKILL.md",
-      "source_sha256": "946b6d42b0495a2a7cdde7a87fe2ba6372a98ccc3482af5d87a89bd2d6261864",
-      "render_sha256": "38a00b2b9b4caa865c25a1d5d15541528064d73460c3e3376fd4f35bbed6dad1"
+      "source_sha256": "8d55ef2543e89434202c3b405d811cbfa1a7e0e2a16c43b6f0084a9ea86a1667",
+      "render_sha256": "47688740a8dc5dade1dc44c5ac742f332cfc598205987de07021cc7a7111f803"
     },
     "book-stay": {
       "source": ".claude/commands/book-stay.md",
@@ -112,14 +112,14 @@
     "longpoles": {
       "source": ".claude/commands/longpoles.md",
       "render": "codex/skills/longpoles/SKILL.md",
-      "source_sha256": "c1261cbe2b6fb13b57a30ac149dcd64bf2c58947029521cc555649617109172b",
-      "render_sha256": "093a0ebbc8e44f54a1f643b605ee240435c4eb3584ae23f99c7b6241dcb8b7aa"
+      "source_sha256": "d746042c2cee30a9ca65a9495df182fca28e7c8804e94ed5a54ca6b8127fc24e",
+      "render_sha256": "01b4b9cb2b05ad390e2fb09fbf58b327e94e20cf0752519f731fa75f9d49c489"
     },
     "map-day": {
       "source": ".claude/commands/map-day.md",
       "render": "codex/skills/map-day/SKILL.md",
-      "source_sha256": "ceab15b9f3fe7ba49ecac84465314700769d93a66ace9d5abb96436641c54f4e",
-      "render_sha256": "3715d4c09150a1432b01ef9d3ab3d843040c4b0c46404d16b060ee76eb237db1"
+      "source_sha256": "536233484980a60447dce1f072a78e0e47048c5103c18d702c2ec2bc3de71d3f",
+      "render_sha256": "46ea956c56b3d96529c2b894552d8a5ff50e33e529c5d29918e6c702ce086a85"
     },
     "migrate": {
       "source": ".claude/commands/migrate.md",
@@ -166,8 +166,8 @@
     "provenance": {
       "source": ".claude/commands/provenance.md",
       "render": "codex/skills/provenance/SKILL.md",
-      "source_sha256": "60ddbd521b3d68cf854c3c9b8c612e415bdb42aa7e647c96857378b468a819ff",
-      "render_sha256": "e047fc9d0c97fc22ad956ac720ddf54211044f3fed847d90773a4a1545663553"
+      "source_sha256": "fc185ce96b9b860e10fa0b596c5107e1e508dbd449eb7e2fad350ebd596063c8",
+      "render_sha256": "a84a91a6ebfed2d4e08a72f5afedf8387e58c9aac12d494612018e6bdd4805e5"
     },
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
@@ -202,8 +202,8 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "497ee73eaeefce2fb8dcc471168f8e370ad5987653b38b795bdccc2899d714c1",
-      "render_sha256": "bcf3ddf4685d80e7e8b03060912e95dedc19784646784fb027c51656ef888529"
+      "source_sha256": "3975363990f8da27393c5498fc5ef8365dd37913d297c1d07e41b2659624f127",
+      "render_sha256": "37d5301d839d3f7404bede0405f281be70908bfc90821c81d14644e9646087a2"
     },
     "set-project-status": {
       "source": ".claude/commands/set-project-status.md",
@@ -226,8 +226,8 @@
     "start-project": {
       "source": ".claude/commands/start-project.md",
       "render": "codex/skills/start-project/SKILL.md",
-      "source_sha256": "857a58bebfb486c6c0f428b95c9bc18385851f178c03ba0d84f2a2c467b968a3",
-      "render_sha256": "068b25e3e5b53e0e3e4437cff1122aed392dbf3aef527ec4b6f5d050bb5da01b"
+      "source_sha256": "aafe93c785612d78e6a0eee474312d0a8a6266e15283c9466cb75558c0a56e39",
+      "render_sha256": "4987dc7b3e70e66364802c9ee9fa731be7e96dcfef7ae9fc6ea47533295cada9"
     },
     "thinking-partner": {
       "source": ".claude/commands/thinking-partner.md",
@@ -280,8 +280,8 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "7831395df235d31ee038e4fa817acc7b26f4be342d89ff6d70e7c07950ec5416",
-      "render_sha256": "68e8dfad53582d7a85ce628c1093578bd6a0f21bdcf7bdf97d15e09283f12271"
+      "source_sha256": "706dc5c093e3e5c55542783590a48cfb0480354c98572fb0f308ab79f6d589e0",
+      "render_sha256": "8e85ad68a310b7d1d6a844c4361134108c4e989219e50eb2cf03181e0c4301e0"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
