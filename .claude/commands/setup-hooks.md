@@ -79,8 +79,8 @@ so never assign it once and reference it later.
    command -v jq >/dev/null 2>&1 && echo "jq: ok" || echo "jq: MISSING"
    command -v python3 >/dev/null 2>&1 && echo "python3: ok" || echo "python3: MISSING"
    ```
-   If missing, stop and give the install hint for the user's OS
-   (`sudo apt install jq` / `brew install jq` / `sudo dnf install jq`).
+   If a tool is missing, stop and name its install hint for the user's OS
+   (`sudo apt install jq python3` / `brew install jq python` / `sudo dnf install jq python3`).
 
 2. **Parse and validate `$ARGUMENTS` FIRST, then check only the selected set's scripts.**
    Accepted tokens are a set name (`skill-edit`, `park`, `all`) and/or `--remove`, in either
