@@ -178,6 +178,109 @@ elif sys.argv[1] == 'upgrade':
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(flag.exists())
 
+    def test_real_decorated_confirmed_statuses_are_read_without_log_rewrite(self):
+        record = self.attest()
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n- 03 Projects/Example.md\n')
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-02.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True)
+            target.write_text('complete record'); self.attest(target)
+        baseline = self.log.read_text()
+        statuses = ['confirmed [^relo2]', 'confirmed [^t0407]',
+                    'confirmed [^w28] [^relo2]', 'confirmed [^w28]',
+                    'confirmed [^w28] [^relo]', 'confirmed (lite)',
+                    'confirmed (lite) [^relo3]']
+        for raw in statuses:
+            with self.subTest(status=raw):
+                self.log.write_text(baseline.replace('| pending |', f'| {raw} |'))
+                before = self.log.read_bytes()
+                located = json.loads(self.run_writer('locate', '--tag', 'Example',
+                                                    '--file', str(self.doc), '--hash', record['hash']).stdout)
+                self.assertEqual(located['status'], 'confirmed')
+                self.assertEqual(located['raw_status'], raw)
+                self.assertEqual(located['proof'], record['proof'])
+                self.run_writer('check-flag', '--flag', str(flag))
+                self.assertEqual(self.log.read_bytes(), before)
+
+    def test_unknown_read_status_and_decorated_write_status_remain_errors(self):
+        record = self.attest()
+        baseline = self.log.read_text()
+        for raw in ['confirmed (invented)', 'confirmed [^note] junk', 'confirmed-ish']:
+            self.log.write_text(baseline.replace('| pending |', f'| {raw} |'))
+            before = self.log.read_bytes()
+            result = self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                     '--hash', record['hash'], ok=False)
+            self.assertIn('unrecognized provenance status', result.stderr)
+            self.assertEqual(self.log.read_bytes(), before)
+        self.log.write_text(baseline)
+        before = self.log.read_bytes()
+        for raw in ['confirmed (lite)', 'confirmed [^w28]', 'superseded', 'superseded (no proof)']:
+            result = self.append(record['hash'], status=raw, snapshot=record['snapshot'],
+                                 proof=record['proof'], ok=False)
+            self.assertIn('invalid choice', result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+
+    def test_decorated_status_with_missing_snapshot_reports_actual_evidence_gap(self):
+        record = self.attest()
+        self.log.write_text('\n'.join(line.replace('| pending |', '| confirmed [^relo2] |')
+                                      for line in self.log.read_text().splitlines()
+                                      if 'evidence: ' not in line) + '\n')
+        Path(record['snapshot']).unlink()
+        result = self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                 '--hash', record['hash'], ok=False)
+        self.assertIn('matching retained snapshot not found', result.stderr)
+
+    def test_historical_superseded_lookup_never_clears_pending_flag(self):
+        record = self.attest()
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n- 03 Projects/Example.md\n')
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-02.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True)
+            target.write_text('complete record'); self.attest(target)
+        self.run_writer('check-flag', '--flag', str(flag))
+        baseline = '\n'.join(line for line in self.log.read_text().splitlines()
+                             if not (record['hash'] in line and 'evidence: ' in line)) + '\n'
+        for raw in ['superseded', 'superseded [^relo3]']:
+            self.log.write_text(baseline.replace(f"`{record['hash']}` | pending |",
+                                                f"`{record['hash']}` | {raw} |"))
+            before = self.log.read_bytes()
+            located = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                                '--hash', record['hash']).stdout)
+            self.assertEqual(located['status'], 'superseded')
+            self.assertEqual(located['raw_status'], raw)
+            self.assertEqual(located['proof'], record['proof'])
+            self.run_writer('check-flag', '--flag', str(flag), ok=False)
+            self.assertTrue(flag.exists())
+            self.assertEqual(self.log.read_bytes(), before)
+        # The explicit historical no-proof qualifier permits snapshot-only lookup.
+        self.log.write_text('\n'.join(line for line in baseline.replace(f"`{record['hash']}` | pending |",
+                                                f"`{record['hash']}` | superseded (no proof) |").splitlines()
+                                      if not (record['hash'] in line and 'evidence: ' in line)) + '\n')
+        Path(record['proof']).unlink()
+        before = self.log.read_bytes()
+        located = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                            '--hash', record['hash']).stdout)
+        self.assertEqual(located['status'], 'superseded')
+        self.assertIsNone(located['proof'])
+        self.run_writer('check-flag', '--flag', str(flag), ok=False)
+        self.assertTrue(flag.exists())
+        self.assertEqual(self.log.read_bytes(), before)
+        self.log.write_text(self.log.read_text().replace('| superseded (no proof) |', '| superseded |'))
+        self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                        '--hash', record['hash'], ok=False)  # ordinary superseded still requires proof
+
+    def test_same_tag_rehash_accepts_decorated_confirmed_attestation(self):
+        record = self.attest()
+        self.log.write_text(self.log.read_text().replace('| pending |', '| confirmed (lite) [^relo3] |'))
+        before = self.log.read_bytes()
+        self.doc.write_bytes(b'new version for rehash')
+        updated = self.attest(None, '--supersedes', record['hash'])
+        self.assertNotEqual(updated['hash'], record['hash'])
+        self.assertTrue(self.log.read_bytes().startswith(before))
+        self.assertIn(f"supersedes `{record['hash']}`", self.log.read_text())
+
     def test_pending_requires_exact_snapshot_and_matching_proof(self):
         digest = hashlib.sha256(self.doc.read_bytes()).hexdigest()[:16]
         snap = self.artifacts / f'2026-01-02-example-{digest}.snapshot.md'
