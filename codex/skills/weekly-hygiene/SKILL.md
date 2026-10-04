@@ -99,7 +99,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Resolve in-session (non-draft content):**
    - After draft sections are resolved above, exclude correctly filed retained tasks per the task-home integration rule, then present remaining unprocessed scratchpad content to user and offer to triage during the sweep. Do NOT offer blanket scratchpad clearing while unresolved draft sections remain.
-   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of each scratchpad file with remaining unprocessed content. Open tasks retained in a mapped home alone do not justify a marker.
+   - **If user declines:** add `⚠ Hygiene Wnn: NL, first flagged Wnn — triage needed → [[06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn|Hygiene Wnn]]` at the top of each scratchpad file with remaining unprocessed content, via `locked-edit.sh --replace` on the file's first line (replace it with the marker line plus that same first line; the wrapper has no prepend mode). Open tasks retained in a mapped home alone do not justify a marker.
 
    **⛔ Never derive the staleness figure from mtime** (`_shared-rules.md` §22 — this is its marker-specific case). Writing the marker rewrites the file, which resets its mtime — so a "days since last edit" number computed from `stat` measures *the last time this check wrote a marker*, not the last time the user touched the file. It resets to ~0 every sweep and shrinks as the file gets staler, inverting the metric it exists to report. Sibling of the auto-date reflex: the timestamp is available, plausible, and measuring the wrong event.
 
