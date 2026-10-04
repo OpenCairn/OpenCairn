@@ -69,7 +69,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Fixed-format required output makes skipping visible** — long-standing instruction, recurring silent skip. → `_shared-rules-planning.md §9`, `_shared-rules.md §19`, `_shared-rules.md §22`, `goodnight` Step 10
 - **One section, one owner; the second writer appends** — a delegated seat's view is frozen at its read. → `park` Step 9, `goodnight` Step 15(c)
 - **Gate a sub-agent on collection, not on despatch mode** — foreground is not yours to control; the completion notification is the only finish signal. → `park` Steps 8-9, `goodnight` Step 15(c), `ocr` capture loop
-- **Verbatim text vs in-place formatting hook** — hook rewrites whole file; append via shell, never re-Edit. → `_shared-rules-content.md §14`, `archive-transcript`, `park` Step 2(b)
+- **Exact external text and citation fidelity** — stage intended bytes, save under the lock and compare after writing; prove formatter exclusions when needed. → `_shared-rules-content.md §14`, `archive-transcript`, `park` Step 2(b)
 - **Dedupe keyed on canonical source URL** — fixed-string URL grep catches retitled duplicates. → `archive-transcript` Phase 3, `archive-article` Phase 4
 - **Frozen content excluded by path, not discipline** — put byte-exact copies beyond auto-rewriters' reach. → `_shared-rules-content.md §14`, `provenance` Step 5
 - **Preimage snapshot before hashing a living doc** — a hash without its bytes proves nothing later. → `provenance` Step 5, `goodnight` Step 17

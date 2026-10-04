@@ -27,7 +27,7 @@ Skills spanning these operations load the corresponding sections when needed. Re
 | 11 | Scratchpad Work-Product Protection | [_shared-rules.md](_shared-rules.md) |
 | 12 | Grep-hit triage (reference-graph / Layer-3 propagation) | [_shared-rules.md](_shared-rules.md) |
 | 13 | Cite Vault Items by Stable Identifier, Not Line Number | [_shared-rules.md](_shared-rules.md) |
-| 14 | Verbatim External Text vs In-Place Formatting Hooks | [_shared-rules-content.md](_shared-rules-content.md) |
+| 14 | Verbatim External Text and Citation Fidelity | [_shared-rules-content.md](_shared-rules-content.md) |
 | 15 | Published-Transcript Extraction (fetch a verbatim body to a file) | [_shared-rules-content.md](_shared-rules-content.md) |
 | 16 | Out-of-Band Evidence in Reviewer Briefs | [_shared-rules-reviewer.md](_shared-rules-reviewer.md) |
 | 17 | Push-Side Hub Record (commits are their own identifier class) | [_shared-rules.md](_shared-rules.md) |
@@ -335,7 +335,7 @@ Heading anchors remain correct for **stable** docs (project hubs, guides, refere
 
 ---
 
-## 14. Verbatim External Text vs In-Place Formatting Hooks
+## 14. Verbatim External Text and Citation Fidelity
 
 Moved to [_shared-rules-content.md §14](_shared-rules-content.md). Read that section before applying it.
 
