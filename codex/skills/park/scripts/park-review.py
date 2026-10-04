@@ -186,6 +186,23 @@ def prepare_artifact(root: Path, vault: Path, source: Path, original: Path) -> d
     return receipt
 
 
+def forward_link_proof(vault: Path, path: Path, sid: str) -> dict | None:
+    candidates = [vault / '.claude/scripts/add-forward-link.sh',
+        Path(os.environ.get('CLAUDE_CONFIG_DIR', Path.home() / '.claude')) / 'scripts/add-forward-link.sh',
+        Path(__file__).resolve().parents[4] / '.claude/scripts/add-forward-link.sh']
+    helper = next((p for p in candidates if p.is_file()), None)
+    if helper is None:
+        return None
+    run = subprocess.run(['bash', str(helper), '--find-proof', str(path), sid],
+                         text=True, capture_output=True, check=False)
+    if run.returncode:
+        return None
+    try:
+        return json.loads(run.stdout)
+    except ValueError:
+        return None
+
+
 def semantic_review_copy(
     root: Path, vault: Path, source: Path, data: bytes, classification: dict | None
 ) -> tuple[str, Path, Path, str, str, str]:
@@ -1438,6 +1455,19 @@ def cmd_build(args: argparse.Namespace) -> int:
         snapshot_at = snapshot_times[path]
         digest = sha256_bytes(data)
         classification = classifications.get(str(path))
+        if classification is None and path != log and path not in created:
+            proof = forward_link_proof(vault, path, sid)
+            if proof and proof['post_sha256'] == digest and not lint_errors(proof['inserted_line']):
+                verification = {'ok': True, 'failures': [], 'replacements': [],
+                    'targets': [target_check(p['target_log'], vault) for p in proof['receipts']],
+                    'separator_clean': True, 'lint_clean': True,
+                    'accepted_inherited_lint': bool(lint_errors(decode_utf8(data, path))),
+                    'receipts': [{'path': p['receipt_path'],
+                        'pre_sha256': p['pre_sha256'], 'post_sha256': p['post_sha256'],
+                        'changed_ranges': [{'insertion_offset': p['insertion_offset']}],
+                        'unified_diff': '+ ' + p['inserted_line']} for p in proof['receipts']]}
+                mechanical.append({'path': str(path), 'sha256': digest, 'verification': verification})
+                continue
         if isinstance(classification, dict) and (
             classification.get("mode") == "reference"
             or (

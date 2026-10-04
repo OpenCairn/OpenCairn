@@ -38,6 +38,18 @@ def lexical(raw, vault):
     return str(Path(os.path.abspath(p if p.is_absolute() else vault / p)))
 
 
+def forward_link_proof(path, sid):
+    helper = Path(__file__).with_name('add-forward-link.sh')
+    run = subprocess.run(['bash', str(helper), '--find-proof', str(path), sid],
+                         capture_output=True, text=True, check=False)
+    if run.returncode:
+        return None
+    try:
+        return json.loads(run.stdout)
+    except ValueError:
+        return None
+
+
 def session_block(text, number):
     starts = list(re.finditer(rf'^## Session {number} - .*$', text, re.M))
     if len(starts) != 1:
@@ -83,7 +95,9 @@ def file_rows(sections, vault, coverage):
             existing = next((r for r in rows if r['path'] == key), None)
             alias = name if kind == 'nonlocal' else lexical(name, vault)
             if existing is None:
-                rows.append({'path': key, 'raw': name, 'aliases': [alias], 'deleted': heading == 'Files Deleted'})
+                rows.append({'path': key, 'raw': name, 'aliases': [alias],
+                             'deleted': heading == 'Files Deleted',
+                             'created': heading == 'Files Created'})
             elif alias not in existing['aliases']:
                 existing['aliases'].append(alias)
     return rows
@@ -192,8 +206,17 @@ def prepare(args, data):
             digest = sha(path)
             checks[str(path)] = digest
             chunks.append(f'## File: {path}\n\nSHA-256: `{digest}`')
+            proof = forward_link_proof(path, sid) if not item and path != log and not row['created'] else None
             if path == log:
                 chunks.append('Review the Session record above; other sessions are outside scope.')
+            elif proof and proof['post_sha256'] == digest:
+                for entry in proof['receipts']:
+                    receipt_path = Path(entry['receipt_path'])
+                    snapshot = Path(entry['pre_snapshot'])
+                    checks[str(receipt_path)] = entry['receipt_sha256']
+                    checks[str(snapshot)] = entry['pre_sha256']
+                chunks.append('Mechanical forward-link insertion only; producer proof reconstructed the entire delta.\n\n'
+                              + json.dumps(proof, ensure_ascii=False, indent=2))
             elif item.get('kind') in {'reference', 'large'}:
                 if item['receipt'] == 'auto':
                     generated = command(f'artifact-{index}', [sys.executable,

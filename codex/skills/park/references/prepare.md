@@ -5,6 +5,15 @@ backfill are complete. This batches already-decided mechanical work; it does
 not replace the quality pass, propagation review, source checks or independent
 audit. Keep early evidence capture at the point the evidence becomes available.
 
+Unclassified older session logs changed only by `add-forward-link.sh` can use
+its mechanical producer proof automatically. The shared verifier checks the
+saved preimage, exact insertion, source/target session context and current hash;
+the session ledger must name only producer operations for the path, backed by a
+complete before/after hash chain ending at current bytes. Existing explicit
+classifications take precedence. Changed/invalid proofs or intervening other
+writes fall back to normal classification. The current session log never
+uses this automatic whole-file shortcut.
+
 Begin each full Park invocation once, before capturing or classifying inputs:
 
 ```bash
