@@ -79,12 +79,17 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
         return shown.stderr.strip().rsplit(" ", 1)[-1]
 
     def run_delete(
-        self, heading: str, replacement: str = "", sha: str | None = None
+        self,
+        heading: str,
+        replacement: str = "",
+        sha: str | None = None,
+        no_replacement: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         if sha is None:
             sha = self.section_sha(heading)
+        flag = ["--no-replacement"] if no_replacement else []
         return subprocess.run(
-            [str(SCRIPT), str(self.target), "--delete-section", heading, sha],
+            [str(SCRIPT), str(self.target), "--delete-section", heading, sha, *flag],
             input=replacement,
             check=False,
             capture_output=True,
@@ -110,8 +115,24 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
         self.assertEqual(result.stdout, MONDAY + "\n")
         self.assertIn("Locked edit applied", result.stderr)
 
-    def test_empty_stdin_deletes_the_section_and_its_trailing_blank_lines(self) -> None:
-        result = self.run_delete("## Mon 1 — Deep work")
+    def test_empty_stdin_without_the_flag_is_refused(self) -> None:
+        for replacement in ("", " \n\n"):
+            with self.subTest(replacement=replacement):
+                result = self.run_delete("## Mon 1 — Deep work", replacement)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("--no-replacement", result.stderr)
+                self.assertEqual(self.text(), PLAN)
+                self.assertEqual(result.stdout, "")
+
+    def test_no_replacement_with_a_replacement_on_stdin_is_refused(self) -> None:
+        result = self.run_delete("## Mon 1 — Deep work", "## Mon 1 ✅\n", no_replacement=True)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(self.text(), PLAN)
+        self.assertEqual(result.stdout, "")
+
+    def test_no_replacement_deletes_the_section_and_its_trailing_blank_lines(self) -> None:
+        result = self.run_delete("## Mon 1 — Deep work", no_replacement=True)
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(
@@ -136,7 +157,7 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        result = self.run_delete("### Morning")
+        result = self.run_delete("### Morning", no_replacement=True)
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.text(), "## Day\n\n## Next\n- c\n")
@@ -179,7 +200,7 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
     def test_heading_inside_a_code_fence_is_not_a_section(self) -> None:
         self.target.write_text("# Top\n\n```\n## Fenced\n```\n", encoding="utf-8")
 
-        result = self.run_delete("## Fenced")
+        result = self.run_delete("## Fenced", no_replacement=True)
 
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(self.text(), "# Top\n\n```\n## Fenced\n```\n")
@@ -209,7 +230,7 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
         duplicated = PLAN + "\n## Mon 1 — Deep work\n- again\n"
         self.target.write_text(duplicated, encoding="utf-8")
 
-        result = self.run_delete("## Mon 1 — Deep work")
+        result = self.run_delete("## Mon 1 — Deep work", no_replacement=True)
 
         self.assertEqual(result.returncode, 3, result.stderr)
         self.assertEqual(self.text(), duplicated)
@@ -218,7 +239,7 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
     def test_rejects_arguments_that_are_not_one_heading_line(self) -> None:
         for heading in ("Mon 1 — Deep work", "##Mon", "## Mon\n## Tue", "####### Seven", ""):
             with self.subTest(heading=heading):
-                result = self.run_delete(heading)
+                result = self.run_delete(heading, no_replacement=True)
                 self.assertEqual(result.returncode, 1, result.stderr)
                 self.assertEqual(self.text(), PLAN)
 
