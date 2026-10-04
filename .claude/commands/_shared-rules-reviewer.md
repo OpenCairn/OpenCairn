@@ -87,9 +87,9 @@ A short count means the brief is incomplete, not the work wrong.
 
 ### Scope, size, and the seats
 
-- **"Relevant text" means the passages the claims rest on** — not whole documents. Quote the load-bearing passage; cap each source at roughly 500 words.
+- **Quote the passages the claims rest on.** Embed short sources whole (roughly 500 words or less). For longer sources, quote the load-bearing passages; if they exceed that cap, use the attachment route below.
 - **Mind the transport.** `/audit` and `/second-opinion` pipe the brief into CLI seats with differing context windows, under a requirement that the payload be identical across seats. An uncapped dump can silently truncate in one seat — reproducing the partial-evidence false positives this rule exists to prevent, now invisibly. If the evidence exceeds the budget, attach it as a file path all seats can read (§10's `--include-directories` / `-C`) rather than inlining it.
-- **Coverage is per claim:** include each supporting passage, including earlier excerpts from a source fetched again, action confirmations and relevant limitations. Reconcile the source union immediately before despatch with later tool results and user corrections. Name failed retrievals as partial coverage; source-count equality cannot prove completeness.
+- **Coverage is per claim:** for each claim traced to a source, locate its supporting passage in the embedded excerpt. Include earlier passages from a source fetched again, action confirmations and relevant limitations. Reconcile the source union immediately before despatch with later tool results and user corrections. Name failed retrievals as partial coverage; source-count equality cannot prove completeness.
 - **Conflicting sources:** where two disagree and the work picked one, say which won and why — otherwise the reviewer re-litigates a settled question.
 
 ### A never-opened citation is closed by opening it, not by declaring it
