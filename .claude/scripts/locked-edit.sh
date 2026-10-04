@@ -11,6 +11,7 @@
 # Usage:
 #   locked-edit.sh <file> --replace       (stdin: OLD <SEP> NEW; OLD must match exactly once)
 #   locked-edit.sh <file> --replace-all   (stdin: OLD <SEP> NEW; replaces every occurrence, >=1)
+#   locked-edit.sh <file> --replace-many  (stdin: JSON array of {"old","new"} pairs; each OLD must match exactly once)
 #   locked-edit.sh <file> --append        (stdin appended verbatim at end of file)
 #   locked-edit.sh <file> --replace-whole <expected-sha256|MISSING>
 #                                            (stdin: complete replacement file)
@@ -21,6 +22,18 @@
 #   ========OPENCAIRN-LOCKED-EDIT-SEP========
 # then the new string. (A literal separator line must not appear inside content;
 # it won't in normal vault prose.) Matching is LITERAL, never regex.
+#
+# --replace-many applies several exactly-once replacements under ONE lock
+# acquisition and ONE atomic write. stdin is a JSON array of objects, each with
+# exactly the string keys "old" and "new":
+#   [{"old": "- [ ] first", "new": "- [x] first"}, {"old": "two\nlines", "new": ""}]
+# JSON carries newlines and arbitrary characters (including the separator line)
+# and nothing is trimmed: both strings are taken exactly as decoded. Every OLD
+# is matched literally against the file as it stood before the call - pairs do
+# not see each other's output - must be non-empty, must match exactly once, and
+# must not overlap another pair's match. Any failure leaves the file untouched,
+# names each failing pair by its 1-based position, and exits with the first
+# failing pair's code.
 #
 # --replace-whole is a compare-and-swap for generated files whose content may
 # itself contain the separator line. The caller reads a snapshot, supplies its
@@ -34,11 +47,14 @@
 # Obsidian CLI to perform the move, then verifies the resulting paths, content
 # hash, and path-qualified links. It never falls back to a raw filesystem move.
 #
-# Exit codes: 0 ok · 1 usage/lock/CLI/result error · 2 no match/stale snapshot · 3 ambiguous (>1 match under --replace)
+# Exit codes: 0 ok · 1 usage/lock/CLI/result error · 2 no match/stale snapshot ·
+#             3 ambiguous (>1 match under --replace/--replace-many, or overlapping --replace-many pairs)
 #
 # With a harness session id, every successful content-edit operation writes one JSON
 # receipt under $CLAUDE_CONFIG_DIR/.session-state/<id>.locked-edit-receipts/.
 # It carries pre/post hashes, exact replace payloads and bounded changed spans;
+# --replace-many writes one chained --replace-shaped receipt per pair (tagged
+# "invoked_mode"), so each pair is reviewable exactly like a single --replace;
 # $park uses those receipts to review mechanical locator edits without rereading
 # the whole file. Receipt bookkeeping fails open and never reverses a landed edit.
 #
@@ -54,7 +70,7 @@ source "$(dirname "$0")/lib-session.sh"
 SEP='========OPENCAIRN-LOCKED-EDIT-SEP========'
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <file> --replace|--replace-all|--append|--replace-whole|--move [argument]" >&2
+    echo "Usage: $0 <file> --replace|--replace-all|--replace-many|--append|--replace-whole|--move [argument]" >&2
     exit 1
 fi
 
@@ -64,7 +80,7 @@ EXPECTED_SNAPSHOT=""
 MOVE_DESTINATION=""
 
 case "$MODE" in
-    --replace|--replace-all|--append) ;;
+    --replace|--replace-all|--replace-many|--append) ;;
     --replace-whole)
         if [ $# -ne 3 ]; then
             echo "--replace-whole requires expected-sha256 or MISSING" >&2
@@ -80,7 +96,7 @@ case "$MODE" in
         MOVE_DESTINATION="$3"
         EXPECTED_SNAPSHOT="$4"
         ;;
-    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --append, --replace-whole, or --move)" >&2; exit 1 ;;
+    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --replace-many, --append, --replace-whole, or --move)" >&2; exit 1 ;;
 esac
 
 if command -v python3 &>/dev/null; then
@@ -692,7 +708,7 @@ fi
 # heredoc-added newline is then trimmed explicitly below, where it can be reasoned about.
 STDIN_FILE="$(mktemp "${TMPDIR:-/tmp}/locked-edit-stdin.XXXXXX")"
 RECEIPT_TMP="$(mktemp "${TMPDIR:-/tmp}/locked-edit-receipt.XXXXXX")"
-trap 'rm -f "$STDIN_FILE" "$RECEIPT_TMP"' EXIT
+trap 'rm -f "$STDIN_FILE" "$RECEIPT_TMP" "$RECEIPT_TMP".*' EXIT
 cat > "$STDIN_FILE"
 
 LOCK_FILE="$(_lock_path_for "$TARGET")"
@@ -745,6 +761,8 @@ def atomic_write(path, data):
         except OSError: pass
         raise
 
+receipt_clock = datetime.datetime.now(datetime.timezone.utc)
+
 def receipt_text(value, limit=65536):
     if value is None:
         return None, False
@@ -766,8 +784,15 @@ def lint_fingerprint(text):
                 blank_run_count += 1
     return [f"joined-list-count:{joined_count}", f"blank-run-count:{blank_run_count}"]
 
-def write_receipt(before, after, old_text=None, new_text=None, occurrences=None):
-    """Write evidence before the target mutation; failure is deliberately non-fatal."""
+def write_receipt(before, after, old_text=None, new_text=None, occurrences=None,
+                  position=None, batch_index=None):
+    """Write evidence before the target mutation; failure is deliberately non-fatal.
+
+    `position` pins a single replacement to a known offset instead of the first
+    literal occurrence. `batch_index` marks one pair of a multi-pair call: the
+    receipt is recorded as the single --replace it is equivalent to, in its own
+    file, with a timestamp that preserves the pair order.
+    """
     try:
         before_bytes = before if isinstance(before, bytes) else before.encode()
         after_bytes = after if isinstance(after, bytes) else after.encode()
@@ -783,7 +808,7 @@ def write_receipt(before, after, old_text=None, new_text=None, occurrences=None)
             before_offset = 0
             line_delta = 0
             for _ in range(occurrences or 1):
-                before_pos = before_text.find(old_text, before_offset)
+                before_pos = before_text.find(old_text, before_offset) if position is None else position
                 if before_pos < 0:
                     break
                 before_start = before_text.count("\n", 0, before_pos) + 1
@@ -832,11 +857,12 @@ def write_receipt(before, after, old_text=None, new_text=None, occurrences=None)
             diff = diff[:65536] + "\n[diff truncated]\n"
         old_value, old_truncated = receipt_text(old_text)
         new_value, new_truncated = receipt_text(new_text)
+        captured = receipt_clock + datetime.timedelta(microseconds=batch_index or 0)
         payload = {
             "schema": 1,
-            "captured_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
+            "captured_at": captured.isoformat(timespec="microseconds"),
             "target": os.path.realpath(os.path.abspath(target)),
-            "mode": mode,
+            "mode": mode if batch_index is None else "--replace",
             "pre_sha256": hashlib.sha256(before_bytes).hexdigest() if os.path.exists(target) else "MISSING",
             "post_sha256": hashlib.sha256(after_bytes).hexdigest(),
             "pre_lint": lint_fingerprint(before_text),
@@ -851,7 +877,11 @@ def write_receipt(before, after, old_text=None, new_text=None, occurrences=None)
             "unified_diff": diff,
             "diff_truncated": diff_truncated,
         }
-        with open(os.environ["_LE_RECEIPT_FILE"], "w", encoding="utf-8") as handle:
+        receipt_file = os.environ["_LE_RECEIPT_FILE"]
+        if batch_index is not None:
+            payload["invoked_mode"] = mode
+            receipt_file += ".%04d" % batch_index
+        with open(receipt_file, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False)
             handle.write("\n")
     except Exception as exc:
@@ -898,6 +928,71 @@ if mode == "--append":
     after = (existing + stdin).encode("utf-8")
     write_receipt(before_bytes, after)
     atomic_write(target, after)
+    sys.exit(0)
+
+if mode == "--replace-many":
+    def usage(message):
+        sys.stderr.write("--replace-many: %s\n" % message)
+        sys.exit(1)
+
+    try:
+        pairs = json.loads(stdin)
+    except ValueError as exc:
+        usage("stdin is not valid JSON (%s)" % exc)
+    if not isinstance(pairs, list) or not pairs:
+        usage('stdin must be a non-empty JSON array of {"old", "new"} objects')
+    total = len(pairs)
+    for number, pair in enumerate(pairs, 1):
+        if (not isinstance(pair, dict) or set(pair) != {"old", "new"}
+                or not isinstance(pair["old"], str) or not isinstance(pair["new"], str)):
+            usage('pair %d of %d must be an object with exactly the string keys "old" and "new"'
+                  % (number, total))
+        if not pair["old"]:
+            usage("pair %d of %d has an empty old string" % (number, total))
+
+    if not os.path.exists(target):
+        sys.stderr.write("Target file does not exist: %s\n" % target)
+        sys.exit(2)
+    content = before_bytes.decode("utf-8")
+
+    def label(number, old):
+        shown = old if len(old) <= 60 else old[:60] + "..."
+        return "pair %d of %d (%s)" % (number, total, json.dumps(shown, ensure_ascii=False))
+
+    # Validate every pair against the untouched content before changing anything.
+    failure = 0
+    matches = []
+    for number, pair in enumerate(pairs, 1):
+        count = content.count(pair["old"])
+        if count == 0:
+            sys.stderr.write("%s: old_string not found in %s\n" % (label(number, pair["old"]), target))
+            failure = failure or 2
+        elif count > 1:
+            sys.stderr.write("%s: old_string matched %d times in %s (make it unique)\n"
+                             % (label(number, pair["old"]), count, target))
+            failure = failure or 3
+        else:
+            matches.append((content.find(pair["old"]), number, pair["old"], pair["new"]))
+    if not failure:
+        matches.sort()
+        for (start, number, old, _), (next_start, next_number, _, _) in zip(matches, matches[1:]):
+            if start + len(old) > next_start:
+                first, second = sorted((number, next_number))
+                sys.stderr.write("pairs %d and %d overlap in %s (merge them into one pair)\n"
+                                 % (first, second, target))
+                failure = 3
+    if failure:
+        sys.stderr.write("No changes written to %s\n" % target)
+        sys.exit(failure)
+
+    # Splice from the end of the file backwards so earlier offsets stay valid
+    # and each intermediate state is exactly one --replace away from the next.
+    state = content
+    for index, (start, _, old, new) in enumerate(reversed(matches)):
+        following = state[:start] + new + state[start + len(old):]
+        write_receipt(state, following, old, new, 1, position=start, batch_index=index)
+        state = following
+    atomic_write(target, state.encode("utf-8"))
     sys.exit(0)
 
 # --replace / --replace-all: split stdin into OLD and NEW on the separator line.
@@ -982,11 +1077,14 @@ if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
     # its propagation agent edit concurrently. Receipt failure stays fail-open:
     # the target edit has already landed, so a bookkeeping problem is a warning,
     # never a false non-zero edit result.
-    if [ -s "$RECEIPT_TMP" ]; then
+    # --replace-many leaves one numbered receipt file per pair beside the
+    # (then empty) single-receipt file.
+    for _RECEIPT_SRC in "$RECEIPT_TMP" "$RECEIPT_TMP".*; do
+        [ -s "$_RECEIPT_SRC" ] || continue
         _RECEIPT_DIR="$_LEDGER_DIR/$_LE_SID.locked-edit-receipts"
         if mkdir -p "$_RECEIPT_DIR" 2>/dev/null; then
             _RECEIPT_DEST="$(mktemp "$_RECEIPT_DIR/receipt.XXXXXXXX" 2>/dev/null || true)"
-            if [ -n "$_RECEIPT_DEST" ] && mv "$RECEIPT_TMP" "$_RECEIPT_DEST" 2>/dev/null; then
+            if [ -n "$_RECEIPT_DEST" ] && mv "$_RECEIPT_SRC" "$_RECEIPT_DEST" 2>/dev/null; then
                 :
             else
                 echo "WARNING: locked-edit receipt could not be stored for $TARGET" >&2
@@ -994,7 +1092,7 @@ if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
         else
             echo "WARNING: locked-edit receipt directory unavailable for $TARGET" >&2
         fi
-    fi
+    done
 fi
 
 if [ "$RC" -eq 0 ]; then
