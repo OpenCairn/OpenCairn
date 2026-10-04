@@ -49,7 +49,13 @@ Compare the draft's `SNAPSHOT-LEDGER-LINES: K` against `LEDGER NOW`. K is the ex
 
 Either way the draft is a cheap artefact, not authority: anything in it that a file you read this session contradicts loses. Bare and escalated parks run Steps 2, 4–5 and 8–11 in full; an eligible explicit quick park follows the checked branch below. A parboil trigger that fires after this park has begun is satisfied by the active park; do not write or refresh a shadow snapshot mid-park.
 
-**Full-path evidence receipts.** Do not create evidence or pre-state receipts before the explicit quick gate. If quick mode escalates—or the invocation is not exactly `--quick`—capture source text for Step 9 using §16's source-size and per-claim coverage rules instead of reconstructing it later:
+**Full-path evidence receipts.** Do not create evidence or pre-state receipts before the explicit quick gate. When entering the full path (bare Park or a quick escalation), begin a fresh run once before any capture, classification or preparation:
+
+```bash
+python3 "$PARK_REVIEW" begin-run
+```
+
+This retains earlier runs under the real harness session ID, including same-session re-parks and merged entries. Keep the active generation throughout remediation and re-audit; do not begin another on a retry. Prior clean file audits remain reusable only while their hashes match. Then capture source text for Step 9 using §16's source-size and per-claim coverage rules instead of reconstructing it later:
 
 ```bash
 python3 "$PARK_REVIEW" capture --kind prestate --label "<what this establishes>" --source "<path/tool>" <<'EOF'

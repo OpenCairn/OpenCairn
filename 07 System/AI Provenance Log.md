@@ -1,6 +1,6 @@
 # AI Provenance Log
 
-Cryptographic audit trail for AI collaboration. Each entry logs a SHA256 hash of the file at time of logging. Integrity is verified by `/weekly-hygiene` (step 14b). Append-only: rows are never rewritten — a re-hash appends a new row and the old row's OTS column becomes `superseded`.
+Cryptographic audit trail for AI collaboration. Each entry logs the first 16 hexadecimal characters of a file's SHA256 digest. Integrity is verified by `/weekly-hygiene` (step 13b). All writes use the validated provenance writer; re-hashes append a new attestation and a separate supersession relationship without rewriting earlier rows.
 
 For academic disclosure and audit defence. See `/provenance` for details.
 
