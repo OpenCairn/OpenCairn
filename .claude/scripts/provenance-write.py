@@ -22,6 +22,33 @@ SCRIPTS = Path(__file__).resolve().parent
 STATUSES = ('pending', 'confirmed', 'none (ots unavailable)', 'none (stamp failed)')
 
 
+def status_without_footnotes(raw: str) -> str:
+    # Only trailing Markdown references decorate historical status cells.
+    return re.sub(r'(?:\s*\[\^[^\]\r\n]+\])+\s*$', '', raw).strip()
+
+
+def read_status(raw: str) -> str:
+    """Normalise known historical display forms; write CLI stays strict."""
+    status = status_without_footnotes(raw)
+    status = {'confirmed (lite)': 'confirmed',
+              'superseded (no proof)': 'superseded'}.get(status, status)
+    if status not in (*STATUSES, 'superseded'):
+        raise ValueError(f'unrecognized provenance status: {raw!r}')
+    return status
+
+
+def read_attestations(recorded: list[list[str]], tag: str, rel: str, value: str) -> list[list[str]]:
+    result = []
+    for row in recorded:
+        if row[1:4] != [tag, rel, f'`{value}`']:
+            continue
+        if row[4].startswith('evidence: ') or re.fullmatch(r'supersedes `[0-9a-f]{16}`', row[4]):
+            continue
+        read_status(row[4])  # Unknown forms fail closed instead of hiding behind an older row.
+        result.append(row)
+    return result
+
+
 def short_hash(value: str) -> str:
     if not re.fullmatch(r'[0-9a-f]{16}', value):
         raise ValueError('hash must be exactly 16 lowercase hexadecimal characters')
@@ -69,15 +96,17 @@ def proof_matches(proof: Path, snapshot: Path) -> bool:
     return info.returncode == 0 and bool(found) and found.group(1).lower() == digest(snapshot)
 
 
-def validate_evidence(vault: Path, value: str, status: str, snapshot: Path, proof: Path | None) -> None:
+def validate_evidence(vault: Path, value: str, status: str, snapshot: Path, proof: Path | None,
+                      allow_historical_no_proof: bool = False) -> None:
     short_hash(value)
     snapshot = snapshot.resolve()
     snapshot.relative_to(vault / '07 System/.Provenance')
     if '.snapshot' not in snapshot.name or not snapshot.is_file() or digest(snapshot)[:16] != value:
         raise ValueError('matching byte-exact provenance snapshot required')
-    if proof is not None or status in ('pending', 'confirmed'):
+    proof_required = status in ('pending', 'confirmed') or (status == 'superseded' and not allow_historical_no_proof)
+    if proof is not None or proof_required:
         if proof is None:
-            raise ValueError('pending/confirmed requires an existing matching .ots proof')
+            raise ValueError('attestation requires an existing matching .ots proof')
         proof = proof.resolve()
         proof.relative_to(vault)
         if proof.suffix != '.ots' or not proof_matches(proof, snapshot):
@@ -95,12 +124,12 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
     existing = rows(log)
     if supersedes:
         short_hash(supersedes)
-        if supersedes == value or not any(r[1:4] == [tag, rel, f'`{supersedes}`'] and r[4] in STATUSES for r in existing):
+        if supersedes == value or not read_attestations(existing, tag, rel, supersedes):
             raise ValueError('superseded attestation must exist for this tag/file and a different hash')
     timestamp = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     additions = []
-    attestations = [r for r in existing if r[1:4] == [tag, rel, f'`{value}`'] and r[4] in STATUSES]
-    if not attestations or attestations[-1][4] != status:
+    attestations = read_attestations(existing, tag, rel, value)
+    if not attestations or read_status(attestations[-1][4]) != status:
         additions.append(f'| {timestamp} | {tag} | {rel} | `{value}` | {status} |\n')
     relationship = f'supersedes `{supersedes}`' if supersedes else None
     if relationship and not any(r[1:] == [tag, rel, f'`{value}`', relationship] for r in existing):
@@ -145,8 +174,8 @@ def attest(vault: Path, args: argparse.Namespace) -> dict:
         raise ValueError(f'missing target: {rel}')
     if args.supersedes:
         short_hash(args.supersedes)
-        if not any(r[1:4] == [args.tag, rel, f'`{args.supersedes}`'] and r[4] in STATUSES
-                   for r in rows(vault / '07 System/AI Provenance Log.md')):
+        if not read_attestations(rows(vault / '07 System/AI Provenance Log.md'),
+                                 args.tag, rel, args.supersedes):
             raise ValueError('superseded attestation not found for this tag/file')
     with tempfile.TemporaryDirectory(prefix='opencairn-provenance-') as temporary:
         staging = Path(temporary)
@@ -182,8 +211,8 @@ def attest(vault: Path, args: argparse.Namespace) -> dict:
             if not proof_matches(proof, snapshot):
                 raise ValueError('existing proof does not match snapshot; refusing to overwrite')
             # Preserve a previously confirmed status; stamping is not verification.
-            status = 'confirmed' if any(r[1:] == [args.tag, rel, f'`{value}`', 'confirmed']
-                                        for r in rows(vault / '07 System/AI Provenance Log.md')) else 'pending'
+            previous = read_attestations(rows(vault / '07 System/AI Provenance Log.md'), args.tag, rel, value)
+            status = 'confirmed' if previous and read_status(previous[-1][4]) == 'confirmed' else 'pending'
         elif shutil.which('ots'):
             stamped = subprocess.run(['ots', 'stamp', str(preimage)], stdout=sys.stderr)
             staged_proof = Path(str(preimage) + '.ots')
@@ -201,10 +230,12 @@ def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
     cell(tag)
     matching = [r for r in rows(vault / '07 System/AI Provenance Log.md')
                 if r[1:4] == [tag, rel, f'`{value}`']]
-    attestations = [r for r in matching if r[4] in STATUSES]
+    attestations = read_attestations(matching, tag, rel, value)
     if not attestations:
         raise ValueError('attestation not found for tag/file/hash')
-    status = attestations[-1][4]
+    raw_status = attestations[-1][4]
+    status = read_status(raw_status)
+    no_proof = status_without_footnotes(raw_status) == 'superseded (no proof)'
     locators = [r[4] for r in matching if r[4].startswith('evidence: ')]
     if locators:
         data = json.loads(locators[-1].removeprefix('evidence: '))
@@ -221,7 +252,7 @@ def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
         proof = vault / data['proof'] if data['proof'] else None
         # A broken selected locator is an integrity gap, not a reason to use
         # another proof that happens to share the same source digest.
-        validate_evidence(vault, value, status, snapshot, proof)
+        validate_evidence(vault, value, status, snapshot, proof, allow_historical_no_proof=no_proof)
         selection = 'annotation'
     else:
         artifacts = vault / '07 System/.Provenance'
@@ -230,7 +261,7 @@ def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
         if not snapshots:
             raise ValueError('matching retained snapshot not found')
         snapshot, proof = snapshots[0], None
-        if status in ('pending', 'confirmed'):
+        if status in ('pending', 'confirmed', 'superseded'):
             candidates = set(artifacts.glob(f'*-{value}.ots'))
             candidates.update(artifacts.glob(f'*-{value[:8]}.ots'))
             basename = Path(rel).name
@@ -240,19 +271,18 @@ def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
             candidates.update(artifacts / (p.name.split('.snapshot', 1)[0] + '.ots')
                               for p in snapshots)
             proofs = [p for p in sorted(candidates) if proof_matches(p, snapshot)]
-            if len(proofs) != 1:
+            if len(proofs) != 1 and not (no_proof and not proofs):
                 raise ValueError(f'{len(proofs)} matching legacy proofs; require an explicit evidence annotation')
-            proof = proofs[0]
-        validate_evidence(vault, value, status, snapshot, proof)
+            proof = proofs[0] if proofs else None
+        validate_evidence(vault, value, status, snapshot, proof, allow_historical_no_proof=no_proof)
         selection = 'legacy'
     return {'file': rel, 'hash': value, 'status': status, 'snapshot': str(snapshot),
-            'proof': str(proof) if proof else None, 'selection': selection}
+            'proof': str(proof) if proof else None, 'selection': selection, 'raw_status': raw_status}
 
 
 def evidence_for(vault: Path, tag: str, rel: str, value: str) -> bool:
     try:
-        locate(vault, tag, rel, value)
-        return True
+        return locate(vault, tag, rel, value)['status'] in STATUSES
     except (ValueError, OSError):
         return False
 
@@ -283,14 +313,12 @@ def check_flag(vault: Path, flag: Path) -> dict:
     session = f'06 Archive/OpenCairn/Session Logs/{day}.md'
     archived = f'06 Archive/OpenCairn/Session Logs/{day[:4]}/{day}.md'
     targets.append(archived if not (vault / session).exists() and (vault / archived).exists() else session)
-    recorded = rows(vault / '07 System/AI Provenance Log.md')
     missing = []
     for target in dict.fromkeys(targets):
         source = vault / target
         value = digest(source)[:16] if source.is_file() else None
         # A different tag's attestation or stale pre-export hash cannot clear this flag.
-        candidates = [r for r in recorded if r[1:4] == [tag, target, f'`{value}`'] and r[4] in STATUSES]
-        if not candidates or not evidence_for(vault, tag, target, value):
+        if value is None or not evidence_for(vault, tag, target, value):
             missing.append(target)
     return {'complete': not missing, 'flag': str(flag), 'missing': missing}
 
