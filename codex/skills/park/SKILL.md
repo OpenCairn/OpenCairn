@@ -65,7 +65,7 @@ Use `secondary` or `unverified` where §16 requires it. Add receipts as evidence
 
 ### 1. Merge-continuation check
 
-If this session directly continues a just-parked session dated today (a `$pickup` loaded it and the work finishes its loose end), `--quick` is ineligible: print `↪ --quick escalated to full park: merge-continuation`, then update the existing entry via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), and run Steps 2 and 4–11 against the merged session's N. **Reconcile the whole merged entry**, including surviving Summary, Key Insights, Next Steps and Pickup Context; confirm inherited artefact classifications still fit. A continuation on a later calendar date creates a new entry with a continuation link. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
+If this session directly continues a just-parked session dated today (a `$pickup` loaded it and the work finishes its loose end, or this same conversation already parked today and has worked on since), `--quick` is ineligible: print `↪ --quick escalated to full park: merge-continuation`, then update the existing entry via `update-session-section.sh <log> N <section> [--replace]` (append to Summary / Files sections; `--replace` for Next Steps and Pickup Context), and run Steps 2 and 4–11 against the merged session's N. **Reconcile the whole merged entry**, including surviving Summary, Key Insights, Next Steps and Pickup Context; confirm inherited artefact classifications still fit. A continuation on a later calendar date creates a new entry with a continuation link. **Escape hatch:** if the addendum would exceed ~2× the target's current summary or touch >3 files unrelated to its topic, start a new session instead — a session titled X that hides hours of Y is invisible to topic search. Completion: `✓ Merged into Session N — [what was added]`. Otherwise proceed normally.
 
 ### 2. Inventory and change classification
 
@@ -389,3 +389,5 @@ Parked.
 
 [Roughly 50 words summarising the preceding session.]
 ```
+
+Work done after this message is unparked: a further `$park` in the same conversation takes Step 1's merge path.
