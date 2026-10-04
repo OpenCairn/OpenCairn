@@ -65,6 +65,10 @@
 # hash must match. It holds both canonical file locks while asking the live
 # Obsidian CLI to perform the move, then verifies the resulting paths, content
 # hash, and path-qualified links. It never falls back to a raw filesystem move.
+# If the note did move but that verification fails (old links remain, or the
+# moved content differs), it still exits 1, and with a session id it keeps a
+# move receipt marked "complete": false with a "postcheck" reason, so the link
+# heals that did land stay individually verifiable.
 #
 # Exit codes: 0 ok · 1 usage/lock/CLI/result error · 2 no match/stale snapshot ·
 #             3 ambiguous (>1 match under --replace/--replace-many, overlapping --replace-many pairs,
@@ -446,6 +450,8 @@ PY
     fi
     MOVE_DEADLINE=$(( $(date +%s) + MOVE_SETTLE_TIMEOUT_SECONDS ))
     MOVE_COMPLETE=false
+    MOVE_VERIFY_RC=""
+    MOVE_POSTCHECK=""
     while [ "$(date +%s)" -le "$MOVE_DEADLINE" ]; do
         if [ ! -e "$MOVE_SOURCE_ABS" ] && [ -f "$MOVE_DESTINATION_ABS" ]; then
             export _LE_MOVE_REFS="$MOVE_REFS"
@@ -550,11 +556,21 @@ PY
             echo "Old path-qualified links remain:" >&2
             sed -n '1,20p' "$MOVE_REFS" >&2
         fi
-        exit 1
+        # A move that landed but failed its postcheck still falls through to
+        # the record step: the links that did heal are real edits, and without
+        # a receipt they could not be told apart from unreviewed changes.
+        if [ ! -e "$MOVE_SOURCE_ABS" ] && [ -f "$MOVE_DESTINATION_ABS" ]; then
+            case "$MOVE_VERIFY_RC" in
+                4) MOVE_POSTCHECK="old-links-remain" ;;
+                5) MOVE_POSTCHECK="destination-content-mismatch" ;;
+            esac
+        fi
+        [ -n "$MOVE_POSTCHECK" ] || exit 1
     fi
 
     # Structural moves bypass the ordinary content-edit tail below. Record the
     # endpoints plus each file whose observed delta is provably link healing.
+    # A receipt for a move that failed its postcheck is marked incomplete.
     _LE_SID="$(_session_id)"
     if [ -n "$_LE_SID" ]; then
         _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
@@ -567,6 +583,7 @@ PY
         mkdir -p "$_MOVE_RECEIPT_DIR" 2>/dev/null || true
         export _LE_MOVE_RECEIPT_DIR="$_MOVE_RECEIPT_DIR"
         export _LE_MOVE_LEDGER="$_LEDGER_DIR/$_LE_SID.tsv"
+        export _LE_MOVE_POSTCHECK="$MOVE_POSTCHECK"
         _LE_MOVE_RECEIPT_PATH="$("$PYTHON_BIN" - <<'PY' 2>/dev/null || true
 import base64, datetime, difflib, hashlib, json, os, pathlib, posixpath, re, tempfile
 from urllib.parse import unquote, urlsplit
@@ -702,7 +719,17 @@ payload = {
     "content_sha256": sha(destination_abs.read_bytes()),
     "affected_files": verified,
     "unverified_files": unverified,
+    "complete": not os.environ["_LE_MOVE_POSTCHECK"],
 }
+if not payload["complete"]:
+    reason = os.environ["_LE_MOVE_POSTCHECK"]
+    remaining = []
+    if reason == "old-links-remain":
+        try:
+            remaining = pathlib.Path(os.environ["_LE_MOVE_REFS"]).read_text(encoding="utf-8").splitlines()
+        except OSError:
+            pass
+    payload["postcheck"] = {"reason": reason, "remaining_links": remaining}
 fd, tmp = tempfile.mkstemp(prefix=".move.", dir=root)
 with os.fdopen(fd, "w", encoding="utf-8") as handle:
     json.dump(payload, handle, ensure_ascii=False, indent=2)
@@ -717,11 +744,19 @@ print(path)
 PY
         )"
         if [ -n "$_LE_MOVE_RECEIPT_PATH" ]; then
-            echo "Move receipt: $_LE_MOVE_RECEIPT_PATH"
+            if [ -z "$MOVE_POSTCHECK" ]; then
+                echo "Move receipt: $_LE_MOVE_RECEIPT_PATH"
+            else
+                echo "Partial move receipt: $_LE_MOVE_RECEIPT_PATH" >&2
+            fi
         fi
         unset _LE_MOVE_RECEIPT_DIR
         unset _LE_MOVE_LEDGER
+        unset _LE_MOVE_POSTCHECK
     fi
+
+    # The receipt above is evidence, not success: the move is still unverified.
+    [ -z "$MOVE_POSTCHECK" ] || exit 1
 
     _move_unlock_pair
     trap - EXIT
