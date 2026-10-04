@@ -77,7 +77,7 @@ trap - EXIT
 LOCK_FILE="$(_lock_path_for "$TARGET")"
 _lock "$LOCK_FILE" 10 || { echo "Failed to acquire lock for $TARGET" >&2; exit 1; }
 
-python3 - "$SOURCE" "$TARGET" "$MODE" "$(_session_id)" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state" <<'PY'
+python3 - "$SOURCE" "$TARGET" "$MODE" "$(_session_id)" "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state" "$(_session_agent_id)" <<'PY'
 import os
 from pathlib import Path
 import shutil
@@ -114,9 +114,9 @@ try:
             if not target.is_relative_to(ledger_dir.resolve()):
                 ledger_dir.mkdir(parents=True, exist_ok=True)
                 stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                field = str(target).replace("\t", " ").replace("\n", " ")
+                field = str(target).replace("\t", " ").replace("\n", " ").replace("\r", " ")
                 with (ledger_dir / (sys.argv[4] + ".tsv")).open("a") as ledger:
-                    ledger.write(f"{stamp}\tlocked-ingress\t{field}\t?\n")
+                    ledger.write(f"{stamp}\tlocked-ingress\t{field}\t{sys.argv[6]}\n")
         except OSError:
             pass  # Bookkeeping failure must not misreport a successful installation.
     if mode == "--move":

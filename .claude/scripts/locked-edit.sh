@@ -615,13 +615,16 @@ PY
         _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
         mkdir -p "$_LEDGER_DIR" 2>/dev/null || true
         {
-            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-source" "$MOVE_SOURCE_ABS" "?"
-            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-destination" "$MOVE_DESTINATION_ABS" "?"
+            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-source" \
+                "$(printf '%s' "$MOVE_SOURCE_ABS" | LC_ALL=C tr '[:cntrl:]' ' ')" "$(_session_agent_id)"
+            printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-move-destination" \
+                "$(printf '%s' "$MOVE_DESTINATION_ABS" | LC_ALL=C tr '[:cntrl:]' ' ')" "$(_session_agent_id)"
         } >> "$_LEDGER_DIR/$_LE_SID.tsv" 2>/dev/null || true
         _MOVE_RECEIPT_DIR="$_LEDGER_DIR/$_LE_SID.project-move-receipts"
         mkdir -p "$_MOVE_RECEIPT_DIR" 2>/dev/null || true
         export _LE_MOVE_RECEIPT_DIR="$_MOVE_RECEIPT_DIR"
         export _LE_MOVE_LEDGER="$_LEDGER_DIR/$_LE_SID.tsv"
+        export _LE_MOVE_AGENT="$(_session_agent_id)"
         export _LE_MOVE_POSTCHECK="$MOVE_POSTCHECK"
         _LE_MOVE_RECEIPT_PATH="$("$PYTHON_BIN" - <<'PY' 2>/dev/null || true
 import base64, datetime, difflib, hashlib, json, os, pathlib, posixpath, re, tempfile
@@ -778,7 +781,8 @@ os.replace(tmp, path)
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 with open(os.environ["_LE_MOVE_LEDGER"], "a", encoding="utf-8") as ledger:
     for affected in ledger_paths:
-        ledger.write(f"{stamp}\tobsidian-link-heal\t{affected}\t?\n")
+        field = affected.replace("\t", " ").replace("\n", " ").replace("\r", " ")
+        ledger.write(f"{stamp}\tobsidian-link-heal\t{field}\t{os.environ['_LE_MOVE_AGENT']}\n")
 print(path)
 PY
         )"
@@ -790,7 +794,7 @@ PY
             fi
         fi
         unset _LE_MOVE_RECEIPT_DIR
-        unset _LE_MOVE_LEDGER
+        unset _LE_MOVE_LEDGER _LE_MOVE_AGENT
         unset _LE_MOVE_POSTCHECK
     fi
 
@@ -1282,9 +1286,8 @@ fi
 # files this script exists for (planning files, hubs) are exactly the ones
 # /park's enumeration and the parboil draft-adoption diff care most about. A
 # missing row there forces park back onto full re-derivation. Same TSV format
-# as the hook, but the agent id is recorded as "?" (unknown): hook input
-# carries an agent_id field, a shell environment does not, and --read already
-# reports "?" honestly - never a positive "main".
+# as the hook. lib-session.sh resolves explicit OPENCAIRN_AGENT_ID or the real
+# Codex writer thread id; an unidentified shell writer remains "?", never main.
 # The session id is harness-neutral (lib-session.sh): under a harness with no
 # Write|Edit hook at all (Codex), this self-ledger is the ledger - its rules
 # route every vault write through this script, so coverage holds.
@@ -1298,7 +1301,7 @@ if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
     case "$_LEDGER_PATH" in
         "$_LEDGER_DIR"/*) ;;
         *)
-            _LEDGER_PATH=${_LEDGER_PATH//$'\t'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\n'/ }
+            _LEDGER_PATH=${_LEDGER_PATH//$'\t'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\n'/ }; _LEDGER_PATH=${_LEDGER_PATH//$'\r'/ }
             # First write of a session prunes stale ledgers (mirrors the hook's
             # sweep - under a hookless harness this is the only place it runs).
             { mkdir -p "$_LEDGER_DIR" &&
@@ -1307,7 +1310,7 @@ if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
                   find "$_LEDGER_DIR" -maxdepth 2 -type f -path '*.locked-edit-receipts/*' -mtime +14 -delete 2>/dev/null;
                   find "$_LEDGER_DIR" -maxdepth 1 -type d -name '*.locked-edit-receipts' -empty -delete 2>/dev/null; } || true; } &&
               printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "locked-edit" \
-                  "$_LEDGER_PATH" "?" \
+                  "$_LEDGER_PATH" "$(_session_agent_id)" \
                   >> "$_LEDGER_DIR/$_LE_SID.tsv"; } 2>/dev/null || true
             ;;
     esac
