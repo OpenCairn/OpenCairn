@@ -76,6 +76,7 @@ Read and compile:
 - **Project states:** Read the `03 Projects/` root docs directly (root = active; folder location is status)
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
 - **Candidate open loops:** Extract unchecked items (`- [ ]`) from today's day section in This Week.md, plus due items from Tickler.md. Session files are historical records — open loops were routed to SSOT at park time
+- **Blockers:** Read `## Blockers` from the newest earlier daily report and apply Step 8's carry rule to it now, so Step 5 presents the list Step 8 will write
 
 **Capture session-file baseline** (load-bearing for Step 14's post-write concurrent-session reconciliation — do NOT rely on remembering this later):
 
@@ -139,7 +140,7 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 ...
 
 ### Blockers
-- [Item] — waiting on [what]
+- [The carried list from Step 2, earlier lines verbatim — not rebuilt from memory]
 ```
 
 ### 6. Mid-Flow Corrections
@@ -201,7 +202,7 @@ N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 
 - Previous: [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
 ```
 
-**`## Blockers` is carried, not re-derived.** Start from the `## Blockers` list of the newest daily report dated before this one and copy each line byte-identical — a reworded blocker reads as a new one and loses its history. Delete a line only when this day's session log or the user shows it closed; add only blockers this day's session log or Step 7 surfaced. With no earlier report, build the list from those sources alone.
+**`## Blockers` is carried, not re-derived.** Start from the `## Blockers` list of the newest daily report dated before this one (by the date in its filename, never mtime) and copy each line byte-identical — a reworded blocker reads as a new one and loses its history. Delete a line only when this day's session log or the user shows it closed; add only blockers this day's session log or Step 7 surfaced. With no earlier report, build the list from those sources alone.
 
 Ensure directory exists first:
 ```bash
@@ -332,7 +333,7 @@ EOF
 Session number assigned: N
 ```
 
-**Post-write reconciliation (the concurrent-session check):** Compare the assigned N against `STEP2_LAST_N` — the baseline displayed at Step 2's checkpoint (use the literal value from the page, not internal memory). If `N − 1 > STEP2_LAST_N`, sessions `STEP2_LAST_N + 1` through `N − 1` were added by parallel instances since Step 2. For each: read its summary from the session file (the only exception to the write-only-after-initial-read rule — read just the new session blocks, not the whole file), update your working memory, and patch the daily report's Sessions list (Step 8 output, already on disk) to include it — insert and renumber so the goodnight entry stays last. Display: `Reconciliation: baseline X, assigned N → M missed session(s) patched` (or `→ no missed sessions`).
+**Post-write reconciliation (the concurrent-session check):** Compare the assigned N against `STEP2_LAST_N` — the baseline displayed at Step 2's checkpoint (use the literal value from the page, not internal memory). If `N − 1 > STEP2_LAST_N`, sessions `STEP2_LAST_N + 1` through `N − 1` were added by parallel instances since Step 2. For each: read its summary from the session file (the only exception to the write-only-after-initial-read rule — read just the new session blocks, not the whole file), update your working memory, and patch the daily report's Sessions list (Step 8 output, already on disk) to include it — insert and renumber so the goodnight entry stays last. If one of them demonstrably closes a blocker, delete that line from the report's `## Blockers` (delete, never reword). Display: `Reconciliation: baseline X, assigned N → M missed session(s) patched` (or `→ no missed sessions`).
 
 **First session of the day** (no session file exists yet): no special flag needed — the same invocation lays down the `# Claude Session - DATE` header automatically when the file is absent/empty, assigns N=1, and writes atomically inside the lock.
 
@@ -526,7 +527,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       ```
 
       Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans.
-   b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via $morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
+   b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via $morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today; an existing report's `## Blockers` is checked against that rule and corrected only where it departs from it. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
    d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel $park or $goodnight invocations):
@@ -587,8 +588,9 @@ For each date in C1’s lookback window that now has a daily report (whether fro
 6. If post-goodnight sessions found:
    - Read each post-goodnight session block.
    - **Drop the ones already reconciled.** Read the daily report's `## Sessions` list and skip any late session whose number or topic already appears there. C2 re-runs over every day that has a report — a second $morning the same day, or tomorrow's pass over yesterday, hits the same sessions again, and the session-log test at step 4 stays true forever. If every candidate is already present, skip the day silently (no append, no note, no display).
-   - Add the remaining late session(s) *inside* the daily report's `## Sessions` section. Re-read from that heading through the next H1/H2 (or EOF), compose the complete old and replacement blocks, and apply one `locked-edit.sh --replace` call under §5. **Never use `--append`:** it writes at EOF, while `## Sessions` is followed by other sections, so the rows would land outside the list while still fooling a grep-based success check. That is the only daily-report section late sessions touch — any completions they contain live in the SSOT files (This Week.md, Tickler, project files), not the report.
-   - Do NOT modify other sections — `## Today's Plan`, `## Outside-Agent`, and `## Blockers` were set deliberately at close-out and remain valid.
+   - Add the remaining late session(s) *inside* the daily report's `## Sessions` section. Re-read from that heading through the next H1/H2 (or EOF), compose the complete old and replacement blocks, and apply one `locked-edit.sh --replace` call under §5. **Never use `--append`:** it writes at EOF, while `## Sessions` is followed by other sections, so the rows would land outside the list while still fooling a grep-based success check. Any completions they contain live in the SSOT files (This Week.md, Tickler, project files), not the report.
+   - **`## Blockers`: delete a line that a late session demonstrably closes** — from this report and from any later report already carrying it — with `locked-edit.sh --replace`. Never reword a line; without that evidence leave the list alone. The next close-out carries from this list, so a closed blocker left here is carried indefinitely.
+   - Do NOT modify `## Today's Plan` or `## Outside-Agent` — they were set deliberately at close-out and remain valid.
    - Add a note at the end of the Sessions section naming only the sessions this pass appended: `*Sessions N–M added by $morning (ran after close-out)*`. If an earlier pass already left such a note, extend its range rather than adding a second one.
    - **Refresh the collapsed day's one-liner in This Week.md.** $goodnight Step 10 collapsed the day to `## [emoji] [Day] [Date] — [Theme] ✅` + one sentence + report link. If the late sessions change what the day amounted to, extend that sentence to mention them; otherwise leave it alone. (The collapse format carries no session count — do not invent or parse one.)
    - Display:
