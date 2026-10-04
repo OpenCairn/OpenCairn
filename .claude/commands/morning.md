@@ -43,6 +43,8 @@ date +"%Y-%m-%d"                   # for file paths if needed
 
 Read `~/.claude/commands/goodnight.md` and execute its **Catch-up mode**, passing the current date from Step 1. Goodnight owns missed-day detection, close-out recovery and late-session reconciliation. Retain its returned dates, report paths and deferred debriefs for Steps 4–5, then continue to the landscape. Do not implement a second catch-up procedure here.
 
+**Every catch-up collapse rewrites a day heading**, which orphans the `[[01 Now/This Week#…]]` anchors and prose locators pointing at it. /goodnight Step 10's inbound-locator rule (capture before the rewrite, repoint after) is part of each collapse, not an optional extra: one `Inbound locators:` line per collapsed day must appear in this run's output.
+
 ### 3. Surface the Landscape (auto, ~1 min)
 
 **Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules-planning.md` Section 9 now, before the Tickler migration or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
@@ -199,7 +201,7 @@ If the day has enough structure to benefit from a visual plan (appointments, tim
 
 If This Week.md doesn't exist or is stale (today outside the date range), offer to create a fresh one first (see "Creation" below).
 
-Find today’s day section using `_shared-rules-planning.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work:
+Find today’s day section using `_shared-rules-planning.md` §9’s date-aware heading parse (including emoji/theme suffixes). Replace/expand it with the timeline format — native markdown so Obsidian checkboxes work. Keep the existing heading line byte-identical (emoji and theme suffix included); inbound anchors resolve on its exact text:
 
 ````
 ## [Day] [DD] [Mon]
