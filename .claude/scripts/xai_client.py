@@ -20,7 +20,8 @@ Options:
   --panel-review FILE --prepared   submit that packet verbatim (no --source)
   --panel-review FILE   legacy brief; sources appended as a delimited manifest+appendix
   --source FILE         a file to inline (repeatable). Total capped at MAX_INLINE_BYTES.
-  --dry-run             print the outbound payload (key redacted) and exit; no request
+  --dry-run             review request only: print outbound payload and exit; no request
+                        incompatible with packet preparation (which writes --output)
   --effort LEVEL        minimal|low|medium|high|xhigh (default xhigh for panel review)
   --probe               exit 0 if XAI_API_KEY resolves, 1 otherwise; prints source/status
 
@@ -391,6 +392,8 @@ def _main(argv: list[str]) -> int:
         del argv[i:i + 2]
 
     if "--prepare-panel" in argv:
+        if dry_run:
+            sys.exit("--dry-run applies to review requests; packet preparation writes --output")
         import argparse
         parser = argparse.ArgumentParser(description="Freeze a shared panel packet; no API call")
         parser.add_argument('--prepare-panel', required=True)

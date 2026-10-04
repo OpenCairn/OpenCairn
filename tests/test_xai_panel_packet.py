@@ -2,6 +2,9 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import os
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -54,6 +57,28 @@ class PanelPacket(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 XAI.prepare_panel_brief(str(brief), [str(source)], str(packet))
             self.assertEqual('original', packet.read_text())
+
+
+    def test_prepare_rejects_dry_run_before_output_and_review_preview_still_works(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);brief=root/'brief';source=root/'source';packet=root/'packet'
+            brief.write_text('Read the original work.\n');source.write_text('Controlled evidence.\n')
+            env=dict(os.environ,HOME=d,CLAUDE_CONFIG_DIR=str(root/'claude'),CODEX_HOME=str(root/'codex'))
+            for name in ['OPENCAIRN_SESSION_ID','CLAUDE_CODE_SESSION_ID','CODEX_THREAD_ID']:
+                env.pop(name,None)
+            cli=[sys.executable,str(Path(XAI.__file__))]
+            prepare=cli+['--prepare-panel',str(brief),'--source',str(source),'--output',str(packet)]
+            r=subprocess.run(prepare+['--dry-run'],env=env,text=True,capture_output=True)
+            self.assertNotEqual(0,r.returncode)
+            self.assertIn('--dry-run',r.stderr)
+            self.assertFalse(packet.exists())
+            r=subprocess.run(prepare,env=env,text=True,capture_output=True)
+            self.assertEqual(0,r.returncode,r.stderr)
+            original=packet.read_bytes()
+            r=subprocess.run(cli+['--panel-review',str(packet),'--prepared','--dry-run'],env=env,text=True,capture_output=True)
+            self.assertEqual(0,r.returncode,r.stderr)
+            self.assertEqual(original,packet.read_bytes())
+            self.assertIn('Controlled evidence.',r.stdout)
 
 
 if __name__ == '__main__':unittest.main()
