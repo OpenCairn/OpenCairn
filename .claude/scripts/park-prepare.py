@@ -124,9 +124,9 @@ def validate_handoff(data):
             fail('Invalid coverage entry')
         if not isinstance(item.get('path'), str) or not item['path'] or item['path'] in coverage:
             fail('Coverage paths must be nonempty and unique')
-        if item.get('kind') not in {'reference', 'large', 'nonlocal'}:
-            fail('Coverage kind must be reference, large or nonlocal')
-        if item['kind'] != 'nonlocal' and not isinstance(item.get('receipt'), str):
+        if item.get('kind') not in {'semantic', 'reference', 'large', 'nonlocal'}:
+            fail('Coverage kind must be semantic, reference, large or nonlocal')
+        if item['kind'] in {'reference', 'large'} and not isinstance(item.get('receipt'), str):
             fail('Reference/large coverage needs a park-artifact receipt')
         if not isinstance(item.get('targets', []), list) or not all(isinstance(x, str) and x.strip() for x in item.get('targets', [])):
             fail('Inspection targets must be nonempty strings')
