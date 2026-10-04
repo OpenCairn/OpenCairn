@@ -66,6 +66,18 @@ class ForwardLinkProofTests(unittest.TestCase):
                         self.target.name], env=self.env, capture_output=True, text=True, check=True)
         self.assertEqual(list(receipt.parent.glob('*.json')), [receipt])
 
+    def test_empty_config_uses_same_home_fallback_for_producer_and_lookup(self):
+        self.env['HOME'] = str(self.root / 'home')
+        self.env['CLAUDE_CONFIG_DIR'] = ''
+        self.config = self.root / 'home/.claude'
+        self.produce()
+        found = subprocess.run(
+            ['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+            env=self.env, capture_output=True, text=True)
+        self.assertEqual(found.returncode, 0, found.stderr)
+        proof = json.loads(found.stdout)
+        self.assertEqual(proof['post_sha256'], __import__('hashlib').sha256(self.log.read_bytes()).hexdigest())
+
     def test_both_fresh_consumers_accept_proof_and_refuse_changed_or_other_writes(self):
         before = self.log.read_text()
         self.log.write_text(before.replace('Old prose.', 'Old prose.' + ' x' * 40000))

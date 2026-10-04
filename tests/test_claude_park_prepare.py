@@ -122,6 +122,30 @@ class ClaudeParkPrepareTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Stale artefact'):
             self.run_prepare()
 
+    def test_reused_reference_receipt_displays_current_alias(self):
+        import subprocess
+        source = self.base / 'reference.txt'
+        source.write_text('Reference source text\n')
+        alias = self.base / 'installed.txt'
+        alias.symlink_to(source)
+        result = subprocess.run(
+            ['python3', str(REPO / '.claude/scripts/park-artifact.py'),
+             '--source', str(source), '--original', str(source),
+             '--state-dir', str(self.base / 'artifacts')],
+            capture_output=True, text=True, check=True)
+        receipt = json.loads(result.stdout)
+        receipt_path = Path(receipt['receipt_path'])
+        cache_before = receipt_path.read_bytes()
+        self.log.write_text(self.log.read_text().replace(
+            '### Files Updated\n', f'### Files Updated\n- {alias} - reference\n'))
+        self.handoff['coverage'] = [
+            {'path': str(alias), 'kind': 'reference',
+             'receipt': str(receipt_path), 'targets': ['opening passage']}]
+        self.assertEqual(self.run_prepare(), 0)
+        packet = self.outputs('audit-inputs.md')[0].read_text()
+        self.assertIn('"original_path": "' + str(alias) + '"', packet)
+        self.assertEqual(receipt_path.read_bytes(), cache_before)
+
     def test_retry_backfill_does_not_duplicate_and_refreshes_snapshot(self):
         other = self.vault / 'other.md'
         other.write_text('# Other\n')

@@ -227,6 +227,9 @@ def prepare(args, data):
                 else:
                     receipt_path = Path(item['receipt']).expanduser().resolve()
                 receipt = json.loads(receipt_path.read_text())
+                # Cache identity is content-based; the current Files row owns
+                # the display locator, which may be a later symlink alias.
+                receipt['original_path'] = row['aliases'][0]
                 snapshot = Path(receipt.get('source_snapshot', ''))
                 if receipt.get('source_sha256') != digest or not snapshot.is_file() or sha(snapshot) != digest:
                     fail(f'Stale artefact receipt: {path}')
