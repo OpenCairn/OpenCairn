@@ -229,4 +229,4 @@ The template is designed to be customised:
 - **Add commands** by creating `.claude/commands/your-command.md`
 - **Add context hubs** by creating `07 System/Context - [Domain].md` and adding a routing entry to CLAUDE.md
 - **Add scripts** for new I/O patterns that need locking (follow the portable locking pattern from existing scripts)
-- **Provenance is optional** — if you don't need audit trails, the tag gate ensures it stays silent. Remove the provenance commands entirely if unwanted.
+- **Provenance is optional** — only manually requested `/provenance` flags trigger attestation work. Without a flag, close-out stays silent. Remove the provenance commands entirely if unwanted.
