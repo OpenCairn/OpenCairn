@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "3bbeb9568f460b4270cc435f4f0107de77477a32ac4e22844bba86a1a602e548",
-      "render_sha256": "8770f466ddc5e16f3145a7fdf2fde09259e4e040385636e9b59cd9613c8b25c9"
+      "source_sha256": "248476a2d862ca7c333e4313383c3b6e8a9a6cf8e6bb38bfa080daccd18b0f82",
+      "render_sha256": "9930ea56752e452a1a027c0787264d8096ebfd0cb448d355800a28c98955cc8f"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
@@ -148,8 +148,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "560406a61ffac4074e11ac4c4096839b7202b427fc0526b470ba589f1f8d7724",
-      "render_sha256": "a8472517c6f6e66fe77328f211d843ff24a4ac2f6c8351108512b2da4760d7c1"
+      "source_sha256": "6ecb600834fca03181f24d50477bab14cb68288e67c4ba152a7ee8784c215ef1",
+      "render_sha256": "25c4b71672a0daaac68da5264af30933fca5e2dae76bd2125bca783eed5d6aaf"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
@@ -166,8 +166,8 @@
     "provenance": {
       "source": ".claude/commands/provenance.md",
       "render": "codex/skills/provenance/SKILL.md",
-      "source_sha256": "22b8a03a4d1a1bfd7f8c2cc853c817713c16d42827fe93210470b747343ffe69",
-      "render_sha256": "22176d0957351e28fbb1b07285a6ab03f61eaf946300330d3080689fca9097d2"
+      "source_sha256": "f8b4a384f047ff4076417b130647929bad1c665a67b1939ea1c749058f0b5fad",
+      "render_sha256": "23f7a4a0fbf7d7f35c42387d7172528263ddeb88b87b4461ee10d3cc3a07a7b2"
     },
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "796994c9fef6a5dbde7ebf6378ac13af5551ac77cc5de4cda5ac619fbd0ae953",
-      "render_sha256": "48797bf164382b14edf00795b3acb7b490dda81c848a3214ad9e38c16ec8d3db"
+      "source_sha256": "84b21bc23df0aa111eb074e2c4bff901b96df6c6057941a24d0c850e0becd113",
+      "render_sha256": "b81c453e217e4433b85bcb0ad31619c388d232fbb384e4c50bdfd9ae16f1f51b"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
