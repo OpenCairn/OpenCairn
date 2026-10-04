@@ -372,11 +372,22 @@ for attempt in range(3):
     try:
         result = subprocess.run(
             command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL, text=True, timeout=timeout, check=False,
+            stderr=subprocess.PIPE, text=True, errors="replace", timeout=timeout, check=False,
         )
-        if result.returncode != 0 or result.stdout.lstrip().startswith("Error:"):
+        # Explicit command errors beat both success-looking output and retries.
+        if any(line.lstrip().startswith(("Error:", "Command line interface is not enabled"))
+               for output in (result.stdout, result.stderr) for line in output.splitlines()):
             raise SystemExit(1)
-        if result.stdout.strip():
+        empty = not result.stdout.strip()
+        # 75 is the socket sender's transient-empty contract. Older direct
+        # clients used 1 plus this exact diagnostic; other failures stay fatal.
+        legacy_empty = (result.returncode == 1 and result.stderr.strip() ==
+                        "Obsidian returned an empty response; command success is unverified.")
+        if empty and (result.returncode in (0, 75) or legacy_empty):
+            pass
+        elif result.returncode != 0:
+            raise SystemExit(1)
+        else:
             sys.stdout.write(result.stdout.rstrip("\n"))
             raise SystemExit(0)
     except subprocess.TimeoutExpired:

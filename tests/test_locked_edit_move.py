@@ -19,6 +19,11 @@ try:
 except ImportError:  # `python -m unittest tests.<module>` from the repo root
     from tests.session_isolation import isolate_session
 
+try:
+    from test_obsidian_cli_socket import CLIENT, SocketEndpoint
+except ImportError:
+    from tests.test_obsidian_cli_socket import CLIENT, SocketEndpoint
+
 
 
 MOCK_OBSIDIAN = r"""#!/usr/bin/env python3
@@ -44,6 +49,16 @@ if args == ["help", "move"]:
     if mode in ("error-nonzero", "error-zero"):
         print("Error: move needs path=<path> to=<path>")
         raise SystemExit(1 if mode == "error-nonzero" else 0)
+    if mode == "nonzero-supported":
+        print("move path=<path> to=<path>")
+        raise SystemExit(1)
+    if mode == "stderr-error-zero":
+        print("move path=<path> to=<path>")
+        print("Error: refused", file=sys.stderr)
+        raise SystemExit(0)
+    if mode in ("permission", "connection"):
+        print(mode + " failed", file=sys.stderr)
+        raise SystemExit(1)
     whitespace = os.environ.get("MOCK_WHITESPACE_HELP_ONCE")
     if whitespace and not Path(whitespace).exists():
         Path(whitespace).touch()
@@ -147,6 +162,8 @@ class LockedEditMoveTests(unittest.TestCase):
         self.obsidian.write_text(textwrap.dedent(MOCK_OBSIDIAN), encoding="utf-8")
         self.obsidian.chmod(0o755)
         self.config = self.root / "config"
+        self.runtime = self.root / "runtime"
+        self.runtime.mkdir()
 
     def tearDown(self) -> None:
         self.tempdir.cleanup()
@@ -158,6 +175,7 @@ class LockedEditMoveTests(unittest.TestCase):
         environment.update(
             {
                 "VAULT_PATH": str(self.vault),
+                "XDG_RUNTIME_DIR": str(self.runtime),
                 "OBSIDIAN_CLI": str(self.obsidian),
                 "CLAUDE_CONFIG_DIR": str(self.config),
                 "OPENCAIRN_SESSION_ID": "locked-move-test",
@@ -262,6 +280,37 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertFalse(source.exists())
         self.assertTrue(destination.exists())
 
+    def test_socket_blank_retry_allows_verified_fixture_move(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n")
+        reference = self.vault / "Reference.md"
+        reference.write_text("[[Old/Incident]]\n")
+        environment = self.environment()
+
+        def response(request, index):
+            if index == 0:
+                return b""
+            # The endpoint simulates the app using the established fixture;
+            # this is a real socket transport test, not live Obsidian healing.
+            result = subprocess.run([str(self.obsidian), *request["argv"]],
+                                    env=environment, capture_output=True, timeout=3)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return result.stdout or b"Moved\n"
+
+        with SocketEndpoint(self.runtime, response) as endpoint:
+            result = self.run_move(source, destination, OBSIDIAN_CLI=str(CLIENT))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = [json.loads(raw)["argv"] for raw in endpoint.requests]
+        self.assertEqual(commands[:2], [["help", "move"], ["help", "move"]])
+        self.assertEqual(commands[2:4], [["version"], ["vault", "info=path"]])
+        self.assertEqual(commands[4], ["move", "path=Old/Incident.md", "to=New/Incident.md"])
+        self.assertEqual(len(commands), 5)
+        self.assertFalse(source.exists())
+        self.assertEqual(destination.read_text(), "source\n")
+        self.assertEqual(reference.read_text(), "[[New/Incident]]\n")
+        self.assertTrue(self.move_receipts()[0]["complete"])
+
     def test_times_out_and_retries_a_hung_cli_probe(self) -> None:
         source = self.vault / "Old" / "Incident.md"
         destination = self.vault / "New" / "Incident.md"
@@ -302,12 +351,17 @@ class LockedEditMoveTests(unittest.TestCase):
         source = self.vault / "Old" / "Incident.md"
         destination = self.vault / "New" / "Incident.md"
         source.write_text("source\n")
-        for mode in ("error-nonzero", "error-zero"):
+        for mode in ("error-nonzero", "error-zero", "stderr-error-zero",
+                     "nonzero-supported", "permission", "connection"):
             with self.subTest(mode=mode):
                 source.write_text("source\n")
                 destination.unlink(missing_ok=True)
-                result = self.run_move(source, destination, MOCK_HELP_MODE=mode)
+                calls = self.root / "help-calls"
+                calls.write_text("")
+                result = self.run_move(source, destination, MOCK_HELP_MODE=mode,
+                                       MOCK_HELP_CALLS=str(calls))
                 self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(calls.read_text().splitlines(), ["help move"])
                 self.assertEqual(source.read_text(), "source\n")
                 self.assertFalse(destination.exists())
 
