@@ -2,7 +2,10 @@
 # Backfill "### Files Updated" section in a session log entry
 # Usage: backfill-files-updated.sh <session-file> <session-num>
 #   File list is read from stdin, one "- path - description" per line
-#   (the leading "- " is optional; every written row carries exactly one)
+#   (the leading "- " is optional; every written row carries exactly one).
+#   An indented line is a nested bullet or continuation of the row above: it is
+#   written as supplied when that row is written and dropped when it is skipped.
+#   A "None" placeholder line is not a row and is never written.
 #
 # If the session's "### Files Updated" section contains "None", replaces it.
 # Otherwise appends after the last entry in that section.
@@ -11,7 +14,7 @@
 # description stay, and the incoming row is printed, not written. Every run that
 # reaches the dedup ends with a "<N> added, <M> skipped" line.
 #
-# Exit codes: 0 at least one row written (or empty stdin) · 1 usage, lock or
+# Exit codes: 0 at least one row written (or empty/placeholder-only stdin) · 1 usage, lock or
 # missing session/section · 3 nothing written because every row was skipped.
 #
 # Examples (use heredocs, not printf — printf interprets % as format specifiers):
@@ -97,11 +100,10 @@ SECTION_CONTENT=$(awk -v start="$FILES_UPDATED_ABS" -v end="$SECTION_END" '
 
 # --- Row normalisation -------------------------------------------------------
 # A file row is written with exactly one leading "- ", whether the caller sent
-# it bare, indented, doubled, or under another list marker. A marker is "-",
-# "*" or "+" followed by whitespace, so a dash-led filename keeps its dash.
+# it bare, doubled, or under another list marker. A marker is "-", "*" or "+"
+# followed by whitespace, so a dash-led filename keeps its dash.
 _bullet_row() {
     local row="$1"
-    row="${row#"${row%%[![:space:]]*}"}"
     while :; do
         case "$row" in
             [-*+][[:space:]]*) row="${row:1}"; row="${row#"${row%%[![:space:]]*}"}" ;;
@@ -182,9 +184,37 @@ done <<< "$CREATED_CONTENT"
 DEDUPED_LIST=""
 ADDED=0
 SKIPPED=0
+PLACEHOLDERS=0
+PARENT_SKIPPED=false
 while IFS= read -r line; do
+    case "$line" in
+        *[![:space:]]*) ;;
+        *) continue ;;  # blank input line: not a row
+    esac
+    case "$line" in
+        [[:space:]]*)
+            # Nested bullet or continuation: it belongs to the row above.
+            if [ "$PARENT_SKIPPED" = "true" ]; then
+                printf '  incoming row not written: %s\n' "$line"
+            else
+                # With no row above it in this batch it is counted as a row.
+                [ -n "$DEDUPED_LIST" ] || ADDED=$((ADDED + 1))
+                DEDUPED_LIST="${DEDUPED_LIST:+$DEDUPED_LIST
+}$line"
+            fi
+            continue
+            ;;
+    esac
     line=$(_bullet_row "$line")
-    [ -n "$line" ] || continue  # blank input line: not a row
+    [ -n "$line" ] || continue  # a bare list marker: not a row
+    PARENT_SKIPPED=false
+    case "$line" in
+        '- None'|'- None.'|'- None ('*)
+            # The placeholder for an empty list is not a file row.
+            PLACEHOLDERS=$((PLACEHOLDERS + 1))
+            continue
+            ;;
+    esac
     FILE_PATH=$(_extract_path "$line")
     if [ -n "$FILE_PATH" ]; then
         NORM_PATH=$(_norm_path "$FILE_PATH")
@@ -192,6 +222,7 @@ while IFS= read -r line; do
             printf 'skipped (already listed in Created/Updated): %s\n' "$FILE_PATH"
             printf '  incoming row not written: %s\n' "$line"
             SKIPPED=$((SKIPPED + 1))
+            PARENT_SKIPPED=true
             continue  # already listed (or already accepted earlier in this batch)
         fi
         SEEN_PATHS="${SEEN_PATHS}${NORM_PATH}
@@ -201,6 +232,13 @@ while IFS= read -r line; do
 }$line"
     ADDED=$((ADDED + 1))
 done <<< "$FILE_LIST"
+
+if [ -z "$DEDUPED_LIST" ] && [ "$SKIPPED" -eq 0 ] && [ "$PLACEHOLDERS" -gt 0 ]; then
+    echo "Only a None placeholder on stdin, nothing to backfill"
+    echo "0 added, 0 skipped"
+    _unlock
+    exit 0
+fi
 
 if [ -z "$DEDUPED_LIST" ]; then
     echo "All files already listed, nothing to backfill"

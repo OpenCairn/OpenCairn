@@ -110,9 +110,8 @@ class BackfillBodyTests(unittest.TestCase):
         self.assertEqual(after, before.replace('None\n', '- ' + incoming))
 
     def test_every_written_row_carries_exactly_one_bullet(self):
-        shapes = ('A.md - changed', '- A.md - changed', '  - A.md - changed',
-                  '\t- A.md - changed', '* A.md - changed', '+ A.md - changed',
-                  '- - A.md - changed', '-\tA.md - changed')
+        shapes = ('A.md - changed', '- A.md - changed', '* A.md - changed',
+                  '+ A.md - changed', '- - A.md - changed', '-\tA.md - changed')
         sections = ('None\n', '- None\n', '', '- Z.md - original\n')
         for existing in sections:
             for shape in shapes:
@@ -128,7 +127,7 @@ class BackfillBodyTests(unittest.TestCase):
 
     def test_unbulleted_row_is_deduplicated_against_listed_path(self):
         before = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n\n### Notes\nKeep\n'
-        for shape in ('A.md - incoming', '  - A.md - incoming', '* A.md - incoming'):
+        for shape in ('A.md - incoming', '* A.md - incoming'):
             with self.subTest(shape=shape):
                 result, after = self.run_helper(before, shape + '\n')
                 self.assertEqual(result.returncode, 3, result.stdout)
@@ -141,6 +140,64 @@ class BackfillBodyTests(unittest.TestCase):
         result, after = self.run_helper(before, '-option.md - changed\n\n   \n- [x] B.md - done\n')
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(after, before.replace('None\n', '- -option.md - changed\n- [x] B.md - done\n'))
+        self.assertTrue(result.stdout.endswith('2 added, 0 skipped\n'), result.stdout)
+
+    def test_indented_lines_are_left_as_supplied_and_not_counted(self):
+        before = '## Session 1 - Fixture\n### Files Updated\nNone\n\n### Notes\nKeep\n'
+        incoming = ('A.md - restructured:\n  - moved a section up\n    continued line\n'
+                    '\t* tab-nested detail\n* B.md - changed\n')
+        result, after = self.run_helper(before, incoming)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace(
+            'None\n', '- A.md - restructured:\n  - moved a section up\n    continued line\n'
+                      '\t* tab-nested detail\n- B.md - changed\n'))
+        self.assertTrue(result.stdout.endswith('2 added, 0 skipped\n'), result.stdout)
+
+    def test_indented_lines_under_a_skipped_row_are_not_written(self):
+        before = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, 'A.md - incoming\n  - nested detail\n')
+        self.assertEqual(result.returncode, 3, result.stdout)
+        self.assertEqual(after, before)
+        self.assertIn('  incoming row not written:   - nested detail', result.stdout)
+        self.assertTrue(result.stdout.endswith('0 added, 1 skipped\n'), result.stdout)
+        result, after = self.run_helper(
+            before, 'A.md - incoming\n  - nested detail\nB.md - new\n  - kept detail\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace(
+            '- A.md - original\n', '- A.md - original\n- B.md - new\n  - kept detail\n'))
+        self.assertTrue(result.stdout.endswith('1 added, 1 skipped\n'), result.stdout)
+
+    def test_placeholder_input_line_is_not_written_as_a_row(self):
+        for existing in ('None\n', '- Z.md - original\n'):
+            for placeholder in ('None', '- None', 'None.', 'None (nothing updated)'):
+                with self.subTest(existing=existing, placeholder=placeholder):
+                    before = ('## Session 1 - Fixture\n### Files Updated\n' + existing
+                              + '\n### Notes\nKeep\n')
+                    result, after = self.run_helper(before, placeholder + '\n')
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(after, before)
+                    self.assertTrue(result.stdout.endswith('0 added, 0 skipped\n'), result.stdout)
+                    result, after = self.run_helper(before, placeholder + '\nB.md - changed\n')
+                    self.assertEqual(result.returncode, 0, result.stdout)
+                    kept = existing if existing.startswith('- Z') else ''
+                    self.assertEqual(after, '## Session 1 - Fixture\n### Files Updated\n' + kept
+                                     + '- B.md - changed\n\n### Notes\nKeep\n')
+                    self.assertTrue(result.stdout.endswith('1 added, 0 skipped\n'), result.stdout)
+
+    def test_placeholder_with_only_skipped_rows_still_exits_three(self):
+        before = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, 'None\nA.md - incoming\n')
+        self.assertEqual(result.returncode, 3, result.stdout)
+        self.assertEqual(after, before)
+        self.assertTrue(result.stdout.endswith('0 added, 1 skipped\n'), result.stdout)
+
+    def test_filename_beginning_with_none_is_still_a_row(self):
+        before = '## Session 1 - Fixture\n### Files Updated\n- Z.md - original\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, 'None.md - changed\nNonesuch Notes.md - changed\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace(
+            '- Z.md - original\n',
+            '- Z.md - original\n- None.md - changed\n- Nonesuch Notes.md - changed\n'))
         self.assertTrue(result.stdout.endswith('2 added, 0 skipped\n'), result.stdout)
 
     def test_missing_session_fails_without_mutation(self):
