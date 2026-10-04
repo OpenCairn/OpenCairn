@@ -1,5 +1,7 @@
-"""Synthetic --read regressions; never invoke hook mode or use live state."""
+"""Synthetic read/producer regressions; never invoke hooks or use live state."""
 from pathlib import Path
+import os
+import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -7,6 +9,11 @@ import unittest
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / ".claude/scripts/session-ledger.sh"
+
+try:
+    from session_isolation import isolate_session
+except ImportError:
+    from tests.session_isolation import isolate_session
 
 
 class LedgerDedupTests(unittest.TestCase):
@@ -109,6 +116,69 @@ class LedgerDedupTests(unittest.TestCase):
         ], "-m", "60")
         self.assertIn("\t2x Edit\t12:00..12:01\tagent-1,agent-10\n", output)
         self.assertTrue(output.endswith("TOTAL\t1 file(s)\t2 write(s)\n"))
+
+
+class SelfLedgerIdentityTests(unittest.TestCase):
+    def test_move_collateral_records_actual_codex_writer_identity(self):
+        try:
+            from test_locked_edit_move import MOCK_OBSIDIAN
+        except ImportError:
+            from tests.test_locked_edit_move import MOCK_OBSIDIAN
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / 'vault'
+            (vault / 'Old').mkdir(parents=True)
+            (vault / 'New').mkdir()
+            cli = root / 'obsidian'
+            cli.write_text(MOCK_OBSIDIAN)
+            cli.chmod(0o755)
+            source = vault / 'Old/Example.md'
+            source.write_text('source\n')
+            reference = vault / 'Reference.md'
+            reference.write_text('[[Old/Example]]\n')
+            env = isolate_session(os.environ.copy(), root / 'config', 'parent-fixture')
+            env.update(VAULT_PATH=str(vault), OBSIDIAN_CLI=str(cli),
+                       CODEX_THREAD_ID='child-fixture', OPENCAIRN_AGENT_ID='',
+                       LOCKED_EDIT_MOVE_TIMEOUT_SECONDS='1')
+            subprocess.run([str(SCRIPT.parent / 'locked-edit.sh'), str(source), '--move',
+                str(vault / 'New/Example.md'), hashlib.sha256(source.read_bytes()).hexdigest()],
+                env=env, text=True, capture_output=True, check=True)
+            rows = (root / 'config/.session-state/parent-fixture.tsv').read_text().splitlines()
+            self.assertTrue(rows)
+            self.assertTrue(all(r.split('\t')[3] == 'codex:child-fixture' for r in rows), rows)
+            self.assertEqual(reference.read_text(), '[[New/Example]]\n')
+
+    def test_actual_producers_use_explicit_or_codex_identity_without_guessing(self):
+        scripts = SCRIPT.parent
+        for identity, thread, expected in [
+            ('worker-fixture', 'thread-fixture', 'worker-fixture'),
+            ('', 'thread-fixture', 'codex:thread-fixture'),
+            ('', '', '?'),
+            ('worker\tpart\nlabel\rtail', '', 'worker part label tail')]:
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                vault = root / 'vault'
+                vault.mkdir()
+                env = isolate_session(os.environ.copy(), root / 'config', 'parent-fixture')
+                env['VAULT_PATH'] = str(vault)
+                env['OPENCAIRN_AGENT_ID'] = identity
+                if thread:
+                    env['CODEX_THREAD_ID'] = thread
+                target = vault / 'note.md'
+                subprocess.run([str(scripts / 'locked-edit.sh'), str(target), '--append'],
+                    env=env, input='Fixture bytes\n', text=True, capture_output=True, check=True)
+                source = root / 'source.bin'
+                source.write_bytes(b'fixture')
+                landed = vault / 'landed.bin'
+                subprocess.run([str(scripts / 'locked-ingress.sh'), str(vault), str(source), str(landed)],
+                    env=env, text=True, capture_output=True, check=True)
+                rows = (root / 'config/.session-state/parent-fixture.tsv').read_text().splitlines()
+                self.assertEqual(len(rows), 2)
+                for row in rows:
+                    self.assertEqual(len(row.split('\t')), 4)
+                    self.assertEqual(row.split('\t')[3], expected)
+                self.assertEqual(target.read_text(), 'Fixture bytes\n')
+                self.assertEqual(landed.read_bytes(), b'fixture')
 
 
 if __name__ == "__main__":
