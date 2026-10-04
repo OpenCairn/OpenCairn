@@ -366,7 +366,7 @@ Moved to [_shared-rules-planning.md §18](_shared-rules-planning.md). Read that 
 
 ## 19. Value Provenance Check (SOURCE)
 
-Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `$park` Step 2(c) (the SOURCE check of its quality gate), `$goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them.
+Canonical rule for every skill with a pre-audit quality gate over files it just wrote — `$park` Step 2(c) (the SOURCE check of its quality gate), `$goodnight` Step 14b. Those skills point here and carry no copy to drift; each supplies its own **scope** (which files it wrote this run) and runs the rule over them. The rule is not files-only: a value stated in a conversational recommendation, or written by an ordinary edit before any gate runs, needs the same source when it is stated.
 
 - Enumerate every specific value written into a file: number, date, quantity, duration, price, rate, capacity, identifier. Also include authorship/approval and past verification claims, causal mechanisms, guarantees and asserted requirements; trace requirements to the authority that imposes them.
 - Confirm each traces to one of: (a) something the user stated, (b) a tool result from this session, (c) an explicit uncertainty tag. A value tracing to none of these is fabricated — verify it, cut it, or tag it. "It sounds right" is not a source.
