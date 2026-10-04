@@ -12,7 +12,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
 ## Instructions
 
-**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into an existing project task/action section, provenance log appends and path self-heals, skill-monitor log processing) go through `locked-edit.sh`, never a raw edit — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
+**Write mechanism (F1) — applies to every step below.** All mutations of `This Week.md`, `Tickler.md`, `07 System/AI Provenance Log.md`, `07 System/Skill Monitor Log.md`, and project/area docs (Tickler past-due edits, This Week purges, routed-finding appends into an existing project task/action section, provenance log annotations through the validated writer, skill-monitor log processing) go through `locked-edit.sh`, never a raw edit — except Tickler-routed findings, which go through `write-tickler.sh` (it owns dated-section placement). The list is illustrative, not exhaustive — `_shared-rules.md` §5 is canonical for which files are under the lock.
 
 **Disengage routing — applies to every unresolved-finding branch below.** Ordinary findings go to an existing reviewed project/area task home, else the configured quick-capture fallback, with a hygiene-report link. Resolve that map through vault navigation/Autopilot; without a configured map, use the existing Working Memory fresh-capture section and report missing routing configuration. Leave ordinary findings undated. The fallback remains a triage inbox and counts as unprocessed under existing rules. Real deadlines/user-supplied dates still use `_shared-rules-planning.md` §18; the undated task home is the disallowed sink for those. Preserve already-dated items until the user decides; no automatic re-dating. Write/upsert/read-back mechanics: step 17.
 
@@ -487,23 +487,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ls "{VAULT}/07 System/.Provenance/pending/"*.md 2>/dev/null
    ```
    If any flag files exist (these are sessions where `$provenance` was invoked but `$goodnight` didn't process them — missed goodnight, crashed session, etc.):
-   - Read each flag to get the tag and work product list
-   - Hash any work products not already hashed
-   - Hash the session transcript for that date (if exported): `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
-   - Hash the session log for that date: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
-   - Snapshot the exact bytes of every newly hashed target — work products, transcript and session log — beside its proof using the provenance Step 5 mechanism. Re-export and link-healing can change the live transcript/log; their proof must remain verifiable without source JSONL retention.
-   - OTS stamp all newly hashed files
-   - Append entries to `07 System/AI Provenance Log.md`
-   - Delete the processed flag file
+   - Read each flag's date, tag and work product list; the date controls the transcript/session-log targets, not the recovery run's date.
+   - Follow `$provenance` Step 5's `provenance-write.py attest` mechanism for all required targets. Recompare immediate hashes and use `--supersedes` on change. Retain byte-exact snapshots for work products, exported transcripts and session logs; no direct log append or old-row rewrite.
+   - If a transcript is missing, try the documented export route with a window covering the flag's date, then verify the actual target landed. Missing exports/logs/work products are partial processing, never grounds to clear a flag. For an older session log, also check `Session Logs/YYYY/YYYY-MM-DD.md`.
+   - Run `provenance-finish.sh` only after processing. Its locked validator removes the flag only when every required target has a same-tag, current-digest row, matching retained snapshot and any required proof. A missing row, target or evidence leaves the flag pending; report the remaining targets.
 
    **13b. Verify existing provenance entries:**
 
-   Read `{VAULT}/07 System/AI Provenance Log.md`. For each entry:
+   Read `{VAULT}/07 System/AI Provenance Log.md`. Report malformed digest cells (not exactly 16 lowercase hex) as invalid; never silently pad, truncate or rewrite them. Relationship rows are annotations; process attestations using the latest status annotation for each tag/file/digest. For each attestation:
 
    **Resolve file path** from the File column:
    - `*-transcript.md` → `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
    - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by the quarterly-hygiene workflow — the `YYYY` is the date's year)
-   - Paths containing `/` → `{VAULT}/relative/path`. **Self-heal on move:** if that literal path is absent (the file was moved/renamed since logging — e.g. a folder dot-prefixed), fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -type f -print -quit` (note: do NOT exclude `06 Archive/` here — relocated transcripts live there) and accept the hit **only if** its content hash matches the logged hash. A hash match confirms it's the same file at a new location → use it for verification and update the log's path to the found location. No hit, or a hit whose hash differs → record MISSING (never repoint to a non-matching file), **then run the snapshot fallback below before reporting the row** — MISSING is precisely the case where the live file is unresolvable *and* the attested bytes may still be sitting in `.Provenance`. This keeps the verify pass robust to moves without depending on `$park` having caught every path reference.
+   - Paths containing `/` → `{VAULT}/relative/path`. **Self-heal on move:** if that literal path is absent (the file was moved/renamed since logging — e.g. a folder dot-prefixed), fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -type f -print -quit` (note: do NOT exclude `06 Archive/` here — relocated transcripts live there) and accept the hit **only if** its content hash matches the logged hash. A hash match confirms it's the same file at a new location → use it for verification and append a locator annotation through `provenance-write.py append` with the original digest and matching snapshot/proof; never rewrite the old row. No hit, or a hit whose hash differs → record MISSING (never repoint to a non-matching file), **then run the snapshot fallback below before reporting the row** — MISSING is precisely the case where the live file is unresolvable *and* the attested bytes may still be sitting in `.Provenance`. This keeps the verify pass robust to moves without depending on `$park` having caught every path reference.
    - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
 
    **Re-hash and compare:**
@@ -514,19 +510,21 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
 
-   **Snapshot fallback for MISMATCH *or* MISSING — try this first.** It keys on the logged hash, not on the file's current location, so it is independent of whether the live file resolved at all. Scoping it to MISMATCH alone strands the MISSING rows permanently: a file that both moved *and* evolved fails the self-heal hash gate above, lands on MISSING, and never reaches the one check that could verify it. `$provenance` writes a preimage snapshot beside the proof at `07 System/.Provenance/<date>-<name>-<short8>.snapshot<ext>`, where `<short8>` is the first 8 characters of the logged hash. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
+   **Snapshot fallback for MISMATCH *or* MISSING — try this first.** It keys on the logged hash, not on the file's current location, so it is independent of whether the live file resolved at all. Scoping it to MISMATCH alone strands the MISSING rows permanently: a file that both moved *and* evolved fails the self-heal hash gate above, lands on MISSING, and never reaches the one check that could verify it. `$provenance` writes a preimage snapshot beside the proof at `07 System/.Provenance/<date>-<name>-<short16>.snapshot<ext>`; legacy snapshots use the first 8 characters instead of 16. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
    ```bash
-   # LOGGED = logged 16-hex short hash
-   SNAP=$(ls "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".snapshot.* 2>/dev/null | head -1)
-   if [ -n "$SNAP" ] && [ "$(sha256sum "$SNAP" | cut -c1-16)" = "$LOGGED" ]; then
-     echo "VERIFIED via snapshot: $SNAP"
-   fi
+   LOGGED="<logged 16-hex short hash>"; SNAP=
+   for C in "{VAULT}/07 System/.Provenance/"*-"$LOGGED".snapshot* "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".snapshot*; do
+     [ -f "$C" ] || continue
+     [ "$(sha256sum "$C" | cut -c1-16)" = "$LOGGED" ] || continue
+     SNAP=$C; echo "VERIFIED via snapshot: $SNAP"; break
+   done
+   [ -n "$SNAP" ] || echo "NO MATCH: no retained snapshot has digest $LOGGED"
    ```
    A hit upgrades the row to **"verified via snapshot"**. Fall through to the git-history walk only when no snapshot resolves: the snapshot is both the cheaper check and the stronger evidence, being the exact attested bytes written at hash time rather than a blob inferred from history. Reporting MISMATCH/FAILED without running this is a false negative, not an integrity signal.
 
    **Report the two MISSING outcomes separately — do not collapse them.** A snapshot hit on a MISSING row upgrades it to **"verified via snapshot — locator stale"**, never to a bare "verified via snapshot". Untriaged MISSING conflates two states that call for opposite responses: *the attested bytes are gone and this row is now unverifiable* (a real integrity signal, escalate) versus *the bytes are intact and only the path rotted* (bookkeeping, fix the pointer). Flattening them hides the second class, and the pointer then never gets fixed because nothing reports it. This is `_shared-rules.md` §12's **Live locator** category arriving in an automated verify pass — same distinction, same remedy (repair the locator, never the attested content); reuse that vocabulary rather than coining a parallel one.
 
-   **Never auto-repoint a stale locator on the strength of a snapshot.** The self-heal at the top of this step is licensed by a hash match against the *live* file, which proves it is the same artefact relocated. A snapshot match proves only that the attested bytes survive somewhere — it says nothing about which live file, if any, is the row's subject. Report `verified via snapshot — locator stale` with the resolved snapshot path and leave the row alone; where the log declares itself append-only, rewriting the File column would breach that contract anyway, and the correct repair is an appended annotation the human writes.
+   **Never auto-repoint a stale locator on the strength of a snapshot.** The self-heal at the top of this step is licensed by a hash match against the *live* file, which proves it is the same artefact relocated. A snapshot match proves only that the attested bytes survive somewhere — it says nothing about which live file, if any, is the row's subject. Report `verified via snapshot — locator stale` with the resolved snapshot path and leave the row alone; where the log declares itself append-only, rewriting the File column would breach that contract anyway, and the correct repair is a validated appended locator annotation after identifying the live target.
 
    **Git-history fallback for MISMATCH, and for MISSING with no snapshot hit** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. A MISSING row runs both rungs too, with the logged path as `REL`: history keeps a path the working tree has lost. Walk the file's history for a blob whose hash matches the logged one:
    ```bash
@@ -554,7 +552,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    The fence always ends in one line. `VERIFIED` is a hit and prints the path the blob was committed at: the logged hash shows the attested bytes existed there, not that the path is this row's file, so carry the path into the report. `MISS` is a miss; `0 blobs tried` means history holds nothing under that basename, so check `REL` before recording it. `ERROR` means nothing was searched. A hit on either rung upgrades a MISMATCH row to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering — and a MISSING row to **"verified via git history — locator stale"**, reported with the path and never repointed, as for a snapshot hit. No hit leaves the row as it was, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later), that predates git tracking of that path, whose basename also changed or contains `[`…`]` (the pathspec reads brackets as a character class), or that entered history only through a merge commit (the walk reads no merge diffs) — assess those against mtime and known tooling behaviour, and say which case applies.
 
-   **Superseded rows:** rows whose OTS column reads `superseded` are historical attestations replaced by a later row (`$provenance`'s append-only re-hash). Don't hash-compare them against the current file — a mismatch is expected by design; verify the superseding row instead. Their snapshot/proof files (if present in `07 System/.Provenance/`) can still be verified against each other.
+   **Appended annotations:** a ``supersedes `<old 16-hex hash>` `` relationship row links its File/Tag and new SHA256 to the earlier attestation; it is not itself a new proof status. Preserve and verify the old preimage/proof as historical evidence, rather than compare it to current bytes. A later `confirmed` row for the same tag/file/digest is the current verification annotation; the earlier `pending` row remains intact. Legacy rows whose OTS column already reads `superseded` remain historical and are never rewritten.
 
    **OTS availability guard:** `command -v ots` is necessary but not sufficient — stamping and upgrading only need the Python `ots` client (calendar servers), but *verifying* needs an attestation source, and the Python client supports only a local Bitcoin node (no explorer fallback). Pick the verify path in order:
    1. **Local node present** (`~/.bitcoin/.cookie` exists, or `bitcoin-cli getblockcount` succeeds) → Python `ots verify`.
@@ -562,21 +560,21 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
    **Upgrade OTS proofs:**
-   For entries with OTS status "pending", find the row's proof and confirm it is this row's before upgrading. A proof is named either with the first 8 characters of the logged hash (`/provenance`) or after the row's file — in `07 System/.Provenance/`, or beside the target, where `ots stamp` writes `<file>.ots`. A name only makes a candidate; the digest inside the proof decides (`ots info` prints the file hash on its first line):
+   For entries with OTS status "pending", find the row's proof and confirm it is this row's before upgrading. A proof is named either with the first 16 characters of the logged hash (legacy proofs use 8) (`/provenance`) or after the row's file — in `07 System/.Provenance/`, or beside the target, where `ots stamp` writes `<file>.ots`. A name only makes a candidate; the digest inside the proof decides (`ots info` prints the file hash on its first line):
    ```bash
    # FILE = the row's File column, TARGET = the resolved target path (empty when the row is MISSING)
    LOGGED="<logged 16-hex short hash>"; FILE="<File column>"; TARGET="<resolved target path>"
    P="{VAULT}/07 System/.Provenance"; BN=$(basename "$FILE"); N=0; LAST=
    [ -d "$P" ] || { echo "ERROR: no $P — nothing searched"; exit 1; }
-   for C in "$P/"*-"${LOGGED:0:8}".ots "$P/$BN.ots" "$P/${BN%.*}.ots" ${TARGET:+"$TARGET.ots"}; do
+   for C in "$P/"*-"$LOGGED".ots "$P/"*-"${LOGGED:0:8}".ots "$P/$BN.ots" "$P/${BN%.*}.ots" ${TARGET:+"$TARGET.ots"}; do
      [ -f "$C" ] && [ "$C" != "$LAST" ] || continue; LAST=$C
      D=$(ots info "$C" 2>/dev/null | head -1); D=${D##* }
      if [ -n "$D" ] && [ "${D:0:16}" = "$LOGGED" ]; then N=$((N+1)); echo "PROOF: $C"; else echo "NOT THIS ROW'S PROOF (digest ${D:-unreadable}): $C"; fi
    done
    echo "$N matching proofs"
    ```
-   - **`1 matching proofs`** → run `ots upgrade "<the PROOF path>" 2>&1` (calendar servers — works without a node) and classify by its output, not its exit code:
-     - `Success! Timestamp complete` → update the provenance log entry to "confirmed".
+   - **`1 matching proofs`** → copy the proof to a temporary directory outside the vault, run `ots upgrade` on that copy (calendar servers — works without a node), and classify by its output, not its exit code. Retain a changed proof as a new hash-keyed file through `locked-ingress.sh`; never overwrite the earlier proof:
+     - `Success! Timestamp complete` → append a validated `confirmed` annotation via `provenance-write.py append` with the matching snapshot/proof; never rewrite the earlier row.
      - a `Calendar <url>:` line carrying the calendar's own reply — `Pending confirmation in Bitcoin blockchain`, or `Timestamped by transaction … waiting for N confirmations` → **genuinely pending**: a calendar was reached and has not anchored the proof yet.
      - anything else → **upgrade inconclusive**: report the output and leave the status unchanged. Unreachable calendars land here — they end in the same `Failed! Timestamp not complete` and exit 1 as a pending proof, with a connection error on every `Calendar` line.
    - **Several matching proofs** → report them; upgrade nothing and write nothing.
@@ -585,7 +583,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **`ERROR`** → nothing was searched; fix the vault path and re-run before reporting the row.
 
    **Verify OTS proofs:**
-   For entries with `.ots` files, run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
+   For entries with `.ots` files, the target must hash to the logged digest: use the retained snapshot when the live file is missing or differs. Then run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
 
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches can follow re-export; verify the retained snapshot before reporting an integrity failure. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
