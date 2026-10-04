@@ -143,7 +143,7 @@ Transcript and session log hashing is always deferred to `/goodnight` — they'r
   Transcript: deferred to /goodnight
   Session log: deferred to /goodnight
 
-  Flag: 07 System/.Provenance/pending/YYYY-MM-DD-tag.md
+  Flag: [actual resolved FLAG_FILE from Step 4, including any reused legacy filename]
   → /goodnight will process this flag and complete hashing.
 ```
 

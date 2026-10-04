@@ -418,8 +418,10 @@ def _main(argv: list[str]) -> int:
         prepared = "--prepared" in argv
         if prepared:
             argv.remove("--prepared")
-        if argv or (prepared and sources):
-            sys.exit("prepared panel review accepts no source arguments or unknown options")
+        if argv:
+            sys.exit("unknown panel-review options: " + " ".join(argv))
+        if prepared and sources:
+            sys.exit("prepared panel review accepts no source arguments")
         if not sources and not prepared:
             sys.exit("--panel-review requires --source FILE or --prepared")
         try:

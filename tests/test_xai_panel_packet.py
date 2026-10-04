@@ -81,4 +81,18 @@ class PanelPacket(unittest.TestCase):
             self.assertIn('Controlled evidence.',r.stdout)
 
 
+    def test_legacy_unknown_option_reports_mode_without_claiming_prepared(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);brief=root/'brief';source=root/'source'
+            brief.write_text('brief');source.write_text('source')
+            env=dict(os.environ,HOME=d,CLAUDE_CONFIG_DIR=str(root/'claude'),CODEX_HOME=str(root/'codex'))
+            for name in ['OPENCAIRN_SESSION_ID','CLAUDE_CODE_SESSION_ID','CODEX_THREAD_ID']:
+                env.pop(name,None)
+            argv=[sys.executable,XAI.__file__,'--panel-review',str(brief),'--source',str(source),'--unexpected','--dry-run']
+            r=subprocess.run(argv,env=env,text=True,capture_output=True)
+            self.assertNotEqual(0,r.returncode)
+            self.assertIn('--unexpected',r.stderr)
+            self.assertNotIn('prepared',r.stderr)
+
+
 if __name__ == '__main__':unittest.main()

@@ -64,6 +64,9 @@ Open loops at hibernation:
 - [Loop 2]
 [etc. — the full list, so the user can answer step 5 against it]
 
+Due/overdue Tickler triggers:
+- [Existing dated trigger and source locator; or checked-none / absent / unverified from the actual read]
+
 Deliberately deferred during the break:
 - [Deferred item]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

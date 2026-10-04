@@ -39,6 +39,8 @@ Before counting any task-shaped hit, read from its nearest enclosing heading or 
    - Show each `[LP]` item with its surrounding context
    - If the item has a checkbox (`- [ ]` or `- [x]`), note completion status. If it has no checkbox — a plain bullet, a tagged heading, a line of prose — it has **no status**: mirror the source marker as it appears and don't invent a checkbox
 
+Put unresolved task/example hits in the separate Undetermined bucket with their source path and uncertainty. Do not group them as ordinary no-status items or list them again in the confirmed file groups. Count every retained hit once: total = open + done + no status + undetermined; only confirmed open items contribute to Hottest file.
+
 ### 3. Present Summary
 
 Run `date +%Y-%m-%d` for the Scanned date — never infer it.
@@ -46,7 +48,7 @@ Run `date +%Y-%m-%d` for the Scanned date — never infer it.
 ```markdown
 ## Longpoles
 
-**N items across M files** | Scanned: YYYY-MM-DD
+**N retained hits across M files (V undetermined)** | Scanned: YYYY-MM-DD
 
 ### [Project or Area Name] — `relative/path/to/file.md`
 - [ ] [LP] Item description (with context)
@@ -58,10 +60,14 @@ Run `date +%Y-%m-%d` for the Scanned date — never infer it.
 
 ---
 
+### ❓ Undetermined
+- [LP] [verbatim hit] — `relative/path/to/file.md` — task/example context unresolved
+
 ### Summary
 - **Open:** X items still blocking
 - **Done:** Y items completed (can be cleaned up)
-- **No status:** Z items with no completion marker (not counted as open or done)
+- **No status:** Z confirmed items with no completion marker (not counted as open or done)
+- **Undetermined:** V retained hits whose task/example context is unresolved (excluded from open, done and no-status counts)
 - **Hottest file:** [file with most open longpoles, or "none" if no items are open]
 ```
 
