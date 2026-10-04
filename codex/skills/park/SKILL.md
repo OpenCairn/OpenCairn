@@ -227,7 +227,7 @@ Output: `✓ Quality check: B bounded semantic files full-read; T large/referenc
 
 ### 5. Project doc update
 
-If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its existing current-state/action content to match reality, preserving the document's structure and bumping any `Last updated:` stamp, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, append `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` via `locked-edit.sh --replace` on the section's tail (not `--append` — the section may not be last; skip if this N is already there from a merge). No such section → don't create one.
+If the session materially changed a project's state, update that project's doc in `03 Projects/` — rewrite its existing current-state/action content to match reality, preserving the document's structure and bumping any `Last updated:` stamp, via `locked-edit.sh` (§5). No material change, no edit. If the doc has a `## Session History` section, read it and add `- [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]] (Session N) — one-line gloss` at whichever end holds its newest row, via `locked-edit.sh --replace` anchored on that row (not `--append` — the section may not be last; skip if this N is already there from a merge). A section that only points at another doc gets the row in that doc instead. No such section → don't create one.
 
 ### 6. Reference-graph propagation
 
