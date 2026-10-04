@@ -19,10 +19,10 @@ Install the script in the runtime scripts directory. An opt-in hook entry inside
 ```json
 {
   "matcher": "startup|resume|clear|compact",
-  "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/harness-semantics-check.py\"", "timeout": 10}]
+  "hooks": [{"type": "command", "command": "python3 \"<installed-scripts-dir>/harness-semantics-check.py\"", "timeout": 10}]
 }
 ```
 
-Merge this entry without replacing unrelated hooks, settings or permissions. The hook runs from the configured runtime directory; the manifest is runtime configuration and must not be copied into a public template. This is Claude wiring, not a Codex hook.
+Merge this entry without replacing unrelated hooks, settings or permissions. Resolve `<installed-scripts-dir>` beside the loaded commands tree, as `/setup-hooks` does; `CLAUDE_CONFIG_DIR` selects settings/state, not shipped code. The hook uses that installed executable; the manifest is runtime configuration and must not be copied into a public template. This is Claude wiring, not a Codex hook.
 
 Atomic `mkdir` markers under `${XDG_CACHE_HOME:-$HOME/.cache}/opencairn/harness-semantics` allow one warning per recorded/observed version pair, including concurrent starts. `--cache-dir`, `--manifest`, `--claude` and `--timeout` support isolated checks. A cache inside `VAULT_PATH` is rejected; cache errors emit the advisory warning without suppression. Missing/invalid baselines and version failures always report unknown rather than silently passing. Removing a cache marker permits the corresponding drift warning again. The manifest is never written or advanced by this script. A matching version means only that the stored version equals the observed version.

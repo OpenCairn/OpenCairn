@@ -102,7 +102,7 @@ def bundle(cwd, env, sid, provenance, timeout):
     result['vault'].update(state='checked', path=str(vault))
     scripts = vault / '.claude/scripts'
     result['dependencies'] = [source(scripts / name) for name in ['session-ledger.sh', 'lib-session.sh']]
-    config = Path(env.get('CLAUDE_CONFIG_DIR', str(Path.home() / '.claude')))
+    config = Path(env.get('CLAUDE_CONFIG_DIR') or str(Path.home() / '.claude'))
     ledger_path = config / '.session-state' / f'{sid}.tsv' if sid else None
     before = source(ledger_path)
     receipt = run(['bash', str(scripts / 'session-ledger.sh'), '--read'], cwd, env, timeout)
