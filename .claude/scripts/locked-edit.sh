@@ -46,7 +46,10 @@
 # fenced code blocks. The section runs from that line to just before the next
 # heading of the same or a higher level (the same number of '#' or fewer), or
 # to end of file, trailing blank lines included; deeper sub-headings and fenced
-# lines that merely look like headings stay inside it.
+# lines that merely look like headings stay inside it. Any line that starts
+# with three or more backticks or tildes opens a fence; if a fence is still
+# open at end of file the section's end cannot be known, so both modes exit 2
+# and nothing is written.
 #
 # --show-section is the read: under the lock, and without writing anything, it
 # prints the section to stdout and "Section sha256: <hash>" to stderr. The hash
@@ -1114,13 +1117,15 @@ if mode in ("--show-section", "--delete-section"):
     # with its offset, so both the match and the section end ignore fences.
     headings = []
     fence = None
+    fence_line = 0
     offset = 0
-    for raw in content.splitlines(keepends=True):
+    for number, raw in enumerate(content.splitlines(keepends=True), 1):
         line = raw.rstrip("\n").rstrip("\r")
         marker = re.match(r" {0,3}(`{3,}|~{3,})(.*)", line)
         if fence is None:
             if marker:
                 fence = marker.group(1)
+                fence_line = number
             else:
                 found = re.match(r"(#{1,6})(?:[ \t]|$)", line)
                 if found:
@@ -1129,6 +1134,13 @@ if mode in ("--show-section", "--delete-section"):
               and len(marker.group(1)) >= len(fence) and not marker.group(2).strip()):
             fence = None
         offset += len(raw)
+    if fence is not None:
+        # Every heading after an unclosed fence is hidden, so the section's end
+        # cannot be trusted: it would silently run to end of file.
+        sys.stderr.write("%s: the code fence opened on line %d of %s is never closed, so section "
+                         "boundaries cannot be determined\n" % (mode, fence_line, target))
+        sys.stderr.write("No changes written to %s\n" % target)
+        sys.exit(2)
 
     hits = [index for index, item in enumerate(headings) if item[2] == heading]
     if not hits:

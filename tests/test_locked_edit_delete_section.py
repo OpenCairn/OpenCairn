@@ -184,6 +184,27 @@ class LockedEditDeleteSectionTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertEqual(self.text(), "# Top\n\n```\n## Fenced\n```\n")
 
+    def test_fence_still_open_at_end_of_file_writes_nothing(self) -> None:
+        # A line opening with three backticks and never closed would otherwise
+        # hide every later heading and stretch the section to end of file.
+        week = (
+            "# This Week\n\n"
+            "## Mon 1\n- [x] ran it\n```inline``` is how you quote\n\n"
+            "## Tue 2\n- [ ] keep tuesday\n\n"
+            "## Wed 3\n- [ ] keep wednesday\n"
+        )
+        self.target.write_text(week, encoding="utf-8")
+
+        shown = self.run_show("## Mon 1")
+        result = self.run_delete("## Mon 1", "## Mon 1 ✅\nDone.\n")
+
+        self.assertEqual(shown.returncode, 2, shown.stderr)
+        self.assertEqual(shown.stdout, "")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("code fence", result.stderr)
+        self.assertEqual(self.text(), week)
+        self.assertEqual(result.stdout, "")
+
     def test_duplicate_heading_is_ambiguous(self) -> None:
         duplicated = PLAN + "\n## Mon 1 — Deep work\n- again\n"
         self.target.write_text(duplicated, encoding="utf-8")
