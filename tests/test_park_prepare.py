@@ -41,7 +41,10 @@ class ParkPrepareTests(unittest.TestCase):
             '### Pickup Context\n**For next session:** None.\n**Project:** None\n')
         self.config = self.base / 'config'
         self.root = self.config / '.session-state/fixture.park-review'
-        self.env = mock.patch.dict(os.environ, {'CLAUDE_CONFIG_DIR': str(self.config)})
+        self.env = mock.patch.dict(os.environ, {
+            'CLAUDE_CONFIG_DIR': str(self.config), 'CODEX_HOME': str(self.base / 'codex'),
+            'OPENCAIRN_SESSION_ID': 'fixture', 'CLAUDE_CODE_SESSION_ID': 'fixture',
+            'CODEX_THREAD_ID': 'fixture', 'VAULT_PATH': str(self.vault)})
         self.env.start()
         self.addCleanup(self.env.stop)
         self.args = SimpleNamespace(session_id='fixture', vault=str(self.vault), session_log=str(self.log), number=1)
@@ -122,6 +125,70 @@ class ParkPrepareTests(unittest.TestCase):
         new = next(x for x in second['full_read'] if x['path'] == str(self.note))
         self.assertNotEqual(old['sha256'], new['sha256'])
         self.assertEqual(Path(new['snapshot_path']).read_text(), self.note.read_text())
+
+    def test_begin_run_isolates_same_session_repark_receipts(self):
+        self.handoff['captures'].append({'kind': 'evidence', 'label': 'old source',
+            'source': 'fixture', 'provenance': 'primary', 'text': 'OLD-RUN-EVIDENCE'})
+        self.prepare()
+        old_manifest = (self.root / 'review-brief-manifest.json').read_bytes()
+        parser = review.build_parser()
+        args = parser.parse_args(['--session-id', 'fixture', 'begin-run'])
+        with mock.patch('sys.stdout', io.StringIO()):
+            args.func(args)
+        _, first, _, _ = review.state_paths('fixture')
+        self.assertNotEqual(first, self.root)
+        self.assertEqual(review.load_captures(first), [])
+        self.assertFalse((first / 'files.json').exists())
+        with self.assertRaisesRegex(SystemExit, 'no propagation receipt'):
+            review.cmd_build(SimpleNamespace(**vars(self.args), out=None))
+        self.assertEqual((self.root / 'review-brief-manifest.json').read_bytes(), old_manifest)
+        # New propagation cannot excuse the old generation's verifier either.
+        review.capture_record(first, kind='propagation', label='current', text='checked nil',
+                              source=None, provenance=None)
+        with self.assertRaisesRegex(SystemExit, 'no verifier receipt'):
+            with mock.patch('sys.stdout', io.StringIO()):
+                review.cmd_build(SimpleNamespace(**vars(self.args), out=None))
+        self.prepare({})
+        self.assertNotIn('OLD-RUN-EVIDENCE', (first / 'review-brief.md').read_text())
+        with mock.patch('sys.stdout', io.StringIO()):
+            args.func(args)
+        _, second, _, _ = review.state_paths('fixture')
+        self.assertNotEqual(first, second)
+        self.assertEqual(review.load_captures(second), [])
+        self.assertTrue(first.is_dir())
+        with self.assertRaisesRegex(SystemExit, 'no propagation receipt'):
+            self.prepare({})
+
+    def test_new_run_reuses_only_hash_matching_audit_and_rejects_old_brief(self):
+        self.log.write_text(self.log.read_text().replace('### Files Created\n- note.md - result',
+                                                        '### Files Created\nNone'))
+        self.prepare()
+        manifest = json.loads((self.root / 'review-brief-manifest.json').read_text())
+        report = '\n'.join(f"ATTEST {f['sha256']} {f['path']}" for f in manifest['full_read']) + '\nTerminal state: clean\n'
+        audit = SimpleNamespace(session_id='fixture', reviewer='fixture', vault=str(self.vault),
+                                from_brief=True, file=[])
+        with mock.patch('sys.stdin', io.StringIO(report)), mock.patch('sys.stdout', io.StringIO()):
+            review.cmd_record_audit(audit)
+        begin = review.build_parser().parse_args(['--session-id', 'fixture', 'begin-run'])
+        with mock.patch('sys.stdout', io.StringIO()):
+            begin.func(begin)
+        _, root, _, _ = review.state_paths('fixture')
+        review.atomic_json(root / 'review-brief-manifest.json', manifest)
+        with mock.patch('sys.stdin', io.StringIO(report)):
+            with self.assertRaisesRegex(SystemExit, 'different park generation'):
+                review.cmd_record_audit(audit)
+        self.prepare()
+        current = json.loads((root / 'review-brief-manifest.json').read_text())
+        self.assertEqual({f['path'] for f in current['reused']}, {str(self.note), str(self.log)})
+        self.note.write_text('# Example\n\nNew generation content.\n')
+        with mock.patch('sys.stdout', io.StringIO()):
+            begin.func(begin)
+        self.prepare()
+        _, root, _, _ = review.state_paths('fixture')
+        changed = json.loads((root / 'review-brief-manifest.json').read_text())
+        # A joint audit receipt remains atomically invalidated when any member changes.
+        self.assertEqual(changed['reused'], [])
+        self.assertEqual({f['path'] for f in changed['full_read']}, {str(self.note), str(self.log)})
 
 
 if __name__ == '__main__':
