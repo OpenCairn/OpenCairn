@@ -20,6 +20,7 @@ Options:
     --all-projects Export every Claude Code project and Codex rollout
 """
 
+import argparse
 import hashlib
 import json
 import os
@@ -391,11 +392,14 @@ def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: export-session-transcripts.py <vault_path> [--days N] [--all-projects] [--fallback-any-project]", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("vault_path", type=Path)
+    parser.add_argument("--days", type=int, default=7)
+    parser.add_argument("--all-projects", action="store_true")
+    parser.add_argument("--fallback-any-project", action="store_true")
+    args = parser.parse_args()
 
-    vault_path = Path(sys.argv[1])
+    vault_path = args.vault_path
     locked_edit = Path(__file__).with_name("locked-edit.sh")
     migration_helper = Path(__file__).with_name("archive-namespace-migration.py")
     if not locked_edit.is_file():
@@ -418,14 +422,9 @@ def main():
         detail = archive.stderr.strip() or "archive helper returned an invalid root"
         print(f"Error: {detail}", file=sys.stderr)
         sys.exit(1)
-    days = 7
-    if "--days" in sys.argv:
-        idx = sys.argv.index("--days")
-        if idx + 1 < len(sys.argv):
-            days = int(sys.argv[idx + 1])
-
-    all_projects = "--all-projects" in sys.argv
-    allow_fallback = "--fallback-any-project" in sys.argv
+    days = args.days
+    all_projects = args.all_projects
+    allow_fallback = args.fallback_any_project
     codex_files = codex_session_files()
 
     if all_projects:

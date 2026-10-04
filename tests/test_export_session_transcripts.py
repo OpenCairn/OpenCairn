@@ -75,6 +75,27 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
             text=True,
         )
 
+    def test_help_and_invalid_arguments_do_not_create_archive(self) -> None:
+        # Parse before archive-root --write: --help used to become a vault path.
+        for arguments, expected_status in (
+            (["--help"], 0),
+            (["vault", "--help"], 0),
+            (["vault", "--days", "not-a-number"], 2),
+            (["vault", "--days"], 2),
+            (["vault", "--typo"], 2),
+        ):
+            with self.subTest(arguments=arguments), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / "vault").mkdir()
+                env = isolate_session(os.environ.copy(), root / "state", "export-help-test")
+                env["HOME"] = str(root / "home")
+                result = subprocess.run(
+                    ["python3", str(SCRIPT), *arguments], cwd=root, env=env,
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, expected_status, result.stdout + result.stderr)
+                self.assertEqual(list(root.rglob("*")), [root / "vault"], "argument parsing wrote files")
+
     def assert_codex_export(self, vault: Path, rollout: Path) -> None:
         date_str = datetime.fromtimestamp(rollout.stat().st_mtime).strftime("%Y-%m-%d")
         output = vault / "06 Archive/OpenCairn/.Session Transcripts" / f"{date_str}.md"
