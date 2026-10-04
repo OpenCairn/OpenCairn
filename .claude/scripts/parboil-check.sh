@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# parboil-check.sh - UserPromptSubmit hook: fire a mid-session shadow park once
-# the session's context has grown expensive.
+# parboil-check.sh - UserPromptSubmit: request a mid-session shadow park.
+# Stop: observe a completed park and record its ledger-line watermark.
 #
 # Why: /park's cost is dominated by model turns, and per-turn cost rises with the
 # context the turn runs in - so the same park run late in a long session costs
@@ -58,11 +58,82 @@ TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/nul
 MARKER="$STATE_DIR/$SID.parboil.state"   # "<peak-at-last-fire> <ledger-lines-at-last-fire>"
 DRAFT="$STATE_DIR/$SID.parboil.md"
 LEDGER="$STATE_DIR/$SID.tsv"
+PARKED="$STATE_DIR/$SID.parked-ledger-lines"
 
 # Nothing written this session -> nothing worth pre-parking.
 [ -f "$LEDGER" ] || exit 0
 LEDGER_LINES=$(wc -l < "$LEDGER" 2>/dev/null || echo 0)
 [ "$LEDGER_LINES" -ge 3 ] 2>/dev/null || exit 0
+
+# Inspect genuine user requests, not skill text echoed by a tool, quoted advice,
+# compaction summaries or sub-agent records. Stream the whole transcript so an
+# active park does not disappear merely because it is older than the token tail.
+# A malformed transcript leaves this guard unknown and the hook fails open.
+ACTIVE_PARK=$(jq -n '
+    def body: if type == "string" then . else
+        [.[]? | select(.type == "text") | .text] | join("\n") end;
+    def park_request:
+        gsub("^\\s+|\\s+$"; "")
+        | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
+          or (startswith("<command-") and contains("<command-name>/park</command-name>"))
+          or test("^<skill>\\s*<name>park</name>");
+    reduce inputs as $r (false;
+        if $r.type == "user" and ($r.isMeta != true)
+           and ($r.isCompactSummary != true) and ($r.isSidechain != true)
+           and (($r.message.content | type) == "string"
+                or ([$r.message.content[]? | select(.type == "tool_result")] | length) == 0)
+        then ($r.message.content | body) as $text
+             | if ($text | park_request) then true
+               elif ($text | ltrimstr(" ") | startswith("<")) or $text == "" then .
+               else false end
+        else . end)
+' "$TRANSCRIPT" 2>/dev/null) || ACTIVE_PARK=false
+
+EVENT=$(printf '%s' "$INPUT" | jq -r '.hook_event_name // "UserPromptSubmit"' 2>/dev/null) || exit 0
+if [ "$EVENT" = "Stop" ]; then
+    # Stop's last_assistant_message is the final conversational output. Require
+    # the park completion contract outside code fences; tool output and a quoted
+    # example of the contract do not establish completion.
+    if printf '%s' "$INPUT" | jq -e '
+        (.last_assistant_message // "") | split("\n")
+        | reduce .[] as $line ({fenced:false, lines:[]};
+            if ($line | test("^\\s*(```|~~~)")) then .fenced = (.fenced | not)
+            elif .fenced then . else .lines += [$line] end)
+        | (.lines | join("\n"))
+        | (test("(?m)^\\s*(?:Quick )?Parked\\.\\s*$")
+           and test("✓ Session [0-9]+ saved:"))
+          or test("(?m)^\\s*✓ Merged into Session [0-9]+")
+    ' >/dev/null 2>&1; then
+        mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+        printf '%s\n' "$LEDGER_LINES" > "$PARKED" 2>/dev/null || true
+    fi
+    exit 0
+fi
+[ "$EVENT" = "UserPromptSubmit" ] || exit 0
+
+# The current prompt may not yet be in the transcript. Suppress explicit park
+# invocation before recording a trigger, as well as an already-active park.
+if printf '%s' "$INPUT" | jq -e '
+    (.prompt // "") | gsub("^\\s+|\\s+$"; "")
+    | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
+      or (startswith("<command-") and contains("<command-name>/park</command-name>"))
+      or test("^<skill>\\s*<name>park</name>")
+' >/dev/null 2>&1 || [ "$ACTIVE_PARK" = "true" ]; then
+    exit 0
+fi
+
+NEW_POST_PARK_WORK=0
+if [ -f "$PARKED" ]; then
+    PARKED_LINES=$(cat "$PARKED" 2>/dev/null)
+    case "$PARKED_LINES" in ''|*[!0-9]*) ;; *)
+        [ "$LEDGER_LINES" -ne "$PARKED_LINES" ] || exit 0
+        # A prior session-log block is not a permanent suppression: a fresh
+        # ledger delta resumes snapshots without waiting another token interval.
+        NEW_POST_PARK_WORK=1
+        rm -f "$PARKED"
+        ;;
+    esac
+fi
 
 LAST_PEAK=0; LAST_LINES=0; RETRY=0
 if [ -f "$MARKER" ]; then
@@ -80,6 +151,7 @@ if [ -f "$MARKER" ]; then
         [ "$LEDGER_LINES" -gt "$LAST_LINES" ] 2>/dev/null || exit 0
     fi
 fi
+[ "$NEW_POST_PARK_WORK" -eq 0 ] || RETRY=1
 
 # Peak context from the transcript tail. Context grows monotonically between
 # compactions, so the tail carries the peak; reading 200 lines keeps this hook
