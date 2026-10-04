@@ -83,7 +83,7 @@ class Lane4RegressionTests(unittest.TestCase):
         self.assertIn('3x MultiEdit,Edit', result.stdout)
         self.assertIn('agent-12,agent-1', result.stdout)
 
-    def test_created_path_stays_out_of_updated_and_noop_succeeds(self):
+    def test_created_path_stays_out_of_updated_and_noop_exits_3(self):
         log = self.vault / 'log.md'
         log.write_text('## Session 1 - Fixture\n\n### Summary\nDone\n\n'
                        '### Files Created\n- new.md - created\n\n'
@@ -94,9 +94,11 @@ class Lane4RegressionTests(unittest.TestCase):
         self.assertIn('skipped (already listed in Created/Updated): new.md', result.stdout)
         self.assertEqual(log.read_text().count('- new.md'), 1)
         self.assertIn('- old.md - changed', log.read_text())
+        self.assertIn('1 added, 1 skipped', result.stdout)
         before = log.read_bytes()
         noop = self.run_script('backfill-files-updated.sh', log, 1, body='- old.md - repeated\n')
-        self.assertEqual(noop.returncode, 0, noop.stderr)
+        self.assertEqual(noop.returncode, 3, noop.stderr)
+        self.assertIn('0 added, 1 skipped', noop.stdout)
         self.assertEqual(log.read_bytes(), before)
 
     def test_line_count_includes_final_unterminated_line(self):

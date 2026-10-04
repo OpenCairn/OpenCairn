@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "fcec295bac8957248f4d3ee003e77e48fb24a52ccc7555fd3b097455ca64b6bd",
-      "render_sha256": "9a52e7d95cdbdc290175534995fa4c8b6be227d07a3a216473e3ef174ba84fb0"
+      "source_sha256": "bf7fcacf7db8e29fe71d9ed3be72bd61a639e1e751674aa1b268dfd5ba1c46d2",
+      "render_sha256": "fac1b7f1023bc89cd246274953205971fad5c98106187a6668cbe169e6c6eef4"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
@@ -148,8 +148,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "796d4ff93185a68aef1a70493ee1413632d3dc7227e3fdd9516f329f2cbc5e53",
-      "render_sha256": "4793d2de08224d16fd12daf4c312d3e5365ce913c9c086a13932b5ebfed8772d"
+      "source_sha256": "ebfc93c69337a1a8359f920366f73dd76ea59441f9156820d2c570df97b8c4e8",
+      "render_sha256": "459c45414af11f589183433c02332f2b2c658faddd847fb08c66ae9464bd3af4"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",

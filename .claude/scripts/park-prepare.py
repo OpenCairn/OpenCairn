@@ -146,20 +146,20 @@ def prepare(args, data):
     timing = {'status': 'running', 'steps': []}
     started = time.monotonic()
 
-    def command(name, argv, text=None):
+    def command(name, argv, text=None, ok=(0,)):
         before = time.monotonic()
         r = subprocess.run(argv, input=text, capture_output=True, text=True,
                            env={**os.environ, 'VAULT_PATH': str(vault)})
         timing['steps'].append({'name': name, 'seconds': time.monotonic() - before, 'returncode': r.returncode})
         (out / f'{name}.txt').write_text(r.stdout + r.stderr)
         print(r.stdout, end='')
-        if r.returncode:
+        if r.returncode not in ok:
             fail(f'{name} failed ({r.returncode}); inspect {out / (name + ".txt")}')
         return r.stdout
 
     try:
         if data.get('backfill'):
-            command('backfill', [str(vault / '.claude/scripts/backfill-files-updated.sh'), str(log), str(args.number)], '\n'.join(data['backfill']) + '\n')
+            command('backfill', [str(vault / '.claude/scripts/backfill-files-updated.sh'), str(log), str(args.number)], '\n'.join(data['backfill']) + '\n', ok=(0, 3))  # 3: every row already listed
         log_bytes = log.read_bytes()
         block, sections = session_block(log_bytes.decode('utf-8'), args.number)
         rows = file_rows(sections, vault, coverage)
