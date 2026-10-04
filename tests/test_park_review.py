@@ -1290,6 +1290,101 @@ class AuthoredBinaryReviewTests(unittest.TestCase):
         self.assertIn("unclassified non-text artefact", result.stderr)
 
 
+class IncompleteMoveReceiptTests(unittest.TestCase):
+    """A move that failed its postcheck is named in the import output."""
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix="move-heal-fixture-")
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name).resolve()
+        self.config = base / "config"
+        self.vault = base / "vault"
+        (self.vault / "notes").mkdir(parents=True)
+        self.receipts = self.config / ".session-state/move-fixture.project-move-receipts"
+        self.receipts.mkdir(parents=True)
+
+    def write_receipt(self, name: str, *, complete: bool | None, reason: str | None = None,
+                      unverified: tuple[str, ...] = ()) -> Path:
+        destination = self.vault / f"{name}-moved.md"
+        destination.write_text(f"# {name}\n", encoding="utf-8")
+        healed = self.vault / f"notes/{name}-healed.md"
+        healed.write_text(f"[[{name}-moved]]\n", encoding="utf-8")
+        payload = {
+            "schema": 2,
+            "vault": str(self.vault),
+            "destination": str(destination),
+            "source_locator": name,
+            "destination_locator": f"{name}-moved",
+            "affected_files": [{
+                "path": f"notes/{name}-healed.md",
+                "post_sha256": park_review.sha256(healed),
+                "healed_links": 1,
+                "pre_lint": "same",
+                "post_lint": "same",
+                "unified_diff": "",
+                "diff_truncated": False,
+            }],
+            "unverified_files": list(unverified),
+        }
+        if complete is not None:
+            payload["complete"] = complete
+        if reason is not None:
+            payload["postcheck"] = {"reason": reason, "remaining_links": list(unverified)}
+        path = self.receipts / f"move-{name}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def run_import(self) -> tuple[int, list[str]]:
+        args = SimpleNamespace(session_id="move-fixture", vault=str(self.vault))
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(self.config)}), \
+             mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = park_review.cmd_import_move_heals(args)
+        return code, out.getvalue().splitlines()
+
+    def manifest(self) -> dict:
+        path = self.config / ".session-state/move-fixture.park-review/files.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_incomplete_receipt_is_reported_with_its_reason_and_counted(self) -> None:
+        self.write_receipt("alpha", complete=True)
+        partial = self.write_receipt("beta", complete=False, reason="old-links-remain",
+                                     unverified=("notes/stale.md",))
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [
+            f"MOVE_INCOMPLETE {partial}: the move failed its postcheck (old-links-remain); "
+            "1 verified link-healed file(s) imported, 1 file(s) left for semantic review",
+            "MOVE_HEALS imported 2 move(s), 2 link-healed file(s), "
+            "1 file(s) left for semantic review, 1 incomplete move(s)",
+        ])
+        manifest = self.manifest()
+        for name in ("alpha", "beta"):
+            healed = str(self.vault / f"notes/{name}-healed.md")
+            self.assertEqual(manifest[healed]["mechanical_kind"], "obsidian-link-heal")
+        self.assertNotIn(str(self.vault / "notes/stale.md"), manifest)
+
+    def test_incomplete_receipt_without_a_reason_is_still_reported(self) -> None:
+        partial = self.write_receipt("beta", complete=False)
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [
+            f"MOVE_INCOMPLETE {partial}: the move failed its postcheck (no reason recorded); "
+            "1 verified link-healed file(s) imported, 0 file(s) left for semantic review",
+            "MOVE_HEALS imported 1 move(s), 1 link-healed file(s), "
+            "0 file(s) left for semantic review, 1 incomplete move(s)",
+        ])
+
+    def test_complete_receipts_keep_the_summary_line_unchanged(self) -> None:
+        self.write_receipt("alpha", complete=True)
+        self.write_receipt("gamma", complete=None)
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [
+            "MOVE_HEALS imported 2 move(s), 2 link-healed file(s), "
+            "0 file(s) left for semantic review",
+        ])
+
+
 class RemoteFilesRowTests(unittest.TestCase):
     def test_remote_row_requires_exact_nonlocal_classification(self) -> None:
         vault = Path("/vault")
