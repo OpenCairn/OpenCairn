@@ -75,11 +75,11 @@ def validate_evidence(vault: Path, value: str, status: str, snapshot: Path, proo
     snapshot.relative_to(vault / '07 System/.Provenance')
     if '.snapshot' not in snapshot.name or not snapshot.is_file() or digest(snapshot)[:16] != value:
         raise ValueError('matching byte-exact provenance snapshot required')
-    if status in ('pending', 'confirmed'):
+    if proof is not None or status in ('pending', 'confirmed'):
         if proof is None:
             raise ValueError('pending/confirmed requires an existing matching .ots proof')
         proof = proof.resolve()
-        proof.relative_to(vault / '07 System/.Provenance')
+        proof.relative_to(vault)
         if proof.suffix != '.ots' or not proof_matches(proof, snapshot):
             raise ValueError('pending/confirmed requires an existing matching .ots proof (ots info)')
 
@@ -88,6 +88,8 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
            snapshot: Path, proof: Path | None, supersedes: str | None) -> dict:
     cell(tag)
     cell(rel)
+    snapshot = snapshot.resolve()
+    proof = proof.resolve() if proof else None
     validate_evidence(vault, value, status, snapshot, proof)
     log = vault / '07 System/AI Provenance Log.md'
     existing = rows(log)
@@ -97,14 +99,23 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
             raise ValueError('superseded attestation must exist for this tag/file and a different hash')
     timestamp = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     additions = []
-    if not any(r[1:] == [tag, rel, f'`{value}`', status] for r in existing):
+    attestations = [r for r in existing if r[1:4] == [tag, rel, f'`{value}`'] and r[4] in STATUSES]
+    if not attestations or attestations[-1][4] != status:
         additions.append(f'| {timestamp} | {tag} | {rel} | `{value}` | {status} |\n')
     relationship = f'supersedes `{supersedes}`' if supersedes else None
     if relationship and not any(r[1:] == [tag, rel, f'`{value}`', relationship] for r in existing):
         additions.append(f'| {timestamp} | {tag} | {rel} | `{value}` | {relationship} |\n')
+    # Separate annotation rows keep the five-column attestation table compatible.
+    # Record the chosen bytes durably; a later process must not pick the old proof.
+    locator = 'evidence: ' + json.dumps({'snapshot': relative(vault, str(snapshot)),
+                                       'proof': relative(vault, str(proof)) if proof else None},
+                                      sort_keys=True)
+    locators = [r for r in existing if r[1:4] == [tag, rel, f'`{value}`'] and r[4].startswith('evidence: ')]
+    if not locators or locators[-1][4] != locator:
+        additions.append(f'| {timestamp} | {tag} | {rel} | `{value}` | {locator} |\n')
     if additions:
-        # The wrapper owns the canonical per-file lock. No raw log append.
-        payload = '\n' + ''.join(additions)
+        # The wrapper guarantees the single newline boundary; prepend no blank.
+        payload = ''.join(additions)
         subprocess.run([str(SCRIPTS / 'locked-edit.sh'), str(log), '--append'],
                        input=payload, text=True, check=True, stdout=sys.stderr)
     return {'file': rel, 'hash': value, 'status': status, 'snapshot': str(snapshot),
@@ -143,6 +154,15 @@ def attest(vault: Path, args: argparse.Namespace) -> dict:
         shutil.copyfile(source, preimage)
         full_hash = digest(preimage)
         value = full_hash[:16]
+        recorded = rows(vault / '07 System/AI Provenance Log.md')
+        if any(r[1:4] == [args.tag, rel, f'`{value}`'] and r[4].startswith('evidence: ')
+               for r in recorded):
+            prior = locate(vault, args.tag, rel, value)
+            if digest(Path(prior['snapshot'])) != full_hash:
+                raise ValueError('selected snapshot differs from staged target')
+            if prior['status'] in ('pending', 'confirmed'):
+                return append(vault, rel, args.tag, value, prior['status'], Path(prior['snapshot']),
+                              Path(prior['proof']), args.supersedes)
         safe_name = re.sub('[^a-z0-9-]', '', source.stem.lower().replace(' ', '-')) or 'file'
         artifacts = vault / '07 System/.Provenance'
         if not artifacts.is_dir():
@@ -175,19 +195,66 @@ def attest(vault: Path, args: argparse.Namespace) -> dict:
                       proof if proof.exists() else None, args.supersedes)
 
 
-def evidence_for(vault: Path, value: str, status: str) -> bool:
-    artifacts = vault / '07 System/.Provenance'
-    for snapshot in artifacts.glob('*.snapshot*'):
-        if not snapshot.is_file() or digest(snapshot)[:16] != value:
-            continue
-        base = snapshot.name.split('.snapshot', 1)[0]
-        proof = artifacts / (base + '.ots')
-        try:
-            validate_evidence(vault, value, status, snapshot, proof if proof.exists() else None)
-            return True
-        except ValueError:
-            continue
-    return False
+def locate(vault: Path, tag: str, rel: str, value: str) -> dict:
+    """Resolve chosen evidence without writing or asserting Bitcoin verification."""
+    short_hash(value)
+    cell(tag)
+    matching = [r for r in rows(vault / '07 System/AI Provenance Log.md')
+                if r[1:4] == [tag, rel, f'`{value}`']]
+    attestations = [r for r in matching if r[4] in STATUSES]
+    if not attestations:
+        raise ValueError('attestation not found for tag/file/hash')
+    status = attestations[-1][4]
+    locators = [r[4] for r in matching if r[4].startswith('evidence: ')]
+    if locators:
+        data = json.loads(locators[-1].removeprefix('evidence: '))
+        if not isinstance(data, dict) or set(data) != {'snapshot', 'proof'}:
+            raise ValueError('invalid evidence locator annotation')
+        for key, path in data.items():
+            if path is None and key == 'proof':
+                continue
+            if not isinstance(path, str) or Path(path).is_absolute():
+                raise ValueError('evidence locator must use vault-relative paths')
+            if relative(vault, path) != path:
+                raise ValueError('invalid evidence locator path')
+        snapshot = vault / data['snapshot']
+        proof = vault / data['proof'] if data['proof'] else None
+        # A broken selected locator is an integrity gap, not a reason to use
+        # another proof that happens to share the same source digest.
+        validate_evidence(vault, value, status, snapshot, proof)
+        selection = 'annotation'
+    else:
+        artifacts = vault / '07 System/.Provenance'
+        snapshots = [p for p in sorted(artifacts.glob('*.snapshot*'))
+                     if p.is_file() and digest(p)[:16] == value]
+        if not snapshots:
+            raise ValueError('matching retained snapshot not found')
+        snapshot, proof = snapshots[0], None
+        if status in ('pending', 'confirmed'):
+            candidates = set(artifacts.glob(f'*-{value}.ots'))
+            candidates.update(artifacts.glob(f'*-{value[:8]}.ots'))
+            basename = Path(rel).name
+            candidates.update([artifacts / (basename + '.ots'),
+                               artifacts / (Path(basename).stem + '.ots'),
+                               vault / (rel + '.ots')])
+            candidates.update(artifacts / (p.name.split('.snapshot', 1)[0] + '.ots')
+                              for p in snapshots)
+            proofs = [p for p in sorted(candidates) if proof_matches(p, snapshot)]
+            if len(proofs) != 1:
+                raise ValueError(f'{len(proofs)} matching legacy proofs; require an explicit evidence annotation')
+            proof = proofs[0]
+        validate_evidence(vault, value, status, snapshot, proof)
+        selection = 'legacy'
+    return {'file': rel, 'hash': value, 'status': status, 'snapshot': str(snapshot),
+            'proof': str(proof) if proof else None, 'selection': selection}
+
+
+def evidence_for(vault: Path, tag: str, rel: str, value: str) -> bool:
+    try:
+        locate(vault, tag, rel, value)
+        return True
+    except (ValueError, OSError):
+        return False
 
 
 def check_flag(vault: Path, flag: Path) -> dict:
@@ -223,7 +290,7 @@ def check_flag(vault: Path, flag: Path) -> dict:
         value = digest(source)[:16] if source.is_file() else None
         # A different tag's attestation or stale pre-export hash cannot clear this flag.
         candidates = [r for r in recorded if r[1:4] == [tag, target, f'`{value}`'] and r[4] in STATUSES]
-        if not candidates or not evidence_for(vault, value, candidates[-1][4]):
+        if not candidates or not evidence_for(vault, tag, target, value):
             missing.append(target)
     return {'complete': not missing, 'flag': str(flag), 'missing': missing}
 
@@ -245,6 +312,9 @@ def main() -> int:
             sub.add_argument('--snapshot', required=True)
             sub.add_argument('--proof')
     commands.add_parser('check-flag').add_argument('--flag', required=True)
+    locator = commands.add_parser('locate', help='read-only chosen evidence lookup; does not verify Bitcoin attestation')
+    for field in ('tag', 'file', 'hash'):
+        locator.add_argument('--' + field, required=True)
     args = parser.parse_args()
     try:
         vault = Path(args.vault).expanduser().resolve(strict=True)
@@ -253,6 +323,8 @@ def main() -> int:
         elif args.command == 'append':
             result = append(vault, relative(vault, args.file), args.tag, args.hash, args.status,
                             Path(args.snapshot), Path(args.proof) if args.proof else None, args.supersedes)
+        elif args.command == 'locate':
+            result = locate(vault, args.tag, relative(vault, args.file), args.hash)
         else:
             result = check_flag(vault, Path(args.flag))
         print(json.dumps(result))

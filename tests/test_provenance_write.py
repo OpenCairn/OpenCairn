@@ -36,6 +36,9 @@ if sys.argv[1] == 'stamp':
  p = pathlib.Path(sys.argv[2]); pathlib.Path(str(p)+'.ots').write_text(hashlib.sha256(p.read_bytes()).hexdigest())
 elif sys.argv[1] == 'info':
  print('File sha256 hash: ' + pathlib.Path(sys.argv[2]).read_text())
+elif sys.argv[1] == 'upgrade':
+ p = pathlib.Path(sys.argv[2]); p.write_text(p.read_text() + '\\nupgraded\\n')
+ print('Success! Timestamp complete')
 ''')
         ots.chmod(0o755)
         self.env['PATH'] = str(bin_dir) + os.pathsep + self.env['PATH']
@@ -61,18 +64,126 @@ elif sys.argv[1] == 'info':
         return self.run_writer(*args, ok=ok)
 
     def test_rejects_non_16_hex_and_log_injection_without_changing_log(self):
+        snapshot = self.artifacts / 'valid.snapshot.md'
+        snapshot.write_bytes(self.doc.read_bytes())
+        proof = self.artifacts / 'valid.ots'
+        proof.write_text(hashlib.sha256(snapshot.read_bytes()).hexdigest())
         before = self.log.read_bytes()
         for digest in ['abcdef123456789', 'g' * 16, 'a' * 17]:
-            self.append(digest, ok=False)
+            result = self.append(digest, snapshot=snapshot, proof=proof, ok=False)
+            self.assertIn('hash must be exactly 16 lowercase hexadecimal characters', result.stderr)
         self.run_writer('attest', '--file', str(self.doc), '--tag', 'bad|tag', '--date', '2026-01-02', ok=False)
         self.assertEqual(self.log.read_bytes(), before)
+
+    def test_attestation_and_supersession_rows_keep_table_contiguous(self):
+        before = self.log.read_bytes()
+        original = self.attest()
+        self.doc.write_bytes(b'new preimage')
+        self.attest(None, '--supersedes', original['hash'])
+        self.assertTrue(self.log.read_bytes().startswith(before))
+        self.assertNotIn('\n\n|', self.log.read_text())
+        self.assertTrue(all(line.startswith('|') for line in self.log.read_text().splitlines()))
+
+    def test_upgraded_proof_locator_survives_fresh_process_and_repeat_attest(self):
+        record = self.attest()
+        original = Path(record['proof'])
+        original_bytes = original.read_bytes()
+        staged = self.root / 'upgrade.ots'
+        staged.write_bytes(original_bytes)
+        upgrade = subprocess.run(['ots', 'upgrade', str(staged)], env=self.env,
+                                 capture_output=True, text=True)
+        self.assertEqual(upgrade.returncode, 0, upgrade.stderr)
+        proof_hash = hashlib.sha256(staged.read_bytes()).hexdigest()[:16]
+        upgraded = original.with_name(original.stem + '-upgrade-' + proof_hash + '.ots')
+        ingress = SCRIPT.with_name('locked-ingress.sh')
+        landed = subprocess.run([str(ingress), str(self.vault), str(staged), str(upgraded)],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(landed.returncode, 0, landed.stderr)
+        before = self.log.read_bytes()
+        self.append(record['hash'], snapshot=record['snapshot'], proof=upgraded)
+        self.assertTrue(self.log.read_bytes().startswith(before))
+        located = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                            '--hash', record['hash']).stdout)
+        self.assertEqual(Path(located['proof']), upgraded)
+        self.assertEqual(located['status'], 'pending')  # no Bitcoin verification in this fixture
+        self.assertEqual(original.read_bytes(), original_bytes)
+        self.assertEqual(Path(self.attest()['proof']), upgraded)
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n- 03 Projects/Example.md\n')
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-02.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True)
+            target.write_text('complete record'); self.attest(target)
+        self.run_writer('check-flag', '--flag', str(flag))
+        upgraded.unlink()
+        self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                        '--hash', record['hash'], ok=False)
+        self.run_writer('check-flag', '--flag', str(flag), ok=False)
+        self.assertTrue(flag.exists())  # original proof must not hide a dangling selected locator
+        self.assertTrue(original.exists())
+
+    def test_invalid_proof_locator_annotation_does_not_fall_back_or_clear_flag(self):
+        record = self.attest()
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n- 03 Projects/Example.md\n')
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-02.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True)
+            target.write_text('complete record'); self.attest(target)
+        self.run_writer('check-flag', '--flag', str(flag))
+        snapshot = str(Path(record['snapshot']).relative_to(self.vault))
+        for locator in ['not-json', json.dumps({'snapshot': snapshot, 'proof': '/outside.ots'}),
+                        json.dumps({'snapshot': snapshot, 'proof': '07 System/.Provenance/missing.ots'})]:
+            self.log.write_text(self.log.read_text() + f"| now | Example | 03 Projects/Example.md | `{record['hash']}` | evidence: {locator} |\n")
+            self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                            '--hash', record['hash'], ok=False)
+            self.run_writer('check-flag', '--flag', str(flag), ok=False)
+            self.assertTrue(flag.exists())
+
+    def test_legacy_rows_rediscover_proof_without_locator_annotations(self):
+        record = self.attest()
+        original = Path(record['proof'])
+        legacy = original.with_name(original.stem[:-16] + record['hash'][:8] + '.ots')
+        original.rename(legacy)
+        snapshot = Path(record['snapshot'])
+        snapshot.rename(snapshot.with_name(snapshot.name.replace(record['hash'], record['hash'][:8])))
+        self.log.write_text('\n'.join(line for line in self.log.read_text().splitlines()
+                                      if 'evidence: ' not in line) + '\n')
+        located = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                            '--hash', record['hash']).stdout)
+        self.assertEqual(located['proof'], str(legacy))
+        self.assertEqual(located['selection'], 'legacy')
+
+    def test_catchup_completion_uses_flag_date_and_archived_session_log(self):
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n')
+        finish = SCRIPT.with_name('provenance-finish.sh')
+        def run():
+            return subprocess.run([str(finish), str(self.vault), str(flag)], env=self.env,
+                                  capture_output=True, text=True)
+        # Another day's complete records must not clear the missed day.
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-03.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-03.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text('other day'); self.attest(target)
+        self.assertNotEqual(run().returncode, 0)
+        transcript = self.vault / '06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md'
+        transcript.write_text('historical exported transcript'); self.attest(transcript)
+        self.assertNotEqual(run().returncode, 0)
+        self.assertTrue(flag.exists())
+        historical_log = self.vault / '06 Archive/OpenCairn/Session Logs/2026/2026-01-02.md'
+        historical_log.parent.mkdir()
+        historical_log.write_text('historical final session log'); self.attest(historical_log)
+        result = run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(flag.exists())
 
     def test_pending_requires_exact_snapshot_and_matching_proof(self):
         digest = hashlib.sha256(self.doc.read_bytes()).hexdigest()[:16]
         snap = self.artifacts / f'2026-01-02-example-{digest}.snapshot.md'
         proof = snap.with_name(f'2026-01-02-example-{digest}.ots')
         before = self.log.read_bytes()
-        self.append(digest, ok=False)
+        self.append(digest, snapshot=snap, proof=proof, ok=False)
         snap.write_bytes(b'different')
         self.append(digest, snapshot=snap, proof=proof, ok=False)
         snap.write_bytes(self.doc.read_bytes())
@@ -197,16 +308,32 @@ elif sys.argv[1] == 'info':
         hygiene = blocks('.claude/commands/weekly-hygiene.md')
         hygiene_counterpart = blocks('codex/skills/weekly-hygiene/SKILL.md')
         snapshots = next(b for b in hygiene if 'VERIFIED via snapshot:' in b)
-        proofs = next(b for b in hygiene if 'matching proofs' in b)
-        for command in (snapshots, proofs): self.assertIn(command, hygiene_counterpart)
+        proofs = next(b for b in hygiene if ' locate ' in b)
+        upgrades = next(b for b in hygiene if 'UPGRADE_HASH=' in b)
+        for command in (snapshots, proofs, upgrades): self.assertIn(command, hygiene_counterpart)
         out = shell(snapshots, {'<logged 16-hex short hash>': record['hash']}, True)
         self.assertIn('VERIFIED via snapshot:', out.stdout)
         out = shell(snapshots, {'<logged 16-hex short hash>': 'a' * 16}, True)
         self.assertIn('NO MATCH:', out.stdout)
         proof_bindings = {'<logged 16-hex short hash>': record['hash'],
-                          '<File column>': '03 Projects/Example.md', '<resolved target path>': self.doc}
-        self.assertIn('1 matching proofs', shell(proofs, proof_bindings, True).stdout)
-        self.assertIn('0 matching proofs', shell(proofs, dict(proof_bindings, **{'<logged 16-hex short hash>': 'a' * 16}), True).stdout)
+                          '<File column>': '03 Projects/Example.md', '<row tag>': 'Example'}
+        self.assertEqual(json.loads(shell(proofs, proof_bindings, True).stdout)['proof'], record['proof'])
+        shell(proofs, dict(proof_bindings, **{'<logged 16-hex short hash>': 'a' * 16}), False)
+        staged_proof = self.root / 'literal-upgrade.ots'
+        staged_proof.write_bytes(Path(record['proof']).read_bytes())
+        upgrade = subprocess.run(['ots', 'upgrade', str(staged_proof)], env=self.env,
+                                 capture_output=True, text=True)
+        self.assertEqual(upgrade.returncode, 0, upgrade.stderr)
+        upgrade_bindings = dict(proof_bindings, **{'<upgraded .ots path outside vault>': staged_proof,
+                                                 '<selected absolute snapshot path>': record['snapshot']})
+        shell(upgrades, upgrade_bindings, True)
+        selected = json.loads(shell(proofs, proof_bindings, True).stdout)
+        self.assertIn(record['hash'] + '-upgrade-', selected['proof'])
+        self.assertEqual(Path(selected['proof']).read_bytes(), staged_proof.read_bytes())
+        before = self.log.read_bytes()
+        staged_proof.write_text('b' * 64)
+        shell(upgrades, upgrade_bindings, False)
+        self.assertEqual(self.log.read_bytes(), before)
 
     def test_finish_flag_holds_canonical_lock_and_retains_incomplete_flags(self):
         flag = self.artifacts / 'pending/2026-01-02-example.md'

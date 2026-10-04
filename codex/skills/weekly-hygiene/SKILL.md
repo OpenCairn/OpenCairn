@@ -552,35 +552,35 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    The fence always ends in one line. `VERIFIED` is a hit and prints the path the blob was committed at: the logged hash shows the attested bytes existed there, not that the path is this row's file, so carry the path into the report. `MISS` is a miss; `0 blobs tried` means history holds nothing under that basename, so check `REL` before recording it. `ERROR` means nothing was searched. A hit on either rung upgrades a MISMATCH row to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering — and a MISSING row to **"verified via git history — locator stale"**, reported with the path and never repointed, as for a snapshot hit. No hit leaves the row as it was, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later), that predates git tracking of that path, whose basename also changed or contains `[`…`]` (the pathspec reads brackets as a character class), or that entered history only through a merge commit (the walk reads no merge diffs) — assess those against mtime and known tooling behaviour, and say which case applies.
 
-   **Appended annotations:** a ``supersedes `<old 16-hex hash>` `` relationship row links its File/Tag and new SHA256 to the earlier attestation; it is not itself a new proof status. Preserve and verify the old preimage/proof as historical evidence, rather than compare it to current bytes. A later `confirmed` row for the same tag/file/digest is the current verification annotation; the earlier `pending` row remains intact. Legacy rows whose OTS column already reads `superseded` remain historical and are never rewritten.
+   **Appended annotations:** a ``supersedes `<old 16-hex hash>` `` relationship row links its File/Tag and new SHA256 to the earlier attestation; it is not itself a new proof status. Preserve and verify the old preimage/proof as historical evidence, rather than compare it to current bytes. An `evidence: {...}` row selects the actual retained snapshot/proof and is not itself a status. A later `confirmed` row for the same tag/file/digest is the current verification annotation; the earlier `pending` row remains intact. Legacy rows whose OTS column already reads `superseded` remain historical and are never rewritten.
 
    **OTS availability guard:** `command -v ots` is necessary but not sufficient — stamping and upgrading only need the Python `ots` client (calendar servers), but *verifying* needs an attestation source, and the Python client supports only a local Bitcoin node (no explorer fallback). Pick the verify path in order:
    1. **Local node present** (`~/.bitcoin/.cookie` exists, or `bitcoin-cli getblockcount` succeeds) → Python `ots verify`.
    2. **No node** → the JS OpenTimestamps client (`ots-cli.js`, npm package `opentimestamps`; install with `npm install -g opentimestamps`), whose verify does lite-client verification against public block headers via explorers — no node needed. Trust model: public explorers instead of a local node; fine for personal provenance.
    3. **Neither** → skip verification and record OTS status for affected entries as "skipped — no verifier available". Never let an unrunnable verify be recorded as anything but skipped. Stamping/upgrading still run if `ots` is on PATH; hash verification above always runs.
 
-   **Upgrade OTS proofs:**
-   For entries with OTS status "pending", find the row's proof and confirm it is this row's before upgrading. A proof is named either with the first 16 characters of the logged hash (legacy proofs use 8) (`/provenance`) or after the row's file — in `07 System/.Provenance/`, or beside the target, where `ots stamp` writes `<file>.ots`. A name only makes a candidate; the digest inside the proof decides (`ots info` prints the file hash on its first line):
+   **Select retained evidence before upgrading/verifying:** use the shared read-only resolver for the row's tag/file/digest. It returns JSON with `snapshot`, `proof`, `status` (the recorded status) and `selection` (`annotation` or `legacy`). It validates byte identity with `ots info`; it does **not** verify a Bitcoin attestation or promote status.
    ```bash
-   # FILE = the row's File column, TARGET = the resolved target path (empty when the row is MISSING)
-   LOGGED="<logged 16-hex short hash>"; FILE="<File column>"; TARGET="<resolved target path>"
-   P="{VAULT}/07 System/.Provenance"; BN=$(basename "$FILE"); N=0; LAST=
-   [ -d "$P" ] || { echo "ERROR: no $P — nothing searched"; exit 1; }
-   for C in "$P/"*-"$LOGGED".ots "$P/"*-"${LOGGED:0:8}".ots "$P/$BN.ots" "$P/${BN%.*}.ots" ${TARGET:+"$TARGET.ots"}; do
-     [ -f "$C" ] && [ "$C" != "$LAST" ] || continue; LAST=$C
-     D=$(ots info "$C" 2>/dev/null | head -1); D=${D##* }
-     if [ -n "$D" ] && [ "${D:0:16}" = "$LOGGED" ]; then N=$((N+1)); echo "PROOF: $C"; else echo "NOT THIS ROW'S PROOF (digest ${D:-unreadable}): $C"; fi
-   done
-   echo "$N matching proofs"
+   python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" locate \
+     --tag "<row tag>" --file "<File column>" --hash "<logged 16-hex short hash>"
    ```
-   - **`1 matching proofs`** → copy the proof to a temporary directory outside the vault, run `ots upgrade` on that copy (calendar servers — works without a node), and classify by its output, not its exit code. Retain a changed proof as a new hash-keyed file through `locked-ingress.sh`; never overwrite the earlier proof:
-     - `Success! Timestamp complete` → append a validated `confirmed` annotation via `provenance-write.py append` with the matching snapshot/proof; never rewrite the earlier row.
-     - a `Calendar <url>:` line carrying the calendar's own reply — `Pending confirmation in Bitcoin blockchain`, or `Timestamped by transaction … waiting for N confirmations` → **genuinely pending**: a calendar was reached and has not anchored the proof yet.
-     - anything else → **upgrade inconclusive**: report the output and leave the status unchanged. Unreachable calendars land here — they end in the same `Failed! Timestamp not complete` and exit 1 as a pending proof, with a connection error on every `Calendar` line.
-   - **Several matching proofs** → report them; upgrade nothing and write nothing.
-   - **`0 matching proofs` with a `NOT THIS ROW'S PROOF` line** → report the line; the row stays pending and is not an orphan.
-   - **`0 matching proofs` and no other line** → report the row as an **orphan log entry — no proof at the names searched**, by row, apart from pending, status unchanged. That is a statement about these names only; a proof filed under another name is not ruled out.
-   - **`ERROR`** → nothing was searched; fix the vault path and re-run before reporting the row.
+   New rows use the latest validated evidence-locator annotation, even while older proofs survive. A broken selected locator is an evidence gap: report it, leave the flag/status intact, and do not fall back to an older proof. Legacy rows without locators retain the hash-keyed/basename search; zero or several matching proofs fail closed for explicit source-backed annotation. Never infer proof identity from its filename alone.
+
+   **Upgrade OTS proofs:** for a selected `pending` proof, copy it to a temporary directory outside the vault and run `ots upgrade` on that copy. Classify the actual output, not its exit code: a reached calendar explicitly replying pending is pending; a connection/read failure is inconclusive. Keep the original proof untouched. When the proof bytes changed, retain them using a name containing **both** the source digest and the upgraded proof-content digest, then append a `pending` row/locator using the selected snapshot:
+   ```bash
+   set -e
+   STAGED_PROOF="<upgraded .ots path outside vault>"
+   LOGGED="<logged 16-hex short hash>"
+   UPGRADE_HASH=$(sha256sum "$STAGED_PROOF" | cut -c1-16)
+   UPGRADED="{VAULT}/07 System/.Provenance/${LOGGED}-upgrade-${UPGRADE_HASH}.ots"
+   if [ ! -e "$UPGRADED" ]; then
+     "{VAULT}/.claude/scripts/locked-ingress.sh" "{VAULT}" "$STAGED_PROOF" "$UPGRADED"
+   fi
+   python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" append \
+     --tag "<row tag>" --file "<File column>" --hash "$LOGGED" --status "pending" \
+     --snapshot "<selected absolute snapshot path>" --proof "$UPGRADED"
+   ```
+   The validated append retains that chosen locator for the next process; preserved original proofs cannot make the result ambiguous. If the upgraded destination already exists, the writer still validates its actual proof digest before logging. Unchanged upgrades need no new copy/annotation. `Success! Timestamp complete` means the upgrade produced a complete proof; **run the verification below before appending `confirmed`**. If verification is unavailable or inconclusive, retain `pending` and report the gap. A SHA256 identity match alone is never Bitcoin verification.
 
    **Verify OTS proofs:**
    For entries with `.ots` files, the target must hash to the logged digest: use the retained snapshot when the live file is missing or differs. Then run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
