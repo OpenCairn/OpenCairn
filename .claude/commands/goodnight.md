@@ -233,6 +233,14 @@ After all undone items have been routed, collapse today's section — and any ea
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
 
+**⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so every `[[01 Now/This Week#…]]` anchor and prose locator naming that day stops resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with the day number and month exactly as the old heading writes them:
+
+```bash
+rg -n -g '!**/06 Archive/**' -e 'This Week.*\b[DD] [Mon]\b' -e '\[\[#[^\]]*\b[DD] [Mon]\b' "{VAULT}"
+```
+
+Exit 1 with no output means nothing points at the day. Otherwise read each hit and keep the ones that locate this day's section; a line that merely mentions the date is not one. After the collapse, repoint each kept hit via `locked-edit.sh`: a reference to a task Step 9 carried forward targets the destination day's heading; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. The archive is excluded on purpose: session logs and daily reports record the heading as it stood. Re-run the command — a pass is no locator for that day left in the output — and emit `Inbound locators: [Day] [DD] [Mon] — [N] found, [N] repointed`.
+
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
 
 ```bash
@@ -514,7 +522,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans.
    b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via /morning` as the close-out topic, matching C1.e. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
-   d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
+   d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint (carried tasks' destination is today's section) and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
    e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel /park or /goodnight invocations):
 
       ```bash
