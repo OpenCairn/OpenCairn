@@ -66,9 +66,16 @@ class VerifyPathsTests(unittest.TestCase):
         self.create(path)
         # A shorter existing candidate must not win over the full filename.
         self.create("03 Projects/Report")
-        for section in ("Created", "Updated", "Deleted"):
+        for section in ("Created", "Updated"):
             with self.subTest(section=section):
                 self.assert_uncovered(self.verify([path], section=section), path)
+        # Deleted rows are outside reverse coverage; they still satisfy the forward check.
+        for touched in ((), (path,)):
+            with self.subTest(section="Deleted", touched=touched):
+                result = self.verify([path], touched=touched, section="Deleted")
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertNotIn("REVIEW backfill:", result.stdout)
+                self.assertIn("RESULT: PASS", result.stdout)
 
     def test_legacy_description_preserves_longest_existing_filename(self):
         path = "03 Projects/Report - draft - final.md"
