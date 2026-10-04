@@ -41,7 +41,7 @@
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
       "source_sha256": "4b7d3923faa0c3a550bf4f5daf2995f1f1b755a3c48df3220ad95a589467cb74",
-      "render_sha256": "36abb1b3c62a04b9c43c3a37b812911f66b95b7321d15dc86fa8f3ea199b96a7"
+      "render_sha256": "5ff2ded8e5148d387a6b45c16812b08b72c24b4d2c18dfe1362091f5d2f4fa44"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
@@ -202,8 +202,8 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "3975363990f8da27393c5498fc5ef8365dd37913d297c1d07e41b2659624f127",
-      "render_sha256": "37d5301d839d3f7404bede0405f281be70908bfc90821c81d14644e9646087a2"
+      "source_sha256": "80e8b924a63126c1217cbed1e291242616724babd23e580e15ddfc6624cd0c9c",
+      "render_sha256": "4c73e3be97faed1aaa11a15cfede95481c662342e99be551e3e586a20507f2c2"
     },
     "set-project-status": {
       "source": ".claude/commands/set-project-status.md",
