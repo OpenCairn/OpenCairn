@@ -1863,7 +1863,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             "and changed spans. Do not open or full-read those files.",
             "- Treat non-local paths only through embedded evidence. Use the propagation report for "
             "reference-graph coverage; do not repeat vault-wide searches.",
-            "- Make no edits. Use no web, network, SSH, remote hosts, sub-agents, skill maintenance, "
+            "- Script probes: run a command only after reading its argument handling and establishing "
+            "that the invocation is read-only. Otherwise copy its required inputs into a disposable scratch directory outside the vault "
+            "and installed config, redirect all output/state there, and probe only that fixture. "
+            "--help is not evidence of a read-only command. If isolation cannot be established, inspect "
+            "the source and report the execution check unverified; never weaken host policy or bypass a missing sandbox.",
+            "- Make no edits to reviewed originals or live state. Use no web, network, SSH, remote hosts, sub-agents, skill maintenance, "
             "or adjacent cleanup. Review this snapshot in one scoped pass. The main session applies "
             "confirmed fixes and sends a rebuilt brief for re-audit; repeat the full checklist on each "
             "new brief until a pass is clean. Do not treat a prior pass or a promised fix as evidence "

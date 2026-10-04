@@ -688,6 +688,8 @@ class ParkReviewTests(unittest.TestCase):
             brief = (root / "review-brief.md").read_text(encoding="utf-8")
             self.assertIn(f"Read immutable review copy once: `{snapshot}`", brief)
             self.assertNotIn(f"Read immutable review copy once: `{target}`", brief)
+            for guard in ("reading its argument handling", "invocation is read-only", "--help is not evidence", "disposable scratch directory outside the vault", "never weaken host policy"):
+                self.assertIn(guard, brief)
 
     def test_build_keeps_large_reference_out_of_full_read(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
