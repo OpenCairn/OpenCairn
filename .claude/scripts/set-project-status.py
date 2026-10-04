@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
+import time
 
 
 STATUSES = {
@@ -49,21 +51,31 @@ def active_cap(vault: Path) -> tuple[int, str]:
 
 
 def unresolved_total() -> int | None:
+    """Use §24's three agreeing readings, with three bounded attempts."""
     command = os.environ.get("OBSIDIAN_CLI") or "obsidian"
-    try:
-        result = subprocess.run(
-            [command, "unresolved", "total"],
-            text=True,
-            capture_output=True,
-            timeout=15,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    for line in reversed(result.stdout.splitlines()):
-        value = line.strip()
-        if value.isdigit():
-            return int(value)
+    outputs: list[str] = []
+    for attempt in range(3):
+        readings: list[int | None] = []
+        for reading in range(3):
+            if attempt or reading:
+                time.sleep(2)
+            try:
+                result = subprocess.run(
+                    [command, "unresolved", "total"],
+                    stdin=subprocess.DEVNULL,
+                    text=True,
+                    capture_output=True,
+                    timeout=15,
+                    check=False,
+                )
+                output = result.stdout.strip()
+            except (OSError, subprocess.TimeoutExpired) as error:
+                output = str(error)
+            outputs.append(output)
+            readings.append(int(output) if re.fullmatch(r"[0-9]+", output) else None)
+        if readings[0] is not None and readings.count(readings[0]) == 3:
+            return readings[0]
+    print(f"link integrity: UNVERIFIED (unresolved outputs: {outputs!r})", file=sys.stderr)
     return None
 
 
