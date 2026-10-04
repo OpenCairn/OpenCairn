@@ -10,8 +10,8 @@
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
       "render": "codex/skills/_shared-rules.md",
-      "source_sha256": "6d436980ed136f7e2ad4acbdc06d789658d6d41b6efc14cf7eee3c27fcb2bc42",
-      "render_sha256": "2d601da00202821c58bd3998bad241db436aa748c764ccfd4b08438738382dd0"
+      "source_sha256": "db8d18f4bf7545bf1a16b54cfce7f2e498c67604442249bbde8e7b6634b922a7",
+      "render_sha256": "4d6cf16e4acfe2dbf21c1a38cb98fe568b1df7e6c90eb34c6d0ae81b5bf88bae"
     },
     "_skill-monitor": {
       "source": ".claude/commands/_skill-monitor.md",
@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "b9e861350d8c42f6962589fdd6911b9100d31c3fcc1806f3f2cbdfb5b0b783ca",
-      "render_sha256": "c31a1ae457f14d5509722606d439b3eb9cca8ed58db5af62f7a2cb50bc35982e"
+      "source_sha256": "4e4646e16381d6b67be36ade24bffd53d5ef8f5be1a9065eadb395c13ac90455",
+      "render_sha256": "6e47759dcac48fa92e96727a6e9d867812bcc681a6944628f5e9a06c9d5a9053"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
