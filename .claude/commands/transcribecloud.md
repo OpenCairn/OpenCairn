@@ -27,7 +27,7 @@ If no arguments provided, ask the user what to transcribe and where to store res
 ## Prerequisites
 
 - `runpodctl` installed and configured with API key
-- SSH ed25519 key added to RunPod (`runpodctl ssh add-key --key-file ~/.ssh/id_ed25519.pub`)
+- An SSH key registered with RunPod (`runpodctl ssh add-key --key-file KEY.pub`; `runpodctl ssh list-keys` shows what is registered). `KEY` throughout is the literal path to that key's private half — commonly `~/.ssh/id_ed25519` — substituted like `IP` and `PORT`. If the private half lives only in an agent, pass the `.pub` path.
 - RunPod account with credits loaded
 
 Check with:
@@ -114,11 +114,17 @@ Substitute `--gpu-id` with the chosen GPU from Phase 1 step 5. `--image` and `--
 5. **Wait for pod to initialise.** Test SSH connectivity with retries:
 ```bash
 # TCP:
-ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -i ~/.ssh/id_ed25519 root@IP -p PORT "echo ready"
+ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o IdentitiesOnly=yes -i KEY root@IP -p PORT "echo ready"
 # Proxy:
-script -qec 'ssh -tt -o StrictHostKeyChecking=no -o ConnectTimeout=15 -i ~/.ssh/id_ed25519 SSH_TARGET "echo ready; exit"' /dev/null
+script -qec 'ssh -tt -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o IdentitiesOnly=yes -i KEY SSH_TARGET "echo ready; exit"' /dev/null
 ```
 Boot timing: pods typically ready in 1–3 min (community or secure). If SSH times out past that, see diagnostic tree below before assuming the pod is broken.
+
+**Key selection: every `ssh`/`scp` call in this skill carries `-o IdentitiesOnly=yes -i KEY`** — the elided `ssh ...` forms and any command you compose included; take only the ip, port or proxy target from RunPod's suggested `ssh` lines rather than running them verbatim. `-i` alone only *adds* a key: ssh still offers every agent key first, and an agent holding several exhausts the pod's auth attempts (`Too many authentication failures`) before `KEY` is tried — which reads like a broken pod. Once the readiness test passes, confirm which key authenticated (over proxy, the same flags inside the PTY wrapper):
+```bash
+ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o IdentitiesOnly=yes -i KEY root@IP -p PORT true 2>&1 | grep -E 'Offering public key|Authenticated to|Too many authentication failures'
+```
+Pass: a single `Offering public key: KEY ... explicit` line, then `Authenticated to ... using "publickey"`. Fail: `Offering` lines for any other key (the flags were dropped, or `~/.ssh/config` adds identities for this host), `Too many authentication failures`, or no `Authenticated` line — `KEY` is not the registered key; compare it against `runpodctl ssh list-keys` before touching the pod.
 
 #### Diagnosing SSH failures
 
@@ -156,7 +162,7 @@ Run all commands via SSH. If using exposed TCP, standard `ssh ... "command"` wor
 
 ```bash
 # Write the install script on the pod (quoted heredoc — nothing expands locally):
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'cat > /workspace/setup.sh' <<'SETUP'
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'cat > /workspace/setup.sh' <<'SETUP'
 set -e
 apt-get update -qq && apt-get install -y -qq ffmpeg
 pip install -q 'numpy<2.0'
@@ -177,13 +183,13 @@ echo INSTALL_OK
 SETUP
 
 # Launch detached — returns in <1s:
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT \
   'cd /workspace; nohup bash setup.sh </dev/null > /workspace/setup.log 2>&1 &'
 ```
 
 **Poll** every ~60–90s, same protocol as Phase 5 (the `sleep` runs inside the SSH call, so the tool blocks for the interval):
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/setup.log; tail -n 20 /workspace/setup.log'
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'sleep 75; wc -l < /workspace/setup.log; tail -n 20 /workspace/setup.log'
 ```
 - Final line `INSTALL_OK` → continue to step 2. `TORCH_STAGE_OK` / `DEPS_STAGE_OK` mark the stages; the torch stage should finish in ~1–2 min (fast index) and the deps stage is the one that varies with the host's PyPI throughput.
 - Log frozen with no `INSTALL_OK` → check the process is actually gone before calling it dead — `ps -eo pid,etime,args | grep 'bash setup.sh' | grep -v grep` (**not** `pgrep -f` / `pkill -f`: inside an SSH command the remote shell's own cmdline contains the pattern, so `pgrep -f` always "finds" a process and `pkill -f` kills your session with exit 255 while the target survives). `pip -q` is legitimately quiet for minutes on a large wheel. Process gone + no `INSTALL_OK` → read the tail for the failing line. `set -e` aborts on the first failure and pip re-runs are idempotent, so relaunching the same script after a kill or a fixed error resumes safely.
@@ -201,19 +207,19 @@ Over proxy SSH, wrap each call in the Phase 2 step 5 PTY form; a stdin-piped her
 
    ```bash
    # Linux / macOS / Git Bash on Windows / WSL — bash or zsh:
-   ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
-   scp -i ~/.ssh/id_ed25519 -P PORT ~/.cache/huggingface/token \
+   ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
+   scp -o IdentitiesOnly=yes -i KEY -P PORT ~/.cache/huggingface/token \
        root@IP:/root/.cache/huggingface/token
    ```
 
    ```powershell
    # Windows PowerShell 5.1 / PowerShell 7+ (uses built-in OpenSSH, present since Win10):
-   ssh -i "$HOME\.ssh\id_ed25519" root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
-   scp -i "$HOME\.ssh\id_ed25519" -P PORT "$HOME\.cache\huggingface\token" `
+   ssh -o IdentitiesOnly=yes -i "KEY" root@IP -p PORT 'mkdir -p /root/.cache/huggingface'
+   scp -o IdentitiesOnly=yes -i "KEY" -P PORT "$HOME\.cache\huggingface\token" `
        root@IP:/root/.cache/huggingface/token
    ```
 
-   **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) locally but not on disk: `printf %s "$HF_TOKEN" | ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /root/.cache/huggingface && cat > /root/.cache/huggingface/token'` — the pipe expands the variable **locally**; a single-quoted remote `echo "$HF_TOKEN"` would expand on the *pod* (where it's unset) and silently write an empty file.
+   **If the local token file doesn't exist:** run `huggingface-cli login` on the local machine first (works identically on all three platforms via `pip install huggingface_hub`). Alternative if a token is in the env (`HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`) locally but not on disk: `printf %s "$HF_TOKEN" | ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'mkdir -p /root/.cache/huggingface && cat > /root/.cache/huggingface/token'` — the pipe expands the variable **locally**; a single-quoted remote `echo "$HF_TOKEN"` would expand on the *pod* (where it's unset) and silently write an empty file.
 
    **Over proxy SSH (no SCP — Phase 2 step 4):** transfer the token file with `runpodctl send ~/.cache/huggingface/token` locally, then on the pod `mkdir -p /root/.cache/huggingface && cd /root/.cache/huggingface && runpodctl receive <code>` — using the detached-send pairing-code pattern from Phase 6.
 
@@ -285,7 +291,7 @@ Run locally:
 ```bash
 yt-dlp --cookies-from-browser brave --cookies /tmp/yt-cookies.txt --skip-download "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 # Then copy cookies.txt to pod (adjust SSH path):
-scp -i ~/.ssh/id_ed25519 -P PORT /tmp/yt-cookies.txt root@IP:/workspace/yt-cookies.txt
+scp -o IdentitiesOnly=yes -i KEY -P PORT /tmp/yt-cookies.txt root@IP:/workspace/yt-cookies.txt
 # Or via runpodctl send/receive if using proxy SSH.
 # Delete local copy when done: rm /tmp/yt-cookies.txt
 ```
@@ -313,8 +319,8 @@ Slower (local bandwidth bound) but doesn't require pushing a cookies file into t
 
 If pod has exposed TCP SSH, use SCP (simpler, one-shot; the glob matches every extension the Phase 5 script accepts, and `/workspace/audio` must be created first — the YouTube branch's `mkdir` didn't run on a local-only job):
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /workspace/audio'
-scp -i ~/.ssh/id_ed25519 -P PORT /path/to/audio/*.{mp3,m4a,wav,flac,ogg,opus} root@IP:/workspace/audio/
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'mkdir -p /workspace/audio'
+scp -o IdentitiesOnly=yes -i KEY -P PORT /path/to/audio/*.{mp3,m4a,wav,flac,ogg,opus} root@IP:/workspace/audio/
 ```
 
 **Measure the transfer before trusting it.** Residential uplinks can be two orders of magnitude slower than the pod's ingress (12 KB/s observed against a pod that downloaded at 40 MB/s). Sample the destination size on the pod twice, ~20 s apart (`stat -c %s /workspace/audio/<file>`), and compute the rate. If the ETA exceeds a few minutes and the file was itself downloaded from a URL, kill the scp and switch to the URL branch above — the pod fetches from the origin instead. For a login-gated origin, export cookies locally and **filter to that site's domain** before uploading (the Option 1 grep below with the site's domain in place of `youtube|google` — keep the `#HttpOnly_` alternate, the auth cookies are HttpOnly); the filtered file is a few KB, so its upload is instant. Without a URL, shrink the payload first (`ffmpeg -vn -ac 1 -ar 16000 -b:a 32k` — Whisper resamples to 16 kHz mono anyway) and accept the wait.
@@ -326,7 +332,7 @@ nohup runpodctl send /path/to/audio/directory > /tmp/rp-send.log 2>&1 &
 sleep 2 && grep -o 'runpodctl receive [a-z0-9-]*' /tmp/rp-send.log   # capture the code
 
 # On pod (one SSH session), using the captured code:
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'mkdir -p /workspace/audio && cd /workspace/audio && runpodctl receive <code>'
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'mkdir -p /workspace/audio && cd /workspace/audio && runpodctl receive <code>'
 ```
 
 **Verify downloads:**
@@ -342,17 +348,17 @@ Write this Python script to a file on the pod (e.g. `/workspace/transcribe.py` v
 ```bash
 # Launch detached on the pod. nohup ignores SIGHUP; </dev/null + redirected stdout/stderr
 # stop SSH from staying tied to the channel, so this call returns in <1s:
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT \
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT \
   'export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH; cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 &'
 # The inline export is mandatory — this is a fresh SSH shell; Phase 3 step 3's export did not persist.
 # Proxy SSH: identical remote command, wrapped in the Phase 2 step 5 PTY form —
-#   script -qec 'ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 SSH_TARGET "export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:\$LD_LIBRARY_PATH; cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 & exit"' /dev/null
+#   script -qec 'ssh -tt -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i KEY SSH_TARGET "export LD_LIBRARY_PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cudnn/lib:\$LD_LIBRARY_PATH; cd /workspace; nohup python3 transcribe.py </dev/null > /workspace/transcribe.log 2>&1 & exit"' /dev/null
 ```
 
 **Poll protocol.** The launch returns immediately — the batch is still running. Re-run the poll below every ~60–90s; the `sleep` runs *inside* the SSH call, so the Bash tool blocks for the interval (this is the wait mechanism — do not busy-loop back-to-back):
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'sleep 75; wc -l < /workspace/transcribe.log; tail -n 80 /workspace/transcribe.log'
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'sleep 75; wc -l < /workspace/transcribe.log; tail -n 80 /workspace/transcribe.log'
 ```
 
 The leading `wc -l` is the line count — compare it across consecutive polls to tell a *running* log (advancing) from a *dead* one (frozen). Classify each poll — **do not proceed to Phase 6 until you reach Success:**
@@ -555,8 +561,8 @@ Replace `DIARIZE`, `NUM_SPEAKERS`, and `LANGUAGE` with actual values from argume
 
 If the pod has exposed TCP SSH, prefer plain SCP (one-shot, no pairing dance — mirrors Phase 4's transfer preference):
 ```bash
-ssh -i ~/.ssh/id_ed25519 root@IP -p PORT 'cd /workspace && tar czf transcripts.tar.gz transcripts/'
-scp -i ~/.ssh/id_ed25519 -P PORT root@IP:/workspace/transcripts.tar.gz /tmp/
+ssh -o IdentitiesOnly=yes -i KEY root@IP -p PORT 'cd /workspace && tar czf transcripts.tar.gz transcripts/'
+scp -o IdentitiesOnly=yes -i KEY -P PORT root@IP:/workspace/transcripts.tar.gz /tmp/
 cd /tmp && tar xzf transcripts.tar.gz
 ```
 
@@ -674,7 +680,7 @@ The block **echoes** the resolved path — read it out of that output and **subs
 
 **Where Phase 8 runs (choose one):**
 
-- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. **First transfer the voice-reference files to the pod** — they live in the local vault and are not on the pod otherwise (`scp -i ~/.ssh/id_ed25519 -P PORT "<RESOLVED_REF_DIR>"/*.{m4a,wav} root@IP:/workspace/voice-refs/` after a `mkdir -p`, substituting the literal path the resolver echoed — not `$ref_dir`, which is empty in a new Bash call — or `runpodctl send` over proxy) — and hard-code the script's `ref_dir` to that pod path, else it finds 0 references and silently degrades every cluster to `Speaker N`. Then run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
+- **On-pod, before destruction (recommended for occasional use).** Deps are already installed and model weights cached. **First transfer the voice-reference files to the pod** — they live in the local vault and are not on the pod otherwise (`scp -o IdentitiesOnly=yes -i KEY -P PORT "<RESOLVED_REF_DIR>"/*.{m4a,wav} root@IP:/workspace/voice-refs/` after a `mkdir -p`, substituting the literal path the resolver echoed — not `$ref_dir`, which is empty in a new Bash call — or `runpodctl send` over proxy) — and hard-code the script's `ref_dir` to that pod path, else it finds 0 references and silently degrades every cluster to `Speaker N`. Then run the script below on the pod, capture the name map, then destroy. No local env setup needed. This is what validated end-to-end on 2026-04-22.
 - **Locally in a pinned venv (for repeat runs on old JSONs without a pod).** The laptop's system Python has numpy 2.x and no pyannote, which will fail on the np.NaN path. Create a dedicated venv once:
   ```bash
   python3 -m venv ~/.venvs/whisperx-phase8

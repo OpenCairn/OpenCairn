@@ -37,7 +37,7 @@ If no arguments provided, ask the user what to transcribe and where to store res
 ## Prerequisites
 
 - `runpodctl` installed and configured with API key
-- SSH ed25519 key added to RunPod (`runpodctl ssh add-key --key-file ~/.ssh/id_ed25519.pub`)
+- An SSH key registered with RunPod (`runpodctl ssh add-key --key-file KEY.pub`; `runpodctl ssh list-keys` shows what is registered). `KEY` throughout is the literal path to that key's private half — commonly `~/.ssh/id_ed25519` — substituted like `IP` and `PORT`. If the private half lives only in an agent, pass the `.pub` path.
 - RunPod account with credits loaded
 
 Check with:
