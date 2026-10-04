@@ -6,11 +6,11 @@
 
 ```json
 {
-  "hooks": [{"type": "command", "command": "python3 \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/scripts/park-preflight.py\"", "timeout": 20}]
+  "hooks": [{"type": "command", "command": "python3 \"<installed-scripts-dir>/park-preflight.py\"", "timeout": 20}]
 }
 ```
 
-Merge the handler without replacing other settings or hooks; install the helper at that runtime path first. No prompt matcher is used in settings: the helper filters the actual prompt. The hook event's `session_id` binds the ledger, overriding inherited parent/child environment IDs. Missing or invalid event identity stays unknown rather than using a different session. `cwd` is recorded for every command; when an event omits it, the hook's actual working directory is used.
+Merge the handler without replacing other settings or hooks; resolve `<installed-scripts-dir>` beside the loaded commands tree and install the helper there first. `CLAUDE_CONFIG_DIR` selects settings/state, not shipped code. No prompt matcher is used in settings: the helper filters the actual prompt. The hook event's `session_id` binds the ledger, overriding inherited parent/child environment IDs. Missing or invalid event identity stays unknown rather than using a different session. `cwd` is recorded for every command; when an event omits it, the hook's actual working directory is used.
 
 Codex can call the same helper at setup, in its first tool call:
 

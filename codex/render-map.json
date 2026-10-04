@@ -148,8 +148,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "5ab6e9ffa0d546dc63de75903a18ba29abd8f200c56a2ffc5820ff254889c1c6",
-      "render_sha256": "aabafab2857c6fde3e8e85ef4c99d271be336fa73aa3973a8a8c1aae0187b0e2"
+      "source_sha256": "cea55b317c41bb97e5cb45188338231c8463590f16c97dd8f9496eb88b008f99",
+      "render_sha256": "6b987511b2bb0bb43f1c94efef1e9676b0b1ed57963f751fb2a9b251e5cba2ef"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
@@ -288,6 +288,12 @@
       "render": "codex/skills/_shared-rules-content.md",
       "source_sha256": "194f3512ec3f9dc888557de2c4d5612fa83cbf2d239b4686b23d721180262d68",
       "render_sha256": "6be04b7c4c6cf7b9f1020c1eace26604d9b7c7e7ea3268dec83837c3f4015606"
+    },
+    "batch": {
+      "source": ".claude/commands/batch.md",
+      "render": "codex/skills/batch/SKILL.md",
+      "source_sha256": "0e0ebb3d59b9e16971cc53d7b79b4fed4a46f4068eedbd1a06728e9f48841170",
+      "render_sha256": "f13f0d37a576e3bd262d6a63aae8eaf1eb5f643ec88b7daec1263743f7cfff60"
     }
   }
 }
