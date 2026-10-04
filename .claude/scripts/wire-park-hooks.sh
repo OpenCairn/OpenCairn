@@ -3,7 +3,7 @@
 # settings. Invoked by the /setup-hooks command; safe to run directly.
 #
 #   session-ledger.sh   PostToolUse on Write|Edit - exact per-session file ledger
-#   parboil-check.sh    UserPromptSubmit          - mid-session shadow-park trigger
+#   parboil-check.sh    UserPromptSubmit + Stop   - trigger + completed-park watermark
 #
 # Deliberately a sibling of wire-skill-edit-hook.sh rather than a generalisation
 # of it: the two hook sets are opted into independently, and the jq merge logic
@@ -89,6 +89,7 @@ if [ "$MODE" = "add" ]; then
         end;
     add_hook("PostToolUse"; "Write|Edit"; $ledger; 5)
     | add_hook("UserPromptSubmit"; ".*"; $parboil; 10)
+    | add_hook("Stop"; ".*"; $parboil; 10)
   ' "$SETTINGS" > "$TMP"
 else
   jq --arg ledger "$LEDGER_CMD" --arg parboil "$PARBOIL_CMD" '
@@ -101,6 +102,7 @@ else
       else . end;
     strip("PostToolUse"; $ledger)
     | strip("UserPromptSubmit"; $parboil)
+    | strip("Stop"; $parboil)
   ' "$SETTINGS" > "$TMP"
 fi
 
