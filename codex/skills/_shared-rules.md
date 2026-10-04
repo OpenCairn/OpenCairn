@@ -79,7 +79,7 @@ Moved to [_shared-rules-planning.md §4](_shared-rules-planning.md). Read that s
 
 ### Planning-file writes go through `locked-edit.sh` (NOT apply_patch or raw writes)
 
-**Every mutation of a shared planning file — `01 Now/This Week.md`, `01 Now/Tickler.md`, and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`.** These files are written by $park, $goodnight, $morning, $weekly-hygiene, $weekly-review, $start-project, and $complete-project — from either harness; any two running concurrently (e.g. a scheduled $goodnight while you $park) would silently clobber each other through a lockless edit. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
+**Every mutation of a shared planning file — `01 Now/This Week.md`, `01 Now/Tickler.md`, `01 Now/Scratchpad.md` (§11), and project/area hub docs in `03 Projects/` or `04 Areas/` — uses `locked-edit.sh`.** These files are written by $park, $goodnight, $morning, $weekly-hygiene, $weekly-review, $start-project, and $complete-project — from either harness; any two running concurrently (e.g. a scheduled $goodnight while you $park) would silently clobber each other through a lockless edit. `locked-edit.sh` serialises writers through the file's canonical lock and matches literally, so concurrent edits either both land (disjoint) or fail loudly (conflicting) — never silent loss.
 
 **Creation is not mutation — a first write uses a direct write, not the lock.** The rule above governs *editing existing content*: the hazard it prevents is a lost read-modify-write cycle, and a file that does not yet exist has no content to lose. (`locked-edit.sh` *can* create a missing target — that capability is real, it is simply not the reason to reach for it.) The genuine risk when creating is two sessions racing to create the *same* file, and the lock does not address that: it would serialise both writes and report success twice. That is a name-collision check's job, owned by the creating skill's own conflict step, which must test both the file path **and** any index/dashboard heading the new file claims. A skill whose Step-N creates a project or area doc should say so explicitly rather than leaving the mechanism unstated, since an unstated mechanism reads as an oversight against this section.
 
@@ -254,7 +254,9 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 
 **Cleanup ownership.** `$reply` owns in-session cleanup — it removes its draft section from Scratchpad after lifecycle completion (user says "sent" or pastes final text). `$park` Step 4 and `$weekly-hygiene` Step 5 may remove or route draft sections only after explicit per-draft user confirmation that the draft was sent or is no longer needed.
 
-**Locking.** Scratchpad mutations (section removal, routing) use `locked-edit.sh` (§5 mechanism) for atomicity. Read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
+**Locking.** Every Scratchpad mutation — append, re-draft, section removal, routing — uses `locked-edit.sh`; `01 Now/Scratchpad.md` is in §5's locked set. For a removal, read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
+
+**Byte check.** The lock serialises skills, not the user's editor. Run `wc -c < "<file>"` immediately before and after each mutation of a Scratchpad or other transient surface. Pass: the size changed by exactly the bytes added or removed (`printf '%s' "$text" | wc -c`). Any other difference means content besides yours changed — re-read the file and account for it before the next edit.
 
 ---
 
