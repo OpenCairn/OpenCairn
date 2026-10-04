@@ -374,7 +374,9 @@ for attempt in range(3):
             command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True, timeout=timeout, check=False,
         )
-        if result.stdout:
+        if result.returncode != 0 or result.stdout.lstrip().startswith("Error:"):
+            raise SystemExit(1)
+        if result.stdout.strip():
             sys.stdout.write(result.stdout.rstrip("\n"))
             raise SystemExit(0)
     except subprocess.TimeoutExpired:

@@ -34,6 +34,21 @@ args = sys.argv[1:]
 vault = Path(os.environ["VAULT_PATH"])
 
 if args == ["help", "move"]:
+    calls = os.environ.get("MOCK_HELP_CALLS")
+    if calls:
+        with Path(calls).open("a") as handle:
+            handle.write("help move\n")
+    mode = os.environ.get("MOCK_HELP_MODE")
+    if mode == "empty":
+        raise SystemExit(0)
+    if mode in ("error-nonzero", "error-zero"):
+        print("Error: move needs path=<path> to=<path>")
+        raise SystemExit(1 if mode == "error-nonzero" else 0)
+    whitespace = os.environ.get("MOCK_WHITESPACE_HELP_ONCE")
+    if whitespace and not Path(whitespace).exists():
+        Path(whitespace).touch()
+        print("  \t  ")
+        raise SystemExit(0)
     marker = os.environ.get("MOCK_EMPTY_HELP_ONCE")
     if marker and not Path(marker).exists():
         Path(marker).touch()
@@ -259,6 +274,42 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertTrue(marker.exists())
         self.assertFalse(source.exists())
         self.assertTrue(destination.exists())
+
+    def test_retries_whitespace_only_supported_help_response(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n")
+        calls = self.root / "help-calls"
+        result = self.run_move(source, destination,
+            MOCK_WHITESPACE_HELP_ONCE=str(self.root / "blank-once"), MOCK_HELP_CALLS=str(calls))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(calls.read_text().splitlines()), 2)
+        self.assertFalse(source.exists())
+        self.assertEqual(destination.read_text(), "source\n")
+
+    def test_blank_help_exhausts_bounded_retries_without_moving(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n")
+        calls = self.root / "help-calls"
+        result = self.run_move(source, destination, MOCK_HELP_MODE="empty", MOCK_HELP_CALLS=str(calls))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(calls.read_text().splitlines()), 3)
+        self.assertEqual(source.read_text(), "source\n")
+        self.assertFalse(destination.exists())
+
+    def test_error_with_help_parameters_never_authorises_move(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n")
+        for mode in ("error-nonzero", "error-zero"):
+            with self.subTest(mode=mode):
+                source.write_text("source\n")
+                destination.unlink(missing_ok=True)
+                result = self.run_move(source, destination, MOCK_HELP_MODE=mode)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(source.read_text(), "source\n")
+                self.assertFalse(destination.exists())
 
     def test_refuses_stale_source_hash(self) -> None:
         source = self.vault / "Old" / "Incident.md"
