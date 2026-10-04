@@ -16,7 +16,7 @@ When `/update` handed off to this procedure, return to the suspended update imme
 Run:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
 Do **not** run `check-archive-layout.sh --enforce` here: this skill is the recovery route that enforcement deliberately leaves open. Read `_shared-rules.md` from this skill's commands directory and apply it throughout, especially §5 (locked vault writes), §12 (grep-hit triage), §23 (evidence), and §24 (structural moves). `{VAULT}` is the resolved path.

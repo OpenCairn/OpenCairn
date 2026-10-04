@@ -22,7 +22,7 @@ Projects often fade away rather than explicitly complete. This creates clutter i
 0. **Resolve Vault Path**
 
    ```bash
-   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
    ```
 
    If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.

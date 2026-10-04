@@ -13,7 +13,7 @@ When the user wants to transcribe an audio recording (voice memo, meeting, inter
 
 ## Codex execution
 
-Read supporting files relative to this skill directory, not the shell working directory. For vault work resolve `VAULT_PATH` with `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`; stop if resolution fails. All vault writes, including headers and verbatim bodies, use `locked-edit.sh`.
+Read supporting files relative to this skill directory, not the shell working directory. For vault work resolve `VAULT_PATH` with `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`; stop if resolution fails. All vault writes, including headers and verbatim bodies, use `locked-edit.sh`.
 
 Use tracked Codex exec sessions for long local runs; if execution returns a session ID, poll that session to completion and inspect its exit code. Do not detach local transcription with shell `&`. Keep stderr in a scratch file for diagnostics and provide progress while waiting. Shell variables do not persist between exec calls: carry literal scratch paths forward or reload a saved job config.
 

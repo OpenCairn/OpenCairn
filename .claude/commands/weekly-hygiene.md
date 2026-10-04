@@ -18,7 +18,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 0. **Resolve Vault Path**
 
    ```bash
-   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
    "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 

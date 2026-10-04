@@ -14,7 +14,7 @@ Use the canonical updater stored in the OpenCairn checkout. This Codex skill is 
 1. Resolve the vault:
 
    ```bash
-   "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
    ```
 
    Abort on error. `{VAULT}` is the resolved full-clone root. `$update` is not supported by a skills-only installation with no OpenCairn git checkout; direct that user to clone/reinstall the full template first.

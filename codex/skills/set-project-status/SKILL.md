@@ -11,7 +11,7 @@ Change one project's lifecycle state through the standard link-healing move.
 
 ## Workflow
 
-1. Resolve the vault with `"$VAULT_PATH/.claude/scripts/resolve-vault.sh"`. Read this installation's `_shared-rules.md` and the project-lifecycle section of `07 System/Vault Organisation Principles.md`.
+1. Resolve the vault with `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`. Read this installation's `_shared-rules.md` and the project-lifecycle section of `07 System/Vault Organisation Principles.md`.
 2. Require a project basename and target state. This skill only moves among:
    - `active` → `03 Projects/Project Name.md`
    - `cold` → `03 Projects/Cold/Project Name.md`

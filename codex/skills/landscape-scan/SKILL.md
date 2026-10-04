@@ -39,7 +39,7 @@ This gate lives here, outside the numbered steps, because it is not conditional 
 ### 0. Resolve vault path and load shared rules
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
 If error, abort. Set **`SKILLS_ROOT`** to the first candidate below that contains both `landscape-scan/landscape-profiles/` and `_shared-rules.md`:

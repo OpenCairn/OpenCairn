@@ -62,7 +62,7 @@ Once the why is clear, run the quiz conversationally. Up to 2 batches, ≤4 ques
 - **"Buy later" needs a dated backstop.** A wait verdict (sale cycle, imminent refresh) with no trigger is a revisit that silently evaporates. On vault installs, offer to write one dated line ("revisit [item] — [trigger]") to `{VAULT}/01 Now/Tickler.md`; derive the date from the trigger event, and skip if the user declines. To find the vault, run:
 
   ```bash
-  "$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+  "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
   ```
 
   If it errors, or `VAULT_PATH` is unset, or `_shared-rules.md` isn't at `~/.codex/skills/_shared-rules.md`, skip the tickler offer silently — don't abort the run and don't ask (this overrides `_shared-rules.md` §1's abort, since the offer is optional). On success, read `_shared-rules.md` from there and substitute the resolved path for `{VAULT}`. The Tickler is a shared planning file — write via the `_shared-rules.md` §5 locking mechanism, never a raw edit.

@@ -5,7 +5,7 @@ Diarisation labels are just `SPEAKER_00`, `SPEAKER_01`, etc. — which physical 
 **Where reference files live:** the default location is `$VAULT_PATH/voice-references` — set the `VOICE_REF_DIR` env var to point elsewhere (e.g. a sub-area of the vault). Store `.m4a` or `.wav` files there — one per known speaker; the filename stem (e.g. `alice`) becomes the speaker name in the transcript. **Resolve the directory with this block — do not skip it, and do not improvise a full-vault `find` (slow over a large vault):**
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 # Stop if resolution fails; use the verified VAULT_PATH.
 ref_dir="${VOICE_REF_DIR:-$VAULT_PATH/voice-references}"
 if [ -d "$ref_dir" ]; then

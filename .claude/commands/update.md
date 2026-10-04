@@ -38,7 +38,7 @@ Where a block assigns a variable and consumes it, keep the assignment and its co
 ### Step 0: Bind the update to the resolved vault checkout
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 cd "$VAULT_PATH"
 test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$(pwd -P)"
 ```

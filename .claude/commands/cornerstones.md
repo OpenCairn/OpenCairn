@@ -12,7 +12,7 @@ Cornerstones are high-value foundational tasks that aren't urgent but compound o
 ### 0. Resolve the Vault Path
 
 ```bash
-"$VAULT_PATH/.claude/scripts/resolve-vault.sh"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
 If it errors, abort — no vault accessible; don't fall back to a guessed path. `{VAULT}` below is a placeholder — substitute the resolved path.
