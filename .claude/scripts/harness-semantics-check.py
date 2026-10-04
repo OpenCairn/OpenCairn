@@ -48,8 +48,7 @@ def main():
     config = Path(os.environ.get('CLAUDE_CONFIG_DIR') or str(Path.home() / '.claude'))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest', type=Path, default=config / 'harness-semantics.json')
-    parser.add_argument('--cache-dir', type=Path, default=Path(os.environ.get(
-        'XDG_CACHE_HOME', str(Path.home() / '.cache'))) / 'opencairn/harness-semantics')
+    parser.add_argument('--cache-dir', type=Path, default=Path(os.environ.get('XDG_CACHE_HOME') or str(Path.home() / '.cache')) / 'opencairn/harness-semantics')
     parser.add_argument('--claude', default='claude', help='CLI executable; argv is always --version')
     parser.add_argument('--timeout', type=float, default=3.0)
     args = parser.parse_args()
