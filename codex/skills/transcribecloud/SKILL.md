@@ -37,13 +37,18 @@ If no arguments provided, ask the user what to transcribe and where to store res
 ## Prerequisites
 
 - `runpodctl` installed and configured with API key
-- An SSH key registered with RunPod (`runpodctl ssh add-key --key-file KEY.pub`; `runpodctl ssh list-keys` shows what is registered). `KEY` throughout is the literal path to that key's private half — commonly `~/.ssh/id_ed25519` — substituted like `IP` and `PORT`. If the private half lives only in an agent, pass the `.pub` path.
+- An SSH key registered with RunPod (`runpodctl ssh add-key --key-file` with its `.pub` file). `KEY` throughout is the absolute path to that key's private half, substituted like `IP` and `PORT` and kept inside the quotes shown (a quoted `~` does not expand). If the private half lives only in an agent, `KEY` is the `.pub` path.
 - RunPod account with credits loaded
 
 Check with:
 ```bash
 command -v runpodctl && runpodctl pod list
+ls -l "KEY"               # no such file: the private half is not on disk — use the .pub path as KEY
+ssh-keygen -lf "KEY"      # prints the key's SHA256: fingerprint (works on either half)
+runpodctl ssh list-keys   # the keys RunPod will accept
 ```
+
+**Key gate, before any pod is created.** Pass: the `SHA256:` fingerprint `ssh-keygen` printed appears in the `list-keys` output. Fail: it does not — stop; register the key with `add-key`, or point `KEY` at a registered one and re-run. Past a mismatch the pod bills while refusing every SSH call.
 
 If `runpodctl` is missing, report the prerequisite and use the official RunPod installation documentation. Any installation must obey the active package cooldown policy; do not bypass it with a direct binary download.
 
