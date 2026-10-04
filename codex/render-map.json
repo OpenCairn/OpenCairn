@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "248476a2d862ca7c333e4313383c3b6e8a9a6cf8e6bb38bfa080daccd18b0f82",
-      "render_sha256": "9930ea56752e452a1a027c0787264d8096ebfd0cb448d355800a28c98955cc8f"
+      "source_sha256": "269b23fd1b3803cf4245bba2e2170be531b57cdf207e750dc8a42ac2c6b1c138",
+      "render_sha256": "7f5b8356ae8cb6718eece3d9fae0a091764fe156389c588952f14fcfcc10a2a2"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
@@ -166,8 +166,8 @@
     "provenance": {
       "source": ".claude/commands/provenance.md",
       "render": "codex/skills/provenance/SKILL.md",
-      "source_sha256": "f8b4a384f047ff4076417b130647929bad1c665a67b1939ea1c749058f0b5fad",
-      "render_sha256": "23f7a4a0fbf7d7f35c42387d7172528263ddeb88b87b4461ee10d3cc3a07a7b2"
+      "source_sha256": "eea4360da4099cfba1b24a34825ec1f81495df141da4d4d85a90ccde13ffbf7b",
+      "render_sha256": "060e5a676e9d9a8e27f9000dce7699588b215842575e0251efbf17d9bb36f569"
     },
     "quarterly-hygiene": {
       "source": ".claude/commands/quarterly-hygiene.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "84b21bc23df0aa111eb074e2c4bff901b96df6c6057941a24d0c850e0becd113",
-      "render_sha256": "b81c453e217e4433b85bcb0ad31619c388d232fbb384e4c50bdfd9ae16f1f51b"
+      "source_sha256": "5e25339f1b4abbcab448e6acdb7573d962141b3a50572fad5472ea728bee4d47",
+      "render_sha256": "0f0ae0b13d0ac7a111f9890bc28ec20eb42f1295c873aae8fb2de4a3c5f3d054"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
