@@ -270,7 +270,7 @@ Capture: principles (optional — the template already includes two defaults).
 
 ### Phase 4: Write CLAUDE.md
 
-If Phase 2 found an already-personalised CLAUDE.md and the user chose the update interview, re-read its actual current fields and replace only the uniquely anchored values the user changed; preserve unasked fields and locally owned sections. Do not retry absent placeholder strings or regenerate the file from the template. Read back each changed field. Use the locked wrapper if this file is inside the vault.
+If CLAUDE.md is already personalised and the user chose the update interview, re-read its actual current fields and replace only the uniquely anchored values the user changed; preserve unasked fields and locally owned sections. Do not retry absent placeholder strings or regenerate the file from the template. Read back each changed field. Use the locked wrapper if this file is inside the vault.
 
 For an unpersonalised template, replace the bracketed placeholders with the user's answers:
 
