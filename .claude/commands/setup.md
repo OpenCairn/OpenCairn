@@ -24,6 +24,8 @@ Run all checks first, display the result, then act on what's missing.
      printf 'VAULT_CWD=%s\n' "$(pwd -P)"
      if [[ -x .claude/scripts/locked-edit.sh ]]; then
        echo "LOCKED_EDIT_OK"
+     elif [[ -f .claude/scripts/locked-edit.sh ]]; then
+       echo "LOCKED_EDIT_NOT_EXECUTABLE"
      else
        echo "LOCKED_EDIT_MISSING"
      fi
@@ -33,7 +35,7 @@ Run all checks first, display the result, then act on what's missing.
    ```
    On `NOT_VAULT_CWD`, tell the user to restart Claude Code from their vault directory and run `/setup` there. Do not continue to the remaining checks, and do not run any Phase 2 remedy.
 
-   `{VAULT}` throughout setup is the exact canonical working-directory path printed as `VAULT_CWD=` by `pwd -P` after this check. The canonical writer is its existing `.claude/scripts/locked-edit.sh` (absolute form: `{VAULT}/.claude/scripts/locked-edit.sh`). The same check reports `LOCKED_EDIT_OK` only for that executable wrapper. On `LOCKED_EDIT_MISSING`, stop before any write and repair the installation. Do not bind these paths from `$HOME` or ambient `VAULT_PATH`, and carry the printed path explicitly across tool calls.
+   `{VAULT}` throughout setup is the exact canonical working-directory path printed as `VAULT_CWD=` by `pwd -P` after this check. The canonical writer is its existing `.claude/scripts/locked-edit.sh` (absolute form: `{VAULT}/.claude/scripts/locked-edit.sh`). The same check reports `LOCKED_EDIT_OK` only for that executable wrapper. On `LOCKED_EDIT_MISSING`, stop before any write and restore the missing canonical wrapper through the installation procedure. On `LOCKED_EDIT_NOT_EXECUTABLE`, stop before any write, restore the existing wrapper’s executable mode through the installation procedure, then rerun `/setup`. These are separate causes; do not report a present wrapper as missing. Do not bind these paths from `$HOME` or ambient `VAULT_PATH`, and carry the printed path explicitly across tool calls.
 
    (`resolve-vault.sh` is not the right tool here — it validates `$VAULT_PATH`, which `/setup` exists to establish.)
 
