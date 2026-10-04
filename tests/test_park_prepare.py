@@ -59,6 +59,23 @@ class ParkPrepareTests(unittest.TestCase):
             result = review.cmd_prepare(self.args)
         return result, output.getvalue()
 
+    def test_quick_verifier_starts_fresh_and_late_escalation_keeps_generation(self):
+        self.prepare()
+        original = (self.root / 'review-brief-manifest.json').read_bytes()
+        begin = review.build_parser().parse_args(['--session-id', 'fixture', 'begin-run'])
+        with mock.patch('sys.stdout', io.StringIO()):
+            begin.func(begin)
+            review.cmd_run_verifier(SimpleNamespace(session_id='fixture', label='quick',
+                accept_inherited_lint=[], command=[str(self.verifier), str(self.vault),
+                    str(self.log), '1', '--touched', str(self.note), '--touched', str(self.log)]))
+        _, quick_root, _, _ = review.state_paths('fixture')
+        self.assertEqual([x['kind'] for x in review.load_captures(quick_root)], ['verifier'])
+        self.assertEqual((self.root / 'review-brief-manifest.json').read_bytes(), original)
+        # Late escalation performs full preparation in the quick generation.
+        self.prepare()
+        self.assertEqual(review.state_paths('fixture')[1], quick_root)
+        self.assertTrue((quick_root / 'review-brief-manifest.json').is_file())
+
     def test_real_verifier_and_brief_cover_deduplicated_session_paths(self):
         result, output = self.prepare()
         self.assertEqual(result, 0)
@@ -189,6 +206,7 @@ class ParkPrepareTests(unittest.TestCase):
         # A joint audit receipt remains atomically invalidated when any member changes.
         self.assertEqual(changed['reused'], [])
         self.assertEqual({f['path'] for f in changed['full_read']}, {str(self.note), str(self.log)})
+
 
 
 if __name__ == '__main__':

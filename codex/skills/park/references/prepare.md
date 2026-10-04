@@ -18,6 +18,12 @@ re-audit; retries do not call `begin-run`. Earlier generations remain unchanged.
 Prior clean audit receipts are reusable only while their file hashes still match.
 Callers that have never begun a generation retain the legacy state location.
 
+An explicit quick Park resolves eligibility before beginning. Start a generation
+once on the selected quick-success or escalated-full branch, before its first
+receipt-producing action. If a later quick check escalates, keep that generation
+for full preparation; do not begin again. Quick verifier bookkeeping must never
+append to a preceding full Park's generation.
+
 ```bash
 python3 "$PARK_REVIEW" prepare --vault "{VAULT}" --session-log "<session log>" --number N <<'JSON'
 {
