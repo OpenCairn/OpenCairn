@@ -1253,8 +1253,8 @@ PY
 RC=$?
 set -e
 
-# --delete-section reserves stdout for the removed block, so its confirmation
-# goes to stderr - reported here, while stderr is still the caller's.
+# --delete-section reserves stdout for the section text, so its confirmation
+# goes to stderr.
 if [ "$RC" -eq 0 ] && [ "$MODE" = "--delete-section" ]; then
     echo "Locked edit applied: $TARGET" >&2
 fi

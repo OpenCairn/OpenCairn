@@ -98,7 +98,9 @@ _lock() {
 # wrong primitive and leak the lock).
 _unlock() {
     if [ "${_LOCK_MODE:-}" = "flock" ]; then
-        exec 9>&- 2>/dev/null || true
+        # The group scopes the stderr redirect to the close. Written directly on
+        # `exec`, it would be permanent and silence the caller from here on.
+        { exec 9>&-; } 2>/dev/null || true
     elif [ "${_LOCK_MODE:-}" = "mkdir" ]; then
         rm -rf "${_LOCK_DIR:-}" 2>/dev/null || true
     fi
