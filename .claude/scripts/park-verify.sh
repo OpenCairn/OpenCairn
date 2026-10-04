@@ -234,15 +234,12 @@ fi
 #                       truncated and a directory that merely prefixes the
 #                       filename is not taken for it; nor is an extensionless
 #                       file that prefixes a longer file-shaped name.
-# Known gap: an unquoted row whose file is absent cannot be split mechanically.
-# Every " - " boundary, plus any other boundary whose left side exists or ends
-# in a file extension, is then a candidate, so a truncated --touched value equal
-# to one of those candidates still matches. One shape is recognisable and
-# raises REVIEW: the next " - " segment completes a file-shaped name and more
-# text follows ("docs/Plan" against "docs/Plan - draft.md - text"). Without a
-# trailing description, or when the real name has no extension, the truncated
-# value passes. Two different --touched paths that only such a row accounts for
-# also raise REVIEW and neither is covered. Backticks close the gap.
+# An absent unquoted row cannot always be split mechanically. Every " - "
+# boundary remains a candidate, but an extensionless prefix before a longer
+# file-shaped candidate is not coverage ("docs/Plan" against "docs/Plan - draft.md",
+# with or without a trailing description). Two different --touched paths that
+# only an unsplittable row accounts for also raise REVIEW and neither is covered.
+# Backticks settle filenames that are otherwise indistinguishable from descriptions.
 IFS= read -r -d '' COVERAGE_PY <<'PY' || true
 import os
 import re
@@ -701,21 +698,26 @@ for row_index, row in enumerate(rows):
         via.pop((row_index, index), None)
     row["skip"] = True
 
-# An unsplittable row matched through a candidate that looks like a truncation.
+# Reject an unsplittable row's extensionless prefix of a longer file-shaped name.
 for (row_index, index), candidate in sorted(via.items()):
     row = rows[row_index]
-    # Flagged only in the one shape that is recognisable: the next " - " segment
-    # completes a file-shaped name and more text follows it ("docs/Plan" in
-    # "docs/Plan - draft.md - text"). A directory row whose description merely
-    # ends in something extension-like is left alone. An existing regular file
-    # was at least linted as itself.
+    # Absent targets cannot be linted, so a Deleted row must not excuse a
+    # truncated argument merely because it shares the start of the full path.
+    # Existing files and complete file-shaped arguments retain coverage.
     if not row["multi"] or is_file(candidate) or EXTENSION.search(candidate):
         continue
-    full = max(row["cands"], key=len)
     longer = [c for c in row["cands"] if c.startswith(candidate + " - ")
-              and " - " not in c[len(candidate) + 3:] and full.startswith(c + " - ")
               and EXTENSION.search(c)]
+    if on_disk(candidate):
+        # Preserve directory rows with a file-shaped description, while still
+        # warning when the next segment completes a filename before more text.
+        full = max(row["cands"], key=len)
+        longer = [c for c in longer if " - " not in c[len(candidate) + 3:]
+                  and full.startswith(c + " - ")]
     if longer:
+        if not on_disk(candidate):
+            covers[index].discard(row_index)
+            covered[row_index].discard(index)
         out.append("REVIEW backfill: Files row '%s' matched --touched '%s' only through the prefix '%s', but the row may name '%s'; write the row's path in backticks"
                    % (row["raw"], touched[index]["show"], candidate, min(longer, key=len)))
 

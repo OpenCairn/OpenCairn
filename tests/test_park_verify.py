@@ -144,6 +144,22 @@ class ParkVerifyTests(unittest.TestCase):
             self.assertIn("FAIL backfill: touched but absent", result.stdout)
             self.assertIn("not passed to --touched", result.stdout)
 
+    def test_truncated_deleted_touched_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            full = "notes/Foo - Bar.md"
+            for row in (full + " - removed", full):
+                with self.subTest(row=row):
+                    log = write_log(vault, deleted=[row])
+                    result = verify(vault, log, "--touched", "notes/Foo")
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn("FAIL touched: ", result.stdout)
+                    self.assertIn("FAIL backfill: touched but absent", result.stdout)
+                    # Positive control: the complete deleted path remains valid.
+                    complete = verify(vault, log, "--touched", full)
+                    self.assertEqual(complete.returncode, 0, complete.stdout + complete.stderr)
+                    self.assertIn("RESULT: PASS", complete.stdout)
+
     def test_touched_path_needs_a_complete_files_row_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = make_vault(Path(tmp))
