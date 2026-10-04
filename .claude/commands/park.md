@@ -151,7 +151,7 @@ Output: `✓ Quality check: N files checked, no issues`, `🔧 Quality check: fi
 **Project:** [exact link from the metadata line]
 ```
 
-Use full vault-relative paths inside the vault, and absolute or `~`-prefixed paths outside the vault. Repeat the complete path on every row; never abbreviate later paths as `~/x, y, z`.
+Use full vault-relative paths inside the vault, and absolute or `~`-prefixed paths outside the vault. `park-verify.sh` parses these rows: each begins with one complete concrete path, never a glob, range, prose stand-in or `~/x, y, z` abbreviation. A file that predates the session goes under Updated, a moved one under Updated at its new path.
 
 **Write it:**
 
