@@ -15,8 +15,9 @@
 #   locked-edit.sh <file> --append        (stdin appended verbatim at end of file)
 #   locked-edit.sh <file> --show-section '<heading line>'
 #                                            (read-only: section printed to stdout, its SHA-256 to stderr)
-#   locked-edit.sh <file> --delete-section '<heading line>' <expected-section-sha256>
-#                                            (stdin: optional replacement; the section printed to stdout)
+#   locked-edit.sh <file> --delete-section '<heading line>' <expected-section-sha256> [--no-replacement]
+#                                            (stdin: the replacement, or nothing with --no-replacement;
+#                                             the section printed to stdout)
 #   locked-edit.sh <file> --replace-whole <expected-sha256|MISSING>
 #                                            (stdin: complete replacement file)
 #   locked-edit.sh <source> --move <destination> <expected-source-sha256>
@@ -59,12 +60,14 @@
 # section the caller read and, under the lock, recomputes it; if the section
 # changed in any way since that read it writes nothing and exits 2 (read the
 # section again and decide again).
-#   - stdin empty or whitespace-only: the section is deleted together with its
-#     trailing blank lines.
 #   - stdin non-empty: the section is replaced by stdin verbatim (newline-
 #     terminated if it was not), and the section's trailing blank lines are kept
 #     as the seam before the next heading. This collapses a section to a
 #     summary in one call; the replacement supplies its own heading line.
+#   - --no-replacement, with stdin empty or whitespace-only: the section is
+#     deleted together with its trailing blank lines.
+# The choice must be explicit: empty stdin without --no-replacement, or a
+# replacement on stdin with it, is a usage error (exit 1) and writes nothing.
 # stdout carries the section as it stood - the same bytes the hash covers, the
 # caller's record of what was cut - so this mode alone reports "Locked edit
 # applied" on stderr. A terminal on stdin is treated as empty rather than read.
@@ -120,6 +123,7 @@ MODE="$2"
 EXPECTED_SNAPSHOT=""
 MOVE_DESTINATION=""
 SECTION_HEADING=""
+SECTION_NO_REPLACEMENT=0
 
 case "$MODE" in
     --replace|--replace-all|--replace-many|--append) ;;
@@ -131,12 +135,13 @@ case "$MODE" in
         SECTION_HEADING="$3"
         ;;
     --delete-section)
-        if [ $# -ne 4 ]; then
-            echo "--delete-section requires the heading line of the section and the section's expected SHA-256 (read both with --show-section)" >&2
+        if [ $# -lt 4 ] || [ $# -gt 5 ] || { [ $# -eq 5 ] && [ "$5" != "--no-replacement" ]; }; then
+            echo "--delete-section requires the heading line of the section and the section's expected SHA-256 (read both with --show-section), then optionally --no-replacement" >&2
             exit 1
         fi
         SECTION_HEADING="$3"
         EXPECTED_SNAPSHOT="$4"
+        [ $# -eq 4 ] || SECTION_NO_REPLACEMENT=1
         ;;
     --replace-whole)
         if [ $# -ne 3 ]; then
@@ -821,6 +826,7 @@ export _LE_SEP="$SEP"
 export _LE_STDIN_FILE="$STDIN_FILE"
 export _LE_EXPECTED_SNAPSHOT="$EXPECTED_SNAPSHOT"
 export _LE_SECTION_HEADING="$SECTION_HEADING"
+export _LE_SECTION_NO_REPLACEMENT="$SECTION_NO_REPLACEMENT"
 export _LE_RECEIPT_FILE="$RECEIPT_TMP"
 
 set +e
@@ -1107,6 +1113,17 @@ if mode in ("--show-section", "--delete-section"):
         sys.stderr.write("--delete-section: the expected section hash must be a lowercase SHA-256 "
                          "(read it with --show-section)\n")
         sys.exit(1)
+    # Replace or delete must be the caller's stated choice, never inferred from
+    # a payload that happened to arrive empty.
+    replacement = stdin if stdin.strip() else ""
+    no_replacement = os.environ["_LE_SECTION_NO_REPLACEMENT"] == "1"
+    if mode == "--delete-section" and not replacement and not no_replacement:
+        sys.stderr.write("--delete-section: stdin is empty. Supply the replacement on stdin, or pass "
+                         "--no-replacement to delete the section outright\n")
+        sys.exit(1)
+    if mode == "--delete-section" and replacement and no_replacement:
+        sys.stderr.write("--delete-section: --no-replacement was given but stdin carries a replacement\n")
+        sys.exit(1)
     level = len(wanted.group(1))
     if not os.path.exists(target):
         sys.stderr.write("Target file does not exist: %s\n" % target)
@@ -1168,7 +1185,6 @@ if mode in ("--show-section", "--delete-section"):
         sys.stderr.write("No changes written to %s\n" % target)
         sys.exit(2)
 
-    replacement = stdin if stdin.strip() else ""
     if replacement:
         if not replacement.endswith("\n"):
             replacement += "\n"
@@ -1234,7 +1250,7 @@ if [ "$RC" -eq 0 ] && [ "$MODE" = "--delete-section" ]; then
 fi
 
 _unlock
-unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT _LE_SECTION_HEADING _LE_RECEIPT_FILE
+unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT _LE_SECTION_HEADING _LE_SECTION_NO_REPLACEMENT _LE_RECEIPT_FILE
 
 # A read leaves no ledger row, no receipt and no confirmation line.
 if [ "$MODE" = "--show-section" ]; then
