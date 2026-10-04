@@ -53,6 +53,7 @@ Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip 
 
 ## 4. Recommend
 
+- **Value gate first.** Every price, spec and measured figure about to appear below traces to a page fetched this run or to the user's words; cut or mark `[unverified]` anything recalled from memory. Print `Value check: N values traced, M unsourced (fixed)` above the table.
 - Compact comparison table: price, the ranked requirements, key deltas. Keep prose reasoning outside the cells. One footnote under the table says prices and stock were scraped on {date of the run} and need checking at checkout; mark a figure individually only if it came from a search snippet or its region is in doubt.
 - **One recommendation**, with reasoning tied explicitly back to the Phase 1 why (where Phase 1 ran; on `--quick`, tie it to the quiz answers instead).
 - Explicit "Ruled out" lines for transparency — a budget, stock or availability rule-out only after the Phase 3 confirmation; otherwise the line reads "unconfirmed", not "ruled out".
