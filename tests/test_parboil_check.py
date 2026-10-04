@@ -99,6 +99,13 @@ class ParboilCheckTests(unittest.TestCase):
         self.hook(event='Stop', last_assistant_message='✓ Session 1 saved: session.md\n\nParked.\n')
         self.assertEqual(self.hook(), '')
 
+    def test_quick_completion_and_merge_completion_are_observed(self):
+        for final in ['✓ Session 1 saved: log.md\nQuick parked.',
+                      '✓ Merged into Session 1 — follow-up captured']:
+            with self.subTest(final=final):
+                self.hook(event='Stop', last_assistant_message=final)
+                self.assertEqual(self.hook(), '')
+
     def test_tool_output_cannot_record_completion(self):
         self.hook(event='PostToolUse', last_assistant_message='✓ Session 1 saved: session.md\n\nParked.\n')
         self.assertIn('<parboil-trigger', self.hook())

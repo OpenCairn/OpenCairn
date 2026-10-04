@@ -100,7 +100,7 @@ if [ "$EVENT" = "Stop" ]; then
             if ($line | test("^\\s*(```|~~~)")) then .fenced = (.fenced | not)
             elif .fenced then . else .lines += [$line] end)
         | (.lines | join("\n"))
-        | (test("(?m)^\\s*(?:Quick )?Parked\\.\\s*$")
+        | (test("(?im)^\\s*(?:Quick )?Parked\\.\\s*$")
            and test("✓ Session [0-9]+ saved:"))
           or test("(?m)^\\s*✓ Merged into Session [0-9]+")
     ' >/dev/null 2>&1; then
