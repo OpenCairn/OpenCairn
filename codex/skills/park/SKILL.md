@@ -237,6 +237,8 @@ If you reach Step 5 without a seat or a recorded checked-empty result, perform S
 
 Output: `✓ Quality check: B bounded semantic files full-read; T large/reference artefacts target-inspected; M mechanical files receipt-verified`, `🔧 Quality check: fixed N issues — [file: fix]`, or — when (a)'s checked inventory is empty — `✓ Quality check: no attributed files (writes deferred to Steps 3–7)`. The empty case is a result, not a skip: planning and research sessions can legitimately make their first writes during Park, and the later writes still pass their step contracts, Step 8 verification, and Step 9 audit.
 
+**Coverage receipt:** after inspection, display `Files read in full: [exact paths | none]`, `Targeted coverage: [path: pages/sections/ranges/checks | none]` and `Mechanical substitute: [exact receipt paths/checks | none]`. Keep this tied to what was actually read or verified, not the intended inventory class; an omitted or truncated read remains incomplete until the stated substitute is performed.
+
 **Coherence after status changes:** compare the changed span with its governing heading, table labels, adjacent conditions and parent scope/provenance statement. Check each clause before ticking a compound task. Reconcile surviving tasks with the settled decision, preserving any still-open clause. For claimed deduplication, inspect the retained counterpart as evidence even when it was not edited. For reciprocal links, verify both endpoints only when reciprocity was intended.
 
 **Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred.
