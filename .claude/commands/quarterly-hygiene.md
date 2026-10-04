@@ -84,7 +84,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      while IFS='|' read -r kind dir f y; do printf '%s: %s/%s -> %s/\n' "$kind" "$dir" "$f" "$y"; done < "$ARCHIVE_PLAN"
      ```
      Record the printed plan path, hash and cutoff and substitute them for `<ARCHIVE_PLAN>` and `<ARCHIVE_PLAN_SHA256>` below; shell variables do not survive between tool calls. If the plan disappears or its hash changes before execution, regenerate the dry-run and reconfirm the new exact list.
-   - **Dry-run and gates first:** present the persisted `MOVE` list grouped by folder, then destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`; K reports → `Daily Reports/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. State that the move also rewrites link targets in other notes that point at the moved files. Confirm the vault's sync client is ON (or that the vault has none), then get explicit confirmation to move this exact list. If no interactive reply can be obtained, the run is unattended: report both lists, move no files and continue with the work-queue expiry bullet at the end of this step, then the report; the file-move confirmation gate cannot be waived.
+   - **Dry-run and gates first:** present the persisted `MOVE` list grouped by folder, then destination year — "would move N logs → `Session Logs/2025/`, M → `Session Logs/2026/`; K reports → `Daily Reports/2026/`" (real years derived from the filenames; never a literal `YYYY` folder) — and the `DUPLICATE` count alongside it, by name if few. State that the move also rewrites link targets in other notes that point at the moved files. Confirm the vault's sync client is ON (or that the vault has none), then get explicit confirmation to move this exact list. If no interactive reply can be obtained, the run is unattended: report both lists, move no files and continue with the ungated bullets that close this step, then the report; the file-move confirmation gate cannot be waived.
    - **Duplicates are a finding, not a cleanup.** Never delete or overwrite either copy to resolve a collision — surface the on-disk duplication in the report and leave the files alone (same contract `/weekly-hygiene` holds for duplicate detection). If the user does ask for a resolution, the safe order is: byte-compare the pair and **refuse on any difference**, delete the *archived* copy, then move the flat copy into place with a link-aware move — the flat copy is the one inbound links resolve to, so it must be the survivor. Treat a refusal per `_shared-rules-content.md` §24 before calling it genuine. The user decides.
    - **Move each confirmed file through `locked-edit.sh --move`.** Drive the persisted `MOVE` rows per **`_shared-rules-content.md` §24**, which owns the locks, Obsidian CLI behaviour and verification. Create each required destination-year folder in that list, then move each file; treat the first as a canary and abort the batch on any refusal. A large batch outlasts the default command timeout: run the block with an extended timeout or in the background, and if it is cut off, re-run the same block against the same plan — `ALREADY MOVED` lines are completed moves, not duplicates:
      ```bash
@@ -122,6 +122,29 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      git -C "{VAULT}" log --format=%ad --date=short --reverse -S"<the item's bold title, with the leading '- [ ] [Pn] ' stripped>" -- "<queue path>" "<each prior path>" | head -1
      ```
      No git, or no hit → keep the item and count it under `age unknown`. An item whose age sorts strictly before `CUTOFF` moves — P1 included, unless its line names data loss, corruption or an urgent blocker. Per item: if its line is not already under `## Expired — re-raise on recurrence` in the history doc, write it there (`locked-edit.sh --replace` on that section's last line; create the heading with `--append` if absent) and read it back; then remove the line from the queue with `--replace`. A line already in history skips only the insertion — the queue removal still runs, so an interrupted run finishes on retry without duplicating. Count completed transfers. Expiry is lossy: the skill monitor re-raises only gaps that recur in a running skill, so expired ordinary work returns only when someone re-raises it. Report verbatim: `Work queue expired: N items older than <CUTOFF> → history doc; age unknown: K`.
+   - **Cross-pollination log roll (reuse the printed `CUTOFF`).** This step owns pruning of the skill-edit hooks' append-only `cross-pollination.log`; nothing else rotates it. Ungated and runs unattended, like the expiry above. Lines dated before the cutoff move to `cross-pollination-YYYY.log` beside the live file, by the year of their own timestamp; undated lines stay. The hooks read only the live file, and the size check stops a line appended mid-run from being dropped:
+     ```bash
+     python3 - "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/cross-pollination.log" "<CUTOFF>" <<'PY'
+     import os, re, sys
+     log, cutoff = sys.argv[1:3]
+     if not os.path.isfile(log):
+         print("Cross-pollination log rolled: n/a — no log"); sys.exit(0)
+     size, old, keep = os.path.getsize(log), {}, []
+     for ln in open(log, "rb").read().splitlines(keepends=True):
+         m = re.match(rb"(\d{4})-\d\d-\d\d", ln)
+         (old.setdefault(m.group(1).decode(), []) if m and m.group(0).decode() < cutoff else keep).append(ln)
+     if old:
+         tmp = log + ".tmp"
+         open(tmp, "wb").writelines(keep)
+         if os.path.getsize(log) != size:
+             os.remove(tmp); sys.exit("ABORT: log appended to mid-run; nothing changed")
+         for y, ls in old.items():
+             open(f"{log[:-4]}-{y}.log", "ab").writelines(ls)
+         os.replace(tmp, log)
+     print(f"Cross-pollination log rolled: {sum(map(len, old.values()))} lines older than {cutoff} → year files; {len(keep)} kept")
+     PY
+     ```
+     Report the printed line verbatim. On `ABORT`, re-run once.
 
 7. **Skill-library flywheel audit (DRAFT SPEC — heuristics unvalidated; propose, never auto-apply; optional — skip freely on first runs or when time-boxed, noting "flywheel audit skipped" in the report).**
    The library-level layer of the cross-pollination system uses `_shared-patterns.md` in the commands directory as its index. Once a quarter, look across the **user-authored command library** for infrastructure that's been reinvented rather than shared. Plugin/vendor commands are explicitly out of scope; proposing their consolidation into a personal index would create unstable pointers. Borrowed from Voyager's automatic-curriculum idea: the system proposes its own next consolidation. **Status: spec — the grep heuristics below are untested; treat every finding as a lead to confirm, not a verdict.**
@@ -129,7 +152,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
      - Extract the already-indexed mechanisms from `_shared-patterns.md` (its entry headings / `→` reference targets). These are the *divergence* candidates.
      - Then grep the skills for repeated constructs **not** on that list — recurring bash idioms, repeated prose contracts, shared prereq/estimation/progress/despatch shapes, any block that reads as copied between skills — and count distinct skills implementing each. These are the *discovery* candidates, and they are the point of the pass.
    - **Cross-reference `_shared-patterns.md`:** a mechanism in **≥2 skills but unindexed** → propose a pointer entry (it passes the proven-twice gate); **indexed but reimplemented divergently** → flag for reconciliation.
-   - **Read `~/.claude/cross-pollination.log` — only if it exists** (`[ -f ~/.claude/cross-pollination.log ]`): index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. **If absent** (template installs that haven't opted into the Stop hook via `/setup-hooks`), record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
+   - **Read `~/.claude/cross-pollination.log` — only if it exists** (`[ -f ~/.claude/cross-pollination.log ]`), together with any `cross-pollination-YYYY.log` year files step 6 rolled beside it: index entries that never surface in any survey are prune candidates; frequently-ported patterns confirm hot ones. **If absent** (template installs that haven't opted into the Stop hook via `/setup-hooks`), record "cross-pollination log not found — cold-entry/prune analysis skipped" and run only the inventory + divergence checks. Never propose prunes without survey data — no log means no evidence of coldness, and treating absence as coldness would nominate the entire healthy index for deletion.
    - **Report, don't apply.** Emit proposed new entries, divergence flags, and dead entries — each a human-confirmed decision.
 
 8. **Cross-model panel model-currency check.** (if any of the panel seats from `_shared-rules-reviewer.md` §10 are installed; if none are, note "no cross-model panel configured — model-currency check skipped" in the report)
@@ -181,6 +204,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    - Skipped (already archived): N — flat copies whose year folder already holds that basename; duplication surfaced, nothing deleted [list or "none"]
    - Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    - Work queue expired: N items older than YYYY-MM-DD → history doc; age unknown: K (or "none" / "n/a — no queue doc")
+   - Cross-pollination log rolled: N lines older than YYYY-MM-DD → year files; K kept (or "n/a — no log")
 
    ## Skill-Library Flywheel (draft)
    - Proposed new index entries (≥2 reuses, unindexed): [list or "none"]
@@ -216,6 +240,7 @@ It does the heavy structural checks that are too slow or too rarely-needed for t
    ✓ Daily reports: N flat; archived M → YYYY/ (or "none aged out"); K skipped as duplicates
    ✓ Link integrity: before N → after M; moved dates unresolved: [none / list / n/a — nothing moved]
    ✓ Work queue expired: [N items older than YYYY-MM-DD / none / n/a — no queue doc]
+   ✓ Cross-pollination log rolled: [N lines older than YYYY-MM-DD / n/a — no log]
    ✓ Flywheel audit (draft): [N proposed entries, M divergences, K dead / skipped]
    ✓ Panel model currency: [N seats checked, M stale/unstable pins flagged / no panel configured]
    ✓ Skill self-review: [no gaps / N observations logged]
