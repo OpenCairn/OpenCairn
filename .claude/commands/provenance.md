@@ -204,8 +204,8 @@ Transcript and session log hashing is always deferred to `/goodnight` — they'r
 Processes today's flag files:
 1. Read each flag in `07 System/.Provenance/pending/` matching today's date
 2. Hash any work products listed but not yet hashed (check "Hashed Immediately" section). **For entries already in "Hashed Immediately", re-hash and compare against the recorded hash** — a silent edit between the immediate hash and goodnight is otherwise undetectable; on mismatch, announce it and run the Step 5 re-hash path (superseding row), don't skip silently
-3. Hash session transcript (now exported and final)
-4. Hash session log (now final)
+3. Hash and snapshot the exported session transcript (re-export can change the live file)
+4. Hash and snapshot the final session log (later appends or link-healing can change the live file)
 5. OTS stamp all newly hashed files
 6. Append all entries to `07 System/AI Provenance Log.md` (via `locked-edit.sh --append`, per Step 5)
 7. Delete the flag file **only after verifying every listed item has a log row** — a partially processed flag (missing rows) stays in `pending/` for `/weekly-hygiene`'s straggler pass
