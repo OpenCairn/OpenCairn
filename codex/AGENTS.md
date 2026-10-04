@@ -12,7 +12,7 @@ If that errors, stop and report — do not guess a path.
 
 ## Artifact prerequisites
 
-Before an artifact authoring operation, read the selected skill’s actual runtime requirements. Diagnose missing plumbing with `{VAULT}/.claude/scripts/artifact-runtime-preflight.py` and its companion guide: select only the required profile and honour permitted fallbacks. Inspect authoring and binary-ingress results separately. Marker presence and a successful import do not certify marker invocation, artifact QA or whole-skill support.
+Before an artifact authoring operation, read the selected skill’s actual runtime requirements. Diagnose missing plumbing with `$VAULT_PATH/.claude/scripts/artifact-runtime-preflight.py` and its companion guide: select only the required profile and honour permitted fallbacks. Inspect authoring and binary-ingress results separately. Marker presence and a successful import do not certify marker invocation, artifact QA or whole-skill support.
 
 ## Vault writes take the lock
 

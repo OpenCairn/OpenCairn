@@ -90,5 +90,20 @@ class SemanticsCheckTests(unittest.TestCase):
         self.assertEqual(list(vault.rglob('*')), before)
 
 
+    def test_empty_cache_environment_uses_home_cache_even_without_vault_env(self):
+        self.env['XDG_CACHE_HOME'] = ''
+        self.env.pop('VAULT_PATH')
+        cwd = self.root / 'vault'
+        result = subprocess.run(self.argv(), cwd=cwd, env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('2.1.10 -> 2.1.11', result.stdout)
+        self.assertEqual(list(cwd.rglob('*')), [])
+        expected = Path(self.env['HOME']) / '.cache/opencairn/harness-semantics'
+        self.assertTrue(expected.is_dir())
+        result = subprocess.run(self.argv(), cwd=cwd, env=self.env, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, '')
+
+
 if __name__ == '__main__':
     unittest.main()
