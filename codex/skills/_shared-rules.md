@@ -95,15 +95,12 @@ EOF
 # --replace-many (several exactly-once replacements under one lock and one write; stdin is a
 # JSON array [{"old": "...", "new": "..."}, ...]; any failing pair writes nothing and is named).
 # Use it for bulk corrections instead of N --replace calls or an unlocked pass.
-# --delete-section '<full heading line>' (the section through to the next heading of the same or
-# higher level, or EOF; empty stdin deletes it, non-empty stdin replaces it; the removed block
-# is printed to stdout). It has NO preimage check: it removes whatever sits under the heading at
-# lock time, and an unclosed code fence in the section extends the removal to EOF. Do not use it
-# on a shared planning file; collapse or remove a section there with --replace on the text you read.
+# Do not use --delete-section on any vault file until it has a preimage check; remove or collapse
+# a section with --replace on the text you read.
 # --move <destination> <expected-source-sha256> (link-healing compare-and-move;
 # both paths must be inside VAULT_PATH; a missing destination directory is created).
 # Exit codes: 0 ok · 1 usage/lock error · 2 no match/stale snapshot · 3 ambiguous (>1 match under
-# --replace/--replace-many, overlapping --replace-many pairs, or a duplicated --delete-section heading).
+# --replace/--replace-many, or overlapping --replace-many pairs).
 # For --replace/--replace-all, treat 2/3 as a real conflict: re-read and recompute, don't loop-retry.
 # For --replace-whole, exit 2 means re-read, rebuild and retry with the fresh snapshot hash.
 # Exit 1 with a lock message means another writer holds the lock past the timeout — that is
