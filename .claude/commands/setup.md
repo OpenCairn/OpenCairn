@@ -21,11 +21,19 @@ Run all checks first, display the result, then act on what's missing.
    ```bash
    if [[ -f CLAUDE.md && -d "07 System" && -d .claude/commands ]]; then
      echo "VAULT_CWD_OK"
+     printf 'VAULT_CWD=%s\n' "$(pwd -P)"
+     if [[ -x .claude/scripts/locked-edit.sh ]]; then
+       echo "LOCKED_EDIT_OK"
+     else
+       echo "LOCKED_EDIT_MISSING"
+     fi
    else
      echo "NOT_VAULT_CWD"
    fi
    ```
    On `NOT_VAULT_CWD`, tell the user to restart Claude Code from their vault directory and run `/setup` there. Do not continue to the remaining checks, and do not run any Phase 2 remedy.
+
+   `{VAULT}` throughout setup is the exact canonical working-directory path printed as `VAULT_CWD=` by `pwd -P` after this check. The canonical writer is its existing `.claude/scripts/locked-edit.sh` (absolute form: `{VAULT}/.claude/scripts/locked-edit.sh`). The same check reports `LOCKED_EDIT_OK` only for that executable wrapper. On `LOCKED_EDIT_MISSING`, stop before any write and repair the installation. Do not bind these paths from `$HOME` or ambient `VAULT_PATH`, and carry the printed path explicitly across tool calls.
 
    (`resolve-vault.sh` is not the right tool here — it validates `$VAULT_PATH`, which `/setup` exists to establish.)
 
