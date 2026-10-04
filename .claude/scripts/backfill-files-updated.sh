@@ -29,6 +29,7 @@ set -euo pipefail
 
 # --- Portable file locking (shared library) ---
 source "$(dirname "$0")/lib-lock.sh"
+source "$(dirname "$0")/lib-session.sh"
 
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <session-file> <session-num>"
@@ -293,6 +294,8 @@ fi
 
 # Restore permissions
 chmod "$ORIG_PERMS" "$SESSION_FILE"
+
+_session_record_write "backfill-files-updated" "$SESSION_FILE"
 
 _unlock
 

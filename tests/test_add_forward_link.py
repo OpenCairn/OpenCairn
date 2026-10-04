@@ -178,6 +178,49 @@ class ForwardLinkProofTests(unittest.TestCase):
                                env=self.env, capture_output=True, text=True)
         self.assertNotEqual(found.returncode, 0)
 
+    def test_sanctioned_session_log_writes_before_link_cannot_be_auto_covered(self):
+        scripts = SCRIPT.parent
+        cases = [
+            ('update-session-section.sh', [str(self.log), '1', 'Summary', '--replace'], 'Corrected prose.\n'),
+            ('write-session.sh', [str(self.log)], '## Session 4 - Added\n\n### Summary\nNew authored entry.\n'),
+            ('backfill-files-updated.sh', [str(self.log), '1'], '- note.md - authored result\n')]
+        original = self.log.read_text().replace('### Pickup Context', '### Files Updated\nNone\n\n### Pickup Context')
+        for script, argv, payload in cases:
+            with self.subTest(script=script):
+                # A distinct fixture session makes each actual producer case independent.
+                sid = script.removesuffix('.sh') + '-fixture'
+                env = isolate_session(os.environ.copy(), self.config / sid, sid)
+                env['VAULT_PATH'] = str(self.vault)
+                env['CODEX_THREAD_ID'] = 'actual-writer-fixture'
+                self.log.write_text(original)
+                subprocess.run(['bash', str(scripts / script), *argv], input=payload,
+                               env=env, capture_output=True, text=True, check=True)
+                subprocess.run(['bash', str(SCRIPT), '--continued-in', str(self.log), '1', '2', 'Later',
+                                self.target.name], env=env, capture_output=True, text=True, check=True)
+                checked = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), sid],
+                                         env=env, capture_output=True, text=True)
+                self.assertNotEqual(checked.returncode, 0, checked.stdout)
+                rows = (self.config / sid / '.session-state' / (sid + '.tsv')).read_text().splitlines()
+                self.assertEqual([r.split('\t')[1] for r in rows], [script.removesuffix('.sh'), 'add-forward-link'])
+                self.assertTrue(all(r.split('\t')[2] == str(self.log) for r in rows))
+                self.assertTrue(all(r.split('\t')[3] == 'codex:actual-writer-fixture' for r in rows))
+
+    def test_sanctioned_empty_and_identical_noops_do_not_create_ledger_rows(self):
+        scripts = SCRIPT.parent
+        self.log.write_text(self.log.read_text().replace('### Pickup Context', '### Files Updated\n- note.md - existing\n\n### Pickup Context'))
+        for script, argv, body, expected in [
+            ('write-session.sh', [str(self.log)], '', 1),
+            ('update-session-section.sh', [str(self.log), '1', 'Summary'], '', 0),
+            ('update-session-section.sh', [str(self.log), '1', 'Summary', '--replace'], 'Old prose.\n', 0),
+            ('backfill-files-updated.sh', [str(self.log), '1'], '- note.md - duplicate\n', 3)]:
+            with self.subTest(script=script, body=body):
+                before = self.log.read_bytes()
+                run = subprocess.run(['bash', str(scripts / script), *argv], input=body,
+                                     env=self.env, capture_output=True, text=True)
+                self.assertEqual(run.returncode, expected, run.stdout+run.stderr)
+                self.assertEqual(self.log.read_bytes(), before)
+                self.assertFalse((self.config / '.session-state/forward-fixture.tsv').exists())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -31,6 +31,7 @@ set -euo pipefail
 
 # --- Portable file locking (shared library) ---
 source "$(dirname "$0")/lib-lock.sh"
+source "$(dirname "$0")/lib-session.sh"
 
 if [ $# -lt 1 ]; then
     echo "Usage: $0 <session-file> [--create] [--auto-number <topic> <time>]" >&2
@@ -150,6 +151,7 @@ else
     printf "\n%s\n" "$CONTENT" >> "$SESSION_FILE"
 fi
 
+_session_record_write "write-session" "$SESSION_FILE"
 _unlock
 
 echo "Session written to: $SESSION_FILE"

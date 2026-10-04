@@ -33,6 +33,7 @@ set -euo pipefail
 
 # --- Portable file locking (shared library) ---
 source "$(dirname "$0")/lib-lock.sh"
+source "$(dirname "$0")/lib-session.sh"
 
 if [ $# -lt 3 ]; then
     echo "Usage: $0 <session-file> <session-num> <section-name> [--replace]"
@@ -156,6 +157,8 @@ fi
 # Preserve original file permissions
 ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
 
+SESSION_PRE=$(mktemp "${TMPDIR:-/tmp}/opencairn-section-pre.XXXXXX")
+cp "$SESSION_FILE" "$SESSION_PRE"
 if [ "$REPLACE_MODE" = "true" ]; then
     # Replace mode: remove all content lines between heading and boundary, insert new content
     # For terminal sections (no next ### heading), add trailing blank line since the skip range
@@ -227,8 +230,15 @@ else
     fi
 fi
 
+# Compare exact bytes so an identical replacement does not claim a mutation.
+# SESSION_PRE is outside the vault and is captured while the existing lock holds.
 # Restore permissions
 chmod "$ORIG_PERMS" "$SESSION_FILE"
+
+if ! cmp -s "$SESSION_PRE" "$SESSION_FILE"; then
+    _session_record_write "update-session-section" "$SESSION_FILE"
+fi
+rm -f "$SESSION_PRE"
 
 _unlock
 
