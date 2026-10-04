@@ -6,6 +6,9 @@
 #              (matched fixed-string, case-insensitive, against unchecked "- [ ]" lines).
 #              Must be distinctive: a bare number under ~4 digits matches digit runs
 #              inside phone numbers, order IDs and amounts, burying real hits in noise.
+#              A doc name, a common word or a link target is not distinctive either:
+#              it matches every open item that mentions or links that doc. Prefer
+#              the completed item's own wording.
 #   --touched  each file the session+park created or edited (repeatable)
 #   --reference PATH SHA256  preserved external reference, hash-bound by the
 #              review wrapper; still checked for Files-list coverage
@@ -28,7 +31,11 @@
 #               blanks; exempts `- [ ]` in code spans and "==- [ ]==" highlights
 #   closure     per --ident: unchecked "- [ ]" matches in This Week.md, Tickler.md,
 #               and touched 03 Projects / 04 Areas files -> REVIEW (caller flips
-#               genuinely-completed items, surfaces adjacent-open ones)
+#               genuinely-completed items, surfaces adjacent-open ones). Each
+#               hit is labelled: [text] plain wording, [link] the visible name of
+#               an unaliased wikilink. Hits only in a hidden link target (aliased
+#               target, folder prefix, URL) or starting mid-word are listed as
+#               [link-target] / [word-part] but do not raise REVIEW
 #   touched     each --touched path exists, unless a Files Deleted row or
 #               --nonlocal accounts for it
 #   backfill    each touched file matches a Files Created / Files Updated /
@@ -271,25 +278,64 @@ done
 for ident in "${IDENTS[@]:-}"; do
     [ -n "$ident" ] || continue
     HITS=""
+    SOFT=""
     for t in "${CLOSURE_TARGETS[@]}"; do
         is_nonlocal "$t" && continue
         [ -f "$t" ] || continue
         h=$(grep -n -i -F -- "$ident" "$t" | grep -E '^[0-9]+:[[:space:]]*-[[:space:]]*\[ \]' || true)
-        if [ -n "$h" ]; then
-            # A missing or broken encoder must not erase a real unchecked match.
-            if ! h=$(printf '%s\n' "$h" | python3 -c 'import sys
+        [ -n "$h" ] || continue
+        # Classify where the ident sits, then excerpt. A line takes its strongest
+        # occurrence; one the classifier cannot locate stays "text".
+        # A missing or broken encoder must not erase a real unchecked match.
+        if ! h=$(printf '%s\n' "$h" | python3 -c 'import re, sys
+ident = sys.argv[1]
+pattern = re.compile(re.escape(ident), re.IGNORECASE)
+rank = {"word-part": 0, "link-target": 1, "link": 2, "text": 3}
+def word_char(c):
+    return c.isascii() and c.isalnum()
 for raw in sys.stdin.buffer:
     line = raw.decode("utf-8", errors="backslashreplace").rstrip("\n")
-    sys.stdout.buffer.write((line[:100] + "\n").encode("utf-8"))'); then
-                fail closure "UTF-8 excerpt conversion failed for $t"
-                echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
-                exit 1
-            fi
+    body = line.partition(":")[2]
+    kinds = ["text"] * len(body)
+    for m in re.finditer(r"\[\[([^\]]*)\]\]", body):
+        a, b = m.span(1)
+        bar = m.group(1).find("|")
+        cut = a + bar + 1 if bar >= 0 else a + m.group(1).rfind("/") + 1
+        kinds[a:cut] = ["link-target"] * (cut - a)
+        if bar < 0:
+            kinds[cut:b] = ["link"] * (b - cut)
+    for m in re.finditer(r"\]\(([^)]*)\)", body):
+        a, b = m.span(1)
+        kinds[a:b] = ["link-target"] * (b - a)
+    best = None
+    for m in pattern.finditer(body):
+        a, b = m.span()
+        if a and word_char(body[a - 1]) and word_char(ident[0]):
+            kind = "word-part"
+        else:
+            kind = max(set(kinds[a:b]), key=rank.get)
+        if best is None or rank[kind] > rank[best]:
+            best = kind
+    sys.stdout.buffer.write(((best or "text") + "\t" + line[:100] + "\n").encode("utf-8"))' "$ident"); then
+            fail closure "UTF-8 excerpt conversion failed for $t"
+            echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+            exit 1
         fi
-        [ -n "$h" ] && HITS="$HITS$t -> $(echo "$h" | tr '\n' ' '); "
+        hard=""; soft=""
+        while IFS=$'\t' read -r kind excerpt; do
+            case "$kind" in
+                text|link) hard="$hard[$kind] $excerpt " ;;
+                *)         soft="$soft[$kind] $excerpt " ;;
+            esac
+        done <<< "$h"
+        [ -n "$hard" ] && HITS="$HITS$t -> $hard; "
+        [ -n "$soft" ] && SOFT="$SOFT$t -> $soft; "
     done
+    [ -n "$SOFT" ] && SOFT=" not counted (hidden link target or mid-word): $SOFT"
     if [ -n "$HITS" ]; then
-        review closure "ident '$ident' has unchecked matches: $HITS"
+        review closure "ident '$ident' has unchecked matches: $HITS$SOFT"
+    elif [ -n "$SOFT" ]; then
+        pass closure "ident '$ident': no unchecked [ ] text or link match in ${#CLOSURE_TARGETS[@]} planning file(s);$SOFT"
     else
         pass closure "ident '$ident': no unchecked [ ] match in ${#CLOSURE_TARGETS[@]} planning file(s)"
     fi

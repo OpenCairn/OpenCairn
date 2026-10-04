@@ -80,6 +80,46 @@ class ParkVerifyTests(unittest.TestCase):
                 review[0].endswith(": docs/b.md; nas:/local.md; /tmp/absent-fixture.md; "), review[0])
             self.assertNotIn("gone.md", review[0])
 
+    def closure_lines(self, week: str, ident: str) -> list:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "01 Now/This Week.md").write_text(week, encoding="utf-8")
+            result = verify(vault, write_log(vault), "--ident", ident)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return [l for l in result.stdout.splitlines() if " closure: " in l]
+
+    def test_ident_hidden_link_target_and_mid_word_matches_are_not_review(self) -> None:
+        for ident, week in (
+            ("Budget plan", "- [ ] Check [[03 Projects/Budget plan|the numbers]] with the bank\n"),
+            ("Projects", "- [ ] Tidy [[03 Projects/Roadmap]]\n"),
+            ("budget-plan", "- [ ] Read [the notes](https://example.org/budget-plan-2)\n"),
+            ("log", "- [ ] Update the catalogue\n"),
+            ("204", "- [ ] Chase order 91204\n"),
+        ):
+            with self.subTest(ident=ident):
+                lines = self.closure_lines(week, ident)
+                self.assertEqual(len(lines), 1, lines)
+                self.assertTrue(lines[0].startswith("PASS closure: "), lines[0])
+                self.assertIn("not counted", lines[0])
+                self.assertIn("1:- [ ] ", lines[0])
+
+    def test_ident_review_labels_text_and_link_matches(self) -> None:
+        week = ("- [ ] Check [[03 Projects/Budget plan|the numbers]] with the bank\n"
+                "- [ ] Draft [[03 Projects/Budget plan]] summary\n"
+                "- [ ] Send budget plans to the client\n"
+                "- [x] Budget plan agreed\n"
+                "- [ ] Rename [[Old|Budget plan]] note\n")
+        lines = self.closure_lines(week, "Budget plan")
+        self.assertEqual(len(lines), 1, lines)
+        self.assertTrue(lines[0].startswith("REVIEW closure: ident 'Budget plan' has unchecked matches: "), lines[0])
+        counted, _, uncounted = lines[0].partition("not counted")
+        self.assertIn("[link] 2:- [ ] Draft", counted)
+        self.assertIn("[text] 3:- [ ] Send", counted)
+        self.assertIn("[text] 5:- [ ] Rename", counted)
+        self.assertNotIn("1:- [ ]", counted)
+        self.assertIn("[link-target] 1:- [ ] Check", uncounted)
+        self.assertNotIn("4:", lines[0])
+
     def test_truncated_touched_path_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             vault = make_vault(Path(tmp))
