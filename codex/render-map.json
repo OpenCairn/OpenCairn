@@ -4,8 +4,8 @@
     "_shared-patterns": {
       "source": ".claude/commands/_shared-patterns.md",
       "render": "codex/skills/_shared-patterns.md",
-      "source_sha256": "c075791840f2c432f54659a65192fcd1fb861ceb74e8268d71b99c55a3e0f1cb",
-      "render_sha256": "7591650b0511c4678751a5df6dc672cf614bf13497764c0d5881098de0adc5e4"
+      "source_sha256": "901eef9af941d3e199927be1c5b88a8fa5356262b5b6874bce786a8afd19c9ef",
+      "render_sha256": "438aa0812f859400bd415bbfd4b84e1fe90a4593d8093bd1e0298432458594b8"
     },
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
