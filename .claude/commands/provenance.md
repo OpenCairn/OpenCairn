@@ -121,6 +121,8 @@ python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" append \
   --status "confirmed" --snapshot "<absolute snapshot path>" --proof "<absolute .ots path>"
 ```
 
+**Legacy retention:** when an old unannotated row lacks a snapshot but its resolved source still matches the logged digest, `retain-legacy --tag <tag> --file <original File column> --hash <16hex> [--source <resolved source>] [--proof <existing proof>]` retains source-backed evidence without a new stamp or status row. It validates the existing tag/file/digest record, staged bytes and proof's full SHA256; only explicit historical no-proof status permits no proof. It appends an evidence-only locator under the canonical lock, preserving every historical row. Recovery commands and failure boundaries live in weekly-hygiene Step 13b; ordinary `attest`/`append` retain their strict new-attestation requirements.
+
 Transcript and session log hashing is always deferred to `/goodnight` — they're not final yet.
 
 ### 6. Display Confirmation

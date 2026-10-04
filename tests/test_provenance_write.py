@@ -281,6 +281,159 @@ elif sys.argv[1] == 'upgrade':
         self.assertTrue(self.log.read_bytes().startswith(before))
         self.assertIn(f"supersedes `{record['hash']}`", self.log.read_text())
 
+    def legacy_record(self, status='confirmed'):
+        value = hashlib.sha256(self.doc.read_bytes()).hexdigest()[:16]
+        row = f"| earlier | Example | 03 Projects/Example.md | `{value}` | {status} |\n"
+        self.log.write_text('| Timestamp | Tag | File | SHA256 | OTS |\n| --- | --- | --- | --- | --- |\n' + row)
+        proof = self.artifacts / 'arbitrary-old-proof-name.ots'
+        proof.write_text(hashlib.sha256(self.doc.read_bytes()).hexdigest())
+        return {'hash': value, 'proof': proof, 'row': row}
+
+    def retain_legacy(self, record, *extra, ok=True):
+        result = self.run_writer('retain-legacy', '--tag', 'Example', '--file', '03 Projects/Example.md',
+                                 '--hash', record['hash'], *extra, ok=ok)
+        return json.loads(result.stdout) if ok else result
+
+    def test_matching_live_legacy_preimage_is_retained_against_arbitrary_proof(self):
+        record = self.legacy_record('confirmed (lite) [^note]')
+        before = self.log.read_bytes()
+        original = self.doc.read_bytes()
+        self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                        '--hash', record['hash'], ok=False)
+        # A misleading namesake must not hide the actual matching proof.
+        (self.artifacts / 'Example.md.ots').write_text('b' * 64)
+        self.env['OTS_FAIL'] = '1'  # retention must not request a new stamp
+        retained = self.retain_legacy(record)
+        self.assertEqual(retained['status'], 'confirmed')
+        self.assertEqual(retained['raw_status'], 'confirmed (lite) [^note]')
+        self.assertEqual(Path(retained['snapshot']).read_bytes(), original)
+        self.assertEqual(Path(retained['proof']), record['proof'])
+        self.assertTrue(self.log.read_bytes().startswith(before))
+        additions = self.log.read_text()[len(before.decode()):].splitlines()
+        self.assertEqual(len(additions), 1)
+        self.assertIn('| evidence: ', additions[0])  # no new status/timestamped attestation
+        located = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', str(self.doc),
+                                            '--hash', record['hash']).stdout)
+        self.assertEqual(located['snapshot'], retained['snapshot'])
+        self.doc.write_bytes(b'later live edit')
+        self.assertEqual(Path(located['snapshot']).read_bytes(), original)
+
+    def test_legacy_retention_accepts_explicit_source_and_proof_for_stale_locator(self):
+        record = self.legacy_record()
+        moved = self.vault / '04 Areas/Moved.bin'
+        moved.parent.mkdir()
+        self.doc.rename(moved)
+        proof = self.vault / 'old-proof.ots'
+        record['proof'].rename(proof)
+        before = self.log.read_bytes()
+        retained = self.retain_legacy(record, '--source', str(moved), '--proof', str(proof))
+        self.assertEqual(retained['file'], '03 Projects/Example.md')
+        self.assertEqual(retained['proof'], str(proof))
+        self.assertEqual(Path(retained['snapshot']).read_bytes(), moved.read_bytes())
+        self.assertTrue(self.log.read_bytes().startswith(before))
+
+    def test_legacy_retention_rejects_changed_source_and_full_proof_digest_mismatch(self):
+        record = self.legacy_record()
+        before = self.log.read_bytes()
+        original = self.doc.read_bytes()
+        self.doc.write_bytes(b'changed live preimage')
+        result = self.retain_legacy(record, ok=False)
+        self.assertIn('staged source does not match logged digest', result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(list(self.artifacts.glob('*.snapshot*')), [])
+        self.doc.write_bytes(original)
+        record['proof'].write_text(record['hash'] + 'a' * 48)  # prefix match is not a full proof match
+        self.retain_legacy(record, '--proof', str(record['proof']), ok=False)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(list(self.artifacts.glob('*.snapshot*')), [])
+
+    def test_legacy_retention_proof_search_fails_on_ambiguity_or_unknown_candidate(self):
+        record = self.legacy_record()
+        other = self.artifacts / 'another/arbitrary-copy.ots'
+        other.parent.mkdir()
+        other.write_bytes(record['proof'].read_bytes())
+        before = self.log.read_bytes()
+        result = self.retain_legacy(record, ok=False)
+        self.assertIn('2 matching proofs', result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(list(self.artifacts.glob('*.snapshot*')), [])
+        other.write_text('unreadable digest')
+        result = self.retain_legacy(record, ok=False)
+        self.assertIn('proof search inconclusive', result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        # Explicit proof selection validates identity without guessing among candidates.
+        retained = self.retain_legacy(record, '--proof', str(record['proof']))
+        self.assertEqual(retained['proof'], str(record['proof']))
+
+    def test_legacy_retention_is_idempotent_and_requires_known_original_row(self):
+        record = self.legacy_record()
+        self.run_writer('retain-legacy', '--tag', 'Other', '--file', str(self.doc),
+                        '--hash', record['hash'], ok=False)
+        first = self.retain_legacy(record)
+        before = self.log.read_bytes()
+        paths = sorted(str(p) for p in self.artifacts.rglob('*'))
+        second = self.retain_legacy(record)
+        self.assertEqual(first, second)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(paths, sorted(str(p) for p in self.artifacts.rglob('*')))
+
+    def test_historical_legacy_retention_preserves_status_and_never_clears_flag(self):
+        record = self.legacy_record('superseded [^note]')
+        flag = self.artifacts / 'pending/2026-01-02-example.md'
+        flag.write_text('---\ndate: 2026-01-02\ntag: Example\n---\n\n## Work Products\n- 03 Projects/Example.md\n')
+        for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
+                    '06 Archive/OpenCairn/Session Logs/2026-01-02.md'):
+            target = self.vault / rel; target.parent.mkdir(parents=True)
+            target.write_text('complete record'); self.attest(target)
+        before = self.log.read_bytes()
+        retained = self.retain_legacy(record)
+        self.assertEqual(retained['status'], 'superseded')
+        self.assertEqual(retained['raw_status'], 'superseded [^note]')
+        self.assertTrue(self.log.read_bytes().startswith(before))
+        self.run_writer('check-flag', '--flag', str(flag), ok=False)
+        self.assertTrue(flag.exists())
+
+    def test_legacy_retention_missing_proof_is_allowed_only_for_explicit_historical_shape(self):
+        record = self.legacy_record()
+        record['proof'].unlink()
+        before = self.log.read_bytes()
+        self.retain_legacy(record, ok=False)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(list(self.artifacts.glob('*.snapshot*')), [])
+        self.log.write_text(self.log.read_text().replace('| confirmed |', '| superseded (no proof) |'))
+        before = self.log.read_bytes()
+        retained = self.retain_legacy(record)
+        self.assertEqual(retained['status'], 'superseded')
+        self.assertIsNone(retained['proof'])
+        self.assertTrue(self.log.read_bytes().startswith(before))
+
+    def test_literal_legacy_retention_command_positive_and_negative(self):
+        import re
+        repo = SCRIPT.parents[2]
+        body = (repo / '.claude/commands/weekly-hygiene.md').read_text()
+        block = next(b for b in re.findall(r'```bash\n(.*?)```', body, re.S) if ' retain-legacy ' in b)
+        counterpart = (repo / 'codex/skills/weekly-hygiene/SKILL.md').read_text()
+        self.assertIn(block, counterpart)
+        scripts = self.vault / '.claude/scripts'
+        scripts.parent.mkdir(); scripts.symlink_to(SCRIPT.parent, target_is_directory=True)
+        record = self.legacy_record()
+        command = block.replace('{VAULT}', str(self.vault)).replace('<row tag>', 'Example')
+        command = command.replace('<File column>', '03 Projects/Example.md')
+        command = command.replace('<logged 16-hex short hash>', record['hash'])
+        command = command.replace('<resolved live source path>', str(self.doc))
+        before = self.log.read_bytes()
+        original = self.doc.read_bytes()
+        self.doc.write_bytes(b'evolved source')
+        bad = subprocess.run(['bash', '-c', command], env=self.env, capture_output=True, text=True)
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn('staged source does not match logged digest', bad.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.doc.write_bytes(original)
+        good = subprocess.run(['bash', '-c', command], env=self.env, capture_output=True, text=True)
+        self.assertEqual(good.returncode, 0, good.stderr)
+        self.assertEqual(Path(json.loads(good.stdout)['snapshot']).read_bytes(), original)
+        self.assertTrue(self.log.read_bytes().startswith(before))
+
     def test_pending_requires_exact_snapshot_and_matching_proof(self):
         digest = hashlib.sha256(self.doc.read_bytes()).hexdigest()[:16]
         snap = self.artifacts / f'2026-01-02-example-{digest}.snapshot.md'
