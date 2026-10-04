@@ -480,7 +480,7 @@ Over proxy SSH, use `runpodctl send/receive` with the detached-send pattern (see
 ```bash
 # On pod (one SSH call): tar, then detached send
 ssh ... 'cd /workspace && tar czf transcripts.tar.gz transcripts/ && nohup runpodctl send transcripts.tar.gz > /workspace/rp-send.log 2>&1 &'
-ssh ... 'sleep 2; rg -o "runpodctl receive [a-z0-9-]*" /workspace/rp-send.log'   # capture the code
+ssh ... 'sleep 2; grep -o "runpodctl receive [a-z0-9-]*" /workspace/rp-send.log'   # capture the code
 
 # Locally, with the captured code:
 cd "<SCRATCH>" && runpodctl receive <code>
