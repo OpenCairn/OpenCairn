@@ -225,6 +225,49 @@ class LockedEditReplaceManyTests(unittest.TestCase):
         self.assertEqual(receipts[0]["mode"], "--replace")
         self.assertNotIn("invoked_mode", receipts[0])
 
+    def test_no_temp_files_are_left_behind_without_a_session_id(self) -> None:
+        self.target.write_text("alpha\nbeta\n", encoding="utf-8")
+        scratch = self.root / "scratch"
+        scratch.mkdir()
+        environment = self.environment()
+        del environment["OPENCAIRN_SESSION_ID"]
+        environment["TMPDIR"] = str(scratch)
+
+        result = subprocess.run(
+            [str(SCRIPT), str(self.target), "--replace-many"],
+            input=json.dumps([{"old": "alpha", "new": "ALPHA"}, {"old": "beta", "new": "BETA"}]),
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "ALPHA\nBETA\n")
+        self.assertEqual(sorted(path.name for path in scratch.iterdir()), [])
+
+        failed = subprocess.run(
+            [str(SCRIPT), str(self.target), "--replace-many"],
+            input=json.dumps([{"old": "absent", "new": "x"}]),
+            check=False,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        self.assertEqual(failed.returncode, 2, failed.stderr)
+        self.assertEqual(sorted(path.name for path in scratch.iterdir()), [])
+
+    def test_per_pair_receipts_are_private_to_the_user(self) -> None:
+        self.target.write_text("alpha\nbeta\n", encoding="utf-8")
+
+        result = self.run_many([{"old": "alpha", "new": "ALPHA"}, {"old": "beta", "new": "BETA"}])
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        root = self.config / ".session-state" / f"{SESSION}.locked-edit-receipts"
+        modes = sorted(path.stat().st_mode & 0o777 for path in root.iterdir())
+        self.assertEqual(modes, [0o600, 0o600])
+
 
 if __name__ == "__main__":
     unittest.main()
