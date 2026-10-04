@@ -274,7 +274,7 @@ Scratchpad files (`Scratchpad.md`) are transient capture surfaces — designed t
 
 **Locking.** Every Scratchpad mutation — append, re-draft, section removal, routing — uses `locked-edit.sh`; `01 Now/Scratchpad.md` is in §5's locked set. For a removal, read the current Scratchpad content first, extract the exact section text per the boundary rules above, then pass as `old_string` to `locked-edit.sh --replace` with empty `new_string`.
 
-**Byte check.** The lock serialises skills, not the user's editor. Run `wc -c < "<file>"` immediately before and after each mutation of a Scratchpad or other transient surface. Pass: the size changed by exactly the bytes added or removed (`printf '%s' "$text" | wc -c`). Any other difference means content besides yours changed — re-read the file and account for it before the next edit.
+**After-write check.** After each mutation of `01 Now/Scratchpad.md`, two things must hold: the `locked-edit.sh` call exited 0, and a re-read of the file shows your text present (for a removal, absent) with the content you read on either side of it before the call still there. If either fails, stop and tell the user what differs; do not write again to put it back. The lock serialises skills only: the user's editor does not take it, and an editor save made after this check is not covered by it.
 
 ---
 
