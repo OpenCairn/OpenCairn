@@ -9,7 +9,77 @@ from pathlib import Path
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/park-verify.sh"
 
 
+def make_vault(base: Path) -> Path:
+    vault = base / "vault"
+    (vault / "01 Now").mkdir(parents=True)
+    (vault / "01 Now/This Week.md").write_text("# This Week\n", encoding="utf-8")
+    (vault / "01 Now/Tickler.md").write_text("# Tickler\n", encoding="utf-8")
+    return vault
+
+
+def write_log(vault: Path, created=(), updated=(), deleted=None) -> Path:
+    def rows(items):
+        return ["- " + item for item in items] or ["None"]
+
+    lines = ["## Session 1 - Fixture", "### Summary", "Done.",
+             "### Files Created", *rows(created), "### Files Updated", *rows(updated)]
+    if deleted is not None:
+        lines += ["### Files Deleted", *rows(deleted)]
+    lines += ["### Pickup Context", "**For next session:** None", "**Project:** None", ""]
+    log = vault / "log.md"
+    log.write_text("\n".join(lines), encoding="utf-8")
+    return log
+
+
+def verify(vault: Path, log: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([str(SCRIPT), str(vault), str(log), "1", *args],
+                          check=False, capture_output=True, text=True)
+
+
 class ParkVerifyTests(unittest.TestCase):
+    def test_reverse_coverage_skips_deleted_rows_and_off_host_forms(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "docs").mkdir()
+            (vault / "docs/a.md").write_text("body\n", encoding="utf-8")
+            log = write_log(
+                vault,
+                updated=["docs/a.md - edited",
+                         "nas:/share/file - mirrored copy",
+                         "`Other PC C:\\Users\\x\\file` - consumer copy",
+                         "Other PC C:\\Users\\x\\other - consumer copy"],
+                deleted=["docs/gone.md - superseded", "`docs/old - draft.md` - merged"],
+            )
+            result = verify(vault, log, "--touched", "docs/a.md")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn("REVIEW backfill", result.stdout)
+            self.assertIn("PASS backfill: --touched covers every path", result.stdout)
+            self.assertIn("3 off-host path form(s) not compared", result.stdout)
+            self.assertIn("RESULT: PASS", result.stdout)
+
+    def test_reverse_coverage_still_reports_lintable_unpassed_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "docs").mkdir()
+            for name in ("a.md", "b.md"):
+                (vault / "docs" / name).write_text("body\n", encoding="utf-8")
+            # An existing local file is comparable even when its name looks remote.
+            (vault / "nas:").mkdir()
+            (vault / "nas:/local.md").write_text("body\n", encoding="utf-8")
+            log = write_log(
+                vault,
+                updated=["docs/a.md - edited", "docs/b.md - edited",
+                         "nas:/local.md - edited", "/tmp/absent-fixture.md - edited"],
+                deleted=["docs/gone.md - superseded"],
+            )
+            result = verify(vault, log, "--touched", "docs/a.md")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            review = [l for l in result.stdout.splitlines() if l.startswith("REVIEW backfill:")]
+            self.assertEqual(len(review), 1, result.stdout)
+            self.assertTrue(
+                review[0].endswith(": docs/b.md; nas:/local.md; /tmp/absent-fixture.md; "), review[0])
+            self.assertNotIn("gone.md", review[0])
+
     def test_external_reference_quotes_are_hash_bound_and_still_need_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)

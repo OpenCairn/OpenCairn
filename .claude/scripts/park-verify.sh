@@ -30,7 +30,9 @@
 #               and touched 03 Projects / 04 Areas files -> REVIEW (caller flips
 #               genuinely-completed items, surfaces adjacent-open ones)
 #   backfill    each touched vault file appears in the block's Files Created /
-#               Files Updated / Files Deleted lists
+#               Files Updated / Files Deleted lists; reverse coverage compares
+#               Created/Updated rows only, minus off-host forms ("host:/path",
+#               "C:\path") that name nothing local to lint
 #
 # Output: "PASS|FAIL|REVIEW <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
 # Exit 1 if any FAIL, else 0 (REVIEW lines need caller triage but are not failures).
@@ -350,6 +352,12 @@ fi
 # --- reverse coverage: does the log list files --touched never saw? ----------
 # Parse explicit backtick paths atomically. For unquoted paths prefer the
 # longest existing prefix, so a filename containing " - " is not truncated.
+# Only rows that could have been linted are compared: a Files Deleted row names
+# a file that no longer exists, and an off-host form names one this machine
+# cannot read. Reporting either as "not passed to --touched" is a REVIEW no
+# rerun can clear.
+LISTED_SECTIONS=$(printf '%s\n' "$BLOCK" | awk '/^### Files (Created|Updated)/{f=1;next} /^### /{f=0} f')
+OFFHOST_RE='^[A-Za-z0-9._-]+:/|(^|[[:space:]])[A-Za-z]:\\'
 LOGGED=()
 while IFS= read -r row; do
     row="${row#"${row%%[![:space:]]*}"}"
@@ -386,13 +394,18 @@ while IFS= read -r row; do
         # Legacy absent/deleted unquoted paths use the original first-separator rule.
         LOGGED+=("${value%% - *}")
     fi
-done <<< "$FILES_SECTIONS"
+done <<< "$LISTED_SECTIONS"
 UNCOVERED=""
+OFFHOST=0
 for lp in "${LOGGED[@]:-}"; do
     [ -n "$lp" ] || continue
     case "$lp" in [Nn][Oo][Nn][Ee]) continue ;; esac
     lp_abs="$(norm_path "$lp")"
     [ "$lp_abs" = "$LOG" ] && continue   # the log may list itself; it is checked separately
+    if [ ! -e "$lp_abs" ] && [[ "$lp" =~ $OFFHOST_RE ]]; then
+        OFFHOST=$((OFFHOST + 1))
+        continue
+    fi
     # Compare on a canonical form. A $HOME path yields a "~/..." needle while the
     # log may well spell it "/home/<user>/..." — neither is a substring of the
     # other, so a raw comparison reports a path as uncovered that WAS passed.
@@ -409,7 +422,9 @@ done
 if [ -n "$UNCOVERED" ]; then
     review backfill "Files lists name path(s) not passed to --touched, so no lint/separator check ran on them: $UNCOVERED"
 else
-    pass backfill "--touched covers every path the Session $N Files lists name"
+    NOTE=""
+    [ "$OFFHOST" -gt 0 ] && NOTE=" ($OFFHOST off-host path form(s) not compared)"
+    pass backfill "--touched covers every path the Session $N Files lists name$NOTE"
 fi
 
 # --- result ------------------------------------------------------------------
