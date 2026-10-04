@@ -39,3 +39,18 @@ _session_agent_id() {
     fi
     printf '%s' "${agent:-?}" | LC_ALL=C tr '[:cntrl:]' ' '
 }
+
+# Short, fail-open self-ledger for successful sanctioned script writes.
+# The caller holds its existing target lock; this adds no lock or write policy.
+_session_record_write() {
+    local sid state target
+    sid="$(_session_id)"
+    [ -n "$sid" ] || return 0
+    state="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
+    target="$2"
+    case "$target" in /*) ;; *) target="$PWD/$target" ;; esac
+    target=$(printf '%s' "$target" | LC_ALL=C tr '[:cntrl:]' ' ')
+    { mkdir -p "$state" &&
+      printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$1" "$target" "$(_session_agent_id)" \
+          >> "$state/$sid.tsv"; } 2>/dev/null || true
+}
