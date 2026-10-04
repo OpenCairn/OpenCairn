@@ -281,6 +281,10 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertTrue(destination.exists())
 
     def test_socket_blank_retry_allows_verified_fixture_move(self) -> None:
+        # AF_UNIX limits include the full path; macOS's default TMPDIR is long.
+        socket_runtime = tempfile.TemporaryDirectory(dir=os.path.realpath("/tmp"))
+        self.addCleanup(socket_runtime.cleanup)
+        self.runtime = Path(socket_runtime.name)
         source = self.vault / "Old" / "Incident.md"
         destination = self.vault / "New" / "Incident.md"
         source.write_text("source\n")
