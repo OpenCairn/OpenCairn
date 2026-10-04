@@ -13,8 +13,10 @@
 #   locked-edit.sh <file> --replace-all   (stdin: OLD <SEP> NEW; replaces every occurrence, >=1)
 #   locked-edit.sh <file> --replace-many  (stdin: JSON array of {"old","new"} pairs; each OLD must match exactly once)
 #   locked-edit.sh <file> --append        (stdin appended verbatim at end of file)
-#   locked-edit.sh <file> --delete-section '<heading line>'
-#                                            (stdin: optional replacement; removed block printed to stdout)
+#   locked-edit.sh <file> --show-section '<heading line>'
+#                                            (read-only: section printed to stdout, its SHA-256 to stderr)
+#   locked-edit.sh <file> --delete-section '<heading line>' <expected-section-sha256>
+#                                            (stdin: optional replacement; the section printed to stdout)
 #   locked-edit.sh <file> --replace-whole <expected-sha256|MISSING>
 #                                            (stdin: complete replacement file)
 #   locked-edit.sh <source> --move <destination> <expected-source-sha256>
@@ -37,22 +39,32 @@
 # names each failing pair by its 1-based position, and exits with the first
 # failing pair's code.
 #
-# --delete-section removes one Markdown section without the caller retyping
-# it. The argument is the complete heading line, markers included (for example
-# '## Monday'); it is compared literally against whole lines, must start at
-# column 0, and must match exactly one heading outside fenced code blocks. The
-# section runs from that line to just before the next heading of the same or a
-# higher level (the same number of '#' or fewer), or to end of file; deeper
-# sub-headings and fenced lines that merely look like headings stay inside it.
+# --show-section and --delete-section address one Markdown section without the
+# caller retyping it. The argument is the complete heading line, markers
+# included (for example '## Monday'); it is compared literally against whole
+# lines, must start at column 0, and must match exactly one heading outside
+# fenced code blocks. The section runs from that line to just before the next
+# heading of the same or a higher level (the same number of '#' or fewer), or
+# to end of file, trailing blank lines included; deeper sub-headings and fenced
+# lines that merely look like headings stay inside it.
+#
+# --show-section is the read: under the lock, and without writing anything, it
+# prints the section to stdout and "Section sha256: <hash>" to stderr. The hash
+# is the SHA-256 of exactly the bytes printed.
+#
+# --delete-section is the compare-and-swap write. It takes the hash of the
+# section the caller read and, under the lock, recomputes it; if the section
+# changed in any way since that read it writes nothing and exits 2 (read the
+# section again and decide again).
 #   - stdin empty or whitespace-only: the section is deleted together with its
 #     trailing blank lines.
 #   - stdin non-empty: the section is replaced by stdin verbatim (newline-
 #     terminated if it was not), and the section's trailing blank lines are kept
 #     as the seam before the next heading. This collapses a section to a
 #     summary in one call; the replacement supplies its own heading line.
-# stdout carries exactly the removed block - the caller's receipt of what was
-# cut - so this mode alone reports "Locked edit applied" on stderr. A terminal
-# on stdin is treated as empty rather than read.
+# stdout carries the section as it stood - the same bytes the hash covers, the
+# caller's record of what was cut - so this mode alone reports "Locked edit
+# applied" on stderr. A terminal on stdin is treated as empty rather than read.
 #
 # --replace-whole is a compare-and-swap for generated files whose content may
 # itself contain the separator line. The caller reads a snapshot, supplies its
@@ -72,9 +84,10 @@
 #
 # Exit codes: 0 ok · 1 usage/lock/CLI/result error · 2 no match/stale snapshot ·
 #             3 ambiguous (>1 match under --replace/--replace-many, overlapping --replace-many pairs,
-#               or a duplicated --delete-section heading)
+#               or a duplicated --show-section/--delete-section heading)
 #
-# With a harness session id, every successful content-edit operation writes one JSON
+# With a harness session id, every successful content-edit operation (--show-section
+# is a read and records nothing) writes one JSON
 # receipt under $CLAUDE_CONFIG_DIR/.session-state/<id>.locked-edit-receipts/.
 # It carries pre/post hashes, exact replace payloads and bounded changed spans;
 # --replace-many writes one chained --replace-shaped receipt per pair and
@@ -95,7 +108,7 @@ source "$(dirname "$0")/lib-session.sh"
 SEP='========OPENCAIRN-LOCKED-EDIT-SEP========'
 
 if [ $# -lt 2 ]; then
-    echo "Usage: $0 <file> --replace|--replace-all|--replace-many|--append|--delete-section|--replace-whole|--move [argument]" >&2
+    echo "Usage: $0 <file> --replace|--replace-all|--replace-many|--append|--show-section|--delete-section|--replace-whole|--move [argument]" >&2
     exit 1
 fi
 
@@ -107,12 +120,20 @@ SECTION_HEADING=""
 
 case "$MODE" in
     --replace|--replace-all|--replace-many|--append) ;;
-    --delete-section)
+    --show-section)
         if [ $# -ne 3 ]; then
-            echo "--delete-section requires the heading line of the section" >&2
+            echo "--show-section requires the heading line of the section" >&2
             exit 1
         fi
         SECTION_HEADING="$3"
+        ;;
+    --delete-section)
+        if [ $# -ne 4 ]; then
+            echo "--delete-section requires the heading line of the section and the section's expected SHA-256 (read both with --show-section)" >&2
+            exit 1
+        fi
+        SECTION_HEADING="$3"
+        EXPECTED_SNAPSHOT="$4"
         ;;
     --replace-whole)
         if [ $# -ne 3 ]; then
@@ -129,7 +150,7 @@ case "$MODE" in
         MOVE_DESTINATION="$3"
         EXPECTED_SNAPSHOT="$4"
         ;;
-    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --replace-many, --append, --delete-section, --replace-whole, or --move)" >&2; exit 1 ;;
+    *) echo "Unknown mode: $MODE (expected --replace, --replace-all, --replace-many, --append, --show-section, --delete-section, --replace-whole, or --move)" >&2; exit 1 ;;
 esac
 
 if command -v python3 &>/dev/null; then
@@ -770,10 +791,14 @@ fi
 # (e.g. a day section followed by a blank line before the next "## " heading) could
 # never survive. A file read preserves the payload byte-for-byte; the single
 # heredoc-added newline is then trimmed explicitly below, where it can be reasoned about.
+if [ "$MODE" = "--show-section" ] && [ ! -f "$TARGET" ]; then
+    echo "Target file does not exist: $TARGET" >&2
+    exit 2
+fi
 STDIN_FILE="$(mktemp "${TMPDIR:-/tmp}/locked-edit-stdin.XXXXXX")"
 RECEIPT_TMP="$(mktemp "${TMPDIR:-/tmp}/locked-edit-receipt.XXXXXX")"
 trap 'rm -f "$STDIN_FILE" "$RECEIPT_TMP" "$RECEIPT_TMP".*' EXIT
-if [ "$MODE" = "--delete-section" ] && [ -t 0 ]; then
+if [ "$MODE" = "--show-section" ] || { [ "$MODE" = "--delete-section" ] && [ -t 0 ]; }; then
     : > "$STDIN_FILE"
 else
     cat > "$STDIN_FILE"
@@ -1067,12 +1092,17 @@ if mode == "--replace-many":
     atomic_write(target, state.encode("utf-8"))
     sys.exit(0)
 
-if mode == "--delete-section":
+if mode in ("--show-section", "--delete-section"):
     heading = os.environ["_LE_SECTION_HEADING"]
     wanted = re.fullmatch(r"(#{1,6})[ \t]+\S[^\r\n]*", heading)
     if not wanted:
-        sys.stderr.write("--delete-section: argument must be one complete heading line "
-                         "starting with 1-6 '#' and a space\n")
+        sys.stderr.write("%s: argument must be one complete heading line "
+                         "starting with 1-6 '#' and a space\n" % mode)
+        sys.exit(1)
+    expected = os.environ["_LE_EXPECTED_SNAPSHOT"]
+    if mode == "--delete-section" and not re.fullmatch(r"[0-9a-f]{64}", expected):
+        sys.stderr.write("--delete-section: the expected section hash must be a lowercase SHA-256 "
+                         "(read it with --show-section)\n")
         sys.exit(1)
     level = len(wanted.group(1))
     if not os.path.exists(target):
@@ -1111,6 +1141,21 @@ if mode == "--delete-section":
     start = headings[hits[0]][0]
     end = next((item[0] for item in headings[hits[0] + 1:] if item[1] <= level), len(content))
 
+    # The preimage: the whole section, which covers every byte either form of
+    # the write can remove.
+    section = content[start:end]
+    actual = hashlib.sha256(section.encode("utf-8")).hexdigest()
+    if mode == "--show-section":
+        sys.stdout.buffer.write(section.encode("utf-8"))
+        sys.stdout.flush()
+        sys.stderr.write("Section sha256: %s\n" % actual)
+        sys.exit(0)
+    if actual != expected:
+        sys.stderr.write("Section changed since it was read: %s in %s (expected %s, found %s)\n"
+                         % (heading, target, expected, actual))
+        sys.stderr.write("No changes written to %s\n" % target)
+        sys.exit(2)
+
     replacement = stdin if stdin.strip() else ""
     if replacement:
         if not replacement.endswith("\n"):
@@ -1126,7 +1171,7 @@ if mode == "--delete-section":
     after_bytes = (content[:start] + replacement + content[end:]).encode("utf-8")
     write_receipt(before_bytes, after_bytes, removed, replacement, 1, position=start)
     atomic_write(target, after_bytes)
-    sys.stdout.buffer.write(removed.encode("utf-8"))
+    sys.stdout.buffer.write(section.encode("utf-8"))
     sys.stdout.flush()
     sys.exit(0)
 
@@ -1178,6 +1223,12 @@ fi
 
 _unlock
 unset _LE_TARGET _LE_MODE _LE_SEP _LE_STDIN_FILE _LE_EXPECTED_SNAPSHOT _LE_SECTION_HEADING _LE_RECEIPT_FILE
+
+# A read leaves no ledger row, no receipt and no confirmation line.
+if [ "$MODE" = "--show-section" ]; then
+    rm -f "$STDIN_FILE" "$RECEIPT_TMP"
+    exit "$RC"
+fi
 
 # Self-ledger the write. locked-edit.sh bypasses the Write|Edit tools, so the
 # PostToolUse ledger hook (session-ledger.sh) never sees these edits - and the
