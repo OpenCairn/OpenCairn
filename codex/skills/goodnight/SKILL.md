@@ -236,7 +236,18 @@ After all undone items have been routed, collapse today's section — and any ea
 [One sentence: what happened, what didn't, key outcome.] [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD|Full report]]
 ```
 
-Collapse in two calls, so nothing you have not read is removed. Pass the day's current heading line exactly as it stands in the file:
+**⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so links to that day's section stop resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with `H` set to the old heading line as it stands in the file, minus its leading `## `:
+
+```bash
+H='OLD HEADING TEXT'
+TW="{VAULT}/01 Now/This Week.md"
+[ "$(rg -c -F -x -- "## $H" "$TW")" = 1 ] || { echo "STOP: \"## $H\" is not exactly one line of This Week.md" >&2; exit 1; }
+rg -n -F -t md -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- "$H" "{VAULT}"
+```
+
+`STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
+
+Then collapse, in two calls, so nothing you have not read is removed. Pass the day's current heading line exactly as it stands in the file:
 
 ```bash
 TW="{VAULT}/01 Now/This Week.md"; LE="{VAULT}/.claude/scripts/locked-edit.sh"
@@ -248,17 +259,6 @@ EOF
 ```
 
 Read what `--show-section` printed before the second call: a `- [ ]` in it means Step 9 missed an item, so route that item first and show the section again. Exit 2 on `--delete-section` means the section changed after you read it (or a code fence in the file is never closed): nothing was written, so show it again and redo the call with the new hash.
-
-**⛔ Inbound locators — capture before the rewrite, repoint after.** A collapse changes the heading text, so links to that day's section stop resolving — silently, because heading anchors sit outside the file-level link index that `obsidian unresolved` reads. For each day being collapsed, before writing the new heading, run this with `H` set to the old heading line as it stands in the file, minus its leading `## `:
-
-```bash
-H='OLD HEADING TEXT'
-TW="{VAULT}/01 Now/This Week.md"
-[ "$(rg -c -F -x -- "## $H" "$TW")" = 1 ] || { echo "STOP: \"## $H\" is not exactly one line of This Week.md" >&2; exit 1; }
-rg -n -F -t md -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- "$H" "{VAULT}"
-```
-
-`STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
 
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
 
