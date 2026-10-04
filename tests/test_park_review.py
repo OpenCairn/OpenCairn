@@ -18,6 +18,11 @@ import unittest
 from unittest import mock
 import zlib
 
+try:
+    from session_isolation import isolate_session
+except ImportError:  # python -m unittest tests.<module>
+    from tests.session_isolation import isolate_session
+
 
 HELPER = Path(__file__).parents[1] / "codex/skills/park/scripts/park-review.py"
 SPEC = importlib.util.spec_from_file_location("park_review", HELPER)
@@ -181,11 +186,8 @@ class ParkReviewTests(unittest.TestCase):
             root = Path(tmp)
             target = root / "target.md"
             target.write_text("clean\n", encoding="utf-8")
-            env = dict(
-                os.environ,
-                CLAUDE_CONFIG_DIR=str(root / "config"),
-                CLAUDE_CODE_SESSION_ID="lint-fixture",
-            )
+            env = isolate_session(os.environ.copy(), root / "config", "lint-fixture")
+            env["VAULT_PATH"] = str(root)
             subprocess.run(
                 [str(locked_edit), str(target), "--replace"],
                 input=(
@@ -1448,11 +1450,8 @@ class MechanicalTokenClassificationTests(unittest.TestCase):
             vault.mkdir()
             target = vault / "note.md"
             target.write_text("serialize the payload\n", encoding="utf-8")
-            env = dict(
-                os.environ,
-                CLAUDE_CONFIG_DIR=str(root / "config"),
-                CLAUDE_CODE_SESSION_ID="token-fixture",
-            )
+            env = isolate_session(os.environ.copy(), root / "config", "token-fixture")
+            env["VAULT_PATH"] = str(vault)
             subprocess.run(
                 [str(locked_edit), str(target), "--replace"],
                 input=(

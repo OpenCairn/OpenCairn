@@ -7,7 +7,10 @@ import sys
 import tempfile
 import unittest
 
-from session_isolation import isolate_session
+try:
+    from session_isolation import isolate_session
+except ImportError:  # python -m unittest tests.<module>
+    from tests.session_isolation import isolate_session
 
 SCRIPT = Path(__file__).parents[1] / '.claude/scripts/provenance-write.py'
 

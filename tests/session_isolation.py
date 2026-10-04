@@ -40,10 +40,13 @@ def isolate_session(
     highest-priority one would be enough for today's resolution order, but a
     leftover lower-priority id is a live inheritance path for any script that
     reads them directly.
+    The Codex root is fixture-owned too, so commands consulting CODEX_HOME do
+    not inherit the live Codex directory.
     """
     for name in HARNESS_SESSION_VARS:
         environment.pop(name, None)
     environment["CLAUDE_CONFIG_DIR"] = str(state_root)
+    environment["CODEX_HOME"] = str(Path(state_root) / "codex")
     environment["OPENCAIRN_SESSION_ID"] = session_id
     return environment
 
