@@ -35,7 +35,7 @@ class McpWriteLedgerTests(unittest.TestCase):
         self.ledger = self.config / '.session-state/mcp-fixture.tsv'
 
     def run_hook(self, *args):
-        r = subprocess.run(['bash', str(SCRIPT), *args], input=json.dumps(self.payload),
+        r = subprocess.run([str(SCRIPT), *args], input=json.dumps(self.payload),
             env=self.env, text=True, capture_output=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout, '')
