@@ -219,7 +219,7 @@ Session links now live in project docs' `## Session History`; no dashboard cap a
 
 ## 7. Timezone and Date Handling
 
-- **Always check current date/time** via the `date` command at the start of every command. Never assume, cache, or reuse timestamps from prior tool calls.
+- **Always check current date/time** with a fresh `date` call before the first step that writes or reasons from it. Never assume, cache, or reuse timestamps from prior tool calls. This file loads after a skill's opening steps, so a skill that needs the date earlier runs `date` itself.
 - **Use system timezone** (local time wherever the user is). During travel, sessions are dated in local context (Tokyo → JST, Denver → MST). This is intentional — local time is more meaningful than forcing the home timezone.
 - **Verify date-to-weekday mappings** with `date -d`. LLMs are unreliable at mapping dates to days of the week. When writing "Mon 15 Feb" or similar, always run `date -d "2026-02-15" +%A` in bash first.
 - **Portability — `date -d` is GNU-only.** On macOS/BSD the equivalent is `date -j -f "%Y-%m-%d" "2026-02-15" +%A`, and relative arithmetic is `date -v+6d +"%A %d %b"` rather than `date -d "+6 days" …`. `brew install coreutils` provides `gdate` with GNU semantics, which is the simplest fix for a mac user running this library. This applies to **every** `date -d` across this shared-rule library (§9's rolling-window arithmetic, §18's deadline derivation) and in any skill that loads it — the date rules above are mandatory and frequently executed, so unlike §5's post-failure diagnostics a portability gap here breaks normal operation on the first run.
