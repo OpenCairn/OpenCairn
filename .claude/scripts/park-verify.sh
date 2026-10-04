@@ -29,8 +29,10 @@
 #   closure     per --ident: unchecked "- [ ]" matches in This Week.md, Tickler.md,
 #               and touched 03 Projects / 04 Areas files -> REVIEW (caller flips
 #               genuinely-completed items, surfaces adjacent-open ones)
-#   backfill    each touched vault file appears in the block's Files Created /
-#               Files Updated / Files Deleted lists; reverse coverage compares
+#   touched     each --touched path exists, unless a Files Deleted row or
+#               --nonlocal accounts for it
+#   backfill    each touched file matches a Files Created / Files Updated /
+#               Files Deleted row by complete resolved path; reverse coverage compares
 #               Created/Updated rows only, minus off-host forms ("host:/path",
 #               "C:\path") that name nothing local to lint
 #
@@ -295,15 +297,100 @@ done
 [ "${#IDENTS[@]}" -eq 0 ] && pass closure "no idents supplied (nothing completed to grep)"
 
 # --- backfill coverage -------------------------------------------------------
-FILES_SECTIONS=$(printf '%s\n' "$BLOCK" | awk '/^### Files (Created|Updated|Deleted)/{f=1;next} /^### /{f=0} f')
+# Both directions compare COMPLETE resolved paths. A substring test accepts a
+# truncated --touched value ("docs/Plan" for "docs/Plan - draft.md") against the
+# full row, and nothing downstream notices: every content check silently skips
+# a path that is not a file.
+canon() {
+    local p
+    p="$(norm_path "$1")"
+    p="$(realpath -m -- "$p" 2>/dev/null || printf '%s\n' "$p")"
+    [ "$p" = / ] || p="${p%/}"
+    printf '%s\n' "${p,,}"
+}
+# One key set per side. Resolved paths start with "/", so the two prefixed
+# spellings cannot collide with them: "name:" is a bare wikilink (resolved by
+# note name, as the vault does) and "alt:" the short home-relative suffix a
+# human-written row may use for a path outside the vault.
+declare -A ROW_KEY=() DEL_KEY=() TOUCHED_KEY=()
+LOGGED=(); LOGGED_KEYS=()
+record_row() {   # <section C|U|D> <display path> <wikilink 0|1> <candidate path>...
+    local sec="$1" show="$2" wiki="$3" cand key keys=""
+    shift 3
+    for cand in "$@"; do
+        key="$(canon "$cand")"
+        keys="$keys$key"$'\n'
+        [ "$sec" = D ] && DEL_KEY[$key]=1
+        cand="${cand#./}"; cand="${cand,,}"
+        case "$cand" in
+            /*|"~/"*) ;;
+            */*) keys="${keys}alt:$cand"$'\n' ;;
+            *)   [ "$wiki" = 1 ] && keys="${keys}name:${cand%.md}"$'\n' ;;
+        esac
+    done
+    while IFS= read -r key; do
+        [ -n "$key" ] && ROW_KEY[$key]=1
+    done <<< "$keys"
+    # Reverse coverage speaks only for rows that could have been linted: a
+    # Files Deleted row names a file that no longer exists.
+    if [ "$sec" != D ]; then LOGGED+=("$show"); LOGGED_KEYS+=("$keys"); fi
+}
+# Parse explicit backtick paths atomically. For unquoted paths prefer the
+# longest existing prefix, so a filename containing " - " is not truncated.
+while IFS= read -r row; do
+    sec="${row:0:1}"; row="${row:1}"
+    row="${row#"${row%%[![:space:]]*}"}"
+    case "$row" in '- '*) value="${row#- }" ;; *) continue ;; esac
+    case "$value" in ''|[Nn][Oo][Nn][Ee]) continue ;; esac
+    if [[ "$value" == \[\[* ]]; then
+        if [[ "$value" == *\]\]* ]]; then
+            value="${value#\[\[}"
+            value="${value%%\]\]*}"
+            value="${value%%|*}"
+            value="${value%%#*}"
+            case "$value" in
+                *.md) record_row "$sec" "$value" 1 "$value" ;;
+                *)    record_row "$sec" "$value" 1 "$value" "$value.md" ;;
+            esac
+        else
+            review backfill "unterminated wiki Files path: $row"
+        fi
+        continue
+    fi
+    if [[ "$value" == \`* ]]; then
+        value="${value#\`}"
+        if [[ "$value" == *\`* ]]; then
+            record_row "$sec" "${value%%\`*}" 0 "${value%%\`*}"
+        else
+            review backfill "unterminated quoted Files path: $row"
+        fi
+        continue
+    fi
+    candidate="$value"
+    while [[ "$candidate" == *' - '* ]] && [ ! -e "$(norm_path "$candidate")" ]; do
+        candidate="${candidate% - *}"
+    done
+    if [ -e "$(norm_path "$candidate")" ]; then
+        record_row "$sec" "$candidate" 0 "$candidate"
+    else
+        # An absent unquoted path gives no way to tell filename from description,
+        # so every " - " boundary is a candidate; display the first-separator form.
+        cands=("$value"); candidate="$value"
+        while [[ "$candidate" == *' - '* ]]; do
+            candidate="${candidate% - *}"
+            cands+=("$candidate")
+        done
+        record_row "$sec" "${value%% - *}" 0 "${cands[@]}"
+    fi
+done < <(printf '%s\n' "$BLOCK" | awk '
+    /^### Files Created/{s="C";next} /^### Files Updated/{s="U";next}
+    /^### Files Deleted/{s="D";next} /^### /{s=""} s!=""{print s $0}')
+
 # Home paths keep a short alternate suffix for human-written Files rows. Other
 # absolute paths stay absolute: reconstructing a three-component suffix turns a
 # root-level path such as /tmp/file into the nonexistent //tmp/file.
-# Mirror pairs can still collapse to one needle, so count occurrences: a needle
-# shared by K touched paths must appear >= K times.
-declare -A NEEDLE_WANT=()
-declare -A NEEDLE_ALT=()
-NEEDLE_ORDER=()
+MISSING=""
+ABSENT=""
 for t in "${TOUCHED[@]:-}"; do
     [ -n "$t" ] || continue
     [ "$t" = "$LOG" ] && continue   # the log never lists itself
@@ -314,30 +401,26 @@ for t in "${TOUCHED[@]:-}"; do
         # A file one level under a home dotdir reduces to "<user>/.config/x.json",
         # which no sane log entry contains - it is written "~/.config/x.json". Prefer
         # the ~-form and keep the suffix as an alternate for logs using the long form.
-        "$HOME"/*)  needle="~/${t#"$HOME"/}"; alt="$suffix" ;;
+        "$HOME"/*)  needle="~/${t#"$HOME"/}"; alt="alt:${suffix,,}" ;;
         *)          needle="$t"; alt="" ;;
     esac
-    [ -n "${NEEDLE_WANT[$needle]:-}" ] || NEEDLE_ORDER+=("$needle")
-    NEEDLE_WANT[$needle]=$(( ${NEEDLE_WANT[$needle]:-0} + 1 ))
-    NEEDLE_ALT[$needle]="$alt"
-done
-MISSING=""
-for needle in "${NEEDLE_ORDER[@]:-}"; do
-    [ -n "$needle" ] || continue
-    want="${NEEDLE_WANT[$needle]}"
-    got=$(printf '%s\n' "$FILES_SECTIONS" | grep -c -i -F -- "$needle" || true)
-    alt="${NEEDLE_ALT[$needle]:-}"
-    if [ "$got" -lt "$want" ] && [ -n "$alt" ]; then
-        got=$(printf '%s\n' "$FILES_SECTIONS" | grep -c -i -F -- "$alt" || true)
+    key="$(canon "$t")"
+    name="${t##*/}"; name="name:${name%.md}"; name="${name,,}"
+    TOUCHED_KEY[$key]=1; TOUCHED_KEY[$name]=1
+    [ -n "$alt" ] && TOUCHED_KEY[$alt]=1
+    if [ -z "${ROW_KEY[$key]:-}" ] && [ -z "${ROW_KEY[$name]:-}" ] \
+        && { [ -z "$alt" ] || [ -z "${ROW_KEY[$alt]:-}" ]; }; then
+        MISSING="$MISSING$needle; "
     fi
-    if [ "$got" -lt "$want" ]; then
-        if [ "$want" -gt 1 ]; then
-            MISSING="$MISSING$needle (expected $want entries, found $got); "
-        else
-            MISSING="$MISSING$needle; "
-        fi
+    # A target that is not on disk was never linted or separator-scanned. Only a
+    # Files Deleted row or an explicit --nonlocal classification explains that.
+    if [ ! -e "$t" ] && [ ! -L "$t" ] && ! is_nonlocal "$t" && [ -z "${DEL_KEY[$key]:-}" ]; then
+        ABSENT="$ABSENT$needle; "
     fi
 done
+if [ -n "$ABSENT" ]; then
+    fail touched "path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped?): $ABSENT"
+fi
 if [ -n "$MISSING" ]; then
     fail backfill "touched but absent from Session $N Files lists: $MISSING"
 else
@@ -350,55 +433,13 @@ else
 fi
 
 # --- reverse coverage: does the log list files --touched never saw? ----------
-# Parse explicit backtick paths atomically. For unquoted paths prefer the
-# longest existing prefix, so a filename containing " - " is not truncated.
-# Only rows that could have been linted are compared: a Files Deleted row names
-# a file that no longer exists, and an off-host form names one this machine
-# cannot read. Reporting either as "not passed to --touched" is a REVIEW no
-# rerun can clear.
-LISTED_SECTIONS=$(printf '%s\n' "$BLOCK" | awk '/^### Files (Created|Updated)/{f=1;next} /^### /{f=0} f')
+# An off-host form names a file this machine cannot read, so reporting it as
+# "not passed to --touched" is a REVIEW no rerun can clear.
 OFFHOST_RE='^[A-Za-z0-9._-]+:/|(^|[[:space:]])[A-Za-z]:\\'
-LOGGED=()
-while IFS= read -r row; do
-    row="${row#"${row%%[![:space:]]*}"}"
-    case "$row" in '- '*) value="${row#- }" ;; *) continue ;; esac
-    case "$value" in ''|[Nn][Oo][Nn][Ee]) continue ;; esac
-    if [[ "$value" == \[\[* ]]; then
-        if [[ "$value" == *\]\]* ]]; then
-            value="${value#\[\[}"
-            value="${value%%\]\]*}"
-            value="${value%%|*}"
-            value="${value%%#*}"
-            LOGGED+=("$value")
-        else
-            review backfill "unterminated wiki Files path: $row"
-        fi
-        continue
-    fi
-    if [[ "$value" == \`* ]]; then
-        value="${value#\`}"
-        if [[ "$value" == *\`* ]]; then
-            LOGGED+=("${value%%\`*}")
-        else
-            review backfill "unterminated quoted Files path: $row"
-        fi
-        continue
-    fi
-    candidate="$value"
-    while [[ "$candidate" == *' - '* ]] && [ ! -e "$(norm_path "$candidate")" ]; do
-        candidate="${candidate% - *}"
-    done
-    if [ -e "$(norm_path "$candidate")" ]; then
-        LOGGED+=("$candidate")
-    else
-        # Legacy absent/deleted unquoted paths use the original first-separator rule.
-        LOGGED+=("${value%% - *}")
-    fi
-done <<< "$LISTED_SECTIONS"
 UNCOVERED=""
 OFFHOST=0
-for lp in "${LOGGED[@]:-}"; do
-    [ -n "$lp" ] || continue
+for i in "${!LOGGED[@]}"; do
+    lp="${LOGGED[$i]}"
     case "$lp" in [Nn][Oo][Nn][Ee]) continue ;; esac
     lp_abs="$(norm_path "$lp")"
     [ "$lp_abs" = "$LOG" ] && continue   # the log may list itself; it is checked separately
@@ -406,17 +447,10 @@ for lp in "${LOGGED[@]:-}"; do
         OFFHOST=$((OFFHOST + 1))
         continue
     fi
-    # Compare on a canonical form. A $HOME path yields a "~/..." needle while the
-    # log may well spell it "/home/<user>/..." — neither is a substring of the
-    # other, so a raw comparison reports a path as uncovered that WAS passed.
-    lp_c="$lp"; case "$lp_c" in "$HOME"/*) lp_c="~/${lp_c#"$HOME"/}" ;; esac
     hit=""
-    for needle in "${NEEDLE_ORDER[@]:-}"; do
-        [ -n "$needle" ] || continue
-        n_c="$needle"; case "$n_c" in "$HOME"/*) n_c="~/${n_c#"$HOME"/}" ;; esac
-        case "$n_c" in *"$lp_c"*) hit=1; break ;; esac
-        case "$lp_c" in *"$n_c"*) hit=1; break ;; esac
-    done
+    while IFS= read -r key; do
+        [ -n "$key" ] && [ -n "${TOUCHED_KEY[$key]:-}" ] && hit=1
+    done <<< "${LOGGED_KEYS[$i]}"
     [ -z "$hit" ] && UNCOVERED="$UNCOVERED$lp; "
 done
 if [ -n "$UNCOVERED" ]; then

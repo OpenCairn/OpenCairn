@@ -80,6 +80,68 @@ class ParkVerifyTests(unittest.TestCase):
                 review[0].endswith(": docs/b.md; nas:/local.md; /tmp/absent-fixture.md; "), review[0])
             self.assertNotIn("gone.md", review[0])
 
+    def test_truncated_touched_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "docs").mkdir()
+            (vault / "docs/Plan - draft.md").write_text("body\n", encoding="utf-8")
+            log = write_log(vault, updated=["docs/Plan - draft.md - edited"])
+            result = verify(vault, log, "--touched", "docs/Plan")
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("FAIL touched: ", result.stdout)
+            self.assertIn("FAIL backfill: touched but absent", result.stdout)
+            self.assertIn("not passed to --touched", result.stdout)
+
+    def test_touched_path_needs_a_complete_files_row_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "docs").mkdir()
+            for name in ("a.md", "a.md.bak", "Plan - draft.md", "Plan - draft.md - copy.md"):
+                (vault / "docs" / name).write_text("body\n", encoding="utf-8")
+            for touched, row in (("docs/a.md", "docs/a.md.bak - saved"),
+                                 ("docs/a.md", "archive/docs/a.md - other tree"),
+                                 ("docs/Plan - draft.md", "docs/Plan - draft.md - copy.md")):
+                with self.subTest(touched=touched, row=row):
+                    result = verify(vault, write_log(vault, updated=[row]), "--touched", touched)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn("FAIL backfill: touched but absent", result.stdout)
+                    self.assertNotIn("FAIL touched", result.stdout)
+
+    def test_separator_bearing_filenames_match_in_every_row_form(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "docs").mkdir()
+            name = "docs/Plan - draft - final.md"
+            (vault / name).write_text("body\n", encoding="utf-8")
+            (vault / "docs/Plan").write_text("shorter sibling\n", encoding="utf-8")
+            for row in (name, name + " - edited - twice", "`" + name + "` - edited",
+                        "[[" + name + "]] - edited", "[[docs/Plan - draft - final|label]]",
+                        "[[Plan - draft - final]]", str(vault / name) + " - edited"):
+                for touched in (name, "./" + name, str(vault / name), "docs/../" + name):
+                    with self.subTest(row=row, touched=touched):
+                        result = verify(vault, write_log(vault, updated=[row]), "--touched", touched)
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn("RESULT: PASS", result.stdout)
+
+    def test_missing_touched_target_needs_deleted_row_or_nonlocal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            gone = "docs/Old - v1.md"
+            for row in (gone + " - removed", "`" + gone + "` - removed", gone):
+                with self.subTest(row=row):
+                    result = verify(vault, write_log(vault, deleted=[row]), "--touched", gone)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("RESULT: PASS", result.stdout)
+            # Listed as updated, not deleted: nothing explains the missing target.
+            result = verify(vault, write_log(vault, updated=["`" + gone + "`"]), "--touched", gone)
+            self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+            self.assertIn("FAIL touched: ", result.stdout)
+            self.assertIn(gone, result.stdout)
+            log = write_log(vault, updated=["nas:/share/file - mirrored copy"])
+            result = verify(vault, log, "--touched", "nas:/share/file", "--nonlocal", "nas:/share/file")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn("FAIL touched", result.stdout)
+
     def test_external_reference_quotes_are_hash_bound_and_still_need_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
