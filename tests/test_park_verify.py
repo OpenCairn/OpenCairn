@@ -813,6 +813,10 @@ class CoverageRoundTwoTests(unittest.TestCase):
         self.assertIn("- " + row, review[0])
         self.assertIn("FAIL backfill: touched but absent", result.stdout)
         self.assertNotIn("PASS backfill: all", result.stdout)
+        # Two rows for one file, one carrying a parenthetical: each touched
+        # value has a row of its own, so nothing is ambiguous.
+        self.assert_pass(self.run_rows("docs/gone.md", "docs/gone.md (old copy)",
+                                       deleted=["docs/gone.md (old copy) - merged", "docs/gone.md - removed"]))
         # Each on its own is unchanged, and backticks settle which one is meant.
         self.assert_pass(self.run_rows("missing - draft.md", deleted=[row]))
         quoted = self.run_rows("missing", "missing - draft.md", deleted=["`" + row + "`"])
