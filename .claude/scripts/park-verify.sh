@@ -460,7 +460,7 @@ for line in block.split("\n"):
 
 for index, path in enumerate(touched_args):
     entry = {"path": path, "show": show_touched(path), "keys": [canon(path)],
-             "exists": os.path.lexists(path), "bare": None, "ambiguous": None,
+             "exists": os.path.exists(path), "bare": None, "ambiguous": None,
              "skip": path == log}
     touched.append(entry)
     relative = entry["keys"][0][len(root) + 1:] if in_vault(entry["keys"][0]) else ""

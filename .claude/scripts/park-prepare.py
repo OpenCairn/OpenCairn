@@ -33,6 +33,11 @@ def resolve(raw, vault):
     return (p if p.is_absolute() else vault / p).resolve()
 
 
+def lexical(raw, vault):
+    p = Path(raw).expanduser()
+    return str(Path(os.path.abspath(p if p.is_absolute() else vault / p)))
+
+
 def session_block(text, number):
     starts = list(re.finditer(rf'^## Session {number} - .*$', text, re.M))
     if len(starts) != 1:
@@ -75,8 +80,12 @@ def file_rows(sections, vault, coverage):
             key = name if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*://', name) else str(resolve(name, vault))
             if any(r['path'] == key and r['deleted'] != (heading == 'Files Deleted') for r in rows):
                 fail(f'Path is both retained and deleted: {name}')
-            if not any(r['path'] == key for r in rows):
-                rows.append({'path': key, 'raw': name, 'deleted': heading == 'Files Deleted'})
+            existing = next((r for r in rows if r['path'] == key), None)
+            alias = name if kind == 'nonlocal' else lexical(name, vault)
+            if existing is None:
+                rows.append({'path': key, 'raw': name, 'aliases': [alias], 'deleted': heading == 'Files Deleted'})
+            elif alias not in existing['aliases']:
+                existing['aliases'].append(alias)
     return rows
 
 

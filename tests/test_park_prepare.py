@@ -207,6 +207,18 @@ class ParkPrepareTests(unittest.TestCase):
         self.assertEqual(changed['reused'], [])
         self.assertEqual({f['path'] for f in changed['full_read']}, {str(self.note), str(self.log)})
 
+    def test_symlink_spellings_survive_physical_review_deduplication(self):
+        installed = self.vault / 'installed.md'
+        installed.symlink_to(self.note)
+        self.log.write_text(self.log.read_text().replace('### Files Updated\n',
+                                                        '### Files Updated\n- installed.md - installed link\n'))
+        self.prepare()
+        manifest = json.loads((self.root / 'review-brief-manifest.json').read_text())
+        spellings = manifest['attributed_paths']
+        self.assertIn({'path': str(installed), 'physical_path': str(self.note)}, spellings)
+        self.assertIn({'path': str(self.note), 'physical_path': str(self.note)}, spellings)
+        self.assertEqual(sum(f['path'] == str(self.note) for f in manifest['full_read']), 1)
+
 
 
 if __name__ == '__main__':

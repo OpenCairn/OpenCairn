@@ -145,7 +145,7 @@ def prepare(source: Path, original: Path, state_dir: Path) -> dict:
     receipt_path = state_dir / "receipts" / f"{source_digest}.json"
     cached = reusable_receipt(receipt_path, source_digest)
     if cached is not None:
-        cached["original_path"] = str(original.resolve())
+        cached["original_path"] = os.path.abspath(original)
         return cached
     source_snapshot = persist_digest_bytes(
         state_dir / "sources", source_digest, ".snapshot", data
@@ -153,7 +153,7 @@ def prepare(source: Path, original: Path, state_dir: Path) -> dict:
     receipt: dict[str, object] = {
         "schema": 1,
         "prepared_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="microseconds"),
-        "original_path": str(original.resolve()),
+        "original_path": os.path.abspath(original),
         "source_sha256": source_digest,
         "source_snapshot": str(source_snapshot),
         "bytes": len(data),
@@ -230,7 +230,7 @@ def main() -> int:
     parser.add_argument("--state-dir", required=True)
     args = parser.parse_args()
     source = Path(args.source).expanduser().resolve()
-    original = Path(args.original).expanduser().resolve() if args.original else source
+    original = Path(args.original or args.source).expanduser().absolute()
     receipt = prepare(source, original, Path(args.state_dir).expanduser().resolve())
     print(json.dumps(receipt, ensure_ascii=False))
     return 0

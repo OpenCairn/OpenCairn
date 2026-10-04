@@ -335,6 +335,14 @@ def canonical_path(raw: str, vault: Path | None = None) -> Path:
     return Path(os.path.realpath(expanded))
 
 
+def lexical_path(raw: str, vault: Path | None = None) -> Path:
+    """Normalise a spelling without discarding an installed symlink's identity."""
+    expanded = Path(os.path.expanduser(raw))
+    if not expanded.is_absolute():
+        expanded = (vault if vault is not None else Path.cwd()) / expanded
+    return Path(os.path.abspath(expanded))
+
+
 def load_json(path: Path, fallback: object) -> object:
     if not path.exists():
         return fallback
@@ -1404,6 +1412,13 @@ def cmd_build(args: argparse.Namespace) -> int:
     local_paths, external_files = partition_attributed_paths(
         created_raw + updated_raw, vault, classifications
     )
+    attributed_paths = []
+    for raw in created_raw + updated_raw:
+        physical = canonical_path(raw, vault)
+        if physical in local_paths:
+            item = {"path": str(lexical_path(raw, vault)), "physical_path": str(physical)}
+            if item not in attributed_paths:
+                attributed_paths.append(item)
 
     full_read: list[dict] = []
     targeted_review: list[dict] = []
@@ -1854,6 +1869,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         "vault": str(vault),
         "session_log": str(log),
         "session_number": args.number,
+        "attributed_paths": attributed_paths,
         "full_read": full_read,
         "targeted_review": targeted_review,
         "mechanical": [{"path": item["path"], "sha256": item["sha256"]} for item in mechanical],
