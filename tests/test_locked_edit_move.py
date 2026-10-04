@@ -1,4 +1,6 @@
 import hashlib
+import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -10,6 +12,7 @@ import unittest
 
 
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
+PARK_REVIEW = Path(__file__).parents[1] / "codex/skills/park/scripts/park-review.py"
 
 try:
     from session_isolation import isolate_session
@@ -68,8 +71,13 @@ if args and args[0] == "move":
         raise SystemExit(0)
     old_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
     new_no_ext = destination_rel[:-3] if destination_rel.lower().endswith(".md") else destination_rel
+    if behaviour == "complete-altered":
+        with destination.open("a", encoding="utf-8") as handle:
+            handle.write("unexpected trailing edit\n")
     for note in vault.rglob("*.md"):
         note_rel = note.relative_to(vault).as_posix()
+        if note_rel == os.environ.get("MOCK_SKIP_HEAL"):
+            continue
         text = note.read_text(encoding="utf-8")
         def wiki(match):
             inner = match.group(1)
@@ -315,6 +323,110 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertFalse(source.exists())
         self.assertTrue(destination.exists())
         self.assertIn("Old path-qualified links remain", result.stderr)
+
+    def move_receipts(self) -> list[dict]:
+        root = self.config / ".session-state" / "locked-move-test.project-move-receipts"
+        if not root.is_dir():
+            return []
+        return [json.loads(path.read_text(encoding="utf-8")) for path in sorted(root.iterdir())]
+
+    def assert_heal_verifiable(self, receipt: dict, note: Path) -> None:
+        """Run the park verifier's own move-heal check against a receipt row."""
+        spec = importlib.util.spec_from_file_location("park_review", PARK_REVIEW)
+        assert spec is not None and spec.loader is not None
+        park_review = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(park_review)
+        vault = self.vault.resolve()
+        rows = [
+            item for item in receipt["affected_files"]
+            if item["path"] == note.relative_to(self.vault).as_posix()
+        ]
+        self.assertEqual(len(rows), 1, receipt)
+        proof = {
+            **rows[0],
+            "destination": receipt["destination"],
+            "source_locator": receipt["source_locator"],
+            "destination_locator": receipt["destination_locator"],
+        }
+        verdict = park_review.verify_move_heal(note.resolve(), vault, proof)
+        self.assertTrue(verdict["ok"], verdict["failures"])
+
+    def test_complete_move_receipt_is_marked_complete(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        reference = self.vault / "Reference.md"
+        reference.write_text("[[Old/Incident]]\n", encoding="utf-8")
+
+        result = self.run_move(source, destination)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipts = self.move_receipts()
+        self.assertEqual(len(receipts), 1)
+        self.assertIs(receipts[0]["complete"], True)
+        self.assertNotIn("postcheck", receipts[0])
+        self.assert_heal_verifiable(receipts[0], reference)
+
+    def test_unhealed_link_keeps_a_partial_receipt_for_the_links_that_healed(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        healed = self.vault / "Healed.md"
+        healed.write_text("see [[Old/Incident]]\n", encoding="utf-8")
+        stale = self.vault / "Stale.md"
+        stale.write_text("intro\nsee [[Old/Incident|case]]\n", encoding="utf-8")
+
+        result = self.run_move(source, destination, MOCK_SKIP_HEAL="Stale.md")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Old path-qualified links remain", result.stderr)
+        self.assertIn("Partial move receipt:", result.stderr)
+        self.assertNotIn("Locked move applied", result.stdout)
+        self.assertEqual(healed.read_text(encoding="utf-8"), "see [[New/Incident]]\n")
+        receipts = self.move_receipts()
+        self.assertEqual(len(receipts), 1)
+        receipt = receipts[0]
+        self.assertEqual(receipt["schema"], 2)
+        self.assertIs(receipt["complete"], False)
+        self.assertEqual(receipt["postcheck"]["reason"], "old-links-remain")
+        self.assertEqual(receipt["postcheck"]["remaining_links"], ["Stale.md:2"])
+        self.assertEqual([item["path"] for item in receipt["affected_files"]], ["Healed.md"])
+        self.assertEqual(receipt["unverified_files"], ["Stale.md"])
+        self.assert_heal_verifiable(receipt, healed)
+        ledger = (self.config / ".session-state" / "locked-move-test.tsv").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("\tlocked-move-source\t", ledger)
+        self.assertIn("\tlocked-move-destination\t", ledger)
+        self.assertIn("\tobsidian-link-heal\t%s\t" % healed.resolve(), ledger)
+
+    def test_altered_destination_keeps_a_partial_receipt_for_healed_links(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        reference = self.vault / "Reference.md"
+        reference.write_text("[[Old/Incident]]\n", encoding="utf-8")
+
+        result = self.run_move(source, destination, MOCK_MOVE_BEHAVIOUR="complete-altered")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        receipts = self.move_receipts()
+        self.assertEqual(len(receipts), 1)
+        self.assertIs(receipts[0]["complete"], False)
+        self.assertEqual(receipts[0]["postcheck"]["reason"], "destination-content-mismatch")
+        self.assertEqual(receipts[0]["content_sha256"], self.digest(destination))
+        self.assertNotEqual(receipts[0]["content_sha256"], receipts[0]["source_sha256"])
+        self.assert_heal_verifiable(receipts[0], reference)
+
+    def test_move_that_never_landed_writes_no_receipt(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+
+        result = self.run_move(source, destination, MOCK_MOVE_BEHAVIOUR="copy-only")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.move_receipts(), [])
 
     def test_concurrent_moves_serialize_on_the_source_lock(self) -> None:
         source = self.vault / "Old" / "Incident.md"
