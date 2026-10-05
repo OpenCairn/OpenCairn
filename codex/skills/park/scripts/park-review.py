@@ -748,6 +748,87 @@ def verify_move_heal(path: Path, vault: Path, proof: dict) -> dict:
     }
 
 
+def verify_preserved_move(path: Path, vault: Path, proof: dict, receipt_dir: Path) -> dict:
+    """Validate unchanged text against the actual current-session move producer."""
+    receipt_path = Path(str(proof.get("receipt_path", ""))).expanduser()
+    failures = []
+    if (receipt_path.is_symlink() or not receipt_path.is_file()
+            or receipt_path.resolve().parent != receipt_dir.resolve()):
+        return {"ok": False, "failures": ["receipt is not a regular current-session move receipt"]}
+    if sha256(receipt_path) != proof.get("receipt_sha256"):
+        return {"ok": False, "failures": ["native move receipt changed after classification"]}
+    receipt = load_json(receipt_path, {})
+    if not isinstance(receipt, dict):
+        return {"ok": False, "failures": ["invalid native move receipt"]}
+    if (receipt.get("schema") != 2 or receipt.get("mode") != "--move"
+            or receipt.get("complete") is not True
+            or receipt.get("affected_files") != [] or receipt.get("unverified_files") != []):
+        failures.append("requires a complete schema2 move without affected or unverified files")
+    locators = [receipt.get(key) for key in ("vault", "source", "destination")]
+    if not all(isinstance(value, str) and Path(value).is_absolute() for value in locators):
+        return {"ok": False, "failures": ["native move paths must be absolute"]}
+    owner, source, destination = (canonical_path(value) for value in locators)
+    if owner != vault or not source.is_relative_to(vault) or not destination.is_relative_to(vault):
+        failures.append("native move receipt belongs to another vault")
+    if source == destination or source.exists() or Path(locators[1]).is_symlink():
+        failures.append("native move source is not a distinct absent path")
+    if (destination != path or Path(locators[2]).is_symlink()
+            or path.is_symlink() or not path.is_file()):
+        failures.append("native move destination is not the requested regular file")
+    digest = sha256(path) if path.is_file() else None
+    expected = receipt.get("source_sha256")
+    if (not isinstance(expected, str) or not re.fullmatch(r"[a-f0-9]{64}", expected)
+            or expected != receipt.get("content_sha256") or expected != digest):
+        failures.append("native pre/post/current hashes do not prove zero content delta")
+    if failures:
+        return {"ok": False, "failures": failures}
+    data = path.read_bytes()
+    if sha256_bytes(data) != digest or not is_utf8(data) or is_binary_artifact(data):
+        return {"ok": False, "failures": ["preserved move must remain unchanged UTF-8 text"]}
+    text = data.decode("utf-8")
+    if SEP_RE.search(text):
+        return {"ok": False, "failures": ["stranded locked-edit separator line"]}
+    # Equal producer pre/post/current hashes bind this exact lint fingerprint to
+    # the preimage as well as the current bytes; no replacement receipt is invented.
+    lint = lint_errors(text)
+    return {"ok": True, "failures": [], "current_sha256": digest,
+            "replacements": [], "targets": [target_check(str(path), vault)],
+            "separator_clean": True, "lint_clean": not lint,
+            "accepted_inherited_lint": lint,
+            "receipts": [{"path": str(receipt_path), "mode": "--move",
+                          "pre_sha256": expected, "post_sha256": digest,
+                          "pre_lint": lint, "post_lint": lint,
+                          "lint_proof": "equal native pre/post/current bytes",
+                          "changed_ranges": [], "ranges_truncated": False,
+                          "unified_diff": "", "diff_truncated": False}]}
+
+
+def cmd_import_preserved_move(args: argparse.Namespace) -> int:
+    sid, root, receipt_root, _ = state_paths(args.session_id)
+    vault = canonical_path(args.vault)
+    path = lexical_path(args.path, vault)
+    receipt_path = Path(args.receipt).expanduser().absolute()
+    proof = {"receipt_path": str(receipt_path),
+             "receipt_sha256": sha256(receipt_path) if receipt_path.is_file() else None}
+    verification = verify_preserved_move(
+        path, vault, proof, receipt_root.parent / f"{sid}.project-move-receipts")
+    if not verification["ok"]:
+        for failure in verification["failures"]:
+            print(f"FAIL preserved move: {failure}", file=sys.stderr)
+        return 1
+    manifest_path = root / "files.json"
+    manifest = load_json(manifest_path, {})
+    if not isinstance(manifest, dict):
+        die(f"invalid file manifest: {manifest_path}")
+    manifest[str(path.resolve())] = {"mode": "mechanical",
+                                    "mechanical_kind": "native-move-preserved",
+                                    "classified_at": now(), "proof": proof,
+                                    "verification": verification}
+    atomic_json(manifest_path, manifest)
+    print(f"PASS preserved move: {path} (native zero-content-delta proof)")
+    return 0
+
+
 def cmd_import_move_heals(args: argparse.Namespace) -> int:
     """Import link-target-only rewrites proved by locked Obsidian moves."""
     sid, root, receipt_root, _ = state_paths(args.session_id)
@@ -1538,6 +1619,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                 verification = verify_move_heal(
                     path, vault, classification.get("proof", {})
                 )
+            elif classification.get("mechanical_kind") == "native-move-preserved":
+                verification = verify_preserved_move(
+                    path, vault, classification.get("proof", {}),
+                    receipt_root.parent / f"{sid}.project-move-receipts")
             else:
                 verification = verify_mechanical(
                     path,
@@ -2259,6 +2344,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     import_heals.add_argument("--vault", required=True)
     import_heals.set_defaults(func=cmd_import_move_heals)
+
+    import_preserved = subparsers.add_parser(
+        "import-move-preserved", help="verify one complete unchanged native move receipt")
+    import_preserved.add_argument("--vault", required=True)
+    import_preserved.add_argument("--path", required=True)
+    import_preserved.add_argument("--receipt", required=True)
+    import_preserved.set_defaults(func=cmd_import_preserved_move)
 
     capture = subparsers.add_parser("capture", help="capture review evidence immediately")
     capture.add_argument(

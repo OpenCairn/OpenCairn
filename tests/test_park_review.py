@@ -8,6 +8,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 import sys
@@ -1292,6 +1293,139 @@ class AuthoredBinaryReviewTests(unittest.TestCase):
                                  str(self.log), "--number", "1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("unclassified non-text artefact", result.stderr)
+
+
+class PreservedMoveReceiptTests(unittest.TestCase):
+    """An unchanged moved reference can retain its existing lint, narrowly."""
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix="preserved-move-fixture-")
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name).resolve()
+        self.config = base / "config"
+        self.vault = base / "vault"
+        self.vault.mkdir()
+        self.source = self.vault / "Old reference.md"
+        self.target = self.vault / "Moved reference.md"
+        self.source.write_text("# Reference\n\n\n\nExisting instructions.\n")
+        digest = park_review.sha256(self.source)
+        self.source.rename(self.target)
+        self.receipt_dir = self.config / ".session-state/preserved-fixture.project-move-receipts"
+        self.receipt_dir.mkdir(parents=True)
+        self.receipt = self.receipt_dir / "move-fixture.json"
+        self.payload = {"schema": 2, "mode": "--move", "vault": str(self.vault),
+                        "source": str(self.source), "destination": str(self.target),
+                        "source_sha256": digest, "content_sha256": digest,
+                        "complete": True, "affected_files": [], "unverified_files": []}
+        self.write_receipt()
+        self.env = isolate_session(os.environ.copy(), self.config, "preserved-fixture")
+
+    def write_receipt(self) -> None:
+        self.receipt.write_text(json.dumps(self.payload))
+
+    def import_move(self) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(HELPER), "--session-id", "preserved-fixture",
+             "import-move-preserved", "--vault", str(self.vault),
+             "--path", str(self.target), "--receipt", str(self.receipt)],
+            env=self.env, text=True, capture_output=True, check=False)
+
+    def test_preserved_move_import_accepts_only_intact_reference_lint(self) -> None:
+        before = self.target.read_bytes()
+        result = self.import_move()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        root = self.config / ".session-state/preserved-fixture.park-review"
+        manifest = json.loads((root / "files.json").read_text())
+        item = manifest[str(self.target)]
+        self.assertEqual(item["mechanical_kind"], "native-move-preserved")
+        self.assertEqual(item["verification"]["receipts"][0]["pre_lint"],
+                         park_review.lint_errors(self.target.read_text()))
+        self.assertEqual(park_review.approved_inherited_lint_paths(manifest),
+                         {str(self.target)})
+        args = SimpleNamespace(session_id="preserved-fixture", label="fixture",
+                               command=["fixture-verifier"],
+                               accept_inherited_lint=[str(self.target)])
+        output = f"FAIL lint: {self.target} 2: 3+ blank lines; \nRESULT: FAIL (1 fail, 0 review)\n"
+        completed = subprocess.CompletedProcess(args.command, 1, output, "")
+        with mock.patch.dict(os.environ, self.env), \
+             mock.patch.object(park_review.subprocess, "run", return_value=completed), \
+             mock.patch("sys.stdout", new_callable=io.StringIO), \
+             mock.patch("sys.stderr", new_callable=io.StringIO):
+            self.assertEqual(park_review.cmd_run_verifier(args), 0)
+        self.assertEqual(self.target.read_bytes(), before)
+
+    def test_preserved_move_rejects_invalid_producer_or_current_bytes(self) -> None:
+        for mutation in ["changed-bytes", "wrong-destination", "incomplete",
+                         "unverified", "affected", "wrong-source-hash"]:
+            with self.subTest(mutation=mutation):
+                original = self.payload.copy()
+                before = self.target.read_bytes()
+                if mutation == "changed-bytes":
+                    self.target.write_bytes(before + b"unexpected edit\n")
+                elif mutation == "wrong-destination":
+                    self.payload["destination"] = str(self.vault / "Other.md")
+                elif mutation == "incomplete":
+                    self.payload["complete"] = False
+                elif mutation == "unverified":
+                    self.payload["unverified_files"] = ["unverified.md"]
+                elif mutation == "affected":
+                    self.payload["affected_files"] = [{"path": "healed.md"}]
+                else:
+                    self.payload["source_sha256"] = "0" * 64
+                self.write_receipt()
+                self.assertNotEqual(self.import_move().returncode, 0)
+                self.assertFalse((self.config / ".session-state/preserved-fixture.park-review/files.json").exists())
+                self.payload = original
+                self.target.write_bytes(before)
+                self.write_receipt()
+
+    def test_real_prepare_build_revalidates_preserved_move_proof(self) -> None:
+        original = self.target.read_bytes()
+        self.assertEqual(self.import_move().returncode, 0)
+        scripts = self.vault / ".claude/scripts"
+        scripts.mkdir(parents=True)
+        shutil.copy2(HELPER.parents[4] / ".claude/scripts/park-verify.sh",
+                     scripts / "park-verify.sh")
+        log = self.vault / "log.md"
+        log.write_text(
+            "# Sessions\n\n## Session 1 - Fixture\n\n"
+            "### Summary\nMoved existing reference.\n\n"
+            "### Key Insights / Decisions\nNone.\n\n"
+            "### Next Steps / Open Loops\nNone.\n\n"
+            "### Files Created\nNone\n\n"
+            f"### Files Updated\n- `{self.target}` - unchanged native move\n"
+            f"- `{log}` - fixture record\n\n"
+            f"### Files Deleted\n- `{self.source}` - moved reference\n\n"
+            "### Pickup Context\n**For next session:** None.\n**Project:** None\n")
+        handoff = {
+            "classifications": [["--path", str(log), "--semantic"]],
+            "captures": [{"kind": "propagation", "label": "fixture",
+                          "text": "Synthetic source moved to its exact destination; no other references."}],
+            "identifiers": [], "accept_inherited_lint": [str(self.target)]}
+        prepared = subprocess.run(
+            [sys.executable, str(HELPER), "--session-id", "preserved-fixture",
+             "prepare", "--vault", str(self.vault), "--session-log", str(log), "--number", "1"],
+            env=self.env, input=json.dumps(handoff), text=True, capture_output=True, timeout=60)
+        self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
+        self.assertIn("ACCEPTED inherited lint only", prepared.stdout)
+        root = self.config / ".session-state/preserved-fixture.park-review"
+        manifest = json.loads((root / "review-brief-manifest.json").read_text())
+        self.assertEqual([x["path"] for x in manifest["mechanical"]], [str(self.target)])
+        self.assertEqual(self.target.read_bytes(), original)
+        for mutation in ("current-bytes", "producer-receipt"):
+            with self.subTest(mutation=mutation):
+                if mutation == "current-bytes":
+                    self.target.write_bytes(original + b"unexpected edit\n")
+                else:
+                    self.payload["captured_at"] = "changed after import"
+                    self.write_receipt()
+                built = subprocess.run(
+                    [sys.executable, str(HELPER), "--session-id", "preserved-fixture",
+                     "build", "--vault", str(self.vault), "--session-log", str(log), "--number", "1"],
+                    env=self.env, text=True, capture_output=True, timeout=60)
+                self.assertNotEqual(built.returncode, 0)
+                self.assertIn("mechanical verification is stale", built.stderr)
+                self.target.write_bytes(original)
 
 
 class IncompleteMoveReceiptTests(unittest.TestCase):
