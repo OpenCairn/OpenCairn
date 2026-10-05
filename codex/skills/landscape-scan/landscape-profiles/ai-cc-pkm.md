@@ -30,7 +30,6 @@ For each, focus on what's new or changed since the last scan.
 - https://github.com/affaan-m/ECC — config collection with longform guide (skills, hooks, subagents, MCPs, plugins)
 - https://github.com/luongnv89/claude-howto — visual, example-driven guide to every Claude Code feature
 - https://github.com/davepoon/buildwithclaude — plugin marketplace/discovery platform for Claude Code
-- https://awesomeclaude.ai/ — web directory aggregating Claude AI tools, integrations, and resources
 - https://code.claude.com/docs/en/ — official docs (new features, patterns since last scan)
 - https://claude.com/blog — Anthropic engineering/product blog (Claude Code + API updates)
 - https://www.anthropic.com/news — Anthropic model and product announcements
@@ -52,7 +51,7 @@ For each, focus on what's new or changed since the last scan.
 
 **AI + productivity thought leaders:**
 - Tiago Forte / Forte Labs (https://fortelabs.com/blog/) — PARA creator, "The AI Second Brain" (Mar 2026). Evolving BASB methodology for AI-native workflows.
-- Nat Eliason (https://blog.nateliason.com/) — building OpenClaw, "Build Your Own Software with AI" course. AI agents for personal/business automation.
+- OpenClaw (https://openclaw.ai/blog, release notes at https://docs.openclaw.ai/) — open-source persistent-agent platform; replaces Nat Eliason's blog, which went quiet in early 2026.
 - **Zvi Mowshowitz (https://thezvi.substack.com/)** — weekly AI roundups; historically high signal on tool launches (OCLI was first surfaced here, buried mid-post).
 
 **Docs-for-AI / knowledge structuring:**
