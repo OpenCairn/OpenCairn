@@ -112,7 +112,7 @@ For each:
   - *Capability:* [what it unlocks that isn't being done today]
   - *Supply-chain cooldown:* [latest version + publish date; N days old; passes / fails ≥3–7 day cooldown; recommendation: install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD]
 
-## Try (hands-on trial queued)
+## Try (hands-on trial candidate)
 Ranked by capability. For each:
 - **[Tool/pattern]** — [what it does, link]
   - *Capability:* [what it would unlock]
