@@ -80,7 +80,7 @@ Read and present:
 - **This Week.md freshness:** Check `{VAULT}/01 Now/This Week.md` — if it exists, parse the date range from the heading (e.g. "# This Week — 28 Feb – 7 Mar 2026"). The range is a rolling window (normally 10 day sections: 3 past + today + 6 future), not calendar weeks. If today's date falls within the range, it's current — note today's day section and any unchecked items in your working memory for step 7. If today falls outside the range, it's stale — note any unchecked items in your working memory for carry-forward in step 7. If the file doesn't exist, skip.
 - **Tickler items due:** Read `{VAULT}/01 Now/Tickler.md` (skip if file doesn't exist), show items where date header <= today (YYYY-MM-DD format). Separate into two groups: **Today** (date == today) shown in full, and **Overdue** (date < today) shown as a compact summary — just the item names with overdue flag, not full descriptions. If overdue count is large (>5), group by theme or just show count + the most time-sensitive ones. Don't let overdue backlog bury today's items.
 - **Tickler→This Week migration (automatic, unconditional):** If `{VAULT}/01 Now/This Week.md` exists, check Tickler for unchecked items with date headers falling within the This Week.md date range that aren't already represented in This Week.md. **Migrate them automatically** — add each item to the appropriate day section in This Week.md and delete from Tickler (This Week becomes SSOT per Tickler transfer rules). **The migration is gated on the date and nothing else** — not on how many items the destination day already holds, not on the window total. A dated item's home is its day section; holding it back because a day looks full hides work that is genuinely due and splits the SSOT. Also delete any completed (`[x]`) items from those same Tickler date sections as cleanup. When migrating, preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`). If an item has only a session log link (`→ [[06 Archive/...]]`), replace it with the relevant project/area link. If no link, add one per the item linking convention (see Step 7).
-- **Calendar pull (today through today+6):** If This Week.md exists, look for a calendar connector — among deferred or not-yet-loaded tools too — before concluding there is none. List the user's calendars and read each one for that window, passing the timezone Step 1's `date` reported, and skip cancelled and declined events. The read is one-way: creating or changing calendar events still needs an explicit request. The pull is landscape context only: never write calendar events into This Week.md, whose day sections hold tasks, not a mirror of the calendar. Times are in that timezone. **⛔ Emit `Calendar: N pulled from [calendars read], [start]–[end] [TZ]`**, then today's events; N = 0 gets one re-read before it is reported. With no connector, or a read that fails, emit `Calendar: not read — [reason]` and continue; never infer commitments from an unread calendar.
+- **Calendar pull (today through today+6):** If This Week.md exists, look for a calendar connector — among deferred or not-yet-loaded tools too — before concluding there is none. List the user's calendars and read each one for that window, passing the timezone Step 1's `date` reported, and skip cancelled and declined events. The read is one-way: creating or changing calendar events still needs an explicit request. The pull is landscape context only: never write calendar events into This Week.md, whose day sections hold tasks, not a mirror of the calendar. **⛔ Emit `Calendar: N pulled from [calendars read], [start]–[end] [TZ]`**, then today's events (times in that timezone); N = 0 gets one re-read before it is reported. With no connector, or a read that fails, emit `Calendar: not read — [reason]` and continue; never infer commitments from an unread calendar.
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `{VAULT}/06 Archive/OpenCairn/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Items goodnight routed to today:** Last night's /goodnight routed undone and queued items into today's day section in This Week.md — they're already covered by the This Week.md and Tickler bullets above. Daily reports carry no "Tomorrow's Queue" section; don't go looking for one.
@@ -194,7 +194,7 @@ Step 3 already ran rolling-window maintenance before presenting the landscape. R
 
 **Daily execution when configured.** Follow the Planning system pointer in the vault’s navigation/Autopilot document. The user manages the calendar. Use Step 3's calendar pull to choose This Week tasks for the gaps, preserving open tasks; calendar events themselves stay out of the file. Do not require a daily strategy/values-plan reread, label blocks, verify weekly scheduling, or rebuild the week. Calendar changes need an explicit request. Preserve any old task’s operational review/continuation link until its disposition is settled; do not restart retired scheduling-resume machinery.
 
-If the day has enough structure to benefit from a visual plan (appointments, time blocks, multiple tasks), offer:
+If the day has enough structure to benefit from a visual plan (several tasks or time-boxed task blocks), offer:
 
 > "Want me to update today's section in This Week.md?"
 
@@ -208,7 +208,7 @@ Find today’s day section using `_shared-rules-planning.md` §9’s date-aware 
 [the existing heading line, unchanged]
 
 ### Morning (HH:MM–HH:MM)
-- [ ] **HH:MM Scheduled block (1h30m)**
+- [ ] **HH:MM Time-boxed task block (1h30m)**
   - [ ] Sub-item detail
 - [ ] HH:MM Quick task (20m)
 - Flexible time
@@ -216,26 +216,27 @@ Find today’s day section using `_shared-rules-planning.md` §9’s date-aware 
   - [ ] Option 2
 
 ### Afternoon (HH:MM–HH:MM)
-- [ ] **HH:MM–HH:MM Longer scheduled block (3h)**
+- [ ] **HH:MM–HH:MM Longer task block (3h)**
   - [ ] Task within it
 - Admin batch
   - [ ] Task 1
   - [ ] Task 2
 
 ### Evening (HH:MM–)
-- [ ] **HH:MM Evening event (2h)**
+- [ ] **HH:MM Evening task block (2h)**
 ````
 
 **Timeline format reference:**
-- **Bold entire line** = scheduled item longer than 1 hour: `- [ ] **14:00–17:00 Workshop (3h)**`
-- Normal weight = items 1 hour or under: `- [ ] 09:30 Quick call (15m)`
-- Duration in parentheses after every scheduled item: `(1h)`, `(30m)`, `(2h30m)`
-- Time prefix = scheduled at a specific time: `- [ ] 09:00 Dentist (1h)`
+- Calendar events are not entries; time-box tasks around them.
+- **Bold entire line** = time-boxed item longer than 1 hour: `- [ ] **14:00–17:00 Deep work on report (3h)**`
+- Normal weight = items 1 hour or under: `- [ ] 09:30 Book flights (15m)`
+- Duration in parentheses after every time-boxed item: `(1h)`, `(30m)`, `(2h30m)`
+- Time prefix = task time-boxed to a specific time: `- [ ] 09:00 Draft report (1h)`
 - No time prefix = flexible/unscheduled: `- [ ] Reply to email (10m)`
 - Plain text (no checkbox) = time container headers: `- Flexible time`, `- Admin batch`
-- `~` prefix = approximate time: `- [ ] ~14:00 Delivery window (30m)`
+- `~` prefix = approximate time: `- [ ] ~14:00 Admin batch (30m)`
 - `### Morning / Afternoon / Evening` = section dividers with time ranges
-- Tentative items get `(tentative)` suffix: `- [ ] 19:00 Dinner with Sam (tentative)`
+- Tentative items get `(tentative)` suffix: `- [ ] 19:00 Gym (tentative)`
 
 **Every actionable item gets a `- [ ]` checkbox.** Time container headers (plain `- ` lines grouping flexible tasks) are the only lines without checkboxes.
 
