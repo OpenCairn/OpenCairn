@@ -234,7 +234,7 @@ Find today’s day section using `_shared-rules-planning.md` §9’s date-aware 
 - Time prefix = task time-boxed to a specific time: `- [ ] 09:00 Draft report (1h)`
 - No time prefix = flexible/unscheduled: `- [ ] Reply to email (10m)`
 - Plain text (no checkbox) = time container headers: `- Flexible time`, `- Admin batch`
-- `~` prefix = approximate time: `- [ ] ~14:00 Admin batch (30m)`
+- `~` prefix = approximate time: `- [ ] ~14:00 Pick up parcel (30m)`
 - `### Morning / Afternoon / Evening` = section dividers with time ranges
 - Tentative items get `(tentative)` suffix: `- [ ] 19:00 Gym (tentative)`
 
