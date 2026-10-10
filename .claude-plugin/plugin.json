@@ -19,5 +19,6 @@
     "second-brain",
     "audit"
   ],
-  "commands": "./.claude/commands"
+  "commands": "./.claude/commands",
+  "agents": ["./.claude/agents/read-only-reviewer.md"]
 }

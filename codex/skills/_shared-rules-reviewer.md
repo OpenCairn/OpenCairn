@@ -38,8 +38,9 @@ Gotchas that bite any skill calling the `gemini`/`codex` CLIs, plus the canonica
   T=$(command -v timeout || command -v gtimeout) || { echo 'needs GNU timeout/gtimeout' >&2; exit 1; }
   s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s gemini -p "Follow the instructions in the piped input exactly." --policy <run-dir>/gemini-ro-policy -o text --include-directories <root> > <run-dir>/gemini.out 2> <run-dir>/gemini.err; echo $? > <run-dir>/gemini.exit; echo $(( $(date +%s) - s )) > <run-dir>/gemini.time
   s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s codex exec --sandbox read-only --skip-git-repo-check -C <root> - > <run-dir>/codex.out 2> <run-dir>/codex.err; echo $? > <run-dir>/codex.exit; echo $(( $(date +%s) - s )) > <run-dir>/codex.time
-  # Claude seat, when Claude Code is available (keep the raw JSON; .result is the review; .session_id is the Mode B handle):
-  s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s claude -p "Follow the instructions in the piped input exactly." --output-format json --disallowedTools "Bash,Write,Edit,NotebookEdit" > <run-dir>/claude.json 2> <run-dir>/claude.err; echo $? > <run-dir>/claude.exit; echo $(( $(date +%s) - s )) > <run-dir>/claude.time; jq -r .result <run-dir>/claude.json > <run-dir>/claude.out
+  # Claude seat, when Claude Code is available (keep the raw JSON; .result is the review; .session_id is the Mode B handle).
+  # The --tools allowlist plus an empty strict MCP config yields exactly Glob, Grep, Read (verified Claude Code 2.1.296); the previous per-tool denylist left MCP write tools and the Agent/Workflow tools available.
+  s=$(date +%s); cat <run-dir>/brief.md | "$T" 1500s claude -p "Follow the instructions in the piped input exactly." --output-format json --tools "Read,Grep,Glob" --strict-mcp-config --mcp-config '{"mcpServers":{}}' > <run-dir>/claude.json 2> <run-dir>/claude.err; echo $? > <run-dir>/claude.exit; echo $(( $(date +%s) - s )) > <run-dir>/claude.time; jq -r .result <run-dir>/claude.json > <run-dir>/claude.out
   s=$(date +%s); "$T" 1500s "<xai-client>" --panel-review <run-dir>/brief.md --prepared > <run-dir>/grok.out 2> <run-dir>/grok.err; echo $? > <run-dir>/grok.exit; echo $(( $(date +%s) - s )) > <run-dir>/grok.time
   ```
   `panel-run-record.sh` reads the Claude model from `claude.json`, so it is never typed.
