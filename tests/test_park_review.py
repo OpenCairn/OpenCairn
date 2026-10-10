@@ -1379,7 +1379,7 @@ class PreservedMoveReceiptTests(unittest.TestCase):
                 self.target.write_bytes(before)
                 self.write_receipt()
 
-    def test_real_prepare_build_revalidates_preserved_move_proof(self) -> None:
+    def test_real_verify_build_revalidates_preserved_move_proof(self) -> None:
         original = self.target.read_bytes()
         self.assertEqual(self.import_move().returncode, 0)
         scripts = self.vault / ".claude/scripts"
@@ -1397,17 +1397,20 @@ class PreservedMoveReceiptTests(unittest.TestCase):
             f"- `{log}` - fixture record\n\n"
             f"### Files Deleted\n- `{self.source}` - moved reference\n\n"
             "### Pickup Context\n**For next session:** None.\n**Project:** None\n")
-        handoff = {
-            "classifications": [["--path", str(log), "--semantic"]],
-            "captures": [{"kind": "propagation", "label": "fixture",
-                          "text": "Synthetic source moved to its exact destination; no other references."}],
-            "identifiers": [], "accept_inherited_lint": [str(self.target)]}
-        prepared = subprocess.run(
-            [sys.executable, str(HELPER), "--session-id", "preserved-fixture",
-             "prepare", "--vault", str(self.vault), "--session-log", str(log), "--number", "1"],
-            env=self.env, input=json.dumps(handoff), text=True, capture_output=True, timeout=60)
-        self.assertEqual(prepared.returncode, 0, prepared.stdout + prepared.stderr)
-        self.assertIn("ACCEPTED inherited lint only", prepared.stdout)
+        base = [sys.executable, str(HELPER), "--session-id", "preserved-fixture"]
+        def run(*argv, stdin=None):
+            done = subprocess.run(base + list(argv), env=self.env, input=stdin, text=True,
+                                  capture_output=True, timeout=60)
+            self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+            return done
+        run("classify", "--vault", str(self.vault), "--path", str(log), "--semantic")
+        run("capture", "--kind", "propagation", "--label", "fixture",
+            stdin="Synthetic source moved to its exact destination; no other references.")
+        verified = run("run-verifier", "--accept-inherited-lint", str(self.target), "--",
+                       str(scripts / "park-verify.sh"), str(self.vault), str(log), "1",
+                       "--touched", str(self.target), "--touched", str(log))
+        self.assertIn("ACCEPTED inherited lint only", verified.stdout)
+        run("build", "--vault", str(self.vault), "--session-log", str(log), "--number", "1")
         root = self.config / ".session-state/preserved-fixture.park-review"
         manifest = json.loads((root / "review-brief-manifest.json").read_text())
         self.assertEqual([x["path"] for x in manifest["mechanical"]], [str(self.target)])
