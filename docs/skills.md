@@ -35,6 +35,7 @@ Standalone workflows can still have dependencies: research needs web access, and
 | [/start-project](../.claude/commands/start-project.md) | [$start-project](../codex/skills/start-project/SKILL.md) | Create a project note with an objective and next actions. |
 | [/set-project-status](../.claude/commands/set-project-status.md) | [$set-project-status](../codex/skills/set-project-status/SKILL.md) | Move a project between active, Cold and Backlog through Obsidian's link-healing move. |
 | [/complete-project](../.claude/commands/complete-project.md) | [$complete-project](../codex/skills/complete-project/SKILL.md) | Archive a completed, abandoned or superseded project and record the outcome. |
+| [/batch](../.claude/commands/batch.md) | [$batch](../codex/skills/batch/SKILL.md) | Clear a supplied engineering-ticket queue with file-isolated workers, parent integration and review before publication. |
 
 ## Reviews and maintenance
 
