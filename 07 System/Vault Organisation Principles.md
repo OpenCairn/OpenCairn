@@ -67,6 +67,8 @@ Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonom
 
 **Active project cap: 5** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
 
+**Hub review window: 14** — days after a root doc's `last_reviewed:` frontmatter date beyond which `/weekly-hygiene` flags the hub as due for a re-read. Tune here; skills resolve this line rather than carrying their own copy.
+
 **Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
 
 **Archive immutability is semantic, not byte-for-byte.** Never deliberately revise archived prose, decisions, formatting or timestamps. Automatic Obsidian link-target healing after a move is allowed because it preserves navigation rather than changing the historical record. If an old path is itself evidence, write it as plain text or code rather than as a navigational link.

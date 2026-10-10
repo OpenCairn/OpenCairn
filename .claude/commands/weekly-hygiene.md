@@ -33,6 +33,19 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For each root doc, check for `bucket:` in the frontmatter — list violations. Do not flag missing `## Current Objective` or `## Next Actions` headings.
    - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
    - Staleness candidates: flag explicitly completed state or action sections with all tasks ticked. Missing conventional sections or inactivity alone do not establish a decision. Report priority-based pause/resume/abandon choices to review; only confirmed factual completion filing belongs here.
+   - Hub review age: each root doc may carry `last_reviewed: YYYY-MM-DD` in its frontmatter, written only when a person has read the hub and confirmed its current-state section. Resolve the **hub review window** the same way as the cap (`rg -F '**Hub review window:'` over the same file and section; unreadable → state `window line unreadable — using default 14` and proceed on 14). For each root doc print `<doc>: last_reviewed <date>, N days ago` or `<doc>: last_reviewed absent`; flag absent or older than the window:
+
+     ```bash
+     W=<resolved window>; today=$(date +%F)
+     for f in "{VAULT}/03 Projects/"*.md; do
+       d=$(rg -m1 -oP '^last_reviewed:\s*\K\d{4}-\d{2}-\d{2}' "$f" || true); n=$(basename "$f" .md)
+       if [ -z "$d" ]; then echo "$n: last_reviewed absent — FLAG"
+       else age=$(( ( $(date -d "$today" +%s) - $(date -d "$d" +%s) ) / 86400 ))
+            [ "$age" -gt "$W" ] && v=FLAG || v=ok; echo "$n: last_reviewed $d, $age days ago — $v"; fi
+     done
+     ```
+
+     Pass is a line per root doc; a doc with no `FLAG` is current. The date comes from the key, never from mtime (`_shared-rules.md` §22). The check never writes the key — a stale hub is a prompt to re-read it; stamping it would record a review that did not happen.
 
    **Confirm with user:**
    - Structure violations: fix a missing `bucket:` frontmatter key in-session via `locked-edit.sh`, with the user's confirmation
