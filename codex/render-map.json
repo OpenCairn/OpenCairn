@@ -280,7 +280,7 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "8f6aca0d138ddf8d458fbfd8a5e0afe0c79f0141a5ca9ed214bf8d2f45474de7",
+      "source_sha256": "679c4d5325754a5233a8fe921ca63da456e73338d332a542db53d04f733f6ea9",
       "render_sha256": "b7fe7262038eac2bd703bba8b5475d09843b137febddcd806e13d36bdd1e6573"
     },
     "_shared-rules-content": {
