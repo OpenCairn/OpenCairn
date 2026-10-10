@@ -18,6 +18,7 @@ You are updating the user's OpenCairn commands and scripts from the upstream tem
 |----------|------|--------|
 | Commands | `.claude/commands/` (whole tree, including subdirectories) | Per-file review (accept/skip) |
 | Scripts | `.claude/scripts/` (whole tree, any extension) | Per-file review (accept/skip) |
+| Agents | `.claude/agents/` (subagent definitions) | Per-file review (accept/skip) |
 | Codex rendering | `codex/` (AGENTS.md + skills tree) | Per-file review (accept/skip); accepted skills offered to the resolved live Codex install (Step 6b) |
 | CLAUDE.md | `CLAUDE.md` | **Never touched** |
 | Vault content | `01-07 folders` | **Never touched** |
@@ -74,7 +75,7 @@ If `NO_COMMITS_YET`, abort and instruct: `git add -A && git commit -m "Baseline 
 
 ### Step 1b: Guard the staged surface
 
-Before fetching, enumerate every staged path with `git diff --cached --name-only`. If any staged path is outside `.claude/commands/`, `.claude/scripts/`, or `codex/`, abort: the updater must not combine another session's staged work with its own commit. If managed paths are staged, do not write or unstage anything. Remember the exact list as a possible interrupted update and continue through the read-only fetch, signature decision, and immutable-target resolution only; the resume check immediately after Step 3c decides whether it is safe to proceed.
+Before fetching, enumerate every staged path with `git diff --cached --name-only`. If any staged path is outside `.claude/commands/`, `.claude/scripts/`, `.claude/agents/`, or `codex/`, abort: the updater must not combine another session's staged work with its own commit. If managed paths are staged, do not write or unstage anything. Remember the exact list as a possible interrupted update and continue through the read-only fetch, signature decision, and immutable-target resolution only; the resume check immediately after Step 3c decides whether it is safe to proceed.
 
 ### Step 1c: Old-Format Vault Check
 
@@ -390,7 +391,7 @@ Compare the user's **actual files on disc** (not committed state) against the te
 
 ```bash
 # Compare working tree against template (catches uncommitted local changes too)
-git diff --stat $REF -- .claude/commands/ .claude/scripts/ codex/
+git diff --stat $REF -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/
 ```
 
 If no differences:
@@ -406,18 +407,18 @@ Categorise what changed by comparing the working tree against the template:
 
 ```bash
 # Files that differ between working tree and template
-git diff $REF --name-only -- .claude/commands/ .claude/scripts/ codex/
+git diff $REF --name-only -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/
 ```
 
 Detect files that exist locally but NOT in the template (may be deprecated or user-created), and files in the template but not locally (new commands/scripts). Run this as one block — `comm` needs `LC_ALL=C sort` on both sides, or it aborts with "not in sorted order" under a UTF-8 locale, and both inventories must cover the **whole tree** (subdirectories and any extension), not a top-level glob:
 ```bash
 # Local command/script files: tracked + untracked-but-not-ignored, across both trees
-LOCAL_FILES=$( { git ls-files -- .claude/commands/ .claude/scripts/ codex/;
-                 git ls-files --others --exclude-standard -- .claude/commands/ .claude/scripts/ codex/; } \
+LOCAL_FILES=$( { git ls-files -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/;
+                 git ls-files --others --exclude-standard -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/; } \
                | LC_ALL=C sort -u)
 
 # Template command/script files
-TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort)
+TEMPLATE_FILES=$(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/ | LC_ALL=C sort)
 
 # Files in local but not in template
 REMOVED_CANDIDATES=$(comm -23 <(echo "$LOCAL_FILES") <(echo "$TEMPLATE_FILES"))
@@ -468,8 +469,8 @@ First remove the archive-core unit from the per-file candidate list. If any of `
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \
-  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort) \
-  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ codex/ | LC_ALL=C sort)
+  <(git diff $REF --name-only -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/ | LC_ALL=C sort) \
+  <(git ls-tree -r --name-only $REF -- .claude/commands/ .claude/scripts/ .claude/agents/ codex/ | LC_ALL=C sort)
 ```
 (`LC_ALL=C` on both sides is required — `comm` aborts with "not in sorted order" against a UTF-8 collation.)
 
