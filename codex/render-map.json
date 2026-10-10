@@ -40,8 +40,8 @@
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "0b648f86aa9db54ccbbc9178eb36842e6551523d1ec7f71a5795ee566747c029",
-      "render_sha256": "0eefb027717e00c100efbfa0d8e116ebc7b893230623e4ceb64f407613475cef"
+      "source_sha256": "d59727425749496381f2d2c2784668878b07d7fd880e8b7101efb125539b5edc",
+      "render_sha256": "8510a6ad678809080e0bbab6ffe1f8fce9edb906940a49724ffc2002c385dd9b"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
@@ -202,8 +202,8 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "d82fb2b0f8ae5870eb8df07a6252f16fec8bf57848bf2d6b199dbc4c384f1358",
-      "render_sha256": "c148a51831887b0813dc1d5e6326bc6319bb97717859b190319e702982968d2b"
+      "source_sha256": "0487b21d45751beb411376ca322d0b7b53806a22ac9c5cc56c2dd053a6f16e8d",
+      "render_sha256": "d38c5ec78096fbe4152f12c25040a048c3ae9d12f64b30b2c5405a252f8a7a24"
     },
     "set-project-status": {
       "source": ".claude/commands/set-project-status.md",
@@ -250,7 +250,7 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "38ed58cb5ffc0c7c0116903c357509de5c6cd550711448374344f008e8074985",
+      "source_sha256": "2c1545afe67db2d10d52bc15239f60d9b7344e774ad294de3b6df4226214c3c9",
       "render_sha256": "41c6dce61223a3077846266d7c5164b6973b48f45ca9b1fb7af3693251f9552c"
     },
     "verify-provenance": {
@@ -280,8 +280,8 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "706dc5c093e3e5c55542783590a48cfb0480354c98572fb0f308ab79f6d589e0",
-      "render_sha256": "8e85ad68a310b7d1d6a844c4361134108c4e989219e50eb2cf03181e0c4301e0"
+      "source_sha256": "8f6aca0d138ddf8d458fbfd8a5e0afe0c79f0141a5ca9ed214bf8d2f45474de7",
+      "render_sha256": "b7fe7262038eac2bd703bba8b5475d09843b137febddcd806e13d36bdd1e6573"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
