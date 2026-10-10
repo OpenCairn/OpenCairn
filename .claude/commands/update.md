@@ -282,7 +282,7 @@ test -n "$TARGET" && git cat-file -e "$TARGET^{commit}"
 
 Record the resulting full commit ID. From Step 3d onward, every `$REF` shown below means that **literal immutable commit ID**, not the mutable branch or tag name. Use it for every tree listing, grep, diff, checkout, hash, commit message, and completion receipt. If the named branch advances during the update, this run remains bound to the reviewed commit.
 
-If Step 1b found staged managed paths, classify them now. Require the staged set to contain no path outside the three managed trees and require each staged path to be a regular file (never a symlink or other type). Then:
+If Step 1b found staged managed paths, classify them now. Require the staged set to contain no path outside the managed trees and require each staged path to be a regular file (never a symlink or other type). Then:
 
 - If both index and worktree bytes/modes for every staged path equal the immutable target, show the staged path list and offer to commit this interrupted accepted replacement. On approval, commit those already-staged paths as one update, then restart the updater from Step 0 so recovery and the vault gate run normally; on refusal, abort without changing the index.
 - If staged bytes differ from the immutable target, show `git diff --cached` for the exact paths and identify them as a possible accepted replacement from an earlier target. Only explicit approval may commit those staged bytes as-is. Require the worktree to equal the index first; if approved, commit and restart the updater from Step 0; if it differs or approval is declined, abort without checkout, restore, or unstage.
@@ -679,7 +679,7 @@ Do not restore files automatically from a historical `HEAD`: that can erase loca
 
 ## Guidelines
 
-- **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to the resolved Codex home (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch its `AGENTS.md`.
+- **Safe by design:** Only `.claude/commands/`, `.claude/scripts/`, `.claude/agents/`, and `codex/` are ever modified in the repo. All other files are outside the checkout path. Writes to the resolved Codex home (Step 6b) happen only for an existing install, per file, after showing the diff — and never touch its `AGENTS.md`.
 - **Per-file review:** Each changed existing file is shown with its diff before applying. Users can skip files they've customised locally. `--force` auto-accepts only true additions; it never bypasses review or the preimage compare-and-swap guard for an overwrite.
 - **Custom commands are preserved:** Only files that exist in the template are updated. User-created custom commands are never modified or deleted.
 - **Removed template files are flagged, not deleted:** If the template removes a command, `/update` warns you but won't auto-delete — because it can't distinguish "template file that was removed" from "your custom command that was never in the template." Review the warning and delete manually if appropriate.

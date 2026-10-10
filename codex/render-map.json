@@ -250,7 +250,7 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "2c1545afe67db2d10d52bc15239f60d9b7344e774ad294de3b6df4226214c3c9",
+      "source_sha256": "355698987e482510eb7f349fa3c01130bdc01e8912a1002f42d743800b324616",
       "render_sha256": "41c6dce61223a3077846266d7c5164b6973b48f45ca9b1fb7af3693251f9552c"
     },
     "verify-provenance": {
