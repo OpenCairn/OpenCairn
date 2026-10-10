@@ -91,7 +91,7 @@ class ForwardLinkProofTests(unittest.TestCase):
         self.assertIn('**Continued in:**', self.log.read_text())
         self.assertFalse(list(self.config.glob('.session-state/*forward-link-receipts/*.json')))
 
-    def test_both_fresh_consumers_accept_proof_and_refuse_changed_or_other_writes(self):
+    def test_fresh_consumer_accepts_proof_and_refuses_changed_or_other_writes(self):
         before = self.log.read_text()
         self.log.write_text(before.replace('Old prose.', 'Old prose.' + ' x' * 40000))
         receipt = self.produce()
@@ -108,16 +108,10 @@ class ForwardLinkProofTests(unittest.TestCase):
         self.target.write_text(self.target.read_text() + '\n## Session 3 - Third\n\n### Summary\nThird record.\n')
         subprocess.run(['bash', str(SCRIPT), '--continued-in', str(self.log), '1', '3', 'Third',
                         self.target.name], env=self.env, capture_output=True, text=True, check=True)
-        spec = importlib.util.spec_from_file_location('claude_prepare_fixture', repo / '.claude/scripts/park-prepare.py')
-        claude = importlib.util.module_from_spec(spec); spec.loader.exec_module(claude)
         spec = importlib.util.spec_from_file_location('codex_review_fixture', repo / 'codex/skills/park/scripts/park-review.py')
         codex = importlib.util.module_from_spec(spec); spec.loader.exec_module(codex)
         args = SimpleNamespace(vault=str(self.vault), session_log=str(self.target), number=2)
         with mock.patch.dict(os.environ, self.env):
-            with mock.patch('sys.stdout', io.StringIO()):
-                self.assertEqual(claude.prepare(args, {'propagation':'Checked nil.'}), 0)
-            packets = list((self.config / '.session-state/forward-fixture.park-prepare').glob('*/audit-inputs.md'))
-            self.assertIn('Mechanical forward-link insertion only', packets[0].read_text())
             _, root, _, _ = codex.state_paths('forward-fixture')
             codex.capture_record(root, kind='propagation', label='fixture', text='Checked nil.', source=None, provenance=None)
             codex.capture_record(root, kind='verifier', label='fixture', text='RESULT: PASS', source=None, provenance=None, returncode=0)
@@ -137,15 +131,9 @@ class ForwardLinkProofTests(unittest.TestCase):
             ordinary_log = self.target.read_text()
             self.target.write_text(ordinary_log.replace('### Files Created\nNone',
                                                        '### Files Created\n- `' + str(self.log) + '` - authored log'))
-            with self.assertRaisesRegex(ValueError, 'Explicit large'):
-                with mock.patch('sys.stdout', io.StringIO()):
-                    claude.prepare(args, {'propagation':'Checked nil.'})
             self.target.write_text(ordinary_log)
             self.log.write_text(self.log.read_text().replace('Old prose.', 'Later prose.'))
             self.assertIsNone(codex.forward_link_proof(self.vault, self.log, 'forward-fixture'))
-            with self.assertRaisesRegex(ValueError, 'Explicit large'):
-                with mock.patch('sys.stdout', io.StringIO()):
-                    claude.prepare(args, {'propagation':'Checked nil.'})
             with mock.patch('sys.stdout', io.StringIO()):
                 codex.cmd_build(build)
             manifest = json.loads((root / 'review-brief-manifest.json').read_text())

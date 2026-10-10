@@ -332,9 +332,7 @@ Add every propagation-touched file to the attribution list. Classify new locator
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the Step 2 inventory (including its non-ledger backstop), and the collected propagation/park-time edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
-**Batch the ready mechanical work:** after the reconciliation above, prefer `python3 "$PARK_REVIEW" prepare --vault "{VAULT}" --session-log "<session log>" --number N` with the JSON handoff described in [references/prepare.md](references/prepare.md). It batches supplied classifications/receipts, derives the complete deduplicated `--touched` list from the log, runs the receipt-wrapped verifier and builds Step 9's brief, with stage timings. It stops on FAIL, untriaged REVIEW or changed inputs. All preceding quality, propagation and routing gates still apply; this is not a quick-path shortcut.
-
-**Standalone verification** (when preparation is not ready to batch): run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
+**Verify:** run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean:
 
 ```bash
 python3 "$PARK_REVIEW" run-verifier -- \
@@ -361,7 +359,7 @@ Output: the script's `RESULT:` line plus what you fixed.
 
 Run the independent close-out audit, remediate confirmed findings, and **re-audit until a full pass finds no further findings**. Keep the delta-aware scope and read-only reviewer; the main session owns remediation. This does not invoke `$audit` or its panel. **Steps 10–11 and the Park completion message must wait for the final clean report and accepted audit receipt.** The Setup delegation-unavailable checkpoint is the explicit incomplete-bookkeeping exception; it never permits a Park completion claim.
 
-Use the brief and SHA-256 printed by a successful Step 8 `prepare` invocation when its inputs are unchanged. Otherwise generate the brief from the post-backfill session log, raw session ledger, locked-edit/classification receipts, propagation receipt, latest verifier receipt, evidence receipts and hash-matching prior audit receipts:
+Generate the brief from the post-backfill session log, raw session ledger, locked-edit/classification receipts, propagation receipt, latest verifier receipt, evidence receipts and hash-matching prior audit receipts:
 
 ```bash
 python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --number N
@@ -391,7 +389,7 @@ If recovery fails because the reviewer hits a model/context wall or the same-sea
 
 For each completed report, re-run `session-ledger.sh --read` and reconcile any row attributed to the reviewer against the read-only contract. An unexpected reviewer write is not cured by a clean final file: inspect the target for lost concurrent content, replay any warranted vault delta through `locked-edit.sh`, and add the path to attribution/backfill. Then sanity-check each finding in the live file.
 
-**Remediate and repeat:** the main seat fixes confirmed, attributable findings using the normal locked write mechanics, backfills newly touched paths, refreshes affected classification/evidence receipts, re-reads the changed portions and reruns Step 8. Obtain the updated brief from `prepare`, or rebuild it explicitly after standalone verification, then use `collaboration.followup_task` to send the same independent reviewer the new brief path and SHA-256, with instructions to verify its digest and run the full scoped checklist again. Collect and assess that report by the same contract. Repeat after every fix round; there is no one-round cap. An incomplete report or missing attestation also requires a follow-up before claiming clean.
+**Remediate and repeat:** the main seat fixes confirmed, attributable findings using the normal locked write mechanics, backfills newly touched paths, refreshes affected classification/evidence receipts, re-reads the changed portions and reruns Step 8. Rebuild the brief, then use `collaboration.followup_task` to send the same independent reviewer the new brief path and SHA-256, with instructions to verify its digest and run the full scoped checklist again. Collect and assess that report by the same contract. Repeat after every fix round; there is no one-round cap. An incomplete report or missing attestation also requires a follow-up before claiming clean.
 
 If a finding requires unavailable evidence, a user decision or action beyond the authorised scope, report the concrete blocker and retain it as an open loop; do not label the audit clean or Park complete. For a disputed finding, send the reviewer the counter-evidence; unresolved disagreement is a blocker, not grounds for silently accepting or endlessly repeating the finding.
 
