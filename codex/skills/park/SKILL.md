@@ -19,7 +19,18 @@ Capture a work session: proportional quality gate, session log, project-doc upda
 
 ### 0. Setup
 
-**Delegation-unavailable checkpoint (full path only).** Check the actual harness tools and governing session instructions before requiring a propagation or audit seat. Standing skill authorisation permits the required delegation unless an explicit higher-priority restriction forbids it. A busy slot, observation timeout or still-running seat is not unavailability: collect or continue that existing seat. If a required native operation (`collaboration.spawn_agent` for a new seat, or same-seat continuation for recovery) is absent, explicitly prohibited or returns a terminal unsupported error, retain the exact cause. Do not inline the independent audit, invent a clean report or change models.
+**Resolve native delegation by capability (full path only).** Inspect the available tools and their schemas. Tool names below describe operations, not a required namespace: use an equivalent native interface without asking for additional permission. This preserves the review protocol and is not an alternative completion policy.
+
+| Operation | `collaboration` interface | `multi_agent_v1` interface |
+|---|---|---|
+| Fresh reviewer | `spawn_agent` with `fork_turns: "none"` | `spawn_agent` with `fork_context: false` |
+| Collect completion/report | `wait_agent` | `wait_agent` using the returned agent ID |
+| Continue the same seat | `followup_task` | `send_input` to that agent ID; `resume_agent` first only if closed |
+| Interrupt for report-only recovery | Supported interruption/continuation operation | `send_input` with `interrupt: true` |
+
+Use the exact exposed names and arguments; do not invent a missing alias or pass another interface's parameters. Preserve fresh context, the read-only reviewer contract, inherited model/reasoning effort, same-seat continuation and an authoritative completion result. Retain the returned agent handle for later calls. A missing agent-listing tool or caller-supplied task-name field does not block an interface that returns unique agent IDs. Apply this mapping to every despatch, collection and follow-up below.
+
+**Delegation-unavailable checkpoint (full path only).** Standing skill authorisation permits the required delegation unless an explicit higher-priority restriction forbids it. Before declaring unavailability, identify the required operation, the available native tools checked and the capability or constraint they cannot satisfy. A differently named tool, busy slot, observation timeout or still-running seat is not unavailability: adapt the call, collect or continue the existing seat. Use this checkpoint only when the required operation is unavailable across the exposed native interfaces, explicitly prohibited or returns a terminal unsupported error with no supported equivalent; retain that exact cause. Do not inline the independent audit, invent a clean report or change models.
 
 Use Steps 2(a–c) and 3 to persist the attributable inventory, existing work product and session narrative. Before Step 3, perform Step 4c’s proportional quality inspection and §19 SOURCE check on that work; this checkpoint waives only Step 4b’s delegation-before-quality ordering. Record any unfinished quality/propagation/routing gates and the actual delegation reason in Pickup Context. If the failure happens later, reconcile the work already landed into that same assigned entry. Defer new structural/routing work and Steps 2(d), 4–9 that have not run. This explicit checkpoint branch permits only Step 10's monitor of the work actually performed, Step 11's transcript export and measurement close-out with outcome `blocked`; their outputs do not discharge review. When no audit began, report `✗ Audit: not run (delegation unavailable — <verified reason>)`; when an existing audit cannot finish, report `✗ Audit: not clean — <verified reason>`. Report `✗ Park: incomplete` and the actual saved log/export results. Offer to resume the saved checkpoint in a harness with independent review. An alternative completion policy requires explicit user authorisation; do not treat this branch as Park completion or use Step 12's success message.
 
@@ -367,7 +378,7 @@ python3 "$PARK_REVIEW" build --vault "{VAULT}" --session-log "<session log>" --n
 
 The command prints the §16 evidence count and review-mode counts, writes `review-brief.md`, and uses immutable digest-addressed source/review copies under this session's `.session-state` directory. It full-reads only bounded semantic groups; large semantic and local reference artefacts carry hash-bound metadata plus declared inspection targets. It fails closed if a propagation/verifier receipt is absent, an artefact receipt is stale/corrupt, or a mechanical receipt no longer matches the live file. Give the filesystem-capable reviewer the generated brief's absolute path and printed SHA-256, instructing it to read the file and verify the digest before reviewing. Do not reconstruct the brief in the spawn message.
 
-Despatch exactly one reviewer with this shape (replace `yyyymmdd` and `n` with the current date and assigned session number; both substitutions use digits only):
+Despatch exactly one reviewer through the interface resolved in Step 0. These are alternative examples, not two seats (replace `yyyymmdd` and `n` with the current date and assigned session number; both substitutions use digits only):
 
 ```text
 collaboration.spawn_agent({
@@ -377,9 +388,18 @@ collaboration.spawn_agent({
 })
 ```
 
-Resolve the task name against `collaboration.list_agents` before spawning. On a collision, append `_addendum_1` and increment the suffix until unused; if the spawn itself reports a collision, recompute and retry. A failed spawn creates no reviewer, so this still yields exactly one fresh seat. Carry the resolved task name into collection and the audit receipt.
+For an exposed `multi_agent_v1__spawn_agent` tool:
 
-Omit both `model` and `reasoning_effort`: the reviewer must inherit the active park seat's model and reasoning effort exactly. Do not resolve, copy or hard-code their current names or values; omission keeps the match intact when the user changes either setting. `fork_turns: "none"` keeps the context fresh and does not change that inheritance. The propagation seat's anti-downgrade clause in Step 6 is unaffected.
+```text
+multi_agent_v1__spawn_agent({
+  fork_context: false,
+  message: "<brief absolute path + SHA-256 + read-and-verify instruction + read-only contract>"
+})
+```
+
+If the interface accepts task names and exposes an agent list, check `park_audit_yyyymmdd_n` before spawning; on a collision, append `_addendum_1` and increment until unused. If only the spawn reports a name collision, recompute and retry. For an ID-based interface, use its returned unique agent ID instead; no listing or task-name parameter is needed. A failed spawn creates no reviewer, so this still yields exactly one fresh seat. Carry the actual task name or returned agent ID into collection, same-seat continuation and the audit receipt.
+
+Omit both `model` and `reasoning_effort`: the reviewer must inherit the active park seat's model and reasoning effort exactly. Do not resolve, copy or hard-code their current names or values; omission keeps the match intact when the user changes either setting. Use the selected interface's fresh-context argument (`fork_turns: "none"` or `fork_context: false`); it does not change that inheritance. The propagation seat's anti-downgrade clause in Step 6 is unaffected.
 
 The generated brief is delta-aware: bounded semantic files are full-read once per pass from immutable review copies; large semantic and local reference artefacts are checked only at their declared targets after the source hash and any review-copy hash are verified; mechanical-only files use exact locked-edit receipts and changed spans; files covered by an earlier clean audit receipt are not reread while their SHA-256 is unchanged. Complete PDF extraction is an index, never a whole-book coverage claim. Attestations bind full-read snapshots to original paths. The brief embeds the Layers 1–5 checklist for each pass, §16 evidence, §23 attestation table, strict read-only scope and compact report contract. These are generated invariants, not fields to retype.
 
@@ -393,7 +413,7 @@ For each completed report, re-run `session-ledger.sh --read` and reconcile any r
 
 If a finding requires unavailable evidence, a user decision or action beyond the authorised scope, report the concrete blocker and retain it as an open loop; do not label the audit clean or Park complete. For a disputed finding, send the reviewer the counter-evidence; unresolved disagreement is a blocker, not grounds for silently accepting or endlessly repeating the finding.
 
-On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "<resolved task name>" --from-brief`. The helper refuses a receipt unless the report says clean and attests every snapshot SHA-256 against its original path. It then checks the live originals: unchanged files remain eligible for later audit reuse; a changed file is accepted only when post-snapshot locked-edit receipts from other sessions form a complete hash chain and every session-owned locator remains intact. Traceable disjoint edits by another session therefore do not invalidate this park, but that file's snapshot receipt is not reused as a clean audit of its newer live bytes. A post-snapshot edit by this session requires a rebuilt brief and new review; an untraceable change or missing owned locator fails closed as possible overlap. The helper persists `pending`, completes its final live-byte check, then atomically promotes the receipt to `clean`, so interruption cannot strand a reusable receipt before finalisation. Do not create a clean receipt after findings/remediation without a new independent full read.
+On a clean report, pipe it into `python3 "$PARK_REVIEW" record-audit --reviewer "<resolved task name or agent ID>" --from-brief`. The helper refuses a receipt unless the report says clean and attests every snapshot SHA-256 against its original path. It then checks the live originals: unchanged files remain eligible for later audit reuse; a changed file is accepted only when post-snapshot locked-edit receipts from other sessions form a complete hash chain and every session-owned locator remains intact. Traceable disjoint edits by another session therefore do not invalidate this park, but that file's snapshot receipt is not reused as a clean audit of its newer live bytes. A post-snapshot edit by this session requires a rebuilt brief and new review; an untraceable change or missing owned locator fails closed as possible overlap. The helper persists `pending`, completes its final live-byte check, then atomically promotes the receipt to `clean`, so interruption cannot strand a reusable receipt before finalisation. Do not create a clean receipt after findings/remediation without a new independent full read.
 
 Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited clean — see [paths]`. If blocked: `✗ Audit: not clean — [blocker]`; do not proceed to the completion message.
 
