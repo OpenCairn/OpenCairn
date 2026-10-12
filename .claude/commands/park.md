@@ -102,6 +102,8 @@ Quick parked.
 
 (b) Execute **Coverage** in the [shared close-out protocol](_closeout.md). Inspect and run its SOURCE check before continuing.
 
+**Authored-check gate:** before accepting a session-authored how-to or saving a future verification step, require the command (or concrete inspection action), the observation that means pass, and the observation that means fail. If the same output could occur under both hypotheses, revise the check. Apply this to existing session work here and to later Park writes before saving; unresolved criteria stay explicitly unresolved, never invented.
+
 (c) Retain raw command evidence per that section.
 
 (d) **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
@@ -111,6 +113,8 @@ Quick parked.
 Output: `✓ Quality check: N files checked, no issues`, `🔧 Quality check: fixed M issues — [file: fix]`, or — when (a)'s checked inventory is empty — `✓ Quality check: no attributed files (writes deferred to Steps 3–7)`. The empty case is a result, not a skip: planning and research sessions can legitimately make their first writes during Park, and the later writes still pass their step contracts, Step 8 verification, and Step 9 audit.
 
 ### 3. Write the session log
+
+Apply Step 2(b)’s authored-check gate to Next Steps and Pickup Context, including merge-continuation edits.
 
 **Metadata:** topic (descriptive weeks later — "Wezterm config fix", not "Terminal stuff"); project link per §2 (shipped one-shot work → area hub) and §3. Display: `Session: [Topic] | Project: [[03 Projects/Name]] (or "None")`.
 
@@ -214,7 +218,7 @@ Output: `✓ Reference graph: N files updated for [identifier]` (+ file list). T
 
 ### 7. Route open loops
 
-Route every open loop to exactly one canonical target — no per-item prompting.
+Route every open loop to exactly one canonical target — no per-item prompting. Apply Step 2(b)’s authored-check gate before saving routed checks, including Tickler and This Week items; link to an existing canonical procedure when it already supplies the criteria.
 
 **Already in This Week.md:** keep the existing task there; update any changed scope in place. Do not recapture or offload it through the routing rules below. Shared §9 owns carry-forward.
 
