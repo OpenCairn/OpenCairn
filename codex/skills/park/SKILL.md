@@ -114,11 +114,15 @@ Quick parked.
 
 (b) Execute **Coverage** in the [shared close-out protocol](../_closeout.md). Classify now; perform its quality read at Step 4c after the propagation despatch.
 
+**Authored-check gate:** before accepting a session-authored how-to or saving a future verification step, require the command (or concrete inspection action), the observation that means pass, and the observation that means fail. If the same output could occur under both hypotheses, revise the check. Apply this to existing session work here and to later Park writes before saving; unresolved criteria stay explicitly unresolved, never invented.
+
 (c) Apply its **Earlier audit reuse** rule.
 
 (d) **Pre-log propagation pass:** Step 3 has not written the log yet, so stale living content is reconciled here in editing mode rather than recalled later in record-keeping mode. Build the initial Step 6 enumeration now: every `old → new` pair plus, for each named-entity claim, the entity's canonical identifiers. Run each search yourself in Step 6's exact shape (working directory `{VAULT}`, one Step 6 live-text search per identifier with Step 6's exclusion globs), reconcile every stale living hit per §12 through `locked-edit.sh`, and report `Pre-log propagation: I identifiers, H hits, U updated`. For a substantive reframe (scope, timeline, audience, constraint, underlying premise), also list the affected project's sibling artefacts (files in its folder, files its hub links, live planning lines that reference it) and read each one's framing for a premise the reframe invalidated: framing only, not the Step 4c read; report `Sibling framing: S reviewed, U updated`. This is the initial enumeration Step 4b despatches; the seat's sweep and Step 8's final delta remain the backstop, not the primary catch. **New-entity check** (same pass, the complementary failure class: duplication rather than staleness): list every proper noun the session introduced as a new vault concept (person, project, organisation, product, venue, event, place) and run one `rg --hidden --no-ignore -F --type md -i -g '!**/.git/**' -- '<name>' .` call per name from `{VAULT}` across the whole vault, `06 Archive/` included, since a prior mention under another framing is exactly what this catches. Name each existing home found and merge or cross-link rather than leaving a parallel entry. Report `New entities: E searched` with the hit count per name, zeros included.
 
 ### 3. Write the session log
+
+Apply Step 2(b)’s authored-check gate to Next Steps and Pickup Context, including merge-continuation edits.
 
 **Metadata:** topic (descriptive weeks later — "Wezterm config fix", not "Terminal stuff"); project link per §2 (shipped one-shot work → area hub) and §3. Display: `Session: [Topic] | Project: [[03 Projects/Name]] (or "None")`.
 
@@ -224,7 +228,7 @@ Output: `✓ Reference graph: N files updated for [identifier]` (+ file list). T
 
 ### 7. Route open loops
 
-Route every open loop to exactly one canonical target — no per-item prompting.
+Route every open loop to exactly one canonical target — no per-item prompting. Apply Step 2(b)’s authored-check gate before saving routed checks, including Tickler and This Week items; link to an existing canonical procedure when it already supplies the criteria.
 
 **Already in This Week.md:** keep the existing task there; update any changed scope in place. Do not recapture or offload it through the routing rules below. Shared §9 owns carry-forward.
 
