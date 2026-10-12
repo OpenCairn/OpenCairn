@@ -466,6 +466,8 @@ First remove the archive-core unit from the per-file candidate list. If any of `
 
 **Shared-rule dependency unit:** when the selected ref contains `_shared-rules-planning.md`, treat `_shared-rules.md` and its planning, reviewer and content siblings as one accepted-or-skipped set in each harness tree. Require every member at the selected ref. Review existing differences together; `--force` does not bypass that review. Copy accepted supplements before core. Before applying a dependent command/skill, verify that every shared-rule file it references will exist in the resulting installation; if its required set was skipped and is absent, hold that consumer and report the dependency. Preserve unrelated accepted files. Older refs without the split retain the ordinary per-file path.
 
+**Close-out dependency:** if an accepted Park or Goodnight references `_closeout.md`, include the same target revision’s support file in that harness’s accepted set and install it before the consumer (both repository and Step 6b live copies). Codex consumers also require `park/scripts/park-review.py` and its existing shared helper dependencies. If a required file is absent or its conflicting update is declined, hold the dependent consumer; an installed `_shared-rules.md` marker does not satisfy this dependency.
+
 Get the list of files that differ, **intersected with what the template actually contains** — a bare `git diff --name-only` also lists committed local-only files, which then hit an impossible `git checkout` (no such path in the template):
 ```bash
 comm -12 \

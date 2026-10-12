@@ -54,6 +54,10 @@ python3 .github/scripts/validate_codex_renderings.py --check
 
 Codex's `update` and `migrate` adapters execute `{VAULT}/.claude/commands/update.md` and `{VAULT}/.claude/commands/migrate.md`. When those are separate from the home-directory command copies, include the actual runtime paths in deployment review and verification; checking only `~/.claude/commands/` does not verify the adapters' inputs. Reconcile unrelated local differences before replacing a runtime copy.
 
+### Shared close-out dependency
+
+Park and Goodnight read `_closeout.md` from their own harness support directory. Review and install the support file before either consumer, including vault-local Claude command copies. Codex Goodnight also uses the existing `park/scripts/park-review.py`; preserve that resource when installing the consumers. The protocol owns inventory, coverage, verification and the read-only review/fix loop; caller files own sequencing and day-specific work. Do not restore the retired batched preparation helper.
+
 ### No Personal Examples
 
 All examples in template commands must be generic (e.g. "Workshop (3h)", "Dinner with Sam"). Never use contributor-specific details (project names, people, locations) that other users would need to change.
