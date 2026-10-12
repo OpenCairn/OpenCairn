@@ -196,8 +196,8 @@ if [ "$MODE" = "--move" ]; then
 
     _move_unlock_pair() {
         if [ "${_MOVE_LOCK_MODE:-}" = "flock" ]; then
-            exec 8>&- 2>/dev/null || true
-            exec 9>&- 2>/dev/null || true
+            { exec 8>&-; } 2>/dev/null || true
+            { exec 9>&-; } 2>/dev/null || true
         elif [ "${_MOVE_LOCK_MODE:-}" = "mkdir" ]; then
             [ -z "${_MOVE_LOCK_DIR_2:-}" ] || rmdir "$_MOVE_LOCK_DIR_2" 2>/dev/null || true
             [ -z "${_MOVE_LOCK_DIR_1:-}" ] || rmdir "$_MOVE_LOCK_DIR_1" 2>/dev/null || true
@@ -1309,7 +1309,7 @@ _LE_SID="$(_session_id)"
 if [ "$RC" -eq 0 ] && [ -n "$_LE_SID" ]; then
     _LEDGER_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state"
     _LEDGER_PATH="$TARGET"
-    case "$_LEDGER_PATH" in /*) ;; *) _LEDGER_PATH="$PWD/$_LEDGER_PATH" ;; esac
+    case "$_LEDGER_PATH" in /*|[A-Za-z]:[\\/]*) ;; *) _LEDGER_PATH="$PWD/$_LEDGER_PATH" ;; esac
     # Never ledger the state files themselves (mirrors the hook's guard).
     case "$_LEDGER_PATH" in
         "$_LEDGER_DIR"/*) ;;

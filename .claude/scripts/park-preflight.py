@@ -57,7 +57,10 @@ def run(argv, cwd, env, timeout):
         except subprocess.TimeoutExpired:
             # Kill the command group too: shell children must not outlive the bound.
             try:
-                os.killpg(process.pid, signal.SIGKILL)
+                if hasattr(os, 'killpg'):
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
             except ProcessLookupError:
                 pass
             out, err = process.communicate()

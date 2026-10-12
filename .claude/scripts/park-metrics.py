@@ -7,7 +7,10 @@ See park-metrics-guide.md for boundaries and interpretation.
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Windows: no fcntl; metrics writes run unlocked there
+    fcntl = None
 import hashlib
 import json
 import math
@@ -207,7 +210,8 @@ def read(path, fallback):
 def locked(state):
     state.mkdir(parents=True, exist_ok=True)
     with (state / '.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        if fcntl:
+            fcntl.flock(lock, fcntl.LOCK_EX)
         yield
 
 
