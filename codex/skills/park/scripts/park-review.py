@@ -694,12 +694,12 @@ def cmd_classify(args: argparse.Namespace) -> int:
     return 0
 
 
-def verify_move_heal(path: Path, vault: Path, proof: dict) -> dict:
+def verify_move_heal(path: Path, vault: Path, proof: dict, *, check_current: bool = True) -> dict:
     failures: list[str] = []
     if not path.is_file():
         return {"ok": False, "failures": [f"file missing: {path}"]}
     current_hash = sha256(path)
-    if current_hash != proof.get("post_sha256"):
+    if check_current and current_hash != proof.get("post_sha256"):
         failures.append("current file hash does not match the move-healing receipt")
     if proof.get("diff_truncated"):
         failures.append("move-healing receipt has a truncated diff")
@@ -746,6 +746,35 @@ def verify_move_heal(path: Path, vault: Path, proof: dict) -> dict:
             }
         ],
     }
+
+
+def verify_move_heal_chain(path: Path, vault: Path, proof: dict) -> dict:
+    """Verify every immutable producer receipt and the final bytes of a heal chain."""
+    if not path.is_file():
+        return {"ok": False, "failures": [f"file missing: {path}"]}
+    items = proof.get("heals", [])
+    if not items:
+        return {"ok": False, "failures": ["empty move-healing chain"]}
+    results = []
+    previous = None
+    failures = []
+    for item in items:
+        receipt = Path(item["receipt_path"])
+        if not receipt.is_file() or sha256(receipt) != item.get("receipt_sha256"):
+            failures.append(f"move receipt changed or missing: {receipt}")
+        if previous is not None and previous != item.get("pre_sha256"):
+            failures.append("move-healing receipt hash chain is discontinuous")
+        previous = item.get("post_sha256")
+        result = verify_move_heal(path, vault, item, check_current=False)
+        failures.extend(result["failures"])
+        results.append(result)
+    if path.is_file() and sha256(path) != previous:
+        failures.append("current file hash does not match the final move-healing receipt")
+    last = results[-1]
+    return {**last, "ok": not failures, "failures": failures,
+            "replacements": [x for r in results for x in r["replacements"]],
+            "targets": [x for r in results for x in r["targets"]],
+            "receipts": [x for r in results for x in r["receipts"]]}
 
 
 def verify_preserved_move(path: Path, vault: Path, proof: dict, receipt_dir: Path) -> dict:
@@ -846,61 +875,89 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
     moves = 0
     unverified = 0
     incomplete: list[str] = []
-    for move_path in sorted(receipt_dir.glob("*.json")):
+    grouped: dict[str, list[dict]] = {}
+    incomplete_moves = []
+    verified_by_receipt: dict[str, int] = {}
+    receipts = []
+    relocations = {}
+    for move_path in receipt_dir.glob("*.json"):
         receipt = load_json(move_path, None)
         if not isinstance(receipt, dict) or receipt.get("schema") != 2:
             die(f"invalid project-move receipt: {move_path}")
         if canonical_path(str(receipt.get("vault", ""))) != vault:
             die(f"project-move receipt belongs to another vault: {move_path}")
+        receipts.append((receipt.get("captured_at", ""), str(move_path), receipt))
+        if receipt.get("source"):
+            relocations[str(canonical_path(receipt["source"], vault))] = str(
+                canonical_path(receipt["destination"], vault))
+    for _, receipt_name, receipt in sorted(receipts):
+        move_path = Path(receipt_name)
         destination = canonical_path(str(receipt.get("destination", "")), vault)
         if not destination.is_file():
             die(f"project-move destination is missing: {destination}")
         moves += 1
         unverified += len(receipt.get("unverified_files", []))
-        imported_before = imported
         for item in receipt.get("affected_files", []):
             if not isinstance(item, dict):
                 die(f"malformed affected-file row: {move_path}")
-            path = canonical_path(str(item.get("path", "")), vault)
-            proof = {
-                **item,
-                "receipt_path": str(move_path),
+            path = str(canonical_path(str(item.get("path", "")), vault))
+            seen = set()
+            while path in relocations:
+                if path in seen:
+                    die(f"cyclic move paths: {path}")
+                seen.add(path)
+                path = relocations[path]
+            grouped.setdefault(path, []).append({
+                **item, "receipt_path": str(move_path),
+                "receipt_sha256": sha256(move_path),
                 "destination": str(destination),
                 "source_locator": receipt.get("source_locator"),
                 "destination_locator": receipt.get("destination_locator"),
-            }
-            result = verify_move_heal(path, vault, proof)
-            if not result["ok"]:
-                die(
-                    f"move-healing proof failed for {path}: "
-                    + "; ".join(result["failures"])
-                )
-            manifest[str(path)] = {
-                "mode": "mechanical",
-                "mechanical_kind": "obsidian-link-heal",
-                "classified_at": now(),
-                "proof": proof,
-                "verification": result,
-            }
-            imported += 1
+            })
         if receipt.get("complete") is False:
-            # The move landed but failed its postcheck. Each heal imported above
-            # was verified on its own; the move as a whole was not.
             postcheck = receipt.get("postcheck")
             reason = postcheck.get("reason") if isinstance(postcheck, dict) else None
-            incomplete.append(
-                f"MOVE_INCOMPLETE {move_path}: the move failed its postcheck "
-                f"({reason or 'no reason recorded'}); "
-                f"{imported - imported_before} verified link-healed file(s) imported, "
-                f"{len(receipt.get('unverified_files', []))} file(s) left for semantic review"
-            )
+            incomplete_moves.append((move_path, reason, len(receipt.get("unverified_files", []))))
+
+    for path_name, heals in grouped.items():
+        path = Path(path_name)
+        proof = {"heals": heals} if len(heals) > 1 else heals[0]
+        result = (verify_move_heal_chain(path, vault, proof) if len(heals) > 1
+                  else verify_move_heal(path, vault, proof))
+        current_only = {"current file hash does not match the move-healing receipt",
+                        "current file hash does not match the final move-healing receipt"}
+        if not result["ok"]:
+            if set(result["failures"]) <= current_only:
+                # Later edits require ordinary review, never a forged mechanical proof.
+                if manifest.get(path_name, {}).get("mode") == "mechanical":
+                    manifest.pop(path_name)
+                unverified += 1
+                incomplete.append(f"MOVE_HEAL_REVIEW {path}: later edits require semantic review")
+                continue
+            die(f"move-healing proof failed for {path}: " + "; ".join(result["failures"]))
+        manifest[path_name] = {
+            "mode": "mechanical",
+            "mechanical_kind": "obsidian-link-heal-chain" if len(heals) > 1 else "obsidian-link-heal",
+            "classified_at": now(), "proof": proof, "verification": result,
+        }
+        imported += len(heals)
+        for heal in heals:
+            key = heal["receipt_path"]
+            verified_by_receipt[key] = verified_by_receipt.get(key, 0) + 1
+    for move_path, reason, count in incomplete_moves:
+        incomplete.append(
+            f"MOVE_INCOMPLETE {move_path}: the move failed its postcheck "
+            f"({reason or 'no reason recorded'}); "
+            f"{verified_by_receipt.get(str(move_path), 0)} verified link-healed file(s) imported, "
+            f"{count} file(s) left for semantic review"
+        )
     atomic_json(manifest_path, manifest)
     for line in incomplete:
         print(line)
     print(
         f"MOVE_HEALS imported {moves} move(s), {imported} link-healed file(s), "
         f"{unverified} file(s) left for semantic review"
-        + (f", {len(incomplete)} incomplete move(s)" if incomplete else "")
+        + (f", {len(incomplete_moves)} incomplete move(s)" if incomplete_moves else "")
     )
     return 0
 
@@ -1619,6 +1676,8 @@ def cmd_build(args: argparse.Namespace) -> int:
                 verification = verify_move_heal(
                     path, vault, classification.get("proof", {})
                 )
+            elif classification.get("mechanical_kind") == "obsidian-link-heal-chain":
+                verification = verify_move_heal_chain(path, vault, classification.get("proof", {}))
             elif classification.get("mechanical_kind") == "native-move-preserved":
                 verification = verify_preserved_move(
                     path, vault, classification.get("proof", {}),

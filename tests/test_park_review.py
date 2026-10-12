@@ -1525,6 +1525,79 @@ class IncompleteMoveReceiptTests(unittest.TestCase):
             "0 file(s) left for semantic review",
         ])
 
+    def chained_fixture(self):
+        first = self.write_receipt("alpha", complete=True)
+        second = self.write_receipt("beta", complete=True)
+        a = json.loads(first.read_text())
+        b = json.loads(second.read_text())
+        healed = self.vault / "notes/alpha-healed.md"
+        a["captured_at"] = "2026-01-01T01:00:00Z"
+        a["affected_files"][0]["pre_sha256"] = "0" * 64
+        b["captured_at"] = "2026-01-01T02:00:00Z"
+        b["affected_files"][0]["path"] = "notes/alpha-healed.md"
+        b["affected_files"][0]["pre_sha256"] = a["affected_files"][0]["post_sha256"]
+        healed.write_text("[[alpha-moved]] [[beta-moved]]\n")
+        b["affected_files"][0]["post_sha256"] = park_review.sha256(healed)
+        first.write_text(json.dumps(a))
+        second.write_text(json.dumps(b))
+        return healed, first, second
+
+    def test_repeated_heals_verify_full_chain_and_reject_receipt_tampering(self):
+        healed, first, second = self.chained_fixture()
+        self.assertEqual(self.run_import()[0], 0)
+        entry = self.manifest()[str(healed)]
+        self.assertEqual(entry["mechanical_kind"], "obsidian-link-heal-chain")
+        self.assertTrue(park_review.verify_move_heal_chain(healed, self.vault, entry["proof"])["ok"])
+        first.write_text(first.read_text() + " ")
+        self.assertFalse(park_review.verify_move_heal_chain(healed, self.vault, entry["proof"])["ok"])
+
+    def test_later_edit_remains_for_semantic_review(self):
+        healed, _, _ = self.chained_fixture()
+        healed.write_text(healed.read_text() + "Later prose.\n")
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertNotIn(str(healed), self.manifest())
+        self.assertTrue(any("MOVE_HEAL_REVIEW" in line for line in lines))
+
+    def test_discontinuous_chain_fails_closed(self):
+        _, _, second = self.chained_fixture()
+        data = json.loads(second.read_text())
+        data["affected_files"][0]["pre_sha256"] = "f" * 64
+        second.write_text(json.dumps(data))
+        with self.assertRaisesRegex(SystemExit, "discontinuous"):
+            self.run_import()
+
+    def test_healed_file_moved_later_is_checked_at_its_destination(self):
+        healed, _, second = self.chained_fixture()
+        destination = self.vault / "archived.md"
+        healed.rename(destination)
+        data = json.loads(second.read_text())
+        data["source"] = str(healed)
+        data["destination"] = str(destination)
+        second.write_text(json.dumps(data))
+        self.assertEqual(self.run_import()[0], 0)
+        self.assertIn(str(destination), self.manifest())
+        self.assertNotIn(str(healed), self.manifest())
+
+    def test_missing_chain_target_returns_verification_failure(self):
+        healed, _, _ = self.chained_fixture()
+        self.run_import()
+        proof = self.manifest()[str(healed)]["proof"]
+        healed.unlink()
+        result = park_review.verify_move_heal_chain(healed, self.vault, proof)
+        self.assertFalse(result["ok"])
+        self.assertIn("file missing", result["failures"][0])
+
+    def test_incomplete_move_does_not_claim_later_edited_file_was_imported(self):
+        healed, _, second = self.chained_fixture()
+        data = json.loads(second.read_text())
+        data["complete"] = False
+        second.write_text(json.dumps(data))
+        healed.write_text(healed.read_text() + "Other writer.\n")
+        _, lines = self.run_import()
+        incomplete = next(line for line in lines if line.startswith("MOVE_INCOMPLETE"))
+        self.assertIn("0 verified link-healed file(s) imported", incomplete)
+
 
 class RemoteFilesRowTests(unittest.TestCase):
     def test_remote_row_requires_exact_nonlocal_classification(self) -> None:
