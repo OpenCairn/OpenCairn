@@ -45,6 +45,17 @@ def source(path):
         return {'path': str(path), 'state': 'error', 'sha256': None, 'error': str(exc)}
 
 
+def bash_executable() -> str:
+    """Bash for helper scripts; on Windows prefer Git Bash over System32's WSL launcher."""
+    if os.name == 'nt':
+        for root in (os.environ.get('PROGRAMFILES'), os.environ.get('PROGRAMFILES(X86)'),
+                     os.environ.get('LOCALAPPDATA')):
+            for suffix in ('Git/bin/bash.exe', 'Programs/Git/bin/bash.exe'):
+                if root and (Path(root) / suffix).is_file():
+                    return str(Path(root) / suffix)
+    return 'bash'
+
+
 def run(argv, cwd, env, timeout):
     started = time.perf_counter()
     status, code, out, err = 'command_error', None, b'', b''
@@ -90,7 +101,7 @@ def bundle(cwd, env, sid, provenance, timeout):
     configured = env.get('VAULT_PATH')
     resolver = Path(configured) / '.claude/scripts/resolve-vault.sh' if configured else None
     before = source(resolver)
-    receipt = run(['bash', str(resolver)], cwd, env, timeout) if resolver else None
+    receipt = run([bash_executable(), str(resolver)], cwd, env, timeout) if resolver else None
     after = source(resolver)
     result['vault'] = {'state': 'unknown', 'path': None, 'source': after, 'receipt': receipt}
     result['task_candidates'] = []
@@ -108,7 +119,7 @@ def bundle(cwd, env, sid, provenance, timeout):
     config = Path(env.get('CLAUDE_CONFIG_DIR') or str(Path.home() / '.claude'))
     ledger_path = config / '.session-state' / f'{sid}.tsv' if sid else None
     before = source(ledger_path)
-    receipt = run(['bash', str(scripts / 'session-ledger.sh'), '--read'], cwd, env, timeout)
+    receipt = run([bash_executable(), str(scripts / 'session-ledger.sh'), '--read'], cwd, env, timeout)
     after = source(ledger_path)
     ledger_state = 'error'
     if not sid:

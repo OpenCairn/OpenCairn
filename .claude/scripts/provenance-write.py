@@ -11,6 +11,7 @@ import argparse
 from datetime import date, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -158,14 +159,26 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
     if additions:
         # The wrapper guarantees the single newline boundary; prepend no blank.
         payload = ''.join(additions)
-        subprocess.run(['bash', str(SCRIPTS / 'locked-edit.sh'), str(log), '--append'],
-                       input=payload, text=True, encoding='utf-8', check=True, stdout=sys.stderr)
+        # Bytes keep the payload's LF endings; Windows text mode would send CRLF.
+        subprocess.run([bash_executable(), str(SCRIPTS / 'locked-edit.sh'), str(log), '--append'],
+                       input=payload.encode('utf-8'), check=True, stdout=sys.stderr)
     return {'file': rel, 'hash': value, 'status': status, 'snapshot': str(snapshot),
             'proof': str(proof) if proof else None, 'supersedes': supersedes}
 
 
+def bash_executable() -> str:
+    """Bash for helper scripts; on Windows prefer Git Bash over System32's WSL launcher."""
+    if os.name == 'nt':
+        for root in (os.environ.get('PROGRAMFILES'), os.environ.get('PROGRAMFILES(X86)'),
+                     os.environ.get('LOCALAPPDATA')):
+            for suffix in ('Git/bin/bash.exe', 'Programs/Git/bin/bash.exe'):
+                if root and (Path(root) / suffix).is_file():
+                    return str(Path(root) / suffix)
+    return 'bash'
+
+
 def ingress(vault: Path, source: Path, target: Path) -> None:
-    result = subprocess.run(['bash', str(SCRIPTS / 'locked-ingress.sh'), str(vault), str(source), str(target)],
+    result = subprocess.run([bash_executable(), str(SCRIPTS / 'locked-ingress.sh'), str(vault), str(source), str(target)],
                             capture_output=True, text=True, encoding='utf-8')
     if result.returncode:
         # A concurrent equivalent ingress is safe; conflicting bytes are not.
