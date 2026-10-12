@@ -23,8 +23,11 @@ class ParkFilesContractTests(unittest.TestCase):
         for path in PAIR:
             with self.subTest(path=path):
                 step = path.read_text(encoding='utf-8').split('### 8. Backfill + mechanical verification', 1)[1].split('### 9.', 1)[0]
+                self.assertIn('[shared close-out protocol]', step)
+                support = path.parent / ('../_closeout.md' if path.name == 'SKILL.md' else '_closeout.md')
+                step += support.read_text(encoding='utf-8')
                 self.assertIn('session-ledger.sh --read', step)
-                self.assertIn('Step 2 inventory', step)
+                self.assertIn('initial inventory', step)
                 self.assertIn('propagation', step)
                 self.assertIn('deduplicate', step)
                 self.assertIn('same resolved path', step)

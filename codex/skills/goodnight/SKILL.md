@@ -35,6 +35,8 @@ If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules thr
 
 **Mode selection:** For a `$morning` catch-up invocation, continue at **Catch-up mode** below and return after it. For a deferred debrief invocation, run C3 and return. Otherwise continue with the nightly steps.
 
+For the nightly flow, read **Caller contract**, **Evidence** and **Inventory** in the [shared close-out protocol](../_closeout.md) before Step 2’s reads and the first content edit. Retain pre-edit reads as they occur. Catch-up C1 initialises separately per date; C2/C3 remain caller-owned reconciliation/debrief steps. If review is unavailable, preserve any work already saved, name the blocker and return incomplete; do not run export/provenance or claim completion.
+
 ### 1. Check current date/time and concurrent sessions
 
 ```bash
@@ -327,20 +329,21 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-
 - [Any significant decisions made during close-out]
 
 ### Files Created
-- [Daily Report path — typically the only newly-created file. Omit section if no new files.]
+- [Daily Report path — typically the only newly-created file. Use bare `None` if no new files.]
 
 ### Files Updated
-- [List any files modified during goodnight]
+- [One concrete path per line: path - what changed; bare None if empty]
 
 ### Files Deleted
 - [Any vault files deleted during goodnight — path + why removed. Omit section if none.]
 
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
+**Project:** [owning project/area link, or None]
 EOF
 ```
 
-**Capture N from stdout.** The script's final line is `Session number assigned: N`. This N is the canonical source for downstream steps (15c sub-agent brief, completion message in Step 18). Display it explicitly:
+**Capture N from stdout.** The script's final line is `Session number assigned: N`. This N is the canonical source for downstream steps (Step 15 shared review, completion message in Step 18). Display it explicitly:
 
 ```
 Session number assigned: N
@@ -362,11 +365,9 @@ If a project's state materially changed today, update that project's doc in `03 
 
 Before delegating the audit, run **`_shared-rules.md` §19** (already in context — Step 0 reads it in full) over every file this goodnight wrote: Daily Report, This Week.md, Tickler, project files, session entry. §19 is the single source of truth for what the check covers and for its required output line — read it there rather than working from any restatement, including one here.
 
-### 15. Delegate $audit to a fresh sub-agent
+### 15. Shared close-out review
 
-The audit runs in a fresh context via `collaboration.spawn_agent`, NOT inline. $goodnight is 18 steps with heavy state propagation; inline audit at step 15 suffers cognitive load, recency bias on just-edited files, and enumeration scoping limited to "what $goodnight directly edited" rather than "what world-state changes the day caused." Sub-agent delegation eliminates all three. The same applies here a fortiori — $goodnight does heavier state propagation than $park.
-
-**(a) Enumerate identifiers IN MAIN SESSION (required checkpoint).** The enumeration discipline must stay in the main session — it's the load-bearing defence against silent miss-pattern. List every identifier as `old → new` pairs, plus any *new* named state introduced, before dispatching the sub-agent.
+**Enumerate identifiers IN MAIN SESSION (required checkpoint).** The enumeration discipline must stay in the main session — it's the load-bearing defence against silent miss-pattern. List every identifier as `old → new` pairs, plus any *new* named state introduced, before dispatching the sub-agent.
 
 $goodnight's distinctive Layer 3 substrate (use as a checklist when enumerating):
 - Completed-loop identifiers (text marked `[x]` in This Week.md, deleted from Tickler, or marked done in a project file via Step 4 / Step 6)
@@ -389,16 +390,16 @@ Identifiers in scope:
 - Project-doc Current Objective/Next Actions changes: none
 - New named state introduced (daily report, goodnight session entry): always at least these two — list them
 - Commits pushed today (each hash is its own identifier — see the push-side rule below): none
-→ All Layer 3 substrate enumerated; propagation check follows in sub-agent.
+→ All Layer 3 substrate enumerated; parent propagation and independent review follow.
 ```
 
 **Commits pushed are their own identifier class** — enumerate each hash from the day's sessions and check the repository's hub per **`_shared-rules.md` §17** (already in context — Step 0 reads it in full). A pushed commit has no textual footprint in the vault, so no content grep reaches the hub that is supposed to record it.
 
 **The nil case is not a free pass.** "Nothing changed" is a positive claim requiring the explicit checklist. **New state introduced is the most-missed category** — every $goodnight introduces at minimum a daily report file and a goodnight session entry, so a "nothing introduced" claim is always wrong by construction.
 
-**(b) Identifier count integrity check before despatch.**
+**Identifier count integrity check before despatch.**
 
-Count the identifiers in your enumeration block. When you write the sub-agent brief in (c), embed the enumeration verbatim — do NOT re-construct from memory (typed-from-memory lists silently drop entries). Display:
+Count the identifiers in your enumeration block. When you write the sub-agent brief in the shared review, embed the enumeration verbatim — do NOT re-construct from memory (typed-from-memory lists silently drop entries). Display:
 
 ```
 Identifier count check: enumeration N → brief N ✓
@@ -406,60 +407,16 @@ Identifier count check: enumeration N → brief N ✓
 
 If mismatch, regenerate the prompt from the enumeration block, not from memory.
 
-**(c) Spawn the sub-agent** via `collaboration.spawn_agent`. **Collect its report before any later step runs** — gate on collection, not on despatch mode: whether the seat runs in the foreground is a harness detail you do not control, so "collected before the next step" holds either way where "despatch it in the foreground" silently doesn't. `collaboration.wait_agent`'s return is the only signal it has finished; never substitute a proxy that cannot tell "running" from "finished".
 
-The prompt must be **self-contained** — the sub-agent has zero $goodnight context. Include verbatim:
+**Goodnight acceptance checks:** preserve the pre-routing plan in the Daily Report; carry unfinished tasks intact to the caller-selected day; retain inbound locator repairs; check report/session reconciliation, blocker carry and the rolling horizon. Trace the next Morning against This Week, Tickler and the hubs. The caller’s own report and Pickup Context must not describe completed close-out steps as pending. Read bounded semantic hubs in full and declare targeted coverage for large/reference artefacts.
 
-- **Vault path** (resolved from Step 0): the absolute path, not `{VAULT}`
-- **Session log path**: `<vault>/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` and the session number N (from Step 14's `Session number assigned: N` stdout)
-- **Session id** (this session's, from `echo $CODEX_THREAD_ID`, resolved before despatch): instruct the sub-agent to prefix every `locked-edit.sh` call with `env OPENCAIRN_SESSION_ID=<id>` so its edits ledger under this session
-- **Daily report path**: `<vault>/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
-- **File list** — every file $goodnight touched, embedded as a newline-separated list inline in the prompt. Build it from two sources, not from memory (typed-from-memory lists silently drop entries): (1) verbatim from Session N's `### Files Created` and `### Files Updated` sections as written at Step 14, plus (2) the named post-Step-14 edits — any Step 14a project-doc writes and any daily-report patches from Step 14's reconciliation. Display the count before despatch:
-  ```
-  File list: C from Session N + P post-Step-14 → F files in brief ✓
-  ```
-- **One-paragraph summary** of what $goodnight accomplished today (loops marked complete, items routed, day-sections collapsed, project-doc propagation done)
-- **Enumerated identifiers** verbatim from (a)
-- **⛔ Session-boundary attribution** — read **`_shared-rules-reviewer.md` §20** before preparing the audit, then embed it in the brief. The file list above is the attribution boundary; the vault's auto-save commit window is not. Without it a sub-agent reads a concurrent session's file out of a shared commit and writes a self-consistent record of work this run never did.
-- **⛔ Pre-state authority** — where a finding would turn on what a file looked like *before* this run, the authoritative pre-state is the main session's own Read, not the repository's history. When a status, tick, count, or "was something dropped" claim is in scope (routing verdicts and day-section collapses put one in scope on most nights), embed the relevant pre-edit content in the brief, and instruct: "Do NOT reconstruct pre-state from the vault's auto-save git. Commit boundaries there are arbitrary and unrelated to session boundaries, so a state that existed only between two commits appears in neither — an item the user changed shortly before this run can read as unchanged in the last commit and be gone from the next. Any git-derived 'silently dropped' or data-loss finding must be verified against the specific commit's diff content and timing, and against the pre-state embedded above, before you remediate it." Without this clause an auditor can produce a confident, fully-remediated finding about work that was never lost — and the remediation itself then corrupts an accurate record. Sibling of `_shared-rules-reviewer.md` §20: that governs *attribution* from auto-save git (who did what), this governs *pre-state* (what it was before).
-- **Script paths** the sub-agent will need (substitute resolved vault):
-  - `<vault>/.claude/scripts/update-session-section.sh` — for session-log section edits (preserves flock concurrency safety)
-  - `<vault>/.claude/scripts/backfill-files-updated.sh` — to record any remediation edits into Session N's Files Updated section. **⛔ `### Files Updated` belongs to the main session — the seat appends to it and NEVER `--replace`s it.** The seat's view of that section is frozen at its own read, while the main session keeps writing to it after despatch (Step 15(f)'s backfill is mandatory and runs *after* this audit); a `--replace` from the stale view silently drops every row added since, and nothing downstream detects it. **Caveat the append path cannot serve:** the script dedups by normalised path and *discards* the new text for a file already listed (it prints the unwritten row and exits 3 when nothing was written), so extending an already-listed entry's description is impossible by appending — **report it in your findings and let the main session rewrite the section.** Do not reach for `--replace` to work around the dedup; that is the exact move this rule forbids
-  - `<vault>/.claude/scripts/write-tickler.sh` — if routing surfaces an open loop
-  - `<vault>/.claude/scripts/locked-edit.sh` — for remediation edits to planning/hub files (This Week, Tickler, project/area hubs)
-- **Locking constraint:** "For session-log edits, use `update-session-section.sh`. For planning/hub files (This Week, Tickler, `03 Projects/`, `04 Areas/` hubs), use `locked-edit.sh` (see `_shared-rules.md` §5). For other vault files, a direct write is acceptable. A lockless write races with concurrent parks/goodnights on planning files and silently clobbers."
-- **Audit protocol pointer**: read `~/.codex/skills/audit/SKILL.md` Phase 2 (Layers 1-5 — Layer 0 deliberately out of scope: this bookkeeping audit's frame is fixed by the brief) first; do NOT recall the protocol from memory.
-- **Special-focus instruction** (the empirically-missed Layer 3 category): "**Phase/status framings rendered historical by session actions** is the category prior inline audits silently miss. For each project/area hub touched by today's session work, search for prose like 'upcoming', 'planned', 'pending', 'will', 'next', 'forthcoming', 'awaiting' near references to work completed today; flag every hit. This includes goodnight's OWN `Pickup Context` / Daily Report describing goodnight's already-run steps (this audit, item routing) as forthcoming — written before this audit fired, so a 'the audit will…' framing is already stale; reframe to completed/current tense. Do NOT flag legitimate forward-routing to tomorrow's anchors — Pickup Context naming tomorrow's work is its purpose, not staleness. Also: read each touched project/area hub IN FULL, not just the subsection that was edited."
-- **Read-coverage backstop**: "If your file list contains more than 5 project/area hubs to read in full, split the audit across multiple passes rather than truncating any read. Report bytes-read per hub in your final report so the main session can verify plausible coverage."
-- **Layer 5 specifics for $goodnight**: "Trace tomorrow's $morning against current This Week.md / Tickler / project docs. Will it surface the right items, or is anything we marked complete still showing as open? Will collapsed-day one-liners' `[[…|Full report]]` links resolve? Will rolling-window day additions be visible to $morning's Step 6 maintenance pass without conflict?"
-- **Authority**: remediate inline using Edit / Bash / scripts. Re-audit after every fix; iterate until clean.
-- **Report format expected back**: per-layer findings (or nil-case statements that explicitly name what was checked — generic affirmations like "approach is sound" are not acceptable); list of remediation edits with file paths + summary of change; bytes-read-per-hub for read-coverage verification; final clean-pass confirmation OR "could not clean — N issues remain because X" if iteration stalled.
+**Record format:** retain `### Files Created` and `### Files Updated` with bare `None` when empty, plus `**Project:**` in Pickup Context. Use one complete concrete path per row, vault-relative inside the vault and absolute or `~`-prefixed outside. For an existing catch-up entry, reconcile these fields before verification; do not append a duplicate session.
 
-**(d) Receive the sub-agent's report.** Display its summary in your response. Do NOT re-run the audit yourself; trust the sub-agent's report (the whole point is that you don't have the fresh-context advantage).
+**Prepare and verify:** execute **Inventory**, **Coverage** and **Quality inspection** in the [shared close-out protocol](../_closeout.md), now including every post-log project/report edit. Run the actual identifier searches against the relevant live vault surfaces and triage every hit under §12; use the caller’s retained pre-state for task moves/collapses. Preserve the enumeration, search scope, raw results and triage as the propagation result. After any repair, recheck affected identifiers before verification. Capture this parent-performed result using `python3 "$PARK_REVIEW" capture --kind propagation --label "Goodnight propagation"`; do not invent a sub-agent report. Capture the exact Goodnight acceptance checks above as `--kind evidence --source "goodnight caller contract" --label "Goodnight acceptance checks" --provenance primary` so the generated brief carries them.
 
-**(e) Process the report.** If the sub-agent made remediation edits, verify it called `backfill-files-updated.sh` for them. If not, run the backfill yourself using the file list it reported. If read-coverage report shows any hub at suspicious-low byte count (well below the file's actual size), re-despatch a focused sub-agent on that hub.
+Execute **Backfill and verification**, then **Independent review**. Use the assigned log/N from Step 14 (C1.e for catch-up). Backfill is unconditional, including a clean review with no findings. Only a completed clean review permits Step 16; every parent fix round repeats propagation as needed, backfill, verification and independent review. There is no audit-skill invocation and the reviewer has no remediation authority.
 
-- **Sanity-check remediation edits that change a factual claim, before accepting them.** "Trust the report" (step d) means don't re-run the full audit — it does *not* mean accept a remediation blind. If the sub-agent edited a file to "correct" a numeric/ordinal/identifier claim (counts, FIFO trims, dates, link targets — the categories it's documented to drift on), verify the correction against the **live file** (and your own in-session grep evidence) before letting it stand. The vault `.git` is auto-save with arbitrary commit boundaries, so a sub-agent's `git diff` does **not** reliably reconstruct pre-goodnight state — a partial-commit diff can flag a real edit as "fabricated." On a confirmed false positive, revert the sub-agent's edit and restore the accurate text. **Caught 2026-06-03** (in `$park`, which shares this audit-delegation design): an audit sub-agent misread an auto-save `git diff` and rewrote an accurate FIFO-trim line as a fabrication.
-
-**(f) Mandatory Files-Updated backfill (runs every goodnight, not just when the audit finds something).** Step 14 wrote the session log *before* the Step 14a project-doc edits, the Step 14 daily-report reconciliation patches, and this audit. Those edits are therefore absent from the session entry's `### Files Updated` unless backfilled. Reconcile now, unconditionally:
-
-1. List every file goodnight touched at Step 11 onward (project docs from 14a, daily-report patches from Step 14's reconciliation, any audit remediation from (e)).
-2. Diff that list against the `### Files Updated` already in Session N's entry.
-3. Pipe the missing lines through `backfill-files-updated.sh "<session-file>" N`.
-
-This is the F4 fix: the session log's footprint record must match what goodnight actually changed, even on a clean audit. Skipping it because "the audit was clean" is the failure mode — a clean audit says nothing about whether the post-Step-14 edits were recorded.
-
-**⛔ CHECKPOINT — required outputs:**
-1. Identifier enumeration block (real or nil-case checklist) in main session response
-2. Identifier count check line (`enumeration N → brief N ✓`)
-3. `collaboration.spawn_agent` invocation
-4. Display of sub-agent's report
-5. One of: `✓ Audit: clean pass` OR `🔧 Audit: N findings fixed and re-audited clean — see [paths]`
-6. `✓ Files Updated backfilled: M post-Step-14 file(s) reconciled into Session N` (M may be 0 only if the entry already listed every post-Step-14 edit)
-
-You cannot proceed to Step 16 without all six. If you find yourself walking the audit layers yourself in $goodnight's main response, STOP — that's the inline-audit failure mode this step exists to prevent. Spawn the sub-agent.
-
-**Why auto-run + delegate:** $goodnight propagates state across This Week.md, Tickler, project docs, and area hubs (Steps 4, 9, 10, 11, 14a). Layer 3 propagation gaps are the highest-risk failure mode — a "marked complete" loop that didn't propagate to a project hub will silently mislead tomorrow's $morning or $pickup. Inline audits empirically rubber-stamp these gaps; sub-agent delegation eliminates the three mechanisms causing the rubber-stamp (enumeration scoping, cognitive load, recency bias). 
+Display the verifier’s `RESULT:`, the reviewer’s report and the clean/incomplete verdict before proceeding. Keep all final report/session corrections before export and provenance.
 
 ### 16. Export Session Transcripts
 
@@ -514,7 +471,7 @@ The nightly run ends here. Enter the following sections only through the mode se
 
 Run Step 0 first. Use the caller’s verified current date as the destination date; if absent, read `date +%F`. Scan the recent dates in C1, reconcile their late sessions in C2, then return to the caller. Do not run the normal interactive close-out or close today’s section. C1 supplies the past-day overrides to the shared numbered steps; those steps remain authoritative for report format, carry-forward, collapse, audit, export and provenance.
 
-Return the caught-up dates with their report paths, any incomplete audit/provenance work, and the dates awaiting C3’s debrief. Keep this handoff in the calling session; no extra tracking file. The caller resumes its landscape before invoking C3. C2 also checks days whose close-out already existed.
+Return the caught-up dates with their report paths, any incomplete audit/provenance work, and the dates awaiting C3’s debrief. Keep this handoff in the calling session; completion evidence stays with the shared review artefacts, with no extra task tracker. The caller resumes its landscape before invoking C3. C2 also checks days whose close-out already existed.
 
 ### C1. Catch up missed close-outs
 
@@ -525,10 +482,10 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 1. Check if a daily report exists: `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
 2. Check if a session log exists: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
 3. If no session log or no sessions → skip silently (nothing to close out).
-4. **Skip the day only if it is closed out on both surfaces** — the daily report exists **and** the session log carries a close-out entry (`^## Session [0-9]+ - Goodnight:`, `Goodnight catch-up via /morning`, or `Goodnight catch-up via $morning`). Accept both catch-up invocation forms so pre-port days are not repeated. The report is written at C1.b but the session entry, audit and provenance come at C1.e/g/h, so a report-only test marks an interrupted catch-up permanently closed and nothing downstream repairs it — C2 skips days with no close-out session, and only provenance has its own net.
+4. **Check completion, not just artefact presence.** Match the close-out entry by `^## Session [0-9]+ - Goodnight:` or either `Goodnight catch-up via /morning` / `Goodnight catch-up via $morning`. Skip C1 only when the report and entry exist **and** the shared protocol’s **Completion evidence** establishes an accepted clean review for this exact log/N. Pending provenance still goes through C1.h. A report plus entry with missing/incomplete review evidence resumes at step 5; retain its N. Never infer completion from the heading alone.
 5. Otherwise → **/goodnight was missed, or a previous catch-up did not finish.** Run a lightweight catch-up, skipping any sub-step whose artefact is already present and complete (do not duplicate an existing daily report — verify and extend it instead):
 
-   a. Read the day's session log and its day section in This Week.md. **Also sweep for stranded Claude-internal work product from that day** — `$park` Step 4's third check, day-scoped, since a day reaching catch-up is by definition a day no park or goodnight closed out. Bound the window with two explicit dates (`+1 day` inside `-newermt` is not portable; derive the upper bound with `date -d "<day> +1 day" +%F`):
+   a. Read **Caller contract**, **Evidence** and **Inventory** in the [shared close-out protocol](../_closeout.md) before C1.a for this date. Keep its generation through C1.g, including all retries. Read the day's session log and its day section in This Week.md. **Also sweep for stranded Claude-internal work product from that day** — `$park` Step 4's third check, day-scoped, since a day reaching catch-up is by definition a day no park or goodnight closed out. Bound the window with two explicit dates (`+1 day` inside `-newermt` is not portable; derive the upper bound with `date -d "<day> +1 day" +%F`):
 
       ```bash
       find ~/.claude/plans -maxdepth 1 -type f -newermt "<day>" ! -newermt "<next day>"
@@ -538,7 +495,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
    b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via $morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today; an existing report's `## Blockers` is checked against that rule and corrected only where it departs from it. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
    d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
-   e. **Log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel $park or $goodnight invocations):
+   e. **Reuse the existing close-out entry when resuming:** read its assigned N, reconcile its Summary, Files sections and Pickup Context with this catch-up’s actual work through `update-session-section.sh`; do not append a duplicate. If no entry exists, **log a catch-up session** to the day's session file via write-session.sh with `--auto-number` (resolves N atomically inside the file lock — eliminates collision against parallel $park or $goodnight invocations):
 
       ```bash
       CATCHUP_DAY="YYYY-MM-DD"  # replace with this loop iteration's actual day
@@ -558,20 +515,15 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 
       ### Pickup Context
       **For next session:** [pickup pointer for today]
+      **Project:** [owning project/area link, or None]
       EOF
       ```
 
       Body only — no `## Session N` heading; the script prepends it. Capture the assigned N from the `Session number assigned: N` stdout line for the audit brief in C1.g.
    f. **Skip** (not part of catch-up): the debrief prompt — $morning invokes C3 for each caught-up day. (Provenance processing is **not** skipped — see C1.h, which runs after the audit.)
-   g. **Run $audit via a fresh sub-agent on the catch-up** — apply $goodnight Step 15 sub-steps (a)–(f) verbatim (including the (f) Files-Updated backfill, scoped to the catch-up session entry). Catch-up performs the same state-propagating actions as $goodnight (status flips on items the user may have already marked, day-section collapses, item routing, session-log writes) and is subject to the same Layer 3 failure mode (stale phase/status framings in project hubs and area files that referenced the caught-up day's now-historical state). Inline audit suffers the same cognitive-load / enumeration-scoping / recency-bias mechanisms $park's audit step names. **Unconditional, not gated on substrate size:** even a "trivial" catch-up writes a NEW daily report file + NEW catch-up session entry, so the enumeration floor is never zero — same logic as $goodnight Step 15.
-
-      Substrate-specific notes (when applying Step 15's checklist to the catch-up):
-      - Identifier enumeration (15a) substrate is: completed-loop flips on `[x]` items the day section already had (rare — C1 generally inherits state, doesn't flip), day-section moves from C1.c, day-section collapses and inbound-locator repoints from C1.d, NEW daily report file from C1.b, NEW catch-up session entry from C1.e. The last two are always present.
-      - Sub-agent brief (15c) must include: vault path (absolute), the caught-up day's daily report path, the catch-up session log path with session number (from C1.e's `Session number assigned: N` stdout), the file list (different from $goodnight's — assemble from C1.b/c/d/e edits), one-paragraph summary of what the catch-up did, the enumerated identifiers verbatim, script paths (`update-session-section.sh`, `backfill-files-updated.sh`, `write-tickler.sh`), the locking constraint, the audit-protocol pointer (`~/.codex/skills/audit/SKILL.md` Phase 2 Layers 1–5 — Layer 0 deliberately out of scope for this bookkeeping audit), the special-focus instruction on phase/status framings rendered historical, the read-coverage backstop with bytes-read reporting, authority to remediate inline and iterate until clean, and the expected report format. **Layer 5 specific for the catch-up:** trace $morning’s landscape pass (its Step 3) against the post-catch-up SSOT state — anything the catch-up just routed should surface correctly when $morning Step 3 runs.
-      - **Pre-state authority in the audit brief:** the authoritative pre-catch-up state is the main session's own Read of This Week.md at catch-up time — embed the relevant pre-collapse content in the brief if the auditor needs it. Do NOT direct the sub-agent to reconstruct pre-state from vault auto-save git: commit boundaries are arbitrary, and a morning-window commit typically captures the *user's own* pre-/morning edits, so its diff mis-attributes user actions to the catch-up. Any git-derived data-loss finding must be verified against the specific commit's diff content and timing before remediation.
-      - After the sub-agent returns: verify any remediation edits were backfilled to the catch-up session entry via `backfill-files-updated.sh`. If not, run the backfill from the file list the sub-agent reported.
+   g. **Execute Step 15** with the caught-up date’s report, the C1.e log/N, and only this date’s attributed close-out work. The enumeration includes C1’s task moves, collapse/locator repairs, report and session entry. Embed the pre-collapse reads and trace the next Morning’s landscape against the routed state. Run the same shared coverage, backfill, verification and read-only review loop as nightly Goodnight. A blocker returns this date as incomplete and leaves provenance pending; never display C1.i’s success message for it.
    h. **Process this day's provenance flag(s), if any.** Glob `{VAULT}/07 System/.Provenance/pending/` for files whose name begins with **this caught-up day's own date** (`YYYY-MM-DD` — the loop's current day, never today, and never an empty/unsubstituted date, which would match every pending flag and process the wrong days). `$provenance` writes one flag per tag, so a day may have **more than one** — process **each** matching flag. If none match, skip silently. A match means `$provenance` ran that day but `$goodnight` never processed it — process it now per `$goodnight` Step 17 (mechanism) and `$weekly-hygiene` Step 13a (past-day adaptation), with these specifics:
-      - **Must run after C1.g completes — including its post-return Files-Updated backfill — never before.** Same strict ordering as $goodnight Steps 15→16→17: the audit can still modify the caught-up day's session log, and the hash must cover its final state. Hashing before the audit produces an immediately-invalid proof — the single most common provenance execution error.
+      - **Must run after C1.g completes — including final Files-list reconciliation and verification — never before.** Same strict ordering as $goodnight Steps 15→16→17: the audit can still modify the caught-up day's session log, and the hash must cover its final state. Hashing before the audit produces an immediately-invalid proof — the single most common provenance execution error.
       - **Export that day's transcript first, then confirm the file landed.** A missed-goodnight day may never have been exported (only $park and $goodnight export transcripts; the exporter covers Claude Code sessions and Codex rollouts alike). Run `python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects` — `--all-projects` **unconditionally** (morning has no `cd` to the day's launch directory, and which project a past session launched from is unknowable during catch-up; the flag is cwd-independent), and `--days 7` because the script windows and dates each transcript file by the JSONL's **mtime**, not the logical session date — a tight window can miss or mis-date the boundary day, so clear it with margin. **Then verify `06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md` exists for the caught-up date.** If it does not, do **not** hash a missing/empty file and do **not** delete the flag — hash what you can, leave the flag in `pending/` for `$weekly-hygiene`, and report it as partially processed.
       - **Attest every required target with the shared writer:** the listed work products (recompare immediate hashes; on change, use $provenance Step 5's superseding re-hash); that date's exported transcript; that date's final session log (`06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`, after C1.e + C1.g). `provenance-write.py attest` retains their exact preimages, so later export/link-healing does not make proof recovery depend on source JSONL retention. `provenance-finish.sh` is the **sole flag-removal gate**: it validates every current digest, retained snapshot and required selected proof under the flag lock. Any failure leaves the flag pending for $weekly-hygiene; no direct log append, manual snapshot copy or row-only deletion check. See $provenance for the commands.
    i. Display:
@@ -656,5 +608,5 @@ This command should trigger when the user says:
 - **Creates:** Daily Reports
 - **Updates:** agent session log (adds goodnight session), This Week.md (marks completed items `[x]`, collapses today's section, carries undone items forward within This Week.md), Tickler.md (deletes completed items), Project docs (marks complete, Current Objective / Next Actions if needed)
 - **Complements:** `$morning` (start of day), `$park` (end of session), `$afternoon` (mid-day)
-- **Auto-runs:** `$audit` on the just-completed goodnight (Step 15) — same protocol as `$park`'s Step 9
+- **Close-out:** shared read-only review at Step 15, also used by Park and C1 catch-up
 - **Replaces:** the deprecated daily-review workflow

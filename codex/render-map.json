@@ -82,8 +82,8 @@
     "goodnight": {
       "source": ".claude/commands/goodnight.md",
       "render": "codex/skills/goodnight/SKILL.md",
-      "source_sha256": "269b23fd1b3803cf4245bba2e2170be531b57cdf207e750dc8a42ac2c6b1c138",
-      "render_sha256": "7f5b8356ae8cb6718eece3d9fae0a091764fe156389c588952f14fcfcc10a2a2"
+      "source_sha256": "f463a580913b1165c78f121b4673766b8c0e938b376211487203d81fc7c21a1d",
+      "render_sha256": "87ed7e81afdd0fbab158372c93210eca31a1a5deadb47fe9f57821a5057d465b"
     },
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
@@ -148,8 +148,8 @@
     "park": {
       "source": ".claude/commands/park.md",
       "render": "codex/skills/park/SKILL.md",
-      "source_sha256": "2ddf3716ccf9c792f218c0e440b09e9ce850d0e5e93ceb7e7dda19495e376be6",
-      "render_sha256": "67977cc6139a812522f97f34b3fdf8feff6e34dba3fd0d57a708a8179d93f8cf"
+      "source_sha256": "c6b27e594964c102671e7558fc9fc88e9714169fbf7f7f9abc8e1f5b99c103f0",
+      "render_sha256": "537899690a080e143eaf8cb1c30bdd0a2ed3a0a92fdab3f71802ce392949fbaf"
     },
     "pickup": {
       "source": ".claude/commands/pickup.md",
@@ -250,7 +250,7 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "355698987e482510eb7f349fa3c01130bdc01e8912a1002f42d743800b324616",
+      "source_sha256": "7021a9589b793e00681dc441b38425b23194b61b1a78961177dfcd17a9523c17",
       "render_sha256": "41c6dce61223a3077846266d7c5164b6973b48f45ca9b1fb7af3693251f9552c"
     },
     "verify-provenance": {
@@ -294,6 +294,12 @@
       "render": "codex/skills/batch/SKILL.md",
       "source_sha256": "0e0ebb3d59b9e16971cc53d7b79b4fed4a46f4068eedbd1a06728e9f48841170",
       "render_sha256": "f13f0d37a576e3bd262d6a63aae8eaf1eb5f643ec88b7daec1263743f7cfff60"
+    },
+    "_closeout": {
+      "source": ".claude/commands/_closeout.md",
+      "render": "codex/skills/_closeout.md",
+      "source_sha256": "5729faf38e43e8ebdaff762ddcdd13e9ad1a73f49a43ea2db11dbdfdae7e0738",
+      "render_sha256": "d04122ac8a0984d73e5b7453cd5648482675dc4b68e744a966cd0e7765bb13a5"
     }
   }
 }

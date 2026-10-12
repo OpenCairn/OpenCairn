@@ -15,8 +15,8 @@ PARK_VERIFY = ROOT / ".claude/scripts/park-verify.sh"
 class ParkQuickContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.claude = CLAUDE.read_text(encoding="utf-8")
-        cls.codex = CODEX.read_text(encoding="utf-8")
+        cls.claude = CLAUDE.read_text(encoding="utf-8") + "\n" + (CLAUDE.parent / "_closeout.md").read_text(encoding="utf-8")
+        cls.codex = CODEX.read_text(encoding="utf-8") + "\n" + (CODEX.parent.parent / "_closeout.md").read_text(encoding="utf-8")
 
     def test_exact_activation_and_default_full_are_mirrored(self) -> None:
         for text in (self.claude, self.codex):
