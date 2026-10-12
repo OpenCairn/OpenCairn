@@ -80,7 +80,7 @@ def rows(log: Path) -> list[list[str]]:
     if not log.exists():
         return []
     result = []
-    for line in log.read_text().splitlines():
+    for line in log.read_text(encoding='utf-8').splitlines():
         fields = [part.strip() for part in line.split('|')]
         if len(fields) == 7 and re.fullmatch(r'`[0-9a-f]{16}`', fields[4]):
             result.append(fields[1:-1])
@@ -158,15 +158,15 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
     if additions:
         # The wrapper guarantees the single newline boundary; prepend no blank.
         payload = ''.join(additions)
-        subprocess.run([str(SCRIPTS / 'locked-edit.sh'), str(log), '--append'],
-                       input=payload, text=True, check=True, stdout=sys.stderr)
+        subprocess.run(['bash', str(SCRIPTS / 'locked-edit.sh'), str(log), '--append'],
+                       input=payload, text=True, encoding='utf-8', check=True, stdout=sys.stderr)
     return {'file': rel, 'hash': value, 'status': status, 'snapshot': str(snapshot),
             'proof': str(proof) if proof else None, 'supersedes': supersedes}
 
 
 def ingress(vault: Path, source: Path, target: Path) -> None:
-    result = subprocess.run([str(SCRIPTS / 'locked-ingress.sh'), str(vault), str(source), str(target)],
-                            capture_output=True, text=True)
+    result = subprocess.run(['bash', str(SCRIPTS / 'locked-ingress.sh'), str(vault), str(source), str(target)],
+                            capture_output=True, text=True, encoding='utf-8')
     if result.returncode:
         # A concurrent equivalent ingress is safe; conflicting bytes are not.
         if source.is_file() and target.is_file() and digest(source) == digest(target):
@@ -371,7 +371,7 @@ def evidence_for(vault: Path, tag: str, rel: str, value: str) -> bool:
 def check_flag(vault: Path, flag: Path) -> dict:
     flag = flag.resolve()
     flag.relative_to(vault / '07 System/.Provenance/pending')
-    text = flag.read_text()
+    text = flag.read_text(encoding='utf-8')
     frontmatter = re.match(r'\A---\n(.*?)\n---(?:\n|$)', text, re.S)
     if not frontmatter:
         raise ValueError('flag requires date/tag frontmatter')

@@ -246,31 +246,44 @@ import re
 import sys
 from urllib.parse import unquote
 
+
+def slash(path):
+    # Native Windows Python under Git Bash receives C:/... arguments and returns
+    # backslashed real paths; compare everything in forward-slash form. No-op on POSIX.
+    return path.replace("\\", "/") if os.sep == "\\" else path
+
+
+def realpath(path):
+    return slash(os.path.realpath(path))
+
+
 vault, log, number = sys.argv[1:4]
-home = os.environ.get("HOME", "")
+vault, log = slash(vault), slash(log)
+home = slash(os.environ.get("HOME", ""))
 touched_args, nonlocal_args = [], set()
 rest = sys.argv[4:]
 for flag, value in zip(rest[0::2], rest[1::2]):
     if flag == "--touched":
-        touched_args.append(value)
+        touched_args.append(slash(value))
     else:
         nonlocal_args.add(value)
 block = sys.stdin.buffer.read().decode("utf-8", "surrogateescape")
 
-OFFHOST = re.compile(r"^[A-Za-z0-9._-]+:/|(^|\s)[A-Za-z]:\\")
+OFFHOST = re.compile(r"^(?![A-Za-z]:/)[A-Za-z0-9._-]+:/|(^|\s)[A-Za-z]:\\")
 EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,10}$")
 MDTITLE = re.compile(r"""^(.*?)\s+("[^"]*"|'[^']*'|\([^()]*\))$""")
 OTHER_SEPARATORS = (" \u2014 ", " \u2013 ", ": ", " (")
-root = os.path.realpath(vault)
+root = realpath(vault)
 out = []
 row_text = {}   # canonical "path <sep> description" spelling -> the row's file
 
 
 def norm(path):
     """Mirror of the shell norm_path: absolute, ~-prefixed or vault-relative."""
+    path = slash(path)
     if path.startswith("./"):
         path = path[2:]
-    if path.startswith("/"):
+    if path.startswith("/") or re.match(r"[A-Za-z]:/", path):
         return path
     if path.startswith("~/"):
         return home + "/" + path[2:]
@@ -278,7 +291,7 @@ def norm(path):
 
 
 def canon(path):
-    return os.path.realpath(norm(path))
+    return realpath(norm(path))
 
 
 def is_file(path):
@@ -502,7 +515,7 @@ if bare_names:
     for directory, subdirs, files in os.walk(root, followlinks=True):
         keep = []
         for name in subdirs:
-            real = os.path.realpath(os.path.join(directory, name))
+            real = realpath(os.path.join(directory, name))
             if name != ".git" and real not in entered:
                 entered.add(real)
                 keep.append(name)
@@ -510,8 +523,8 @@ if bare_names:
         for name in files:
             key = name[:-3] if name.endswith(".md") else name
             if key.casefold() in wanted:
-                spelled = os.path.join(directory, name)
-                real = os.path.realpath(spelled)
+                spelled = slash(os.path.join(directory, name))
+                real = realpath(spelled)
                 within.setdefault(real, spelled[len(root) + 1:])
                 named.setdefault(key, set()).add(real)
                 folded.setdefault(key.casefold(), set()).add(real)
@@ -758,7 +771,7 @@ else:
 # row name nothing local to lint and are counted, not compared: an off-host form
 # ("host:/path", "C:\path"), and a Files Deleted row whose path is gone. A
 # Deleted row whose path is still on disk is compared like any other.
-log_key = os.path.realpath(log)
+log_key = realpath(log)
 uncovered, off_host, deleted_absent = "", 0, 0
 for row_index, row in enumerate(rows):
     if row["skip"] or norm(row["show"]) == log or log_key in row["keys"]:
