@@ -21,7 +21,7 @@ The whole profile pivots on **what the user actually runs**. Load, every run:
 Focus on what's new since the last cybersec scan. Threat intel has a faster cadence than tool news — a *critical* affecting the stack is same-day actionable, not a weekly-digest item; surface those immediately in the run, don't bank them.
 
 **Authoritative advisories (primary sources — prefer these over news rewrites):**
-- https://nvd.nist.gov/vuln/full-listing — NVD recent CVEs (filter to stack-relevant vendors/products)
+- https://services.nvd.nist.gov/rest/json/cves/2.0 — NVD CVE API ([query documentation](https://nvd.nist.gov/developers/vulnerabilities)); filter to stack-relevant products and the scan window. The former `/vuln/full-listing` redirects to a news page. Treat missing recent records as a coverage gap and use upstream/vendor advisories; verify the API with a known published CVE before interpreting an empty result.
 - https://www.cisa.gov/news-events/cybersecurity-advisories — CISA advisories + KEV (Known Exploited Vulnerabilities) catalogue
 - Your distro's security-advisory feed — e.g. https://ubuntu.com/security/notices (Ubuntu USN), RHEL errata, Arch security tracker — whichever maps to the stack inventory's OS
 - https://www.openwall.com/lists/oss-security/ — oss-security list (upstream disclosures, often ahead of distro advisories)
