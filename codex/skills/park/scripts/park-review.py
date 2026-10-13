@@ -1049,10 +1049,22 @@ def accepted_inherited_lint(
 
 
 def approved_inherited_lint_paths(manifest: dict) -> set[str]:
-    """Return paths whose exact mechanical classification recorded inherited lint."""
+    """Approve inherited lint only with mechanical proof or intact reference bytes."""
     approved: set[str] = set()
     for path, item in manifest.items():
-        if not isinstance(item, dict) or item.get("mode") != "mechanical":
+        if not isinstance(item, dict):
+            continue
+        if item.get("mode") == "reference":
+            source = Path(path).expanduser().resolve()
+            if source.is_file():
+                # References are imported evidence, not session-authored prose.
+                # Require the live bytes and retained source/review snapshots to
+                # match the classification before accepting any existing lint.
+                digest = sha256(source)
+                validated_artifact_receipt(source, digest, item)
+                approved.add(str(source))
+            continue
+        if item.get("mode") != "mechanical":
             continue
         verification = item.get("verification")
         if (

@@ -253,7 +253,7 @@ class ParkReviewTests(unittest.TestCase):
             "preserved",
         )
 
-    def test_only_mechanical_receipts_can_preapprove_inherited_lint(self) -> None:
+    def test_semantic_classification_cannot_preapprove_inherited_lint(self) -> None:
         manifest = {
             "/vault/approved.md": {
                 "mode": "mechanical",
@@ -273,6 +273,27 @@ class ParkReviewTests(unittest.TestCase):
             park_review.approved_inherited_lint_paths(manifest),
             {"/vault/approved.md"},
         )
+
+    def test_reference_lint_requires_intact_source_and_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.md"
+            snapshot = root / "snapshot.md"
+            source.write_text("Verbatim source\n\n\n\nEnd\n")
+            snapshot.write_bytes(source.read_bytes())
+            item = {"mode": "reference", "artifact": {
+                "source_sha256": park_review.sha256(source),
+                "source_snapshot": str(snapshot)}}
+            manifest = {str(source): item}
+            self.assertEqual(park_review.approved_inherited_lint_paths(manifest),
+                             {str(source)})
+            source.write_text("Changed source\n\n\n\nEnd\n")
+            with self.assertRaises(SystemExit):
+                park_review.approved_inherited_lint_paths(manifest)
+            source.write_bytes(snapshot.read_bytes())
+            snapshot.write_text("Corrupt retained evidence\n")
+            with self.assertRaises(SystemExit):
+                park_review.approved_inherited_lint_paths(manifest)
 
     def test_accepts_only_exact_path_scoped_inherited_lint(self) -> None:
         first = "/vault/history one.md"
