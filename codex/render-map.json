@@ -293,7 +293,7 @@
       "source": ".claude/commands/_closeout.md",
       "render": "codex/skills/_closeout.md",
       "source_sha256": "5729faf38e43e8ebdaff762ddcdd13e9ad1a73f49a43ea2db11dbdfdae7e0738",
-      "render_sha256": "d04122ac8a0984d73e5b7453cd5648482675dc4b68e744a966cd0e7765bb13a5"
+      "render_sha256": "dc66b03c3e804b13db51425bb4525eaed3b3f31df74e381a773aeb1f5c8f207b"
     }
   }
 }
