@@ -295,7 +295,9 @@ MDTITLE = re.compile(r"""^(.*?)\s+("[^"]*"|'[^']*'|\([^()]*\))$""")
 OTHER_SEPARATORS = (" \u2014 ", " \u2013 ", ": ", " (")
 # "(deleted)" / "(remote)" after the path: the row names something that is not
 # on this host's disk, or should not be read from it. See the content-read gate.
-ANNOTATION = re.compile(r"\s*\((deleted|remote)\)(?=\s|$)", re.IGNORECASE)
+# The annotation sits immediately before the " - " description separator or
+# at the end of the row; the same word inside a description is not one.
+ANNOTATION = re.compile(r"\s*\((deleted|remote)\)(?= - |$)", re.IGNORECASE)
 root = realpath(vault)
 out = []
 row_text = {}   # canonical "path <sep> description" spelling -> the row's file
