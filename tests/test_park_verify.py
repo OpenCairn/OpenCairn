@@ -1093,6 +1093,13 @@ class TouchedContentTests(unittest.TestCase):
         result = self.run_rows(other, updated=[other + " - removed the (deleted) section"])
         self.assert_pass(result)
         self.assertNotIn("row annotated (deleted)", result.stdout)
+        # The token followed by " - " or ending the row, but inside the description.
+        result = self.run_rows(local, updated=[local + " - documented the (remote) fallback - see Sync notes"])
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("row annotated (remote)", result.stdout)
+        result = self.run_rows(local, updated=["`" + local + "` - removed the old section (remote)"])
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("row annotated (remote)", result.stdout)
         # The annotation forms themselves still annotate.
         for row in ("`" + local + "` (remote) - rewritten", local + " (remote) - rewritten"):
             with self.subTest(row=row):
@@ -1201,6 +1208,38 @@ class TouchedContentTests(unittest.TestCase):
         for tool in ("stat", "findmnt"):
             (tools / tool).chmod(0o755)
         return dict(os.environ, PATH=str(tools) + os.pathsep + os.environ.get("PATH", ""))
+
+    def test_mount_identity_probe_dereferences_a_symlinked_vault_root(self) -> None:
+        # The vault root is a symlink on another device than its target. The
+        # device probe must follow the link (stat -L) or the root and its own
+        # files report different devices and every vault file is wrongly skipped.
+        real = self.base / "real-vault"
+        (real / "01 Now").mkdir(parents=True)
+        (real / "01 Now/This Week.md").write_text("# This Week\n", encoding="utf-8")
+        (real / "01 Now/Tickler.md").write_text("# Tickler\n", encoding="utf-8")
+        link = self.base / "vault-link"
+        link.symlink_to(real, target_is_directory=True)
+        tools = self.base / "bin-symlink"
+        tools.mkdir()
+        system_stat = subprocess.run(["sh", "-c", "command -v stat"], capture_output=True, text=True).stdout.strip()
+        (tools / "stat").write_text(
+            "#!/bin/sh\ncase \"$*\" in\n"
+            "  *%T*) printf 'cifs\\n'; exit 0 ;;\n"
+            "  *-L*%d*) printf '700\\n'; exit 0 ;;\n"
+            "  *%d*) case \"$*\" in *\"" + str(link) + "\") printf '7\\n' ;; *) printf '700\\n' ;; esac; exit 0 ;;\n"
+            "esac\nexec " + system_stat + " \"$@\"\n", encoding="utf-8")
+        (tools / "stat").chmod(0o755)
+        (tools / "findmnt").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+        (tools / "findmnt").chmod(0o755)
+        env = dict(os.environ, PATH=str(tools) + os.pathsep + os.environ.get("PATH", ""))
+        note = "docs/note.md"
+        (real / "docs").mkdir()
+        (real / note).write_text("joined- [ ] item\n" + SEP_LINE + "\n", encoding="utf-8")
+        log = write_log(link, updated=[note + " - edited"])
+        result = subprocess.run([str(SCRIPT), str(link), str(log), "1", "--touched", str(link / note)],
+                                capture_output=True, text=True, env=env)
+        self.assertIn("FAIL separator: ", result.stdout + result.stderr)
+        self.assertNotIn("existence-only (remote mount", result.stdout)
 
     def test_vault_root_exemption_compares_mount_identity_not_type(self) -> None:
         # A vault on a network share with a separately mounted share of the same

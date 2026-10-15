@@ -1779,18 +1779,25 @@ class AnnotatedFilesRowTests(unittest.TestCase):
                          [None, "deleted", "deleted", "remote", "remote"])
 
     def test_annotation_word_inside_a_description_is_not_an_annotation(self) -> None:
+        sync = self.vault / "04 Areas/IT/Sync.md"
+        sync.parent.mkdir(parents=True, exist_ok=True)
+        sync.write_text("local\n")
         text = (
             "- 04 Areas/IT/Sync.md - documented the (remote) fallback\n"
             "- `docs/a.md` - removed the (deleted) section\n"
             "- docs/b.md (remote) - rewritten\n"
             "- `docs/c.md` (deleted) - removed\n"
+            "- 04 Areas/IT/Sync.md - documented the (remote) fallback - see Sync notes\n"
+            "- `docs/a.md` - removed the old section (deleted)\n"
+            "- docs/Old - v1.md (deleted) - superseded\n"
         )
         self.assertEqual(
             park_review.parse_file_lines(text, self.vault, {}),
-            ["04 Areas/IT/Sync.md", "docs/a.md", "docs/b.md", "docs/c.md"],
+            ["04 Areas/IT/Sync.md", "docs/a.md", "docs/b.md", "docs/c.md",
+             "04 Areas/IT/Sync.md", "docs/a.md", "docs/Old - v1.md"],
         )
         rows = park_review.parse_file_rows(text, self.vault, {})
-        self.assertEqual([note for _, note in rows], [None, None, "remote", "deleted"])
+        self.assertEqual([note for _, note in rows], [None, None, "remote", "deleted", None, None, "deleted"])
 
     def test_build_routes_deleted_rows_and_never_reads_remote_rows(self) -> None:
         gone = self.vault / "docs/Plan - draft.md"
