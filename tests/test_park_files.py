@@ -99,6 +99,9 @@ class ParkFilesTests(unittest.TestCase):
             cache = home / ".local/bin/__pycache__/tool.cpython.pyc"
             cache.parent.mkdir()
             cache.write_bytes(b"\x00")
+            default_cache = claude / "commands/__pycache__/cmd.cpython.pyc"
+            default_cache.parent.mkdir()
+            default_cache.write_bytes(b"\x00")
             setting = home / ".claude/settings.json"
             setting.parent.mkdir()
             setting.write_text("{}\n", encoding="utf-8")
@@ -118,6 +121,7 @@ class ParkFilesTests(unittest.TestCase):
             # the header still names the default roots.
             without = run()
             self.assertNotIn(str(installed), without)
+            self.assertNotIn(str(default_cache), without, "default roots still prune __pycache__")
             header = [l for l in without.splitlines() if l.startswith("# roots searched:")]
             self.assertEqual(len(header), 1)
             self.assertIn(str(claude / "commands"), header[0])
@@ -128,7 +132,10 @@ class ParkFilesTests(unittest.TestCase):
             with_roots = run("--root", str(installed.parent), "--root", str(setting.parent))
             self.assertIn(f"[root]\t{installed.parent}\t{installed}\n", with_roots)
             self.assertIn(f"[root]\t{setting.parent}\t{setting}\n", with_roots)
-            self.assertNotIn(str(cache), with_roots)
+            # An explicit root is swept whole: __pycache__ byproducts are a named
+            # class of omission, so only .git is pruned there.
+            self.assertIn(f"[root]\t{installed.parent}\t{cache}\n", with_roots)
+            self.assertNotIn(str(default_cache), with_roots, "default roots still prune __pycache__")
             header = [l for l in with_roots.splitlines() if l.startswith("# roots searched:")]
             self.assertEqual(len(header), 1)
             self.assertIn(str(installed.parent), header[0])
