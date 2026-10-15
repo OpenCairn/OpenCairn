@@ -1019,6 +1019,33 @@ class TouchedContentTests(unittest.TestCase):
         self.assertIn("existence-only (size ", result.stdout)
         self.assertIn("PASS lint: touched .md files clean (1 linted, 1 skipped)", result.stdout)
 
+    def test_vault_root_prefix_does_not_excuse_an_absent_vault_path(self) -> None:
+        # The same rule for the missing-file check as for the content gate: a
+        # prefix covering the vault root says the vault is remote, not that a
+        # vault path it does not find is off-host. Absent means FAIL touched,
+        # and the row is compared, not counted.
+        gone = "docs/gone.md"
+        for prefix in (self.vault, self.base):
+            with self.subTest(prefix=str(prefix)):
+                env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(prefix))
+                result = self.run_rows(gone, env=env, updated=[gone + " - edited"])
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("FAIL touched: ", result.stdout)
+                self.assertIn(gone, result.stdout)
+                self.assertNotIn("not compared", result.stdout)
+                # Not listed at all: the backfill check fails too.
+                result = self.run_rows(gone, env=env)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("FAIL touched: ", result.stdout)
+                self.assertIn("FAIL backfill: touched but absent", result.stdout)
+        # A prefix naming a subtree inside the vault keeps excusing absence there.
+        gone = "mirror/share/gone.md"
+        env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(self.vault / "mirror"))
+        result = self.run_rows(gone, env=env, updated=[gone + " - synced"])
+        self.assert_pass(result)
+        self.assertNotIn("FAIL touched", result.stdout)
+        self.assertIn("1 off-host path form(s) not compared", result.stdout)
+
     def test_deleted_annotation_excuses_an_absent_path_in_any_files_list(self) -> None:
         gone = "docs/Old - v1.md"
         # An unsplittable row (absent, two " - " boundaries) is shown by its
