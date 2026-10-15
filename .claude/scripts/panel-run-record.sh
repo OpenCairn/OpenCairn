@@ -13,15 +13,18 @@
 # transcript via --claude-agent (~/.claude/projects/*/<session>/subagents/agent-<id>.jsonl: model field, and wall seconds
 # from the timestamps after the previously recorded round's end, kept in <run_dir>/.claude-rN.transcript-end), else
 # claude[-rN].json (Codex lane), else claude[-rN].model, else --claude-model), wall seconds (.time, or the transcript /
-# usage line), Grok cost, and whether synthesis*.md is present. A round-N model file falls back to its round-1 file;
+# usage line), Grok cost, and whether the round's synthesis (synthesis.md for round 1, synthesis-rN.md for round N>1, with
+# synthesis.md taken in its place under a warning) is present. A round-N model file falls back to its round-1 file;
 # wall seconds never do. A despatched seat whose .out is missing or empty, or whose .exit is non-zero, is left out of
 # `returned:` and named in a stderr warning; when no seat returned the line is still written and the exit status is 2.
 # The line carries NO findings: if the seat question is reopened, code from the archived seat files, not from the synthesis.
 #
 # --archive copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/ (never merging
-# into an existing directory; .md inside renamed .txt so it is not indexed as a note). Round N>1 copies only its -rN files
-# into the round-1 archive named in <run_dir>/.archive-path, else into the newest round-1 archive of this session that
-# holds no round-N files yet, else into a new -rN directory holding the whole run directory. The line is then appended to
+# into an existing directory). Round N>1 copies only its -rN files into the round-1 archive named in <run_dir>/.archive-path,
+# else into the newest round-1 archive of this session that holds no round-N files yet, else into a new -rN directory holding
+# the whole run directory; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over the
+# archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold .md files renamed
+# .txt: read synthesis.txt there). The line is then appended to
 # <vault>/07 System/Panel Seat Ledger.md under lock (created atomically with a header if missing). Every run is archived
 # and indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
 # Platform: Linux, macOS, Windows (Git Bash). Needs python3.
@@ -116,7 +119,12 @@ if not cm:
     except Exception: pass
 cm=cm or rd_(f1('claude','model')).strip() or os.environ.get('CLAUDE_MODEL') or 'unknown'
 models['claude']=cm
-synth='yes' if glob.glob(os.path.join(rd,'synthesis*')) else 'no'
+own=os.path.join(rd, 'synthesis.md' if r==1 else f'synthesis-r{r}.md')
+if os.path.exists(own): synth='yes'
+elif r>1 and os.path.exists(os.path.join(rd,'synthesis.md')):
+    synth='yes'; print(f"warning: no synthesis-r{r}.md in {rd}; synthesis.md taken as round {r}'s synthesis (archived as synthesis-r{r}.md)", file=sys.stderr)
+else:
+    synth='no'; print(f"warning: no synthesis for round {r} in {rd}; write the synthesis and terminal state there before recording", file=sys.stderr)
 def lst(xs): return ' '.join(cap[s] for s in xs) if xs else 'none'
 line=(f"- {os.environ['DATE']} | {os.environ['SKILL']} | run {os.environ['SID8']} | round {r} | target: {os.environ['TARGET']} | "
       f"despatched: {lst(desp)} | returned: {lst(ret)} | models: " + (' '.join(f"{cap[s]}={models[s]}" for s in desp) or 'none') +
@@ -132,7 +140,6 @@ if [[ $ARCHIVE -eq 1 ]]; then
   if [[ -x "$HERE/check-archive-layout.sh" ]] && ! "$HERE/check-archive-layout.sh" --enforce "$VAULT" >/dev/null 2>&1; then
     echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1
   fi
-  ! ls "$RUN_DIR"/synthesis* >/dev/null 2>&1 && echo "warning: no synthesis*.md in $RUN_DIR; write the synthesis and terminal state there before recording" >&2
   RUNS_REL="06 Archive/OpenCairn/Panel Runs"; RUNS="$VAULT/$RUNS_REL"; mkdir -p "$RUNS"
   MARK="$RUN_DIR/.archive-path"; JOIN=""
   if [[ "$ROUND" -gt 1 ]]; then
@@ -148,13 +155,12 @@ if [[ $ARCHIVE -eq 1 ]]; then
   if [[ -n "$JOIN" ]]; then
     EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
     find "$RUN_DIR" -maxdepth 1 -name "*-r$ROUND.*" -exec cp -a {} "$DEST"/ \;
-    for md in "$DEST"/*-r"$ROUND".md; do [[ -e "$md" ]] && mv "$md" "${md%.md}.txt"; done
+    [[ ! -e "$RUN_DIR/synthesis-r$ROUND.md" && -f "$RUN_DIR/synthesis.md" ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
   else
     STAMP="$(date +%H%M%S)"; BASE="$RUNS_REL/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive
     DEST="$VAULT/$EVIDENCE"; mkdir -p "$DEST"
     cp -a "$RUN_DIR"/. "$DEST"/
-    for md in "$DEST"/*.md; do [[ -e "$md" ]] && mv "$md" "${md%.md}.txt"; done
     [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session found; round $ROUND archived whole to $EVIDENCE" >&2
   fi
   printf '%s\n' "$EVIDENCE" > "$MARK"
