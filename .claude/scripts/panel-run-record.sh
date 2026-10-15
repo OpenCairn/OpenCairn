@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# panel-run-record.sh - derive one run-index line for a cross-model panel run from its seat files,
-# optionally archive the run directory into the vault and append the line to the Panel Seat Ledger.
+# panel-run-record.sh - derive one run-index line for a cross-model panel run from its seat files, append it to the
+# Panel Seat Ledger, and optionally archive the run directory into the vault.
 #
 # Usage:
 #   panel-run-record.sh <run_dir> --skill <audit|second-opinion> --round <n> --target "<what was reviewed>"
@@ -19,15 +19,22 @@
 # `returned:` and named in a stderr warning; when no seat returned the line is still written and the exit status is 2.
 # The line carries NO findings: if the seat question is reopened, code from the archived seat files, not from the synthesis.
 #
-# --archive copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/ (never merging
-# into an existing directory). Round N>1 copies only its -rN files into the round-1 archive named in <run_dir>/.archive-path,
-# else into the newest round-1 archive of this session that holds no round-N files yet, else into a new -rN directory holding
-# the whole run directory; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over the
-# archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold .md files renamed
-# .txt: read synthesis.txt there). Directory choice and copy run under the lock <vault>/06 Archive/OpenCairn/.Panel Runs.lock
-# (lib-lock.sh, the canonical lock path for the Panel Runs directory). The line is then appended to
-# <vault>/07 System/Panel Seat Ledger.md under lock (created atomically with a header if missing). Every run is archived
-# and indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
+# What is written, when:
+#   always       the line on stdout, ending "| evidence: <archive path, else the run directory>".
+#   vault known  (--vault or VAULT_PATH, with or without --archive) the same line appended to
+#                <vault>/07 System/Panel Seat Ledger.md through locked-edit.sh --append (created with a header if missing).
+#                The ledger line is the record; --archive only adds the copy. No vault: nothing is written and stderr
+#                says "ledger NOT WRITTEN".
+#   --archive    additionally copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/
+#                (never merging into an existing directory), after the archive layout gate (check-archive-layout.sh
+#                --enforce); a failed gate or a missing vault writes nothing at all and exits 1. Round N>1 copies only its
+#                -rN files into the round-1 archive named in <run_dir>/.archive-path, else into the newest round-1 archive
+#                of this session that holds no round-N files yet, else into a new -rN directory holding the whole run
+#                directory; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over
+#                the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
+#                .md files renamed .txt: read synthesis.txt there). Directory choice and copy run under the lock
+#                <vault>/06 Archive/OpenCairn/.Panel Runs.lock (lib-lock.sh, the canonical lock path for Panel Runs).
+# Every run is indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
 # Platform: Linux, macOS, Windows (Git Bash). Needs python3.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -43,7 +50,7 @@ while [[ $# -gt 0 ]]; do
     --claude-agent) CLAUDE_AGENT="$2"; shift 2 ;;
     --vault) VAULT="$2"; shift 2 ;;
     --archive) ARCHIVE=1; shift ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^# Platform:/p' "$0"; exit 0 ;;
     *) if [[ -z "$RUN_DIR" ]]; then RUN_DIR="$1"; shift; else echo "Unexpected argument: $1" >&2; exit 1; fi ;;
   esac
 done
@@ -137,10 +144,11 @@ if not ret:
 PY
 )" || { rc=$?; [[ $rc -eq 3 ]] && NORET=1 || exit "$rc"; }
 EVIDENCE="$RUN_DIR"
+[[ -z "$VAULT" || -d "$VAULT" ]] || { echo "vault not found: $VAULT" >&2; echo "$RECORD | evidence: $EVIDENCE"; exit 1; }
 if [[ $ARCHIVE -eq 1 ]]; then
-  [[ -n "$VAULT" && -d "$VAULT" ]] || { echo "--archive needs a vault: pass --vault or set VAULT_PATH" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1; }
+  [[ -n "$VAULT" ]] || { echo "--archive needs a vault: pass --vault or set VAULT_PATH" >&2; echo "$RECORD | evidence: $EVIDENCE"; exit 1; }
   if [[ -x "$HERE/check-archive-layout.sh" ]] && ! "$HERE/check-archive-layout.sh" --enforce "$VAULT" >/dev/null 2>&1; then
-    echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1
+    echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $EVIDENCE"; exit 1
   fi
   RUNS_REL="06 Archive/OpenCairn/Panel Runs"; RUNS="$VAULT/$RUNS_REL"; mkdir -p "$RUNS"
   _lock "$(_lock_path_for "$RUNS")" 10 || { echo "archive lock busy: $RUNS; not archiving" >&2; echo "$RECORD | evidence: $EVIDENCE"; exit 1; }
@@ -168,20 +176,23 @@ if [[ $ARCHIVE -eq 1 ]]; then
   fi
   printf '%s\n' "$EVIDENCE" > "$MARK"
   _unlock
+fi
+LINE="$RECORD | evidence: $EVIDENCE"
+if [[ -n "$VAULT" ]]; then
   LEDGER="$VAULT/07 System/Panel Seat Ledger.md"
   HEADER='# Panel Seat Ledger
 
-One index line per cross-model panel run, appended by `panel-run-record.sh` from the archived seat files under `06 Archive/OpenCairn/Panel Runs/`. If the seat question is reopened, code from those files, not from a synthesis. Fields: date | skill | run <session id> | round | target | despatched | returned | models | wall s | grok cost | synthesis present | evidence path.
+One index line per cross-model panel run, appended by `panel-run-record.sh` from the seat files, archived under `06 Archive/OpenCairn/Panel Runs/` when the evidence path points there. If the seat question is reopened, code from those files, not from a synthesis. Fields: date | skill | run <session id> | round | target | despatched | returned | models | wall s | grok cost | synthesis present | evidence path.
 
 ## Ledger
 '
-  if [[ ! -f "$LEDGER" ]]; then
-    if ! printf '%s\n%s\n' "$HEADER" "$RECORD | evidence: $EVIDENCE" | "$HERE/locked-edit.sh" "$LEDGER" --replace-whole MISSING >/dev/null 2>&1; then
-      printf '%s\n' "$RECORD | evidence: $EVIDENCE" | "$HERE/locked-edit.sh" "$LEDGER" --append >/dev/null   # someone created it first; just append
-    fi
-  else
-    printf '%s\n' "$RECORD | evidence: $EVIDENCE" | "$HERE/locked-edit.sh" "$LEDGER" --append >/dev/null
+  if [[ ! -f "$LEDGER" ]] && printf '%s\n%s\n' "$HEADER" "$LINE" | "$HERE/locked-edit.sh" "$LEDGER" --replace-whole MISSING >/dev/null 2>&1; then
+    :   # created with the header and this line
+  elif ! printf '%s\n' "$LINE" | "$HERE/locked-edit.sh" "$LEDGER" --append >/dev/null; then
+    echo "error: ledger append failed: $LEDGER" >&2; echo "$LINE"; exit 1
   fi
+else
+  echo "warning: ledger NOT WRITTEN (no vault: pass --vault or set VAULT_PATH)" >&2
 fi
-echo "$RECORD | evidence: $EVIDENCE"
+echo "$LINE"
 [[ $NORET -eq 0 ]] || exit 2
