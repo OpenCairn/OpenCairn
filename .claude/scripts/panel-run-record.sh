@@ -15,7 +15,8 @@
 # from the timestamps after the previously recorded round's end, kept in <run_dir>/.claude-rN.transcript-end), else
 # claude[-rN].json (Codex lane), else claude[-rN].model, else --claude-model), wall seconds (.time, or the transcript /
 # usage line), Grok cost, and whether the round's synthesis (synthesis.md for round 1, synthesis-rN.md for round N>1, with
-# synthesis.md taken in its place under a warning) is present. A round-N model file falls back to its round-1 file;
+# synthesis.md taken in its place under a warning only when it is newer than every round-N seat output *-rN.out; an
+# untouched round-1 synthesis.md is not round N's) is present. A round-N model file falls back to its round-1 file;
 # wall seconds never do. A despatched seat whose .out is missing or empty, or whose .exit is non-zero, is left out of
 # `returned:` and named in a stderr warning; when no seat returned the line is still written and the exit status is 2.
 # The line carries NO findings: if the seat question is reopened, code from the archived seat files, not from the synthesis.
@@ -32,11 +33,11 @@
 #                -rN files into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
 #                one round-1 archive of this session holding no round-N files whose round-1 fingerprint matches this run
 #                directory (sha256 of brief.md, and of synthesis.md when synthesis-rN.md exists so synthesis.md still is
-#                round 1's; a run directory with neither file has no fingerprint and never joins) - no match archives
+#                round 1's; a run directory without brief.md has no fingerprint and never joins) - no match archives
 #                the whole run directory to a new -rN directory under a stderr note, more than one match exits 1
 #                ("ambiguous archive recovery") without archiving or writing the ledger line, so two reviews of one
-#                session are never joined; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over
-#                the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
+#                session are never joined; a round N>1 without synthesis-rN.md whose synthesis.md stands in (newer than
+#                every *-rN.out) has it archived as synthesis-rN.md, never over the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
 #                .md files renamed .txt: read synthesis.txt there). Directory choice and copy run under the lock
 #                <vault>/06 Archive/OpenCairn/.Panel Runs.lock (lib-lock.sh, the canonical lock path for Panel Runs).
 # Every run is indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
@@ -62,6 +63,18 @@ for n in names:
 sys.exit(0)
 PY
 }
+# 0 when $1/synthesis.md exists and is newer than every round-$2 seat output $1/*-r$2.out: only then does it stand in
+# for a missing synthesis-r$2.md. Round 1's synthesis.md left untouched since the round-$2 seats returned is not round $2's.
+_synthesis_md_stands_in() {
+  python3 - "$1" "$2" <<'PY'
+import glob, os, sys
+run, rnd = sys.argv[1], sys.argv[2]
+s = os.path.join(run, 'synthesis.md')
+if not os.path.exists(s): sys.exit(1)
+m = os.path.getmtime(s)
+sys.exit(0 if all(m > os.path.getmtime(o) for o in glob.glob(os.path.join(glob.escape(run), f'*-r{rnd}.out'))) else 1)
+PY
+}
 RUN_DIR=""; SKILL=""; ROUND=1; TARGET=""; CLAUDE_MODEL=""; CLAUDE_AGENT=""; VAULT="${VAULT_PATH:-}"; ARCHIVE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,7 +94,9 @@ TARGET="${TARGET//|//}"
 SID="$(_session_id)"; SID8="${SID:0:8}"; [[ -n "$SID8" ]] || SID8="unknown"
 DATE="$(date +%F)"
 NORET=0
-RECORD="$(RUN_DIR="$RUN_DIR" SKILL="$SKILL" ROUND="$ROUND" TARGET="$TARGET" CLAUDE_MODEL="$CLAUDE_MODEL" CLAUDE_AGENT="$CLAUDE_AGENT" SID="$SID" SID8="$SID8" DATE="$DATE" python3 - <<'PY'
+STANDIN=0   # 1 when synthesis.md stands in for a missing synthesis-r$ROUND.md (round N>1 only)
+if [[ "$ROUND" -gt 1 && ! -e "$RUN_DIR/synthesis-r$ROUND.md" ]] && _synthesis_md_stands_in "$RUN_DIR" "$ROUND"; then STANDIN=1; fi
+RECORD="$(RUN_DIR="$RUN_DIR" SKILL="$SKILL" ROUND="$ROUND" TARGET="$TARGET" STANDIN="$STANDIN" CLAUDE_MODEL="$CLAUDE_MODEL" CLAUDE_AGENT="$CLAUDE_AGENT" SID="$SID" SID8="$SID8" DATE="$DATE" python3 - <<'PY'
 import os, re, sys, json, glob, collections, datetime
 rd=os.environ['RUN_DIR']; r=int(os.environ['ROUND']); suf='' if r==1 else f'-r{r}'
 seats=['claude','gemini','codex','grok']; cap={'claude':'Claude','gemini':'Gemini','codex':'Codex','grok':'Grok'}
@@ -153,7 +168,7 @@ cm=cm or rd_(f1('claude','model')).strip() or os.environ.get('CLAUDE_MODEL') or 
 models['claude']=cm
 own=os.path.join(rd, 'synthesis.md' if r==1 else f'synthesis-r{r}.md')
 if os.path.exists(own): synth='yes'
-elif r>1 and os.path.exists(os.path.join(rd,'synthesis.md')):
+elif r>1 and os.environ.get('STANDIN')=='1':
     synth='yes'; print(f"warning: no synthesis-r{r}.md in {rd}; synthesis.md taken as round {r}'s synthesis (archived as synthesis-r{r}.md)", file=sys.stderr)
 else:
     synth='no'; print(f"warning: no synthesis for round {r} in {rd}; write the synthesis and terminal state there before recording", file=sys.stderr)
@@ -198,7 +213,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
   if [[ -n "$JOIN" ]]; then
     EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
     find "$RUN_DIR" -maxdepth 1 -name "*-r$ROUND.*" -exec cp -a {} "$DEST"/ \;
-    [[ ! -e "$RUN_DIR/synthesis-r$ROUND.md" && -f "$RUN_DIR/synthesis.md" ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
+    [[ $STANDIN -eq 1 ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
   else
     STAMP="$(date +%H%M%S)"; BASE="$RUNS_REL/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive

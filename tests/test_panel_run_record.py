@@ -330,6 +330,8 @@ class PanelRunRecordTests(unittest.TestCase):
         self.full_round(2, tag="B")
         (self.run / "synthesis-r2.md").unlink()
         (self.run / "synthesis.md").write_text("# rewritten for round 2\n", encoding="utf-8")
+        now = time.time()
+        os.utime(self.run / "synthesis.md", (now + 1, now + 1))  # written after the round's seat outputs
         r = self.record(2)
         archive = self.archives()[0]
         self.assertEqual((archive / "synthesis-r2.md").read_text(encoding="utf-8"), "# rewritten for round 2\n")
@@ -337,6 +339,43 @@ class PanelRunRecordTests(unittest.TestCase):
                          "the archived round-1 synthesis is never overwritten")
         self.assertIn("warning: no synthesis-r2.md in", r.stderr)
         self.assertIn("synthesis.md taken as round 2's synthesis", r.stderr)
+
+    def test_round_two_fallback_rejects_a_synthesis_md_older_than_the_round_outputs(self) -> None:
+        # Round 1's synthesis.md, untouched since, is not round 2's synthesis.
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "synthesis-r2.md").unlink()
+        now = time.time()
+        os.utime(self.run / "synthesis.md", (now - 600, now - 600))
+        os.utime(self.run / "codex-r2.out", (now, now))
+        r = self.record(2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("| synthesis: no |", r.stdout)
+        self.assertIn("warning: no synthesis for round 2 in", r.stderr)
+        self.assertNotIn("taken as round 2's synthesis", r.stderr)
+        archive = self.archives()[0]
+        self.assertFalse((archive / "synthesis-r2.md").exists(), sorted(p.name for p in archive.iterdir()))
+        self.assertEqual((archive / "synthesis.md").read_text(encoding="utf-8"), "# synthesis round 1\n")
+        self.assertTrue((archive / "codex-r2.out").is_file())
+
+    def test_round_two_fallback_accepts_a_synthesis_md_newer_than_every_round_output(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "synthesis-r2.md").unlink()
+        (self.run / "synthesis.md").write_text("# rewritten for round 2\n", encoding="utf-8")
+        now = time.time()
+        for seat in ("claude", "gemini", "codex", "grok"):
+            os.utime(self.run / f"{seat}-r2.out", (now - 60, now - 60))
+        os.utime(self.run / "synthesis.md", (now, now))
+        r = self.record(2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("| synthesis: yes |", r.stdout)
+        self.assertIn("synthesis.md taken as round 2's synthesis", r.stderr)
+        archive = self.archives()[0]
+        self.assertEqual((archive / "synthesis-r2.md").read_text(encoding="utf-8"), "# rewritten for round 2\n")
+        self.assertEqual((archive / "synthesis.md").read_text(encoding="utf-8"), "# synthesis round 1\n")
 
     def test_round_without_any_synthesis_is_warned_and_recorded_no(self) -> None:
         self.full_round(1)
