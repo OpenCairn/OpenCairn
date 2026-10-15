@@ -183,20 +183,42 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertNotIn("matches this run directory's brief.md", r2.stderr)
 
     def test_whole_directory_fallback_archives_the_stand_in_synthesis_under_round_name(self) -> None:
-        import time
+        # No synthesis-r2.md: a fresh synthesis.md stands in, and the whole-directory
+        # fallback must still archive it under round 2's name.
         self.other_review("runB", "brief B\n")
         (self.run / "brief.md").write_text("brief C\n", encoding="utf-8")
         self.full_round(1)
         self.assertEqual(self.record(1, archive=False).returncode, 0)
         self.full_round(2, tag="C")
-        time.sleep(1.1)
+        (self.run / "synthesis-r2.md").unlink()
         (self.run / "synthesis.md").write_text("round 2 verdict\n", encoding="utf-8")
+        now = time.time()
+        os.utime(self.run / "codex-r2.out", (now - 600, now - 600))
+        os.utime(self.run / "synthesis.md", (now, now))
         r2 = self.record(2)
         self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
         new = [d for d in self.archives() if d.name.endswith("-r2")]
         self.assertEqual(len(new), 1)
-        self.assertTrue((new[0] / "synthesis-r2.md").is_file(), sorted(p.name for p in new[0].iterdir()))
+        self.assertEqual((new[0] / "synthesis-r2.md").read_text(encoding="utf-8"), "round 2 verdict\n",
+                         sorted(p.name for p in new[0].iterdir()))
         self.assertIn("| synthesis: yes |", r2.stdout)
+        self.assertIn("synthesis.md taken as round 2's synthesis", r2.stderr)
+
+    def test_round_two_with_no_seat_output_never_takes_the_stand_in(self) -> None:
+        # Zero *-r2.out files: nothing for synthesis.md to be newer than, so it is not round 2's.
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "synthesis-r2.md").unlink()
+        for p in self.run.glob("*-r2.out"):
+            p.unlink()
+        now = time.time()
+        os.utime(self.run / "synthesis.md", (now, now))
+        r = self.record(2)
+        self.assertIn("| synthesis: no |", r.stdout)
+        self.assertNotIn("taken as round 2's synthesis", r.stderr)
+        archive = self.archives()[0]
+        self.assertFalse((archive / "synthesis-r2.md").exists(), sorted(p.name for p in archive.iterdir()))
 
     def test_lost_marker_with_two_matching_archives_fails_explicitly(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")
