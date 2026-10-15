@@ -14,6 +14,14 @@
 # description stay, and the incoming row is printed, not written. Every run that
 # reaches the dedup ends with a "<N> added, <M> skipped" line.
 #
+# Row paths: a backticked path (`path with - dashes.md` - description) is taken
+# whole. An unquoted row is resolved by the longest left side, cut at " - "
+# boundaries, that is a regular file on disk (relative to $VAULT_PATH when set);
+# only when nothing on disk settles it does the extension-anchored split apply.
+# A written row whose resolved path contains " - " is rewritten with the path in
+# backticks, so later readers (park-verify.sh, a first-" - " splitter) never
+# truncate it.
+#
 # Exit codes: 0 at least one row written (or empty/placeholder-only stdin) · 1 usage, lock or
 # missing session/section · 3 nothing written because every row was skipped.
 #
@@ -117,8 +125,29 @@ _bullet_row() {
 
 # --- Path extraction ---------------------------------------------------------
 # Backticks delimit a path atomically, including extensionless separator names.
-# Legacy descriptive rows retain extension anchoring so "Context - Example.md"
+# An unquoted row is settled by the disk first: the longest " - "-bounded left
+# side (the whole row included) that is a regular file is the path, so neither
+# "tools/check - release" nor "Note - with dash.md - changed foo.md" is cut at
+# the wrong separator. A directory is not taken: it may merely prefix the name.
+# Absent paths keep the legacy extension anchoring so "Context - Example.md"
 # is not split at its filename separator. A paths-only row needs no delimiter.
+_is_file_on_disk() {
+    local p="$1"
+    # shellcheck disable=SC2088  # a literal "~/" pattern, not a tilde to expand
+    case "$p" in
+        /*) ;;
+        "~/"*) p="$HOME/${p#\~/}" ;;
+        *) [ -n "${VAULT_PATH:-}" ] || return 1; p="${VAULT_PATH%/}/$p" ;;
+    esac
+    [ -f "$p" ]
+}
+_longest_existing_prefix() {
+    local cand="$1"
+    while :; do
+        if _is_file_on_disk "$cand"; then printf '%s' "$cand"; return 0; fi
+        case "$cand" in *" - "*) cand="${cand% - *}" ;; *) return 1 ;; esac
+    done
+}
 _extract_path() {
     local line="$1" value p
     case "$line" in '- '*) value="${line#- }" ;; *) return 0 ;; esac
@@ -126,6 +155,10 @@ _extract_path() {
         value="${value#\`}"
         [[ "$value" == *\`* ]] || return 0
         printf '%s' "${value%%\`*}"
+        return
+    fi
+    if p=$(_longest_existing_prefix "$value"); then
+        printf '%s' "$p"
         return
     fi
     p=$(printf '%s\n' "$line" | sed -n 's/^- \(.*\.[A-Za-z0-9]\{1,8\}\) - .*/\1/p')
@@ -228,6 +261,14 @@ while IFS= read -r line; do
         fi
         SEEN_PATHS="${SEEN_PATHS}${NORM_PATH}
 "
+        # A separator-bearing path settled by the disk is written in backticks
+        # so no later reader has to settle it again.
+        case "$FILE_PATH" in
+            *" - "*)
+                if [[ "$line" != '- `'* ]] && _is_file_on_disk "$FILE_PATH"; then
+                    line="- \`${FILE_PATH}\`${line#"- $FILE_PATH"}"
+                fi ;;
+        esac
     fi
     DEDUPED_LIST="${DEDUPED_LIST:+$DEDUPED_LIST
 }$line"
