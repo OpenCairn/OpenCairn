@@ -341,6 +341,31 @@ class ParkReviewTests(unittest.TestCase):
             park_review.accepted_inherited_lint(cases[2], ["/vault/other.md"])[0]
         )
 
+    def test_inherited_lint_acceptance_survives_na_and_info_lines(self) -> None:
+        path = "/vault/history.md"
+        # An absent ident adds an N/A line and the RESULT suffix; an
+        # existence-only closure target adds an INFO line. Neither is a lint hit.
+        output = (
+            f"FAIL lint: {path} 12: 3+ blank lines; \n"
+            "N/A closure: ident 'Budget plan' absent from every planning file (2 checked)\n"
+            "INFO closure: existence-only target not grepped: 04 Areas/Photo/Export.md\n"
+            "RESULT: FAIL (1 fail, 0 review, 1 N/A)\n"
+        )
+        accepted, paths = park_review.accepted_inherited_lint(output, [path])
+        self.assertTrue(accepted)
+        self.assertEqual(paths, [path])
+        plain = (
+            f"FAIL lint: {path} 12: 3+ blank lines; \n"
+            "RESULT: FAIL (1 fail, 0 review)\n"
+        )
+        self.assertTrue(park_review.accepted_inherited_lint(plain, [path])[0])
+        # The suffix does not loosen the count check.
+        for result in ("RESULT: FAIL (2 fail, 0 review, 1 N/A)", "RESULT: FAIL (1 fail, 1 review, 1 N/A)",
+                       "RESULT: FAIL (1 fail, 0 review, N/A)"):
+            with self.subTest(result=result):
+                bad = f"FAIL lint: {path} 12: 3+ blank lines; \n" + result + "\n"
+                self.assertFalse(park_review.accepted_inherited_lint(bad, [path])[0])
+
     def test_byte_identical_full_reads_share_one_read_group(self) -> None:
         digest = "a" * 64
         files = [
