@@ -97,6 +97,7 @@ class PanelRunRecordTests(unittest.TestCase):
 
     # -- 1. multi-round archiving ------------------------------------------
     def test_round_two_without_marker_joins_round_one_archive(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")  # a run's identity for lost-marker recovery
         self.full_round(1)
         r1 = self.record(1)
         self.assertEqual(r1.returncode, 0, r1.stdout + r1.stderr)
@@ -197,6 +198,7 @@ class PanelRunRecordTests(unittest.TestCase):
             self.assertFalse((d / "claude-r2.out").exists(), d.name)
 
     def test_round_two_recorded_twice_makes_no_duplicate_directory(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")  # a run's identity for lost-marker recovery
         self.full_round(1)
         self.record(1)
         self.full_round(2, secs="200", tag="B")
