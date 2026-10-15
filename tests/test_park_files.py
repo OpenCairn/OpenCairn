@@ -127,6 +127,11 @@ class ParkFilesTests(unittest.TestCase):
             self.assertIn(str(claude / "commands"), header[0])
             self.assertIn(str(vault), header[0])
             self.assertNotIn(str(installed.parent), header[0])
+            # The config dir itself is swept only for top-level *.log files: the
+            # header names that exact sweep, never the whole directory.
+            roots = header[0].split("\t")[1:]
+            self.assertIn(str(claude / "*.log"), roots)
+            self.assertNotIn(str(claude), roots)
 
             # Positive control: each --root is scanned and listed in the header.
             with_roots = run("--root", str(installed.parent), "--root", str(setting.parent))
@@ -141,6 +146,12 @@ class ParkFilesTests(unittest.TestCase):
             self.assertIn(str(installed.parent), header[0])
             self.assertIn(str(setting.parent), header[0])
             self.assertIn(str(claude / "commands"), header[0])
+
+            # A single file passed as --root is listed as its own [root] row.
+            as_file = run("--root", str(setting))
+            self.assertIn(f"[root]\t{setting}\t{setting}\n", as_file)
+            header = [l for l in as_file.splitlines() if l.startswith("# roots searched:")]
+            self.assertIn(str(setting), header[0].split("\t"))
 
             # A root that does not exist is reported, never silently skipped.
             missing = run("--root", str(home / "absent"))
