@@ -16,7 +16,9 @@
 #                $CODEX_HOME/skills, selected user-runtime roots, and top-level
 #                Claude *.log files modified inside the window
 #   [root]       files under each --root DIR modified inside the window
-#                (root, then path); a missing DIR prints ERROR: not found
+#                (root, then path), pruning only .git: __pycache__ and other
+#                byproducts are listed, unlike the default roots; a missing
+#                DIR prints ERROR: not found
 #   [repo]       git status --short per named repo
 #   [git-diff]   git diff --name-status -M HEAD for the vault and named repos;
 #                tracked deletions and both paths of staged moves survive here
@@ -104,11 +106,13 @@ if [ -e "$HOME/.config/kwinoutputconfig.json" ]; then
         | sed 's/^/[config]\t/' || true
 fi
 
-# 2b. Caller-supplied roots, same window and prunes as the config sweep.
-#     A root that does not exist is reported, never silently skipped.
+# 2b. Caller-supplied roots, same window as the config sweep but pruning only
+#     .git: the caller named the root because its byproducts (__pycache__ and
+#     the like) are exactly what the default sweep omits. A root that does not
+#     exist is reported, never silently skipped.
 for extra in ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"}; do
     if [ -e "$extra" ]; then
-        find "$extra" \( -name .git -o -name __pycache__ \) -prune -o \
+        find "$extra" -name .git -prune -o \
                 \( -type f -o -type l \) \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
             | awk -v root="$extra" '{ print "[root]\t" root "\t" $0 }' || true
     else
