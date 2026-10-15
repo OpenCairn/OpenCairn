@@ -130,6 +130,27 @@ class ParkVerifyTests(unittest.TestCase):
         self.assertIn("[link-target] 1:- [ ] Check", uncounted)
         self.assertNotIn("4:", lines[0])
 
+    def test_ident_absent_from_every_planning_file_is_not_a_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = make_vault(Path(tmp))
+            (vault / "01 Now/This Week.md").write_text("- [ ] Unrelated item\n- [x] Other\n", encoding="utf-8")
+            result = verify(vault, write_log(vault), "--ident", "Budget plan", "--ident", "Unrelated")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("N/A closure: ident 'Budget plan' absent from every planning file (2 checked)", result.stdout)
+            self.assertNotIn("PASS closure: ident 'Budget plan'", result.stdout)
+            self.assertIn("REVIEW closure: ident 'Unrelated' has unchecked matches", result.stdout)
+            self.assertIn("RESULT: REVIEW (1 item(s) need caller triage, 1 N/A)", result.stdout)
+            # Present only on a checked line: a real pass, not N/A.
+            (vault / "01 Now/This Week.md").write_text("- [x] Budget plan agreed\n", encoding="utf-8")
+            result = verify(vault, write_log(vault), "--ident", "Budget plan")
+            self.assertIn("PASS closure: ident 'Budget plan': no unchecked [ ] match in 2 planning file(s)", result.stdout)
+            self.assertIn("RESULT: PASS\n", result.stdout)
+            self.assertNotIn("N/A", result.stdout)
+            # Every ident absent: the RESULT line says so.
+            result = verify(vault, write_log(vault), "--ident", "Nowhere")
+            self.assertIn("N/A closure: ident 'Nowhere' absent from every planning file (2 checked)", result.stdout)
+            self.assertIn("RESULT: PASS (1 N/A)", result.stdout)
+
     def test_ident_after_a_different_character_class_is_text(self) -> None:
         # A digit ident after letters (or the reverse) is a whole token of its
         # own, not the tail of a longer word or number.
