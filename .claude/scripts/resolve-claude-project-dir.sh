@@ -18,11 +18,15 @@
 #               <projects>/*/<session id>.jsonl (id via lib-session.sh)
 #   2. derived: <projects>/<vault path with [^A-Za-z0-9] -> ->, printed when it exists
 #   3. sweep:   every <projects>/*/ whose transcripts (*.jsonl, bounded by
-#               --max-filesize) mention the vault path literally; each dir once
+#               --max-filesize) were launched in the vault, i.e. carry the exact
+#               token "cwd":"<vault>" (a transcript that merely read a vault
+#               file names the path without that field); each dir once
 #
 # stdout: one absolute project directory per line. stderr: which mode produced
-# the result ("this session's transcript", "derived" or "sweep"). Exit 1 when
-# none finds a directory:
+# the result ("this session's transcript", "derived" or "sweep"). Exit 3 when
+# the sweep finds more than one directory: all are printed, stderr says
+# "project dir: ambiguous (N candidates)", and callers must treat the result as
+# unattributed for any destructive branch. Exit 1 when none finds a directory:
 # "project dir: none (...)" is a confirmed absence (derived dir absent and no
 # transcript names the vault); "project dir: lookup failed (...)" means the
 # sweep could not run (rg unavailable) and says nothing about existence.
@@ -66,13 +70,21 @@ if ! command -v rg >/dev/null 2>&1; then
 fi
 
 # --max-depth 2: <projects>/<dir>/<file>.jsonl only; memory/ and deeper are skipped.
+token="\"cwd\":\"$VAULT\""
 found=$(rg -l -F --no-ignore --max-filesize "$MAX_SIZE" --max-depth 2 -g '*.jsonl' \
-            -- "$VAULT" "$PROJECTS" 2>/dev/null \
+            -- "$token" "$PROJECTS" 2>/dev/null \
         | while IFS= read -r f; do dirname "$f"; done | sort -u) || true
 
 if [ -z "$found" ]; then
-    echo "project dir: none (derived path $derived absent; no transcript under $PROJECTS names $VAULT)" >&2
+    echo "project dir: none (derived path $derived absent; no transcript under $PROJECTS has $token)" >&2
     exit 1
+fi
+
+count=$(printf '%s\n' "$found" | wc -l | tr -d ' ')
+if [ "$count" -gt 1 ]; then
+    echo "project dir: ambiguous ($count candidates)" >&2
+    printf '%s\n' "$found"
+    exit 3
 fi
 
 echo "project dir: sweep (derived path $derived absent)" >&2
