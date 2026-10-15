@@ -42,9 +42,15 @@
 #               means the preceding character is the same kind as the ident's
 #               first (letter after letter, digit after digit); a digit ident
 #               after letters, or the reverse, counts as [text]
-#   touched     each --touched path exists, unless a Files Deleted row accounts
-#               for it, --nonlocal classifies it, or it is an off-host form
-#               ("host:/path", "C:\path", a URL) that names nothing local
+#   touched     each --touched path exists, unless a Files Deleted row (or a
+#               row annotated "(deleted)") accounts for it, --nonlocal or a
+#               "(remote)" annotation classifies it, it lies under a
+#               PARK_VERIFY_REMOTE_PREFIXES entry, or it is an off-host form
+#               ("host:/path", "C:\path", a URL) that names nothing local.
+#               Existing paths that must not be read (see the content-read
+#               gate: remote mount, over-size, binary) print
+#               "PASS touched: existence-only (<reason>): <path>" and are
+#               skipped by the separator and lint checks
 #   backfill    each touched path matches a Files Created / Files Updated /
 #               Files Deleted row by complete resolved path. Case-sensitive:
 #               a row spelled in another case matches only when one row path
@@ -55,9 +61,14 @@
 #               is gone name nothing local to lint and are counted, not
 #               compared. REVIEW also for a row that cannot be tied to one
 #               file: a bare [[Note]] shared by several vault files, or an
-#               unquoted row matched only through a truncated prefix
+#               unquoted row matched only through a truncated prefix.
+#               A row annotated "(deleted)" or "(remote)" (the token anywhere
+#               after the path, in any Files list) whose path is not on disk
+#               is neither a REVIEW nor a FAIL: it prints
+#               "INFO backfill: row annotated (deleted|remote) not compared: <path>"
 #
-# Output: "PASS|FAIL|REVIEW <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
+# Output: "PASS|FAIL|REVIEW|INFO <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
+# INFO lines are informational and never affect the verdict.
 # Exit 1 if any FAIL, else 0 (REVIEW lines need caller triage but are not failures).
 set -euo pipefail
 
@@ -273,6 +284,9 @@ OFFHOST = re.compile(r"^(?![A-Za-z]:/)[A-Za-z0-9._-]+:/|(^|\s)[A-Za-z]:\\")
 EXTENSION = re.compile(r"\.[A-Za-z0-9]{1,10}$")
 MDTITLE = re.compile(r"""^(.*?)\s+("[^"]*"|'[^']*'|\([^()]*\))$""")
 OTHER_SEPARATORS = (" \u2014 ", " \u2013 ", ": ", " (")
+# "(deleted)" / "(remote)" after the path: the row names something that is not
+# on this host's disk, or should not be read from it. See the content-read gate.
+ANNOTATION = re.compile(r"\s*\((deleted|remote)\)(?=\s|$)", re.IGNORECASE)
 root = realpath(vault)
 out = []
 row_text = {}   # canonical "path <sep> description" spelling -> the row's file
@@ -292,6 +306,15 @@ def norm(path):
 
 def canon(path):
     return realpath(norm(path))
+
+
+REMOTE_PREFIXES = [slash(p).rstrip("/") for p in
+                   os.environ.get("PARK_VERIFY_REMOTE_PREFIXES", "").split(":") if p.strip()]
+
+
+def remote_prefixed(path):
+    path = norm(path)
+    return any(path == p or path.startswith(p + "/") for p in REMOTE_PREFIXES)
 
 
 def is_file(path):
@@ -409,10 +432,10 @@ def wiki_paths(target):
 rows, touched, bare_names = [], [], set()
 
 
-def add_row(section, raw, show, candidates, multi=False, bare=None):
-    rows.append({"sec": section, "raw": raw, "show": show, "cands": candidates,
-                 "keys": [canon(c) for c in candidates], "multi": multi,
-                 "bare": bare, "hits": None, "skip": False})
+def add_row(section, raw, show, candidates, multi=False, bare=None, note=None):
+    rows.append({"sec": "D" if note == "deleted" else section, "raw": raw, "show": show,
+                 "cands": candidates, "keys": [canon(c) for c in candidates], "multi": multi,
+                 "bare": bare, "note": note, "hits": None, "skip": False})
 
 
 section = ""
@@ -437,6 +460,13 @@ for line in block.split("\n"):
     value = row[2:].strip()
     if not value or value.lower() == "none":
         continue
+    # An annotation is read outside a backticked path and removed before parsing.
+    note = None
+    quoted_end = value.find("`", 1) if value.startswith("`") else -1
+    annotated = ANNOTATION.search(value, quoted_end + 1 if quoted_end > 0 else 0)
+    if annotated:
+        note = annotated.group(1).lower()
+        value = (value[:annotated.start()] + value[annotated.end():]).strip()
     if value.startswith("[["):
         end = value.find("]]")
         if end < 0:
@@ -446,18 +476,18 @@ for line in block.split("\n"):
         if not target:
             out.append("REVIEW backfill: wiki Files row names no file; write the vault-relative path instead: " + row)
         elif "/" in target:
-            add_row(section, row, target, wiki_paths(target))
+            add_row(section, row, target, wiki_paths(target), note=note)
         else:
             name = target[:-3] if target.endswith(".md") else target
             bare_names.add(name)
-            add_row(section, row, target, [], bare=name)
+            add_row(section, row, target, [], bare=name, note=note)
         continue
     if value.startswith("`"):
         end = value.find("`", 1)
         if end < 0:
             out.append("REVIEW backfill: unterminated quoted Files path: " + row)
         else:
-            add_row(section, row, value[1:end], [value[1:end]])
+            add_row(section, row, value[1:end], [value[1:end]], note=note)
         continue
     candidates, show, resolved = unquoted(value)
     if not resolved:
@@ -469,7 +499,7 @@ for line in block.split("\n"):
             candidates, show, resolved = unquoted(value[2:closing] + value[closing + 2:])
     if show.lower() == "none":
         continue
-    add_row(section, row, show, candidates, multi=not resolved and len(candidates) > 1)
+    add_row(section, row, show, candidates, multi=not resolved and len(candidates) > 1, note=note)
 
 for index, path in enumerate(touched_args):
     entry = {"path": path, "show": show_touched(path), "keys": [canon(path)],
@@ -747,12 +777,17 @@ for index, entry in enumerate(touched):
     if not covers[index]:
         missing += entry["show"] + "; "
     # A target that is not on disk was never linted or separator-scanned. Only a
-    # Files Deleted row, an explicit --nonlocal classification, or an off-host
+    # Files Deleted row (or a "(deleted)" annotation), an explicit --nonlocal or
+    # "(remote)" classification, a configured remote prefix, or an off-host
     # form (which names nothing on this machine) explains that.
+    excused = any(rows[r]["sec"] == "D" or rows[r]["note"] == "remote" for r in covers[index])
     if (not entry["exists"] and entry["path"] not in nonlocal_args
-            and not OFFHOST.search(entry["show"])
-            and not any(rows[r]["sec"] == "D" for r in covers[index])):
+            and not OFFHOST.search(entry["show"]) and not remote_prefixed(entry["path"])
+            and not excused):
         absent += entry["show"] + "; "
+    # On disk but covered by a "(remote)" row: the shell checks existence only.
+    if entry["exists"] and any(rows[r]["note"] == "remote" for r in covers[index]):
+        out.append("X\t%d" % index)
 if absent:
     out.append("FAIL touched: path(s) do not exist and are not recorded under Files Deleted (truncated or mistyped? a path on another host or a glob needs --nonlocal): " + absent)
 if missing:
@@ -782,7 +817,9 @@ for row_index, row in enumerate(rows):
     present = bool(row["hits"]) or any(
         on_disk(c) and (is_file(c) or not (row["multi"] and truncation(c, row["cands"])))
         for c in row["cands"])
-    if not present and OFFHOST.search(row["show"]):
+    if not present and row["note"] is not None:
+        out.append("INFO backfill: row annotated (%s) not compared: %s" % (row["note"], row["show"]))
+    elif not present and (OFFHOST.search(row["show"]) or remote_prefixed(row["show"])):
         off_host += 1
     elif not present and row["sec"] == "D":
         deleted_absent += 1
@@ -800,7 +837,7 @@ else:
                % (number, " (" + "; ".join(notes) + ")" if notes else ""))
 
 for line in out:
-    if not line.startswith("T\t"):
+    if not line.startswith(("T\t", "X\t")):
         line = "O\t" + line
     sys.stdout.buffer.write((line + "\n").encode("utf-8", "surrogateescape"))
 PY
@@ -823,15 +860,95 @@ elif ! COVERAGE=$(python3 -c "$COVERAGE_PY" "$VAULT" "$LOG" "$N" ${COVERAGE_ARGS
     exit 1
 fi
 COVERAGE_LINES=()
+ROW_REMOTE=()   # touched paths a "(remote)" Files row covers: existence only
 while IFS= read -r line; do
     case "$line" in
         T$'\t'*) line="${line#T$'\t'}"; TOUCHED[${line%%$'\t'*}]="${line#*$'\t'}" ;;
+        X$'\t'*) ROW_REMOTE+=("${TOUCHED[${line#X$'\t'}]}") ;;
         O$'\t'*) COVERAGE_LINES+=("${line#O$'\t'}") ;;
     esac
 done <<< "$COVERAGE"
 if [ "${#TOUCHED[@]}" -gt 0 ]; then
     mapfile -t TOUCHED < <(printf '%s\n' "${TOUCHED[@]}" | awk '!seen[$0]++')
 fi
+
+# --- content-read gate -------------------------------------------------------
+# The separator scan and the lint read a touched file end to end. On a multi-GB
+# binary, a disk image or a network mount that is a hang, and it proves nothing:
+# both markers are text artefacts of locked-edit.sh and Markdown lists. Such a
+# path is checked for existence only and announced as
+#   "PASS touched: existence-only (<reason>): <path>"
+# The session log itself is always read. Reasons, in the order tested:
+#   row annotated (remote)      a Files row covering the path carries "(remote)"
+#   remote prefix: <p>          the path is under an entry of the colon-separated
+#                               PARK_VERIFY_REMOTE_PREFIXES (for mounts the
+#                               filesystem probe cannot name, or must not touch)
+#   remote mount: <type>        `stat -f -c %T` (GNU) or `findmnt -T` reports a
+#                               network or FUSE filesystem; a path on a host
+#                               without either tool is not classified this way
+#   size <n> bytes exceeds <m>  larger than PARK_VERIFY_MAX_CONTENT_BYTES (2 MiB:
+#                               no planning doc or session log approaches it;
+#                               exports and images routinely exceed it)
+#   binary content              a NUL byte within the first 8 KiB
+PARK_VERIFY_MAX_CONTENT_BYTES=2097152
+REMOTE_FS_TYPES='cifs smb smb2 smb3 smbfs nfs nfs4 afs 9p ceph davfs fuse fuseblk sshfs'
+declare -A CONTENT_SKIP=()
+bounded() { if command -v timeout >/dev/null 2>&1; then timeout 10 "$@"; else "$@"; fi; }
+fs_type() {
+    local type
+    type=$(bounded stat -f -c %T -- "$1" 2>/dev/null || true)
+    [ -n "$type" ] || type=$(bounded findmnt -n -o FSTYPE -T "$1" 2>/dev/null || true)
+    printf '%s' "$type"
+}
+content_skip_reason() {
+    local t="$1" reason="" prefix type size nul prefixes=()
+    if [ -n "${CONTENT_SKIP[$t]+x}" ]; then printf '%s' "${CONTENT_SKIP[$t]}"; return 0; fi
+    for prefix in "${ROW_REMOTE[@]:-}"; do
+        [ -n "$prefix" ] && [ "$prefix" = "$t" ] && reason="row annotated (remote)"
+    done
+    if [ -z "$reason" ] && [ -n "${PARK_VERIFY_REMOTE_PREFIXES:-}" ]; then
+        IFS=':' read -r -a prefixes <<< "$PARK_VERIFY_REMOTE_PREFIXES"
+        for prefix in "${prefixes[@]}"; do
+            prefix="${prefix%/}"
+            [ -n "$prefix" ] || continue
+            case "$t" in "$prefix"|"$prefix"/*) reason="remote prefix: $prefix"; break ;; esac
+        done
+    fi
+    if [ -z "$reason" ]; then
+        type=$(fs_type "$t")
+        case " $REMOTE_FS_TYPES " in
+            *" ${type%%.*} "*) [ -n "$type" ] && reason="remote mount: $type" ;;
+        esac
+    fi
+    if [ -z "$reason" ]; then
+        size=$(stat -c %s -- "$t" 2>/dev/null || stat -f %z -- "$t" 2>/dev/null || echo 0)
+        [ "$((size))" -gt "$PARK_VERIFY_MAX_CONTENT_BYTES" ] \
+            && reason="size $size bytes exceeds $PARK_VERIFY_MAX_CONTENT_BYTES"
+    fi
+    if [ -z "$reason" ]; then
+        nul=$(head -c 8192 -- "$t" 2>/dev/null | tr -dc '\000' | wc -c)
+        [ "$((nul))" -gt 0 ] && reason="binary content"
+    fi
+    CONTENT_SKIP[$t]="$reason"
+    printf '%s' "$reason"
+}
+is_reference() {
+    [ "${#VALID_REFERENCES[@]}" -gt 0 ] && grep -qxF -- "$1" <<< "$(printf '%s\n' "${VALID_REFERENCES[@]}")"
+}
+show_path() {
+    case "$1" in
+        "$VAULT"/*) printf '%s' "${1#"$VAULT"/}" ;;
+        "$HOME"/*)  printf '~/%s' "${1#"$HOME"/}" ;;
+        *)          printf '%s' "$1" ;;
+    esac
+}
+for t in "${TOUCHED[@]:-}"; do
+    [ -n "$t" ] && [ "$t" != "$LOG" ] && [ -f "$t" ] || continue
+    is_nonlocal "$t" && continue
+    is_reference "$t" && continue
+    reason=$(content_skip_reason "$t")
+    [ -n "$reason" ] && pass touched "existence-only ($reason): $(show_path "$t")"
+done
 
 # --- separator tokens --------------------------------------------------------
 SEP_TARGETS=("$LOG" "$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
@@ -845,12 +962,16 @@ for t in "${SEP_TARGETS[@]}"; do
         SEP_SKIPPED=$((SEP_SKIPPED + 1))
         continue
     fi
-    if [ "${#VALID_REFERENCES[@]}" -gt 0 ] && grep -qxF -- "$t" <<< "$(printf '%s\n' "${VALID_REFERENCES[@]}")"; then
+    if is_reference "$t"; then
         SEP_SKIPPED=$((SEP_SKIPPED + 1))
         continue
     fi
     if [ ! -f "$t" ]; then
         SEP_SKIPPED=$((SEP_SKIPPED + 1))
+        continue
+    fi
+    if [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ]; then
+        SEP_SKIPPED=$((SEP_SKIPPED + 1))   # existence-only: announced above
         continue
     fi
     # Skill/command/script files legitimately QUOTE the separator token (park.md
@@ -887,6 +1008,7 @@ for t in "${TOUCHED[@]:-}"; do
     is_nonlocal "$t" && continue
     [ -n "$t" ] && [ -f "$t" ] || continue
     case "$t" in *.md) ;; *) continue ;; esac
+    [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ] && continue   # existence-only
     case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
         */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim exports retain source formatting by design
         */07\ System/.Provenance/*.snapshot.*) continue ;; # immutable provenance snapshots retain exact source formatting
