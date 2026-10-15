@@ -5,17 +5,22 @@
 # Usage: resolve-claude-project-dir.sh <vault_path>
 #
 # Claude Code names each project directory under $CLAUDE_CONFIG_DIR/projects/
-# (default ~/.claude/projects/) after the launch cwd with every "/" and "."
-# replaced by "-". Deriving that name from `pwd` follows any earlier `cd`, so
-# memory and plan attribution can land in another project's directory. This
-# script derives it from the vault path instead:
+# (default ~/.claude/projects/) after the launch cwd with every non-alphanumeric
+# character replaced by "-" (code.claude.com/docs/en/sessions, "where
+# transcripts are stored"): "/", ".", "_", " " and the rest all become "-".
+# Deriving that name from `pwd` follows any earlier `cd`, so memory and plan
+# attribution can land in another project's directory. This script derives it
+# from the vault path instead:
 #
-#   1. derived: <projects>/<vault path with [/.] -> ->, printed when it exists
+#   1. derived: <projects>/<vault path with [^A-Za-z0-9] -> ->, printed when it exists
 #   2. sweep:   every <projects>/*/ whose transcripts (*.jsonl, bounded by
 #               --max-filesize) mention the vault path literally; each dir once
 #
 # stdout: one absolute project directory per line. stderr: which mode produced
-# the result ("derived" or "sweep"). Exit 1 when neither finds a directory.
+# the result ("derived" or "sweep"). Exit 1 when neither finds a directory:
+# "project dir: none (...)" is a confirmed absence (derived dir absent and no
+# transcript names the vault); "project dir: lookup failed (...)" means the
+# sweep could not run (rg unavailable) and says nothing about existence.
 # Env: CLAUDE_CONFIG_DIR (default ~/.claude); CLAUDE_PROJECT_SWEEP_MAX_FILESIZE
 # (default 50M, passed to rg --max-filesize).
 
@@ -26,7 +31,7 @@ VAULT="${VAULT%/}"
 PROJECTS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
 MAX_SIZE="${CLAUDE_PROJECT_SWEEP_MAX_FILESIZE:-50M}"
 
-derived="$PROJECTS/$(printf '%s' "$VAULT" | sed 's#[/.]#-#g')"
+derived="$PROJECTS/$(printf '%s' "$VAULT" | sed 's#[^A-Za-z0-9]#-#g')"
 if [ -d "$derived" ]; then
     echo "project dir: derived from vault path" >&2
     printf '%s\n' "$derived"
@@ -38,7 +43,7 @@ if [ ! -d "$PROJECTS" ]; then
     exit 1
 fi
 if ! command -v rg >/dev/null 2>&1; then
-    echo "project dir: derived path $derived absent and rg unavailable for the sweep" >&2
+    echo "project dir: lookup failed (derived path $derived absent; rg unavailable for the transcript sweep)" >&2
     exit 1
 fi
 
