@@ -29,9 +29,13 @@
 #   --archive    additionally copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/
 #                (never merging into an existing directory), after the archive layout gate (check-archive-layout.sh
 #                --enforce); a failed gate or a missing vault writes nothing at all and exits 1. Round N>1 copies only its
-#                -rN files into the round-1 archive named in <run_dir>/.archive-path, else into the newest round-1 archive
-#                of this session that holds no round-N files yet, else into a new -rN directory holding the whole run
-#                directory; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over
+#                -rN files into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
+#                one round-1 archive of this session holding no round-N files whose round-1 fingerprint matches this run
+#                directory (sha256 of brief.md, and of synthesis.md when synthesis-rN.md exists so synthesis.md still is
+#                round 1's; a run directory with neither file has no fingerprint and never joins) - no match archives
+#                the whole run directory to a new -rN directory under a stderr note, more than one match exits 1
+#                ("ambiguous archive recovery") without archiving or writing the ledger line, so two reviews of one
+#                session are never joined; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over
 #                the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
 #                .md files renamed .txt: read synthesis.txt there). Directory choice and copy run under the lock
 #                <vault>/06 Archive/OpenCairn/.Panel Runs.lock (lib-lock.sh, the canonical lock path for Panel Runs).
@@ -41,6 +45,23 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/lib-session.sh"
 source "$HERE/lib-lock.sh"
+# 0 when every round-1 fingerprint file present in run dir $1 is byte-identical in archive $2: brief.md, and synthesis.md
+# unless round $3 has no synthesis-r$3.md (then synthesis.md stands in for round $3 and no longer fingerprints round 1).
+# A run directory with no fingerprint file never matches.
+_round1_fingerprint_matches() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import hashlib, os, sys
+run, arc, rnd = sys.argv[1], sys.argv[2], sys.argv[3]
+names = ['brief.md'] + (['synthesis.md'] if os.path.exists(os.path.join(run, f'synthesis-r{rnd}.md')) else [])
+names = [n for n in names if os.path.exists(os.path.join(run, n))]
+if not names: sys.exit(1)
+def h(p): return hashlib.sha256(open(p, 'rb').read()).hexdigest()
+for n in names:
+    a = os.path.join(arc, n)
+    if not os.path.exists(a) or h(a) != h(os.path.join(run, n)): sys.exit(1)
+sys.exit(0)
+PY
+}
 RUN_DIR=""; SKILL=""; ROUND=1; TARGET=""; CLAUDE_MODEL=""; CLAUDE_AGENT=""; VAULT="${VAULT_PATH:-}"; ARCHIVE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -158,11 +179,20 @@ if [[ $ARCHIVE -eq 1 ]]; then
   if [[ "$ROUND" -gt 1 ]]; then
     if [[ -f "$MARK" && -d "$VAULT/$(cat "$MARK")" ]]; then JOIN="$(cat "$MARK")"
     elif [[ "$SID8" != "unknown" ]]; then
-      # Marker lost: the newest round-1 archive of this session that holds no round-N files yet.
+      # Marker lost: the round-1 archive of this session holding no round-N files whose round-1 fingerprint
+      # (brief.md, and synthesis.md while it is still round 1's) matches this run directory byte for byte.
+      MATCHES=()
       for d in "$RUNS"/*-"$SID8"-r1 "$RUNS"/*-"$SID8"-r1-*; do
         [[ -d "$d" ]] || continue
-        if ! compgen -G "$d/*-r$ROUND.*" >/dev/null; then JOIN="$RUNS_REL/$(basename "$d")"; fi
+        compgen -G "$d/*-r$ROUND.*" >/dev/null && continue
+        _round1_fingerprint_matches "$RUN_DIR" "$d" "$ROUND" && MATCHES+=("$RUNS_REL/$(basename "$d")")
       done
+      if [[ ${#MATCHES[@]} -eq 1 ]]; then JOIN="${MATCHES[0]}"
+      elif [[ ${#MATCHES[@]} -gt 1 ]]; then
+        _unlock
+        echo "error: ambiguous archive recovery: round-1 fingerprint of $RUN_DIR matches more than one archive of session $SID8 (${MATCHES[*]}); restore $MARK and re-run" >&2
+        echo "$RECORD | evidence: $EVIDENCE"; exit 1
+      fi
     fi
   fi
   if [[ -n "$JOIN" ]]; then
@@ -174,7 +204,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive
     DEST="$VAULT/$EVIDENCE"; mkdir -p "$DEST"
     cp -a "$RUN_DIR"/. "$DEST"/
-    [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session found; round $ROUND archived whole to $EVIDENCE" >&2
+    [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session matches this run directory's brief.md/synthesis.md; round $ROUND archived whole to $EVIDENCE" >&2
   fi
   printf '%s\n' "$EVIDENCE" > "$MARK"
   _unlock

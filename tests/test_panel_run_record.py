@@ -36,30 +36,32 @@ class PanelRunRecordTests(unittest.TestCase):
 
     # -- fixture helpers -------------------------------------------------
     def seat(self, name: str, rnd: int = 1, out="findings", secs="100",
-             exit_code=None, err=None, model=None) -> None:
+             exit_code=None, err=None, model=None, run: Path = None) -> None:
+        run = run or self.run
         suf = "" if rnd == 1 else f"-r{rnd}"
         if out is not None:
-            (self.run / f"{name}{suf}.out").write_text(out, encoding="utf-8")
+            (run / f"{name}{suf}.out").write_text(out, encoding="utf-8")
         if secs is not None:
-            (self.run / f"{name}{suf}.time").write_text(f"{secs}\n", encoding="utf-8")
+            (run / f"{name}{suf}.time").write_text(f"{secs}\n", encoding="utf-8")
         if exit_code is not None:
-            (self.run / f"{name}{suf}.exit").write_text(f"{exit_code}\n", encoding="utf-8")
+            (run / f"{name}{suf}.exit").write_text(f"{exit_code}\n", encoding="utf-8")
         if err is not None:
-            (self.run / f"{name}{suf}.err").write_text(err, encoding="utf-8")
+            (run / f"{name}{suf}.err").write_text(err, encoding="utf-8")
         if model is not None:
-            (self.run / f"{name}{suf}.model").write_text(f"{model}\n", encoding="utf-8")
+            (run / f"{name}{suf}.model").write_text(f"{model}\n", encoding="utf-8")
 
-    def full_round(self, rnd: int = 1, secs="100", tag="A") -> None:
-        self.seat("claude", rnd, secs=secs, model=f"claude-{tag}")
-        self.seat("gemini", rnd, secs=secs, model=f"gemini-{tag}")
-        self.seat("codex", rnd, secs=secs, err=f"model: codex-{tag}\n")
-        self.seat("grok", rnd, secs=secs, err=f"grok grok-{tag} 55.2s $0.123\n")
+    def full_round(self, rnd: int = 1, secs="100", tag="A", run: Path = None) -> None:
+        run = run or self.run
+        self.seat("claude", rnd, secs=secs, model=f"claude-{tag}", run=run)
+        self.seat("gemini", rnd, secs=secs, model=f"gemini-{tag}", run=run)
+        self.seat("codex", rnd, secs=secs, err=f"model: codex-{tag}\n", run=run)
+        self.seat("grok", rnd, secs=secs, err=f"grok grok-{tag} 55.2s $0.123\n", run=run)
         name = "synthesis.md" if rnd == 1 else f"synthesis-r{rnd}.md"
-        (self.run / name).write_text(f"# synthesis round {rnd}\n", encoding="utf-8")
+        (run / name).write_text(f"# synthesis round {rnd}\n", encoding="utf-8")
 
     def record(self, rnd: int = 1, *extra: str, archive=True, vault=True,
-               skill="audit") -> subprocess.CompletedProcess:
-        cmd = [str(SCRIPT), str(self.run), "--skill", skill, "--round", str(rnd),
+               skill="audit", run: Path = None) -> subprocess.CompletedProcess:
+        cmd = [str(SCRIPT), str(run or self.run), "--skill", skill, "--round", str(rnd),
                "--target", "fixture target", *extra]
         if vault:
             cmd += ["--vault", str(self.vault)]
@@ -112,6 +114,68 @@ class PanelRunRecordTests(unittest.TestCase):
         lines = self.ledger_lines()
         self.assertEqual(len(lines), 2)
         self.assertTrue(lines[1].endswith(f"evidence: {RUNS_REL}/{dirs[0].name}"), lines[1])
+
+    def other_review(self, name: str, brief: str) -> Path:
+        """A second review of the same session: its own run dir with a round-1 archive."""
+        run = self.root / name
+        run.mkdir()
+        (run / "brief.md").write_text(brief, encoding="utf-8")
+        self.full_round(1, run=run)
+        r = self.record(1, run=run)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return run
+
+    def test_lost_marker_joins_only_the_archive_whose_round_one_matches(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")
+        self.full_round(1)
+        self.assertEqual(self.record(1).returncode, 0)
+        self.other_review("runB", "brief B\n")
+        self.assertEqual(len(self.archives()), 2)
+        (self.run / ".archive-path").unlink()
+        self.full_round(2, secs="200", tag="B")
+        r2 = self.record(2)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        dirs = self.archives()
+        self.assertEqual(len(dirs), 2, [d.name for d in dirs])
+        a = [d for d in dirs if (d / "brief.md").read_text(encoding="utf-8") == "brief A\n"]
+        b = [d for d in dirs if (d / "brief.md").read_text(encoding="utf-8") == "brief B\n"]
+        self.assertEqual((len(a), len(b)), (1, 1))
+        self.assertTrue((a[0] / "claude-r2.out").is_file(), sorted(p.name for p in a[0].iterdir()))
+        self.assertFalse((b[0] / "claude-r2.out").exists(), "round 2 of A must never land in B's archive")
+        self.assertTrue(self.ledger_lines()[-1].endswith(f"evidence: {RUNS_REL}/{a[0].name}"))
+
+    def test_lost_marker_without_a_matching_round_one_archives_the_round_whole(self) -> None:
+        self.other_review("runB", "brief B\n")
+        (self.run / "brief.md").write_text("brief C\n", encoding="utf-8")
+        self.full_round(1)
+        self.assertEqual(self.record(1, archive=False).returncode, 0)  # round 1 never archived
+        self.full_round(2, tag="C")
+        r2 = self.record(2)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        dirs = self.archives()
+        self.assertEqual(len(dirs), 2, [d.name for d in dirs])
+        new = [d for d in dirs if d.name.endswith("-r2")]
+        self.assertEqual(len(new), 1, [d.name for d in dirs])
+        self.assertTrue((new[0] / "claude-r2.out").is_file())
+        self.assertTrue((new[0] / "brief.md").is_file())
+        self.assertIn("note: no round-1 archive of this session matches", r2.stderr)
+        self.assertIn(f"round 2 archived whole to {RUNS_REL}/{new[0].name}", r2.stderr)
+
+    def test_lost_marker_with_two_matching_archives_fails_explicitly(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")
+        self.full_round(1)
+        self.assertEqual(self.record(1).returncode, 0)
+        self.assertEqual(self.record(1).returncode, 0)  # round 1 recorded twice: two identical archives
+        self.assertEqual(len(self.archives()), 2)
+        (self.run / ".archive-path").unlink()
+        self.full_round(2, tag="B")
+        r2 = self.record(2)
+        self.assertEqual(r2.returncode, 1, r2.stdout + r2.stderr)
+        self.assertIn("error: ambiguous archive recovery", r2.stderr)
+        dirs = self.archives()
+        self.assertEqual(len(dirs), 2, [d.name for d in dirs])
+        for d in dirs:
+            self.assertFalse((d / "claude-r2.out").exists(), d.name)
 
     def test_round_two_recorded_twice_makes_no_duplicate_directory(self) -> None:
         self.full_round(1)
