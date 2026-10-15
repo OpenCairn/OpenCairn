@@ -33,7 +33,9 @@ REMOTE_PATH_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 # "(deleted)" / "(remote)" after a Files-row path, outside any backticks: the
 # row names something not on this host's disk, or not to be read from it.
 # Mirrors park-verify.sh's ANNOTATION handling.
-ANNOTATION_RE = re.compile(r"\s*\((deleted|remote)\)(?=\s|$)", re.IGNORECASE)
+# The annotation sits immediately before the " - " description separator or
+# at the end of the row; the same word inside a description is not one.
+ANNOTATION_RE = re.compile(r"\s*\((deleted|remote)\)(?= - |$)", re.IGNORECASE)
 # Media types whose full-read review copy is text read by line range.
 TEXT_REVIEW_MEDIA_TYPES = ("text/plain", "application/pdf")
 AUDIT_TABLE = """| Seat can reach | Required attestation |
