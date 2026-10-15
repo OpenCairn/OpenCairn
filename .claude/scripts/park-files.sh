@@ -5,11 +5,15 @@
 #   MINUTES  lookback window (default 240)
 #   DIR      extra root to sweep with the same window (repeatable): any
 #            directory the session installed into that the defaults below
-#            do not cover (~/.local/bin, ~/.config, /etc, build output, ...)
+#            do not cover (~/.local/bin, ~/.config, /etc, build output, ...),
+#            or a single file (a config file such as settings.json), which
+#            is listed as its own [root] row when modified inside the window
 #   repo     any git repo the session touched (working-tree status is printed)
 #
 # The first line is `# roots searched:` followed by every root swept, defaults
-# and extras, tab-separated - a path absent from that line was NOT searched.
+# and extras, tab-separated - a path absent from that line was NOT searched,
+# and each entry names the exact sweep: the config dir appears as
+# <config dir>/*.log because only its top-level log files are swept there.
 # Then tab-separated candidate lines, one per file, grouped by tag:
 #   [receipt]    sync-receipt entries inside the window (UTC-ISO ts, path, description)
 #   [config]     files under $CLAUDE_CONFIG_DIR/{commands,scripts}, personal
@@ -71,7 +75,7 @@ CODEX_CONFIG_DIR="${CODEX_HOME:-$HOME/.codex}"
 
 # 0. Name every root this run sweeps. A path missing from this line was not
 #    searched, so the caller can see the gap instead of inferring coverage.
-DEFAULT_ROOTS=("$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" "$CONFIG_DIR" \
+DEFAULT_ROOTS=("$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" "$CONFIG_DIR/*.log" \
     "$CODEX_CONFIG_DIR/skills" "$HOME/.local/libexec" "$HOME/.config/systemd/user" \
     "$HOME/.config/kwinoutputconfig.json" "$VAULT" "$VAULT/01 Now" "$VAULT/02 Inbox")
 printf '# roots searched:'
