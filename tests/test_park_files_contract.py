@@ -44,5 +44,15 @@ class ParkFilesContractTests(unittest.TestCase):
                 self.assertIn('recall-only class', section)
                 self.assertIn('`[remote]` row', section)
 
+    def test_inventory_requires_ls_on_each_path_and_resolves_missing_as_moves(self):
+        for path in (ROOT / '.claude/commands/_closeout.md', ROOT / 'codex/skills/_closeout.md'):
+            with self.subTest(path=path):
+                section = path.read_text(encoding='utf-8').split('## Inventory', 1)[1].split('## Coverage', 1)[0]
+                self.assertIn('`ls -l -- "<exact path>"`', section)
+                self.assertIn('lags fresh binaries and renames', section)
+                self.assertIn('move to resolve', section)
+                self.assertIn('full old path', section)
+                self.assertIn('never write a Files row for a path `ls` cannot find', section)
+
 if __name__ == '__main__':
     unittest.main()
