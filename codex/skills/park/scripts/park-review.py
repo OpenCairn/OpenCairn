@@ -2106,7 +2106,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "## Output",
             "",
             "Return: scope and coverage; findings tagged Layer 1–5 with exact file/line evidence and a "
-            "concrete fix, or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
+            "concrete fix (a fix to a path already in the file list is stated as `<path>: description extension: <text>`), "
+            "or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
             "outputs; coverage gaps; and the required `ATTEST` line for every full-read file. Finish with "
             "exactly one line: `Terminal state: clean`, "
             "`Terminal state: findings`, or `Terminal state: incomplete`.",

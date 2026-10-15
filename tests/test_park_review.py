@@ -737,6 +737,9 @@ class ParkReviewTests(unittest.TestCase):
             self.assertNotIn(f"Read immutable review copy once: `{target}`", brief)
             for guard in ("reading its argument handling", "invocation is read-only", "--help is not evidence", "disposable scratch directory outside the vault", "never weaken host policy"):
                 self.assertIn(guard, brief)
+            # The Output section states the remediation form for a path already listed.
+            output = brief.split("## Output", 1)[1]
+            self.assertIn("a fix to a path already in the file list is stated as `<path>: description extension: <text>`", output)
 
     def test_build_keeps_large_reference_out_of_full_read(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
