@@ -14,7 +14,8 @@
 # from the timestamps after the previously recorded round's end, kept in <run_dir>/.claude-rN.transcript-end), else
 # claude[-rN].json (Codex lane), else claude[-rN].model, else --claude-model), wall seconds (.time, or the transcript /
 # usage line), Grok cost, and whether synthesis*.md is present. A round-N model file falls back to its round-1 file;
-# wall seconds never do.
+# wall seconds never do. A despatched seat whose .out is missing or empty, or whose .exit is non-zero, is left out of
+# `returned:` and named in a stderr warning; when no seat returned the line is still written and the exit status is 2.
 # The line carries NO findings: if the seat question is reopened, code from the archived seat files, not from the synthesis.
 #
 # --archive copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/ (never merging
@@ -45,8 +46,9 @@ done
 TARGET="${TARGET//|//}"
 SID="$(_session_id)"; SID8="${SID:0:8}"; [[ -n "$SID8" ]] || SID8="unknown"
 DATE="$(date +%F)"
+NORET=0
 RECORD="$(RUN_DIR="$RUN_DIR" SKILL="$SKILL" ROUND="$ROUND" TARGET="$TARGET" CLAUDE_MODEL="$CLAUDE_MODEL" CLAUDE_AGENT="$CLAUDE_AGENT" SID="$SID" SID8="$SID8" DATE="$DATE" python3 - <<'PY'
-import os, re, json, glob, collections, datetime
+import os, re, sys, json, glob, collections, datetime
 rd=os.environ['RUN_DIR']; r=int(os.environ['ROUND']); suf='' if r==1 else f'-r{r}'
 seats=['claude','gemini','codex','grok']; cap={'claude':'Claude','gemini':'Gemini','codex':'Codex','grok':'Grok'}
 def f(seat,ext,s=suf): return os.path.join(rd, f'{seat}{s}.{ext}')
@@ -56,10 +58,15 @@ def rd_(p):
     try: return open(p, errors='replace').read()
     except Exception: return ''
 desp=[s for s in seats if any(os.path.exists(f(s,e)) for e in ('out','err','time','exit','json'))]
-def returned(s):
-    if not (os.path.exists(f(s,'out')) and os.path.getsize(f(s,'out'))>0): return False
-    ex=rd_(f(s,'exit')).strip(); return ex in ('','0')
-ret=[s for s in desp if returned(s)]
+def not_returned(s):  # '' when the seat returned, else the reason naming the file
+    if not os.path.exists(f(s,'out')): return f"{os.path.basename(f(s,'out'))} missing"
+    if os.path.getsize(f(s,'out'))==0: return f"{os.path.basename(f(s,'out'))} empty"
+    ex=rd_(f(s,'exit')).strip(); return '' if ex in ('','0') else f"{os.path.basename(f(s,'exit'))} {ex}"
+ret=[]
+for s in desp:
+    why=not_returned(s)
+    if why: print(f"warning: {cap[s]} seat despatched, not returned ({why})", file=sys.stderr)
+    else: ret.append(s)
 models={}; wall={}; cost='none'
 for s in desp:
     t=rd_(f(s,'time')).strip(); wall[s]=t if re.fullmatch(r'\d+',t) else '?'
@@ -115,8 +122,10 @@ line=(f"- {os.environ['DATE']} | {os.environ['SKILL']} | run {os.environ['SID8']
       f"despatched: {lst(desp)} | returned: {lst(ret)} | models: " + (' '.join(f"{cap[s]}={models[s]}" for s in desp) or 'none') +
       " | wall s: " + (' '.join(f"{cap[s]} {wall[s]}" for s in desp) or 'none') + f" | grok {cost if 'grok' in desp else 'none'} | synthesis: {synth}")
 print(line)
+if not ret:
+    print(f"error: no seat returned for round {r} in {rd}; the line is still recorded, exit 2", file=sys.stderr); sys.exit(3)
 PY
-)"
+)" || { rc=$?; [[ $rc -eq 3 ]] && NORET=1 || exit "$rc"; }
 EVIDENCE="$RUN_DIR"
 if [[ $ARCHIVE -eq 1 ]]; then
   [[ -n "$VAULT" && -d "$VAULT" ]] || { echo "--archive needs a vault: pass --vault or set VAULT_PATH" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1; }
@@ -165,3 +174,4 @@ One index line per cross-model panel run, appended by `panel-run-record.sh` from
   fi
 fi
 echo "$RECORD | evidence: $EVIDENCE"
+[[ $NORET -eq 0 ]] || exit 2

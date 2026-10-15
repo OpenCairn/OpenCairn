@@ -157,6 +157,45 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("wall s: Claude 120", r2.stdout, r2.stdout + r2.stderr)
         self.assertIn("models: Claude=claude-fixture", r2.stdout)
 
+    # -- 2. missing seat output -----------------------------------------
+    def test_despatched_seat_without_output_is_warned_not_counted(self) -> None:
+        self.full_round(1)
+        (self.run / "grok.out").unlink()
+        self.seat("codex", 1, out="", err="model: codex-A\n")
+        r = self.record(1)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("despatched: Claude Gemini Codex Grok | returned: Claude Gemini |", r.stdout)
+        self.assertIn("warning: Codex seat despatched, not returned (codex.out empty)", r.stderr)
+        self.assertIn("warning: Grok seat despatched, not returned (grok.out missing)", r.stderr)
+
+    def test_round_two_missing_output_names_the_round_file(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "claude-r2.out").unlink()
+        r = self.record(2)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("returned: Gemini Codex Grok |", r.stdout)
+        self.assertIn("warning: Claude seat despatched, not returned (claude-r2.out missing)", r.stderr)
+
+    def test_no_seat_returned_still_records_and_exits_two(self) -> None:
+        self.full_round(1)
+        for seat in ("claude", "gemini", "codex", "grok"):
+            (self.run / f"{seat}.out").unlink()
+        r = self.record(1)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+        self.assertIn("returned: none |", r.stdout)
+        self.assertIn("error: no seat returned for round 1", r.stderr)
+        self.assertEqual(len(self.ledger_lines()), 1, "the failed run is still indexed")
+        self.assertEqual(len(self.archives()), 1)
+
+    def test_nonzero_exit_file_is_reported(self) -> None:
+        self.full_round(1)
+        self.seat("gemini", 1, exit_code=1)
+        r = self.record(1)
+        self.assertIn("warning: Gemini seat despatched, not returned (gemini.exit 1)", r.stderr)
+        self.assertIn("returned: Claude Codex Grok |", r.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
