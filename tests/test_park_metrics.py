@@ -176,6 +176,23 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(rows[0]['mode'], 'quick-requested')
         self.assertEqual(rows[0]['wall_seconds'], 60)
 
+    def test_quoted_command_envelope_is_not_a_run(self):
+        self.assertIsNone(m.prompt_mode(
+            'Please explain this literal XML: `<command-name>/park</command-name>`'))
+        self.assertIsNone(m.prompt_mode(
+            'The log showed <command-name>/park</command-name> mid-sentence, what is it?'))
+        self.assertIsNone(m.prompt_mode(
+            'In backticks:\n`<command-message>park is running…</command-message>\n<command-name>/park</command-name>`'))
+        # Real envelopes, with or without prose before them, still count.
+        self.assertEqual(m.prompt_mode(
+            'One more note first.\n<command-message>park is running…</command-message>\n'
+            '<command-name>/park</command-name>\n<command-args>--quick</command-args>'), 'quick-requested')
+        self.assertEqual(m.prompt_mode('<command-name>/park</command-name>'), 'full')
+        rows, _ = self.parse([
+            self.claude('10:00:00', 'user', 'Please explain this literal XML: `<command-name>/park</command-name>`'),
+            self.claude('10:01:00', 'assistant', [{'type':'text','text':'It is the envelope.'}], 'end_turn')])
+        self.assertEqual(rows, [])
+
     def test_record_finds_skill_tool_park(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

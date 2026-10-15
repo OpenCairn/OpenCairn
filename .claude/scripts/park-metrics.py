@@ -43,9 +43,11 @@ def prompt_mode(value):
         return 'full'
     if re.fullmatch(r'[$/]park(?:\s+[^\n]*)?', value):
         return 'quick-requested' if value.split()[1:] == ['--quick'] else 'full'
-    # Command envelope anywhere in the request: prose typed before /park precedes it.
-    if '<command-name>/park</command-name>' in value:
-        args = re.search(r'<command-args>(.*?)</command-args>', value, re.S)
+    # Command envelope after prose typed before /park: the envelope's own tags
+    # start their lines. A quoted mention sits inside backticks or mid-sentence.
+    unquoted = re.sub(r'`[^`]*`', '', value)
+    if re.search(r'(?m)^<command-name>/park</command-name>', unquoted):
+        args = re.search(r'(?m)^<command-args>(.*?)</command-args>', unquoted, re.S)
         return 'quick-requested' if args and args[1].strip() == '--quick' else 'full'
     return None
 
