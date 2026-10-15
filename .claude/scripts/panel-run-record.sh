@@ -7,7 +7,8 @@
 #                       [--claude-agent <agent id>] [--claude-model <id>] [--vault <path>] [--archive]
 #
 # Seat files in <run_dir> (round 1: <seat>.out/.err/.time/.exit; round N>1: <seat>-rN.*), seats claude gemini codex grok.
-# Derived, never typed, from the round's own files: despatched (any file for the seat in that round), returned (.out
+# Derived, never typed, from the round's own files: despatched (any file for the seat in that round; the Claude seat
+# also whenever --claude-agent or --claude-model is given, since either names a seat that was despatched), returned (.out
 # non-empty and .exit absent or 0), model ids (Codex: "model:" line of codex[-rN].err; Grok: usage line of grok[-rN].err;
 # Gemini: gemini[-rN].model written at despatch, else ~/.gemini/settings.json tagged "(now)"; Claude: the seat's own
 # transcript via --claude-agent (~/.claude/projects/*/<session>/subagents/agent-<id>.jsonl: model field, and wall seconds
@@ -69,7 +70,8 @@ def f1(seat,ext):  # the round's file, else the round-1 file (model ids only)
 def rd_(p):
     try: return open(p, errors='replace').read()
     except Exception: return ''
-desp=[s for s in seats if any(os.path.exists(f(s,e)) for e in ('out','err','time','exit','json'))]
+desp=[s for s in seats if any(os.path.exists(f(s,e)) for e in ('out','err','time','exit','json'))
+      or (s=='claude' and (os.environ.get('CLAUDE_AGENT') or os.environ.get('CLAUDE_MODEL')))]
 def not_returned(s):  # '' when the seat returned, else the reason naming the file
     if not os.path.exists(f(s,'out')): return f"{os.path.basename(f(s,'out'))} missing"
     if os.path.getsize(f(s,'out'))==0: return f"{os.path.basename(f(s,'out'))} empty"
