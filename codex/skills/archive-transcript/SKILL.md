@@ -13,7 +13,7 @@ Archive one or more published transcripts. Preserve the body exactly as extracte
 "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"
 ```
 
-Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md) (core, including §5), then [../_shared-rules-content.md](../_shared-rules-content.md) §§14–15 and 26, and the vault's search-routing document when available. Paths to supporting files are relative to this skill directory. Every vault write, including creation, body append, header correction and hub integration, uses `locked-edit.sh`.
+Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shared-rules.md) (core, including §5), then [../_shared-rules-content.md](../_shared-rules-content.md) §§14–15 and 26, and the vault's search-routing document when available. Paths to supporting files are relative to this skill directory. Every vault write, including creation, replacement, header correction and hub integration, uses `locked-edit.sh`.
 
 Run §15's prerequisites (`curl`, `pandoc`, `python3` with `bs4`/`lxml`) before fetching. Missing tooling needs a specific prerequisite report; an audio transcription fallback requires an available transcription skill and the user's choice, including paid-cloud authorisation where relevant.
 
@@ -56,13 +56,14 @@ If a static extractor fails on a rendered page, try the available §26 fetch rou
    { cat "<HEADER_FILE>"; printf '\n'; cat "<BODY_FILE>"; } > "<STAGED_NOTE>"
    ```
 
-   All staging paths are outside the vault. Use distinct scratch paths per episode/run. For a new destination after the collision check:
+   All staging paths are outside the vault. Use distinct scratch paths per episode/run. Create the destination with one atomic locked compare-and-swap. `MISSING` asserts that the destination does not exist yet; the wrapper checks that under the lock and installs the whole note in one rename, so no separate existence check precedes the write and nothing is ever appended to an existing file:
 
    ```bash
-   "$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION_NOTE>" --append < "<STAGED_NOTE>"
+   "$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION_NOTE>" --replace-whole MISSING < "<STAGED_NOTE>"
+   cmp "<STAGED_NOTE>" "<DESTINATION_NOTE>"
    ```
 
-   For an authorised update, prefer `--replace-whole <expected-sha256>` if that mode is advertised by the installed wrapper: hash the current destination, supply the rebuilt bytes on stdin, and re-read/rebuild on a stale-snapshot refusal. Otherwise use its supported literal `--replace` mode with the exact old content. An error never permits a lockless fallback. Avoid whole-note editor rewrites after the body lands; corrections rebuild the staged note and repeat the locked update and byte check.
+   Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report success only after that byte comparison passes. Wrapper exit 2 means the destination already existed and nothing was written: run the same `cmp`. Identical bytes mean this transcript is already saved; report that and do not write again. Differing bytes are a filename collision to resolve with the user unless the request already specifies replacement. Never append to the existing note and never `mv` over it. For an authorised replacement, hash the existing destination with `sha256sum` and repeat the call with that hash in place of `MISSING`, re-reading and rebuilding on a further exit 2. Exit 1 with a lock message means another writer holds the lock; report it and stop rather than bypassing the lock. An error never permits a lockless fallback. Avoid whole-note editor rewrites after the body lands; corrections rebuild the staged note and repeat the locked replacement and byte check.
 
 ## Phase 4: Integrate, verify and report
 
