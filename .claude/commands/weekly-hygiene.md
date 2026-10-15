@@ -243,11 +243,17 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```bash
    SESSIONS=(); while IFS= read -r d; do SESSIONS+=("$d"); done < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")   # this session's transcript dir, else vault-derived; never pwd; re-resolved per call; exit 3 = ambiguous sweep → SESSIONS treated as unattributed below
    printf 'SESSIONS DIR: %s\n' "${SESSIONS[@]:-none}"
+   # Attribution evidence: transcripts in the vault's own project dir whose cwd IS the vault. Empty when the single dir is not the vault-derived one (a shared launch dir), when several or none resolved, or when no transcript records the vault as cwd.
+   TRANSCRIPTS=()
+   if [ "${#SESSIONS[@]}" -eq 1 ] && [ "${SESSIONS[0]}" = "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "{VAULT}" | sed 's#[^A-Za-z0-9]#-#g')" ]; then
+     while IFS= read -r t; do TRANSCRIPTS+=("$t"); done < <(rg -l -F -g '*.jsonl' "\"cwd\":\"{VAULT}\"" "${SESSIONS[0]}" 2>/dev/null)
+   fi
+   printf 'ATTRIBUTION TRANSCRIPTS: %s\n' "${#TRANSCRIPTS[@]}"
    find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
      base=$(basename "$f")
      if rg -q -F "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
        echo "RETAINED (referenced by open work): $base"
-     elif [ "${#SESSIONS[@]}" -eq 1 ] && [ "${SESSIONS[0]}" = "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "{VAULT}" | sed 's#[^A-Za-z0-9]#-#g')" ] && rg -l -F -g '*.jsonl' "\"cwd\":\"{VAULT}\"" "${SESSIONS[0]}" 2>/dev/null | xargs -r rg -q -F "plans/$base" 2>/dev/null; then   # exactly one resolved directory, it is the vault's own, and a transcript whose cwd IS the vault names the plan in path form plans/<name> (never the bare basename: this step's own LEFT lines echo it into the transcript); ambiguous, empty or shared-launch-dir results leave every plan
+     elif [ "${#TRANSCRIPTS[@]}" -gt 0 ] && rg -q -F "plans/$base" "${TRANSCRIPTS[@]}" 2>/dev/null; then   # a vault-cwd transcript names the plan in path form plans/<name> (never the bare basename: this step's own LEFT lines echo it into the transcript); no attribution transcripts → every plan is LEFT. No pipeline here: `xargs -r` exits 0 on empty input and would delete
        rm "$f" && echo "DELETED: $base"
      else
        echo "LEFT (not attributed to this project): $base"
