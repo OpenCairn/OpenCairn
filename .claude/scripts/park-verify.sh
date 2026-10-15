@@ -55,7 +55,10 @@
 #               Existing paths that must not be read (see the content-read
 #               gate: remote mount, over-size, binary) print
 #               "PASS touched: existence-only (<reason>): <path>" and are
-#               skipped by the separator and lint checks
+#               skipped by the separator and lint checks; such a 03 Projects /
+#               04 Areas file is also left out of the closure greps, announced
+#               as "INFO closure: existence-only target not grepped: <path>"
+#               (not a verdict; not counted)
 #   backfill    each touched path matches a Files Created / Files Updated /
 #               Files Deleted row by complete resolved path. Case-sensitive:
 #               a row spelled in another case matches only when one row path
@@ -1041,10 +1044,19 @@ fi
 # --- closure greps per ident -------------------------------------------------
 # Fixed-string ident match first (no regex injection), then unchecked-checkbox filter.
 # Python slices Unicode code points; cut -c can split UTF-8 bytes even in a UTF-8 locale.
+# A touched hub under the content-read gate (see above) is announced once and
+# left out of the targets: the INFO line is neither a pass nor a verdict.
 CLOSURE_TARGETS=("$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
 for t in "${TOUCHED[@]:-}"; do
     case "$t" in
-        *"03 Projects/"*|*"04 Areas/"*) [ -f "$t" ] && CLOSURE_TARGETS+=("$t") ;;
+        *"03 Projects/"*|*"04 Areas/"*)
+            [ -f "$t" ] || continue
+            is_nonlocal "$t" && continue
+            if [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ]; then
+                [ "${#IDENTS[@]}" -gt 0 ] && echo "INFO closure: existence-only target not grepped: $(show_path "$t")"
+                continue
+            fi
+            CLOSURE_TARGETS+=("$t") ;;
     esac
 done
 for ident in "${IDENTS[@]:-}"; do
