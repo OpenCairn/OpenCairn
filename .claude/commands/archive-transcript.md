@@ -9,16 +9,16 @@ You are archiving one or more podcast/talk transcripts into the vault. Each note
 
 Two principles drive this skill:
 
-1. **Keep the transcript out of your context.** A transcript is ~10–20k words. Fetch and clean it straight to a file and append it to the note via the shell — never read the whole thing into the conversation. You write only the small synthesis header and read at most a few lines to verify boundaries.
-2. **A formatting hook can corrupt verbatim quotes unless you bypass it.** This is the general problem in `_shared-rules-content.md` §14 — read it. The skill-local invariant: **write the header with the editor tool, append the body with the shell.** Whether a *later* `Write`/`Edit` on the finished note is safe depends on the vault, so establish that in Phase 0 rather than assuming. The *why*, the precondition (the hook must not intercept shell writes), and the path-exclude alternative all live in §14.
+1. **Keep the transcript out of your context.** A transcript is ~10–20k words. Fetch and clean it straight to a file, assemble header + body on disk, and save the note with one shell write — never read the whole thing into the conversation. You write only the small synthesis header and read at most a few lines to verify boundaries.
+2. **A formatting hook can corrupt verbatim quotes unless you bypass it.** This is the general problem in `_shared-rules-content.md` §14 — read it. The skill-local invariant: **stage the header and body on disk, then create the note with one atomic locked write — never append to, or `mv` over, a path in the vault.** Whether a *later* `Write`/`Edit` on the finished note is safe depends on the vault, so establish that in Phase 0 rather than assuming. The *why*, the precondition (the hook must not intercept shell writes), and the path-exclude alternative all live in §14.
 
 ## Phase 0 — Preflight
 
 1. Run the `_shared-rules-content.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4`/`lxml`) before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe. If anything is missing, tell the user and stop (or use the §15 transcription fallback — transcribe the audio/video — after confirming with the user).
 2. **Establish the formatting-hook state** (§14): is a `PostToolUse` hook configured on `.md` writes, what does its matcher cover, and does it read a path-exclude list? Three outcomes drive the later phases:
    - **No hook** → verbatim is safe by any write method; the no-edit invariant below doesn't apply.
-   - **Hook matching `Write`/`Edit` only** (the usual case) → the shell append holds; treat the note as no-edit after appending unless the destination folder is on the exclude list.
-   - **Hook that also matches `Bash`/shell writes** → the append corrupts silently with no error. Path-exclude the destination folder (§14 defence 2) before writing anything, or stop.
+   - **Hook matching `Write`/`Edit` only** (the usual case) → the locked shell write holds; treat the note as no-edit after saving unless the destination folder is on the exclude list.
+   - **Hook that also matches `Bash`/shell writes** → the shell write corrupts silently with no error. Path-exclude the destination folder (§14 defence 2) before writing anything, or stop.
 
 ## Phase 1 — Resolve the sources
 
@@ -37,20 +37,21 @@ Use the **`_shared-rules-content.md` §15 published-transcript extractor** (the 
 
 **If §15's fallback applies** (no published transcript, or a JS-rendered page §15 can't extract): machine-transcribe the audio/video via the WhisperX path (`/transcribe` or `/transcribecloud`). Much heavier — tell the user before launching a batch.
 
-## Phase 3 — Write the note (header via editor, body via shell)
+## Phase 3 — Write the note (stage on disk, one atomic locked save)
 
 Per `_shared-rules-content.md` §14:
 
-1. **Choose the destination first (no hardwired path)** — the dedupe grep needs a real operand. Propose a transcript folder: detect an existing transcript/podcast folder in the vault (never create or assume one); if there's no obvious folder, **ask** rather than guessing. Bind the three operands once here and reuse them verbatim through Phase 4:
+1. **Choose the destination first (no hardwired path)** — the dedupe grep needs a real operand. Propose a transcript folder: detect an existing transcript/podcast folder in the vault (never create or assume one); if there's no obvious folder, **ask** rather than guessing. Bind the operands once here and reuse them verbatim through Phase 4:
    - `<TRANSCRIPT_FOLDER>` — the chosen folder (user-overridable).
    - `<DESTINATION_NOTE>` — `<TRANSCRIPT_FOLDER>/<filename>.md`, filename per step 3.
    - `<BODY_FILE>` — §15's printed `BODY=` path (a deterministic function of the URL).
+   - `<HEADER_FILE>`, `<STAGED_NOTE>` — scratch paths outside the vault, distinct per episode/run.
 
 2. **Dedupe**, keyed on the canonical source URL (catches retitled/renamed notes that a filename check misses), then title/date:
    ```bash
    rg -l --hidden --no-ignore --fixed-strings "<canonical_url>" "<TRANSCRIPT_FOLDER>" || echo "no existing note"
    ```
-   If it exists, report it and ask whether to update or skip — don't write a duplicate. **Update means rebuild, not edit:** write the new header to a fresh file, append the body from `<BODY_FILE>` again, then `mv` it over the old note. Never `Edit` a note that already carries an appended body.
+   If it exists, report it and ask whether to update or skip — don't write a duplicate. **Update means rebuild, not edit:** stage header + body again per step 5 and replace the note with step 5's authorised-replacement call (the existing file's `sha256sum` in place of `MISSING`). Never `Edit` a note that already carries a body, never `--append` to it, never `mv` over it.
 
 3. **Match existing conventions.** Probe the folder from the **shell, not `Read`** — a finished transcript note is 10–20k words, and reading one defeats Principle 1:
    ```bash
@@ -59,22 +60,27 @@ Per `_shared-rules-content.md` §14:
    ```
    Sample **2–3** notes that are actually transcripts (`type: podcast-transcript`; skip digests, concept notes, and untagged strays) and follow the **modal** filename + frontmatter convention. The folder is usually heterogeneous — one sample is a coin flip. Only if none exists, fall back to: filename `<Speaker> - <Title> (<Show>, <Year>).md`; frontmatter `title, show, host, guest, date, source, captured, type: podcast-transcript`.
 
-4. **Write only the header** with the editor tool: frontmatter + synthesis.
+4. **Stage only the header** to a scratch file outside the vault via a shell heredoc (not the editor tool — that fires the formatting hook the atomic save exists to dodge; keep an improbable delimiter): frontmatter + synthesis.
    - The synthesis is **explicitly derived from the published description + section headings only** — say so in the note (e.g. a one-line provenance caveat). Do **not** present an authoritative "bottom line" you can't support without reading the body: give a *topic summary* + the section-derived **cruxes**, and flag relevance to the user's purpose. This respects "don't invent claims the page doesn't support."
    - End the header with a `## Full transcript` heading and a one-line provenance note (verbatim; source; that timestamp links were stripped from headings).
 
-5. **Append the verbatim body via the shell** (bypasses the hook — §14):
+5. **Assemble on disk and create the note atomically** (bypasses the hook — §14). `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
    ```bash
-   printf '\n' >> "<DESTINATION_NOTE>"      # guarantee a newline boundary
-   cat "<BODY_FILE>" >> "<DESTINATION_NOTE>"
+   { cat "<HEADER_FILE>"; printf '\n'; cat "<BODY_FILE>"; } > "<STAGED_NOTE>"
+   "{VAULT}/.claude/scripts/locked-edit.sh" "<DESTINATION_NOTE>" --replace-whole MISSING < "<STAGED_NOTE>"; echo "exit=$?"
+   cmp "<STAGED_NOTE>" "<DESTINATION_NOTE>"; echo "cmp=$?"
    ```
+   Staging paths live outside the vault; shell state does not persist between Bash calls, so run the block as one call or substitute literal paths.
+   - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
+   - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical note already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename, then retry with the new path (still `MISSING`); for an explicitly authorised replacement (step 2's update path), retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
+   - **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
 
-6. **Don't `Write`/`Edit` the note again after appending** — unless Phase 0 cleared it (no hook configured, or the folder is path-excluded), any later edit re-fires the hook on the whole file, body included. Fix the header *before* appending, or rebuild per step 2's update path.
+6. **Don't `Write`/`Edit` the note again after saving** — unless Phase 0 cleared it (no hook configured, or the folder is path-excluded), any later edit re-fires the hook on the whole file, body included. Fix the header in staging *before* saving, or rebuild per step 2's update path.
 
 ## Phase 4 — Integrate, verify, report
 
 1. **Link** the new transcript from the relevant person/dossier or topic hub. ⚠️ These are `Edit`s on *other* `.md` notes and fire the same formatting hook on them (§14 "collateral edits"): short edits to already-normalised hub prose are safe, but if a target note itself holds verbatim quotes, exclude it or append rather than `Edit`.
-2. **Verify the append landed** — shell only, no context bloat:
+2. **Verify the body landed intact** — shell only, no context bloat:
    ```bash
    wc -w "<BODY_FILE>" "<DESTINATION_NOTE>"   # destination should exceed body
    tail -n 5 "<DESTINATION_NOTE>"             # confirm it ends in transcript, intact
