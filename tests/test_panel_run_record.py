@@ -159,8 +159,8 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertEqual(len(new), 1, [d.name for d in dirs])
         self.assertTrue((new[0] / "claude-r2.out").is_file())
         self.assertTrue((new[0] / "brief.md").is_file())
-        self.assertIn("note: no round-1 archive of this session matches", r2.stderr)
-        self.assertIn(f"round 2 archived whole to {RUNS_REL}/{new[0].name}", r2.stderr)
+        self.assertIn("note: no round-1 archive of this session matches this run directory's brief.md; "
+                      f"round 2 archived whole to {RUNS_REL}/{new[0].name}", r2.stderr)
 
     def test_lost_marker_without_a_brief_never_joins_on_synthesis_alone(self) -> None:
         # Identity is brief.md; an identical short synthesis is not evidence of
@@ -179,7 +179,8 @@ class PanelRunRecordTests(unittest.TestCase):
         dirs = self.archives()
         self.assertEqual(len(dirs), 2, [d.name for d in dirs])
         self.assertTrue(any(d.name.endswith("-r2") for d in dirs), [d.name for d in dirs])
-        self.assertIn("note: no round-1 archive of this session matches", r2.stderr)
+        self.assertIn("note: run directory has no brief.md; round 2 archived whole to", r2.stderr)
+        self.assertNotIn("matches this run directory's brief.md", r2.stderr)
 
     def test_lost_marker_with_two_matching_archives_fails_explicitly(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")

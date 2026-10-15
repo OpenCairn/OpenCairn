@@ -46,9 +46,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/lib-session.sh"
 source "$HERE/lib-lock.sh"
-# 0 when every round-1 fingerprint file present in run dir $1 is byte-identical in archive $2: brief.md, and synthesis.md
-# unless round $3 has no synthesis-r$3.md (then synthesis.md stands in for round $3 and no longer fingerprints round 1).
-# A run directory with no fingerprint file never matches.
+# 0 when brief.md (required) and, while round $3 has its own synthesis-r$3.md and synthesis.md still exists, synthesis.md
+# are byte-identical between run dir $1 and archive $2. A run directory without brief.md never matches.
 _round1_fingerprint_matches() {
   python3 - "$1" "$2" "$3" <<'PY'
 import hashlib, os, sys
@@ -220,7 +219,10 @@ if [[ $ARCHIVE -eq 1 ]]; then
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive
     DEST="$VAULT/$EVIDENCE"; mkdir -p "$DEST"
     cp -a "$RUN_DIR"/. "$DEST"/
-    [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session matches this run directory's brief.md/synthesis.md; round $ROUND archived whole to $EVIDENCE" >&2
+    if [[ "$ROUND" -gt 1 ]]; then
+      if [[ -f "$RUN_DIR/brief.md" ]]; then echo "note: no round-1 archive of this session matches this run directory's brief.md; round $ROUND archived whole to $EVIDENCE" >&2
+      else echo "note: run directory has no brief.md; round $ROUND archived whole to $EVIDENCE" >&2; fi
+    fi
   fi
   printf '%s\n' "$EVIDENCE" > "$MARK"
   _unlock
