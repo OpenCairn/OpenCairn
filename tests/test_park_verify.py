@@ -941,6 +941,18 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("FAIL separator", result.stdout)
         self.assertIn("PASS separator: no leftover separator tokens (3 scanned, 1 skipped)", result.stdout)
 
+    def test_content_size_limit_is_an_environment_tunable(self) -> None:
+        self.tainted("docs/mid.md", pad=4096)
+        size = (self.vault / "docs/mid.md").stat().st_size
+        env = dict(os.environ, PARK_VERIFY_MAX_CONTENT_BYTES="1024")
+        result = self.run_rows("docs/mid.md", env=env, updated=["docs/mid.md - regenerated"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (size %d bytes exceeds 1024): docs/mid.md" % size,
+                      result.stdout)
+        # Unset, the default still reads a file of this size.
+        control = self.run_rows("docs/mid.md", updated=["docs/mid.md - regenerated"])
+        self.assertIn("FAIL lint: ", control.stdout)
+
     def test_binary_file_is_existence_only(self) -> None:
         for name in ("docs/image.bin", "docs/odd.md"):
             with self.subTest(name=name):
