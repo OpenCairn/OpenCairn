@@ -1038,6 +1038,30 @@ class TouchedContentTests(unittest.TestCase):
         control = self.run_rows(remote, updated=[remote + " - re-exported"])
         self.assertIn("FAIL touched: ", control.stdout)
 
+    def test_closure_target_under_the_content_gate_is_not_grepped(self) -> None:
+        area = "04 Areas/Photo/Export.md"
+        info = "INFO closure: existence-only target not grepped: " + area
+        for label, row, pad in (("remote", area + " (remote) - rewritten", 0),
+                                ("large", area + " - regenerated", MAX_CONTENT_BYTES + 1)):
+            with self.subTest(label=label):
+                target = self.vault / area
+                target.parent.mkdir(parents=True, exist_ok=True)
+                body = "- [ ] Budget plan\n"
+                target.write_text(body + "x" * pad + "\n", encoding="utf-8")
+                log = write_log(self.vault, updated=[row])
+                result = verify(self.vault, log, "--touched", area, "--ident", "Budget plan")
+                self.assertIn(info, result.stdout)
+                self.assertNotIn("REVIEW closure", result.stdout)
+                self.assertIn("N/A closure: ident 'Budget plan' absent from every planning file (2 checked)",
+                              result.stdout)
+                self.assertIn("RESULT: PASS (1 N/A)", result.stdout)
+        # Control: the same file, read normally, is a closure target and a REVIEW.
+        target.write_text("- [ ] Budget plan\n", encoding="utf-8")
+        log = write_log(self.vault, updated=[area + " - rewritten"])
+        result = verify(self.vault, log, "--touched", area, "--ident", "Budget plan")
+        self.assertNotIn("INFO closure", result.stdout)
+        self.assertIn("REVIEW closure: ident 'Budget plan' has unchecked matches", result.stdout)
+
     def test_session_log_itself_is_always_read(self) -> None:
         log = write_log(self.vault, updated=["docs/a.md - edited"])
         touch(self.vault, "docs/a.md")
