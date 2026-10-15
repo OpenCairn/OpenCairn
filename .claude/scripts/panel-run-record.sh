@@ -30,7 +30,7 @@
 #   --archive    additionally copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/
 #                (never merging into an existing directory), after the archive layout gate (check-archive-layout.sh
 #                --enforce); a failed gate or a missing vault writes nothing at all and exits 1. Round N>1 copies only its
-#                -rN files into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
+#                -rN files (*-rN.* and *-rN-*, e.g. brief-rN-<reviewer>.md) into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
 #                one round-1 archive of this session holding no round-N files whose round-1 fingerprint matches this run
 #                directory (sha256 of brief.md, and of synthesis.md when synthesis-rN.md exists so synthesis.md still is
 #                round 1's; a run directory without brief.md has no fingerprint and never joins) - no match archives
@@ -212,7 +212,8 @@ if [[ $ARCHIVE -eq 1 ]]; then
   fi
   if [[ -n "$JOIN" ]]; then
     EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
-    find "$RUN_DIR" -maxdepth 1 -name "*-r$ROUND.*" -exec cp -a {} "$DEST"/ \;
+    # Round files: <seat>-rN.<ext>, and per-reviewer round files such as brief-rN-<reviewer>.md.
+    find "$RUN_DIR" -maxdepth 1 \( -name "*-r$ROUND.*" -o -name "*-r$ROUND-*" \) -exec cp -a {} "$DEST"/ \;
     [[ $STANDIN -eq 1 ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
   else
     STAMP="$(date +%H%M%S)"; BASE="$RUNS_REL/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
