@@ -129,6 +129,10 @@ _bullet_row() {
 # side (the whole row included) that is a regular file is the path, so neither
 # "tools/check - release" nor "Note - with dash.md - changed foo.md" is cut at
 # the wrong separator. A directory is not taken: it may merely prefix the name.
+# An extensionless file is not taken either when a longer " - "-bounded
+# candidate of the same row is file-shaped (has an extension): "tools/check"
+# on disk must not claim the row "tools/check - release.md - note" whose file
+# is gone. Mirrors park-verify.sh's truncation guard.
 # Absent paths keep the legacy extension anchoring so "Context - Example.md"
 # is not split at its filename separator. A paths-only row needs no delimiter.
 _is_file_on_disk() {
@@ -141,10 +145,15 @@ _is_file_on_disk() {
     esac
     [ -f "$p" ]
 }
+_has_extension() { [[ "$1" =~ \.[A-Za-z0-9]{1,8}$ ]]; }
 _longest_existing_prefix() {
-    local cand="$1"
+    local cand="$1" longer_file_shaped=false
     while :; do
-        if _is_file_on_disk "$cand"; then printf '%s' "$cand"; return 0; fi
+        if _is_file_on_disk "$cand"; then
+            if ! _has_extension "$cand" && [ "$longer_file_shaped" = true ]; then return 1; fi
+            printf '%s' "$cand"; return 0
+        fi
+        _has_extension "$cand" && longer_file_shaped=true
         case "$cand" in *" - "*) cand="${cand% - *}" ;; *) return 1 ;; esac
     done
 }
