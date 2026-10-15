@@ -474,7 +474,22 @@ for line in block.split("\n"):
     # An annotation is read outside a backticked path and removed before parsing.
     note = None
     quoted_end = value.find("`", 1) if value.startswith("`") else -1
-    annotated = ANNOTATION.search(value, quoted_end + 1 if quoted_end > 0 else 0)
+    wiki_end = value.find("]]") if value.startswith("[[") else -1
+    if quoted_end > 0:
+        # Backticked path: the annotation must follow the closing backtick directly.
+        annotated = ANNOTATION.match(value, quoted_end + 1)
+    elif wiki_end > 0:
+        annotated = ANNOTATION.match(value, wiki_end + 2)
+    else:
+        # Unquoted path: the row-final form always counts; a mid-row candidate
+        # counts only when its prefix reads as the path itself (no " - "
+        # separator, on disk as written, or ending in a file extension, since an
+        # annotated path is often absent). Otherwise it sits inside the description.
+        annotated = next((m for m in ANNOTATION.finditer(value)
+                          if m.end() == len(value)
+                          or " - " not in value[:m.start()]
+                          or on_disk(value[:m.start()].strip())
+                          or re.search(r"\.[A-Za-z0-9]{1,10}$", value[:m.start()].strip())), None)
     if annotated:
         note = annotated.group(1).lower()
         value = (value[:annotated.start()] + value[annotated.end():]).strip()
@@ -933,8 +948,10 @@ fs_type() {
 # "mount:<target>" from findmnt, else empty when neither tool answers.
 mount_id() {
     local id
-    id=$(bounded stat -c %d -- "$1" 2>/dev/null || true)
-    [[ $id =~ ^[0-9]+$ ]] || id=$(bounded stat -f %d -- "$1" 2>/dev/null || true)
+    # -L: compare the targets of symlinks, as the filesystem-type probe does; a
+    # symlinked vault root otherwise reports its link's device, not its mount's.
+    id=$(bounded stat -L -c %d -- "$1" 2>/dev/null || true)
+    [[ $id =~ ^[0-9]+$ ]] || id=$(bounded stat -L -f %d -- "$1" 2>/dev/null || true)
     if [[ $id =~ ^[0-9]+$ ]]; then printf 'dev:%s' "$id"; return 0; fi
     id=$(bounded findmnt -n -o TARGET -T "$1" 2>/dev/null || true)
     case "$id" in /*) printf 'mount:%s' "$id" ;; esac

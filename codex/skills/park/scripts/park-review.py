@@ -1215,7 +1215,27 @@ def parse_file_rows(
         # " - " split so it is never read as part of the path or description.
         note = None
         quoted_end = value.find("`", 1) if value.startswith("`") else -1
-        annotated = ANNOTATION_RE.search(value, quoted_end + 1 if quoted_end > 0 else 0)
+        if quoted_end > 0:
+            # Backticked path: the annotation must follow the closing backtick directly.
+            annotated = ANNOTATION_RE.match(value, quoted_end + 1)
+        else:
+            # Unquoted path: the row-final form always counts; a mid-row candidate
+            # counts only when its prefix reads as the path itself (no " - "
+            # separator, a file extension, or a real/classified path). Otherwise it
+            # sits inside the description.
+            annotated = next(
+                (
+                    m
+                    for m in ANNOTATION_RE.finditer(value)
+                    if m.end() == len(value)
+                    or " - " not in value[: m.start()]
+                    or re.search(r"\.[A-Za-z0-9]{1,10}$", value[: m.start()].strip())
+                    or f"external::{value[: m.start()].strip()}" in classifications
+                    or str(canonical_path(value[: m.start()].strip(), vault)) in classifications
+                    or canonical_path(value[: m.start()].strip(), vault).exists()
+                ),
+                None,
+            )
         if annotated:
             note = annotated.group(1).lower()
             value = (value[: annotated.start()] + value[annotated.end() :]).strip()
