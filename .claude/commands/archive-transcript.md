@@ -67,7 +67,7 @@ Per `_shared-rules-content.md` §14:
 5. **Assemble on disk and create the note atomically** (bypasses the hook — §14). `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
    ```bash
    { cat "<HEADER_FILE>"; printf '\n'; cat "<BODY_FILE>"; } > "<STAGED_NOTE>"
-   "{VAULT}/.claude/scripts/locked-edit.sh" "<DESTINATION_NOTE>" --replace-whole MISSING < "<STAGED_NOTE>"; echo "exit=$?"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<DESTINATION_NOTE>" --replace-whole MISSING < "<STAGED_NOTE>"; echo "exit=$?"
    cmp "<STAGED_NOTE>" "<DESTINATION_NOTE>"; echo "cmp=$?"
    ```
    Staging paths live outside the vault; shell state does not persist between Bash calls, so run the block as one call or substitute literal paths.
