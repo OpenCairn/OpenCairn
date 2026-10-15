@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # park-files.sh - mechanical session-footprint enumeration for /park
 #
-# Usage: park-files.sh <vault> [-m MINUTES] [repo ...]
+# Usage: park-files.sh <vault> [-m MINUTES] [--root DIR ...] [repo ...]
 #   MINUTES  lookback window (default 240)
+#   DIR      extra root to sweep with the same window (repeatable): any
+#            directory the session installed into that the defaults below
+#            do not cover (~/.local/bin, ~/.config, /etc, build output, ...)
 #   repo     any git repo the session touched (working-tree status is printed)
 #
-# Prints tab-separated candidate lines, one per file, grouped by tag:
+# The first line is `# roots searched:` followed by every root swept, defaults
+# and extras, tab-separated - a path absent from that line was NOT searched.
+# Then tab-separated candidate lines, one per file, grouped by tag:
 #   [receipt]    sync-receipt entries inside the window (UTC-ISO ts, path, description)
 #   [config]     files under $CLAUDE_CONFIG_DIR/{commands,scripts}, personal
 #                $CODEX_HOME/skills, selected user-runtime roots, and top-level
 #                Claude *.log files modified inside the window
+#   [root]       files under each --root DIR modified inside the window
+#                (root, then path); a missing DIR prints ERROR: not found
 #   [repo]       git status --short per named repo
 #   [git-diff]   git diff --name-status -M HEAD for the vault and named repos;
 #                tracked deletions and both paths of staged moves survive here
@@ -35,24 +42,39 @@
 # set by the kernel at creation and cannot be preserved from userspace, so the
 # ctime arm is what surfaces it. A file this sweep still cannot see (created by
 # cp -p outside these roots) needs a ledger row: locked-ingress.sh self-ledgers
-# for exactly that reason.
+# for exactly that reason. Writes to remote hosts are never swept: the caller
+# lists them from its own tool calls.
 #
 # Platform: Linux, macOS (BSD date fallback), Windows Git Bash.
 set -euo pipefail
 
-usage() { echo "Usage: $0 <vault> [-m MINUTES] [repo ...]" >&2; exit 1; }
+usage() { echo "Usage: $0 <vault> [-m MINUTES] [--root DIR ...] [repo ...]" >&2; exit 1; }
 [ $# -ge 1 ] || usage
 VAULT="$1"; shift
 [ -d "$VAULT" ] || { echo "ERROR: vault not found: $VAULT" >&2; exit 1; }
 
 MIN=240
-if [ "${1:-}" = "-m" ]; then
-    [ $# -ge 2 ] || usage
-    MIN="$2"; shift 2
-fi
+EXTRA_ROOTS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -m)     [ $# -ge 2 ] || usage; MIN="$2"; shift 2 ;;
+        --root) [ $# -ge 2 ] || usage; EXTRA_ROOTS+=("$2"); shift 2 ;;
+        --)     shift; break ;;
+        *)      break ;;
+    esac
+done
 
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CODEX_CONFIG_DIR="${CODEX_HOME:-$HOME/.codex}"
+
+# 0. Name every root this run sweeps. A path missing from this line was not
+#    searched, so the caller can see the gap instead of inferring coverage.
+DEFAULT_ROOTS=("$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" "$CONFIG_DIR" \
+    "$CODEX_CONFIG_DIR/skills" "$HOME/.local/libexec" "$HOME/.config/systemd/user" \
+    "$HOME/.config/kwinoutputconfig.json" "$VAULT" "$VAULT/01 Now" "$VAULT/02 Inbox")
+printf '# roots searched:'
+printf '\t%s' "${DEFAULT_ROOTS[@]}" ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"} "$@"
+printf '\n'
 CUTOFF=$(date -u -d "$MIN minutes ago" +%FT%TZ 2>/dev/null \
     || date -u -v-"${MIN}"M +%FT%TZ 2>/dev/null \
     || python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(minutes=$MIN)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
@@ -81,6 +103,18 @@ if [ -e "$HOME/.config/kwinoutputconfig.json" ]; then
     find "$HOME/.config/kwinoutputconfig.json" \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
         | sed 's/^/[config]\t/' || true
 fi
+
+# 2b. Caller-supplied roots, same window and prunes as the config sweep.
+#     A root that does not exist is reported, never silently skipped.
+for extra in ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"}; do
+    if [ -e "$extra" ]; then
+        find "$extra" \( -name .git -o -name __pycache__ \) -prune -o \
+                \( -type f -o -type l \) \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
+            | awk -v root="$extra" '{ print "[root]\t" root "\t" $0 }' || true
+    else
+        printf '[root]\t%s\tERROR: not found\n' "$extra"
+    fi
+done
 
 # 3. Working tree of every named repo.
 diff_candidates() {
