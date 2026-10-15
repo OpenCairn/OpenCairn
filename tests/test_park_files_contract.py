@@ -52,7 +52,7 @@ class ParkFilesContractTests(unittest.TestCase):
                 self.assertIn('lags fresh binaries and renames', section)
                 self.assertIn('move to resolve', section)
                 self.assertIn('full old path', section)
-                self.assertIn('never write a Files row for a path `ls` cannot find', section)
+                self.assertIn('never write an unannotated local Files row for a path `ls` cannot find', section)
 
 if __name__ == '__main__':
     unittest.main()
