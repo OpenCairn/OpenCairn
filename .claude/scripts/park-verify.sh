@@ -34,6 +34,11 @@
 #               blanks; exempts `- [ ]` in code spans and "==- [ ]==" highlights
 #   closure     per --ident: unchecked "- [ ]" matches in This Week.md, Tickler.md,
 #               and touched 03 Projects / 04 Areas files -> REVIEW (caller flips
+#               genuinely-completed items, surfaces adjacent-open ones). An
+#               ident that occurs nowhere in those files (checked or not) is
+#               "N/A closure", not PASS: the grep had nothing to judge, which
+#               usually means the ident is misspelt or names nothing tracked.
+#               The RESULT line carries the N/A count. Other cases: (caller flips
 #               genuinely-completed items, surfaces adjacent-open ones). Each
 #               hit is labelled: [text] plain wording, [link] the visible name of
 #               an unaliased wikilink. Hits only in a hidden link target (aliased
@@ -67,7 +72,7 @@
 #               is neither a REVIEW nor a FAIL: it prints
 #               "INFO backfill: row annotated (deleted|remote) not compared: <path>"
 #
-# Output: "PASS|FAIL|REVIEW|INFO <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
+# Output: "PASS|FAIL|REVIEW|INFO|N/A <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
 # INFO lines are informational and never affect the verdict.
 # Exit 1 if any FAIL, else 0 (REVIEW lines need caller triage but are not failures).
 set -euo pipefail
@@ -119,10 +124,11 @@ if [ "${#TOUCHED[@]}" -gt 0 ]; then
     mapfile -t TOUCHED < <(printf '%s\n' "${TOUCHED[@]}" | awk '!seen[$0]++')
 fi
 
-FAILS=0; REVIEWS=0
+FAILS=0; REVIEWS=0; NAS=0
 pass()   { echo "PASS $1: $2"; }
 fail()   { echo "FAIL $1: $2"; FAILS=$((FAILS+1)); }
 review() { echo "REVIEW $1: $2"; REVIEWS=$((REVIEWS+1)); }
+na()     { echo "N/A $1: $2"; NAS=$((NAS+1)); }
 
 is_nonlocal() {
     local candidate
@@ -1045,9 +1051,13 @@ for ident in "${IDENTS[@]:-}"; do
     [ -n "$ident" ] || continue
     HITS=""
     SOFT=""
+    PRESENT=false
     for t in "${CLOSURE_TARGETS[@]}"; do
         is_nonlocal "$t" && continue
         [ -f "$t" ] || continue
+        # Presence first, on any line: an ident found nowhere must not fall
+        # through the unchecked-line filter into the same PASS as a real pass.
+        grep -q -i -F -- "$ident" "$t" && PRESENT=true
         h=$(grep -n -i -F -- "$ident" "$t" | grep -E '^[0-9]+:[[:space:]]*-[[:space:]]*\[ \]' || true)
         [ -n "$h" ] || continue
         # Classify where the ident sits, then excerpt. A line takes its strongest
@@ -1102,7 +1112,9 @@ for raw in sys.stdin.buffer:
         [ -n "$soft" ] && SOFT="$SOFT$t -> $soft; "
     done
     [ -n "$SOFT" ] && SOFT=" not counted (hidden link target or mid-word): $SOFT"
-    if [ -n "$HITS" ]; then
+    if [ "$PRESENT" != true ]; then
+        na closure "ident '$ident' absent from every planning file (${#CLOSURE_TARGETS[@]} checked)"
+    elif [ -n "$HITS" ]; then
         review closure "ident '$ident' has unchecked matches: $HITS$SOFT"
     elif [ -n "$SOFT" ]; then
         pass closure "ident '$ident': no unchecked [ ] text or link match in ${#CLOSURE_TARGETS[@]} planning file(s);$SOFT"
@@ -1123,11 +1135,15 @@ for line in ${COVERAGE_LINES[@]+"${COVERAGE_LINES[@]}"}; do
 done
 
 # --- result ------------------------------------------------------------------
+# The N/A count rides on the RESULT line so an all-N/A closure run is visible.
+NA_NOTE=""; [ "$NAS" -gt 0 ] && NA_NOTE=", $NAS N/A"
 if [ "$FAILS" -gt 0 ]; then
-    echo "RESULT: FAIL ($FAILS fail, $REVIEWS review)"
+    echo "RESULT: FAIL ($FAILS fail, $REVIEWS review$NA_NOTE)"
     exit 1
 elif [ "$REVIEWS" -gt 0 ]; then
-    echo "RESULT: REVIEW ($REVIEWS item(s) need caller triage)"
+    echo "RESULT: REVIEW ($REVIEWS item(s) need caller triage$NA_NOTE)"
+elif [ "$NAS" -gt 0 ]; then
+    echo "RESULT: PASS ($NAS N/A)"
 else
     echo "RESULT: PASS"
 fi
