@@ -1080,27 +1080,32 @@ fi
 # --- closure greps per ident -------------------------------------------------
 # Fixed-string ident match first (no regex injection), then unchecked-checkbox filter.
 # Python slices Unicode code points; cut -c can split UTF-8 bytes even in a UTF-8 locale.
-# A touched hub under the content-read gate (see above) is announced once and
-# left out of the targets: the INFO line is neither a pass nor a verdict.
-CLOSURE_TARGETS=("$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
+# The planning files are targets by default; touched hubs join them. Every
+# candidate, default or touched, passes the content-read gate (see above): one
+# under it is announced once and left out of the targets, so the "(N checked)"
+# count is the number of files actually grepped. The INFO line is neither a
+# pass nor a verdict.
+CLOSURE_CANDIDATES=("$VAULT/01 Now/This Week.md" "$VAULT/01 Now/Tickler.md")
 for t in "${TOUCHED[@]:-}"; do
-    case "$t" in
-        *"03 Projects/"*|*"04 Areas/"*)
-            [ -f "$t" ] || continue
-            is_nonlocal "$t" && continue
-            if [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ]; then
-                [ "${#IDENTS[@]}" -gt 0 ] && echo "INFO closure: existence-only target not grepped: $(show_path "$t")"
-                continue
-            fi
-            CLOSURE_TARGETS+=("$t") ;;
-    esac
+    case "$t" in *"03 Projects/"*|*"04 Areas/"*) CLOSURE_CANDIDATES+=("$t") ;; esac
+done
+mapfile -t CLOSURE_CANDIDATES < <(printf '%s\n' "${CLOSURE_CANDIDATES[@]}" | awk '!seen[$0]++')
+CLOSURE_TARGETS=()
+for t in "${CLOSURE_CANDIDATES[@]}"; do
+    [ -n "$t" ] && [ -f "$t" ] || continue
+    is_nonlocal "$t" && continue
+    if [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ]; then
+        [ "${#IDENTS[@]}" -gt 0 ] && echo "INFO closure: existence-only target not grepped: $(show_path "$t")"
+        continue
+    fi
+    CLOSURE_TARGETS+=("$t")
 done
 for ident in "${IDENTS[@]:-}"; do
     [ -n "$ident" ] || continue
     HITS=""
     SOFT=""
     PRESENT=false
-    for t in "${CLOSURE_TARGETS[@]}"; do
+    for t in "${CLOSURE_TARGETS[@]:-}"; do
         is_nonlocal "$t" && continue
         [ -f "$t" ] || continue
         # Presence first, on any line: an ident found nowhere must not fall
