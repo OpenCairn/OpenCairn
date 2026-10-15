@@ -1157,6 +1157,68 @@ class TouchedContentTests(unittest.TestCase):
         result = self.run_rows(str(outside), env=env, updated=[str(outside) + " - edited"])
         self.assertIn("FAIL separator: ", result.stdout)
 
+    def fake_mount_tools(self, fs_type: str, subtree: str, subtree_dev: str, other_dev: str,
+                         identity: bool = True) -> dict:
+        # stat answers the filesystem-type probe with `fs_type` for every path
+        # and the device-id probe with `subtree_dev` under `subtree`, `other_dev`
+        # elsewhere; findmnt mirrors both. With identity=False neither tool
+        # answers the device or mount-target probe at all.
+        tools = self.base / "bin"
+        tools.mkdir(exist_ok=True)
+        real = subprocess.run(["sh", "-c", "command -v stat"], capture_output=True, text=True).stdout.strip()
+        dev_case = ("case \"$*\" in *\"" + subtree + "\"*) printf '%s\\n' '" + subtree_dev + "' ;; "
+                    "*) printf '%s\\n' '" + other_dev + "' ;; esac; exit 0")
+        (tools / "stat").write_text(
+            "#!/bin/sh\ncase \"$*\" in\n"
+            "  *%T*) printf '%s\\n' '" + fs_type + "'; exit 0 ;;\n"
+            "  *%d*) " + (dev_case if identity else "exit 1") + " ;;\n"
+            "esac\nexec " + real + " \"$@\"\n", encoding="utf-8")
+        (tools / "findmnt").write_text(
+            "#!/bin/sh\ncase \"$*\" in\n"
+            "  *FSTYPE*) printf '%s\\n' '" + fs_type + "'; exit 0 ;;\n"
+            "  *TARGET*) " + (dev_case if identity else "exit 1") + " ;;\n"
+            "esac\nexit 1\n", encoding="utf-8")
+        for tool in ("stat", "findmnt"):
+            (tools / tool).chmod(0o755)
+        return dict(os.environ, PATH=str(tools) + os.pathsep + os.environ.get("PATH", ""))
+
+    def test_vault_root_exemption_compares_mount_identity_not_type(self) -> None:
+        # A vault on a network share with a separately mounted share of the same
+        # type beneath it: the subtree is not the vault's own filesystem.
+        local = "mirror/share/notes.md"
+        self.tainted(local)
+        subtree = str(self.vault / "mirror")
+        env = self.fake_mount_tools("cifs", subtree, "77", "42")
+        result = self.run_rows(local, env=env, updated=[local + " - rewritten"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (remote mount: cifs): " + local, result.stdout)
+        self.assertNotIn("FAIL separator", result.stdout)
+        # Same type and the same mount as the vault root: read as before.
+        env = self.fake_mount_tools("cifs", subtree, "42", "42")
+        result = self.run_rows(local, env=env, updated=[local + " - rewritten"])
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("existence-only", result.stdout)
+        # An explicit prefix naming the subtree still applies on the same mount.
+        env = dict(self.fake_mount_tools("cifs", subtree, "42", "42"), PARK_VERIFY_REMOTE_PREFIXES=subtree)
+        result = self.run_rows(local, env=env, updated=[local + " - rewritten"])
+        self.assertIn("PASS touched: existence-only (remote prefix: %s): %s" % (subtree, local), result.stdout)
+
+    def test_missing_mount_identity_probe_falls_through_to_content_checks(self) -> None:
+        local = "mirror/share/notes.md"
+        self.tainted(local)
+        subtree = str(self.vault / "mirror")
+        env = self.fake_mount_tools("cifs", subtree, "77", "42", identity=False)
+        result = self.run_rows(local, env=env, updated=[local + " - rewritten"])
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("existence-only", result.stdout)
+        # Positive control: the type probe is answered through the same fake,
+        # so a path outside the vault is still classified remote.
+        outside = self.base / "mnt/share/notes.md"
+        outside.parent.mkdir(parents=True)
+        outside.write_text("body\n" + SEP_LINE, encoding="utf-8")
+        result = self.run_rows(str(outside), env=env, updated=[str(outside) + " - edited"])
+        self.assertIn("PASS touched: existence-only (remote mount: cifs): " + str(outside), result.stdout)
+
     def test_session_log_itself_is_always_read(self) -> None:
         log = write_log(self.vault, updated=["docs/a.md - edited"])
         touch(self.vault, "docs/a.md")
