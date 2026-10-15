@@ -15,10 +15,18 @@ def project_dir_name(path: Path) -> str:
     return re.sub(r"[^A-Za-z0-9]", "-", str(path))
 
 
-def run(vault: Path, home: Path, cwd: Path, path: str = None) -> subprocess.CompletedProcess:
+SESSION_VARS = ("OPENCAIRN_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID")
+
+
+def run(vault: Path, home: Path, cwd: Path, path: str = None,
+        session: str = None) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["HOME"] = str(home)
     env.pop("CLAUDE_CONFIG_DIR", None)
+    for var in SESSION_VARS:  # the test host's own session must not leak in
+        env.pop(var, None)
+    if session is not None:
+        env["CLAUDE_CODE_SESSION_ID"] = session
     if path is not None:
         env["PATH"] = path
     return subprocess.run(
@@ -51,6 +59,27 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
         self.derived.mkdir()
         (self.projects / "-some-other-project").mkdir()
         result = run(self.vault, self.home, self.elsewhere)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [str(self.derived)])
+        self.assertIn("derived", result.stderr)
+
+    def test_running_sessions_transcript_wins_over_the_vault_derived_dir(self) -> None:
+        # Launched from /home/user with the vault as a subdirectory: the session's
+        # transcript (and its memory/) live under the launch cwd's project dir.
+        self.derived.mkdir()
+        launch = self.projects / "-home-user"
+        launch.mkdir()
+        sid = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"
+        (launch / f"{sid}.jsonl").write_text('{"type":"user","cwd":"/home/user"}\n', encoding="utf-8")
+        result = run(self.vault, self.home, self.elsewhere, session=sid)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [str(launch)])
+        self.assertIn("project dir: this session's transcript", result.stderr)
+
+    def test_session_without_transcript_falls_through_to_the_derived_dir(self) -> None:
+        self.derived.mkdir()
+        (self.projects / "-home-user").mkdir()
+        result = run(self.vault, self.home, self.elsewhere, session="no-such-session")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), [str(self.derived)])
         self.assertIn("derived", result.stderr)
