@@ -1104,6 +1104,39 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("INFO closure", result.stdout)
         self.assertIn("REVIEW closure: ident 'Budget plan' has unchecked matches", result.stdout)
 
+    def fake_tools(self, stat_output: str, findmnt_output: str) -> dict:
+        # A stat whose filesystem probe prints `stat_output` (a BSD stat given
+        # GNU flags prints the literal "-c"), passing every other call through.
+        tools = self.base / "bin"
+        tools.mkdir(exist_ok=True)
+        real = subprocess.run(["sh", "-c", "command -v stat"], capture_output=True, text=True).stdout.strip()
+        (tools / "stat").write_text(
+            "#!/bin/sh\ncase \"$*\" in *%T*) printf '%s\\n' '" + stat_output + "'; exit 0 ;; esac\n"
+            "exec " + real + " \"$@\"\n", encoding="utf-8")
+        (tools / "findmnt").write_text("#!/bin/sh\nprintf '%s\\n' '" + findmnt_output + "'\n", encoding="utf-8")
+        for tool in ("stat", "findmnt"):
+            (tools / tool).chmod(0o755)
+        return dict(os.environ, PATH=str(tools) + os.pathsep + os.environ.get("PATH", ""))
+
+    def test_garbage_filesystem_probe_falls_through_to_findmnt(self) -> None:
+        outside = self.base / "mnt/share/notes.md"
+        outside.parent.mkdir(parents=True)
+        outside.write_text("body\n" + SEP_LINE, encoding="utf-8")
+        for garbage in ("-c", "?", "cifs nfs"):
+            with self.subTest(garbage=garbage):
+                env = self.fake_tools(garbage, "cifs")
+                result = self.run_rows(str(outside), env=env, updated=[str(outside) + " - edited"])
+                self.assert_pass(result)
+                self.assertIn("PASS touched: existence-only (remote mount: cifs): " + str(outside), result.stdout)
+        # Positive control: a plausible probe answer is used as it stands.
+        env = self.fake_tools("nfs", "cifs")
+        result = self.run_rows(str(outside), env=env, updated=[str(outside) + " - edited"])
+        self.assertIn("PASS touched: existence-only (remote mount: nfs): " + str(outside), result.stdout)
+        # And a local type from the probe means the file is read.
+        env = self.fake_tools("ext2/ext3", "cifs")
+        result = self.run_rows(str(outside), env=env, updated=[str(outside) + " - edited"])
+        self.assertIn("FAIL separator: ", result.stdout)
+
     def test_session_log_itself_is_always_read(self) -> None:
         log = write_log(self.vault, updated=["docs/a.md - edited"])
         touch(self.vault, "docs/a.md")

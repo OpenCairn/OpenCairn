@@ -892,7 +892,7 @@ fi
 #   remote prefix: <p>          the path is under an entry of the colon-separated
 #                               PARK_VERIFY_REMOTE_PREFIXES (for mounts the
 #                               filesystem probe cannot name, or must not touch)
-#   remote mount: <type>        `stat -f -c %T` (GNU) or `findmnt -T` reports a
+#   remote mount: <type>        `stat -c %T -f` (GNU) or `findmnt -T` reports a
 #                               network or FUSE filesystem; a path on a host
 #                               without either tool is not classified this way
 # Neither remote reason applies to a path under the vault when the vault itself
@@ -909,10 +909,17 @@ PARK_VERIFY_MAX_CONTENT_BYTES="${PARK_VERIFY_MAX_CONTENT_BYTES:-2097152}"
 REMOTE_FS_TYPES='cifs smb smb2 smb3 smbfs nfs nfs4 afs 9p ceph davfs fuse fuseblk sshfs'
 declare -A CONTENT_SKIP=()
 bounded() { if command -v timeout >/dev/null 2>&1; then timeout 10 "$@"; else "$@"; fi; }
+# GNU stat accepts its flags in either order; `-c` is written first so a BSD or
+# macOS stat, whose `-f` takes the format string, rejects it as an illegal option
+# with empty output instead of printing the literal "-c" as a filesystem type.
+# The answer must also look like one type name (letters, digits, "._/-", no
+# spaces); anything else is treated as no answer and findmnt is tried.
 fs_type() {
     local type
-    type=$(bounded stat -f -c %T -- "$1" 2>/dev/null || true)
+    type=$(bounded stat -c %T -f -- "$1" 2>/dev/null || true)
+    [[ $type =~ ^[A-Za-z0-9._/-]+$ ]] && [ "$type" != "-c" ] || type=""
     [ -n "$type" ] || type=$(bounded findmnt -n -o FSTYPE -T "$1" 2>/dev/null || true)
+    [[ $type =~ ^[A-Za-z0-9._/-]+$ ]] || type=""
     printf '%s' "$type"
 }
 under_vault() { case "$1" in "$VAULT"/*) return 0 ;; *) return 1 ;; esac; }
