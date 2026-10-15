@@ -1022,11 +1022,16 @@ def accepted_inherited_lint(
     fail_indexes = [index for index, line in enumerate(lines) if line.startswith("FAIL ")]
     review_lines = [line for line in lines if line.startswith("REVIEW ")]
     result_lines = [line for line in lines if line.startswith("RESULT: ")]
+    # The verifier appends ", <n> N/A" when an ident was absent everywhere; that
+    # is not a failure or a review and leaves the counts it reports unchanged.
     if (
         len(fail_indexes) != 1
         or not lines[fail_indexes[0]].startswith("FAIL lint: ")
         or review_lines
-        or result_lines != ["RESULT: FAIL (1 fail, 0 review)"]
+        or len(result_lines) != 1
+        or not re.fullmatch(
+            r"RESULT: FAIL \(1 fail, 0 review(?:, [0-9]+ N/A)?\)", result_lines[0]
+        )
     ):
         return False, []
 
@@ -1035,7 +1040,9 @@ def accepted_inherited_lint(
         (
             index
             for index in range(start + 1, len(lines))
-            if lines[index].startswith(("PASS ", "FAIL ", "REVIEW ", "RESULT: "))
+            if lines[index].startswith(
+                ("PASS ", "FAIL ", "REVIEW ", "N/A ", "INFO ", "RESULT: ")
+            )
         ),
         len(lines),
     )
