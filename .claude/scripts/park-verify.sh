@@ -895,6 +895,11 @@ fi
 #   remote mount: <type>        `stat -f -c %T` (GNU) or `findmnt -T` reports a
 #                               network or FUSE filesystem; a path on a host
 #                               without either tool is not classified this way
+# Neither remote reason applies to a path under the vault when the vault itself
+# is what is remote: a prefix covering the vault root, or the vault root's own
+# filesystem type. The planning files are what these checks exist for, and the
+# script reads them regardless; a prefix naming a subtree inside the vault, or
+# a differently-mounted subtree, still applies. The size and NUL tests always do.
 #   size <n> bytes exceeds <m>  larger than PARK_VERIFY_MAX_CONTENT_BYTES (2 MiB:
 #                               no planning doc or session log approaches it;
 #                               exports and images routinely exceed it)
@@ -909,6 +914,12 @@ fs_type() {
     [ -n "$type" ] || type=$(bounded findmnt -n -o FSTYPE -T "$1" 2>/dev/null || true)
     printf '%s' "$type"
 }
+under_vault() { case "$1" in "$VAULT"/*) return 0 ;; *) return 1 ;; esac; }
+VAULT_FS_TYPE=""; VAULT_FS_TYPE_SET=false
+vault_fs_type() {
+    if [ "$VAULT_FS_TYPE_SET" != true ]; then VAULT_FS_TYPE=$(fs_type "$VAULT"); VAULT_FS_TYPE_SET=true; fi
+    printf '%s' "$VAULT_FS_TYPE"
+}
 content_skip_reason() {
     local t="$1" reason="" prefix type size nul prefixes=()
     if [ -n "${CONTENT_SKIP[$t]+x}" ]; then printf '%s' "${CONTENT_SKIP[$t]}"; return 0; fi
@@ -920,13 +931,21 @@ content_skip_reason() {
         for prefix in "${prefixes[@]}"; do
             prefix="${prefix%/}"
             [ -n "$prefix" ] || continue
+            # A prefix covering the vault root says the vault is remote, not the path.
+            if under_vault "$t"; then
+                case "$VAULT" in "$prefix"|"$prefix"/*) continue ;; esac
+            fi
             case "$t" in "$prefix"|"$prefix"/*) reason="remote prefix: $prefix"; break ;; esac
         done
     fi
     if [ -z "$reason" ]; then
         type=$(fs_type "$t")
         case " $REMOTE_FS_TYPES " in
-            *" ${type%%.*} "*) [ -n "$type" ] && reason="remote mount: $type" ;;
+            *" ${type%%.*} "*)
+                if [ -n "$type" ]; then
+                    # The vault's own filesystem: its files are read regardless.
+                    if under_vault "$t" && [ "$type" = "$(vault_fs_type)" ]; then :; else reason="remote mount: $type"; fi
+                fi ;;
         esac
     fi
     if [ -z "$reason" ]; then
@@ -1012,18 +1031,27 @@ else
 fi
 
 # --- lint on touched .md files ----------------------------------------------
+# The PASS line counts touched .md files actually linted against those present
+# but skipped (non-local, existence-only, carve-outs, outside the vault), so a
+# clean run whose planning files were all skipped is visible as such.
 LINT_HITS=""
+LINT_SCANNED=0
+LINT_SKIPPED=0
 for t in "${TOUCHED[@]:-}"; do
-    is_nonlocal "$t" && continue
-    [ -n "$t" ] && [ -f "$t" ] || continue
+    [ -n "$t" ] || continue
     case "$t" in *.md) ;; *) continue ;; esac
-    [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ] && continue   # existence-only
+    if is_nonlocal "$t"; then LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue; fi
+    [ -f "$t" ] || continue
+    if [ "$t" != "$LOG" ] && [ -n "$(content_skip_reason "$t")" ]; then   # existence-only
+        LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue
+    fi
     case "$t" in                                      # skill/command/script files carry quoted checkbox templates - never lint them, in or out of the vault
-        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) continue ;; # verbatim exports retain source formatting by design
-        */07\ System/.Provenance/*.snapshot.*) continue ;; # immutable provenance snapshots retain exact source formatting
-        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) continue ;;
+        */06\ Archive/OpenCairn/.Session\ Transcripts/*.md) LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue ;; # verbatim exports retain source formatting by design
+        */07\ System/.Provenance/*.snapshot.*) LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue ;; # immutable provenance snapshots retain exact source formatting
+        */.claude/*|*/.codex/AGENTS.md|*/.codex/skills/*|*/codex/AGENTS.md|*/codex/skills/*) LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue ;;
     esac
-    case "$t" in "$VAULT"/*) ;; *) continue ;; esac   # lint vault content files only
+    case "$t" in "$VAULT"/*) ;; *) LINT_SKIPPED=$((LINT_SKIPPED + 1)); continue ;; esac   # lint vault content files only
+    LINT_SCANNED=$((LINT_SCANNED + 1))
     # A real joined list is "textrun- [ ] next item". Two preceding characters are
     # never that: a backtick (prose quoting `- [ ]`, common in corrections entries
     # and skill-monitor observations whose whole subject IS checkbox syntax) and
@@ -1038,7 +1066,7 @@ done
 if [ -n "$LINT_HITS" ]; then
     fail lint "$LINT_HITS"
 else
-    pass lint "touched .md files clean (joined lists, blank-line residue)"
+    pass lint "touched .md files clean ($LINT_SCANNED linted, $LINT_SKIPPED skipped)"
 fi
 
 # --- closure greps per ident -------------------------------------------------

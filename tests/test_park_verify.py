@@ -977,6 +977,36 @@ class TouchedContentTests(unittest.TestCase):
         control = self.run_rows(absent, updated=[absent + " - copied"])
         self.assertIn("FAIL touched: ", control.stdout)
 
+    def test_vault_on_a_remote_prefix_still_reads_its_own_files(self) -> None:
+        # The vault itself on a network share: its planning files are what the
+        # checks exist for, so a prefix covering the vault root exempts nothing
+        # under it from the separator scan and the lint.
+        self.tainted("docs/small.md")
+        for prefix in (self.vault, self.base):
+            with self.subTest(prefix=str(prefix)):
+                env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(prefix))
+                result = self.run_rows("docs/small.md", env=env, updated=["docs/small.md - edited"])
+                self.assertIn("FAIL lint: ", result.stdout)
+                self.assertIn("FAIL separator: ", result.stdout)
+                self.assertNotIn("existence-only", result.stdout)
+        # A prefix naming a subtree inside the vault still applies to that subtree.
+        self.tainted("mirror/share/notes.md")
+        env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(self.vault / "mirror"))
+        result = self.run_rows("mirror/share/notes.md", env=env, updated=["mirror/share/notes.md - synced"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (remote prefix: %s): mirror/share/notes.md"
+                      % (self.vault / "mirror"), result.stdout)
+        self.assertIn("PASS lint: touched .md files clean (0 linted, 1 skipped)", result.stdout)
+        # Size and NUL gates keep applying inside the vault.
+        self.tainted("docs/big.md", pad=MAX_CONTENT_BYTES + 1)
+        touch(self.vault, "docs/clean.md")
+        env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(self.vault))
+        result = self.run_rows("docs/big.md", "docs/clean.md", env=env,
+                               updated=["docs/big.md - regenerated", "docs/clean.md - edited"])
+        self.assert_pass(result)
+        self.assertIn("existence-only (size ", result.stdout)
+        self.assertIn("PASS lint: touched .md files clean (1 linted, 1 skipped)", result.stdout)
+
     def test_deleted_annotation_excuses_an_absent_path_in_any_files_list(self) -> None:
         gone = "docs/Old - v1.md"
         # An unsplittable row (absent, two " - " boundaries) is shown by its
