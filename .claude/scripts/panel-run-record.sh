@@ -7,17 +7,20 @@
 #                       [--claude-agent <agent id>] [--claude-model <id>] [--vault <path>] [--archive]
 #
 # Seat files in <run_dir> (round 1: <seat>.out/.err/.time/.exit; round N>1: <seat>-rN.*), seats claude gemini codex grok.
-# Derived, never typed: despatched (any file for the seat), returned (.out non-empty and .exit absent or 0),
-# model ids (Codex: "model:" line of codex.err, falling back to round 1; Grok: usage line of grok.err;
-# Gemini: <run_dir>/gemini.model written at despatch, else ~/.gemini/settings.json tagged "(now)";
-# Claude: the seat's own transcript via --claude-agent (~/.claude/projects/*/<session>/subagents/agent-<id>.jsonl:
-# model field and first-to-last timestamp), else claude.json (Codex lane), else claude.model, else --claude-model),
-# wall seconds (.time, or the transcript / usage line), Grok cost, and whether synthesis*.md is present.
+# Derived, never typed, from the round's own files: despatched (any file for the seat in that round), returned (.out
+# non-empty and .exit absent or 0), model ids (Codex: "model:" line of codex[-rN].err; Grok: usage line of grok[-rN].err;
+# Gemini: gemini[-rN].model written at despatch, else ~/.gemini/settings.json tagged "(now)"; Claude: the seat's own
+# transcript via --claude-agent (~/.claude/projects/*/<session>/subagents/agent-<id>.jsonl: model field, and wall seconds
+# from the timestamps after the previously recorded round's end, kept in <run_dir>/.claude-rN.transcript-end), else
+# claude[-rN].json (Codex lane), else claude[-rN].model, else --claude-model), wall seconds (.time, or the transcript /
+# usage line), Grok cost, and whether synthesis*.md is present. A round-N model file falls back to its round-1 file;
+# wall seconds never do.
 # The line carries NO findings: if the seat question is reopened, code from the archived seat files, not from the synthesis.
 #
 # --archive copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/ (never merging
-# into an existing directory; .md inside renamed .txt so it is not indexed as a note). Round N>1 copies its -rN files into
-# the round-1 archive named in <run_dir>/.archive-path when that exists. The line is then appended to
+# into an existing directory; .md inside renamed .txt so it is not indexed as a note). Round N>1 copies only its -rN files
+# into the round-1 archive named in <run_dir>/.archive-path, else into the newest round-1 archive of this session that
+# holds no round-N files yet, else into a new -rN directory holding the whole run directory. The line is then appended to
 # <vault>/07 System/Panel Seat Ledger.md under lock (created atomically with a header if missing). Every run is archived
 # and indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
 # Platform: Linux, macOS, Windows (Git Bash). Needs python3.
@@ -47,6 +50,8 @@ import os, re, json, glob, collections, datetime
 rd=os.environ['RUN_DIR']; r=int(os.environ['ROUND']); suf='' if r==1 else f'-r{r}'
 seats=['claude','gemini','codex','grok']; cap={'claude':'Claude','gemini':'Gemini','codex':'Codex','grok':'Grok'}
 def f(seat,ext,s=suf): return os.path.join(rd, f'{seat}{s}.{ext}')
+def f1(seat,ext):  # the round's file, else the round-1 file (model ids only)
+    return f(seat,ext) if os.path.exists(f(seat,ext)) else f(seat,ext,'')
 def rd_(p):
     try: return open(p, errors='replace').read()
     except Exception: return ''
@@ -68,7 +73,7 @@ if g:
     models['grok']=g.group(1); cost=f'${float(g.group(3)):.3f}'
     if wall.get('grok','?')=='?': wall['grok']=str(round(float(g.group(2))))
 else: models['grok']='unknown'
-gm=rd_(os.path.join(rd,'gemini.model')).strip()
+gm=rd_(f1('gemini','model')).strip()
 if gm: models['gemini']=gm
 else:
     try: models['gemini']=(json.load(open(os.path.expanduser('~/.gemini/settings.json'))).get('model',{}).get('name') or 'gemini-default')+'(now)'
@@ -77,25 +82,32 @@ cm=''
 aid=os.environ.get('CLAUDE_AGENT'); sid=os.environ.get('SID')
 if aid and sid:
     for p in glob.glob(os.path.expanduser(f'~/.claude/projects/*/{sid}/subagents/agent-{aid}.jsonl')):
+        def iso(t): return datetime.datetime.fromisoformat(t.replace('Z','+00:00'))
         c=collections.Counter(); ts=[]
         for line in open(p, errors='replace'):
             try: o=json.loads(line)
             except Exception: continue
             msg=o.get('message') if isinstance(o,dict) else None
             if isinstance(msg,dict) and msg.get('role')=='assistant' and msg.get('model'): c[msg['model']]+=1
-            if isinstance(o,dict) and o.get('timestamp'): ts.append(o['timestamp'])
+            if isinstance(o,dict) and o.get('timestamp'):
+                try: ts.append(iso(o['timestamp']))
+                except Exception: pass
         if c: cm=c.most_common(1)[0][0]
-        if ts and wall.get('claude','?')=='?':
-            try:
-                d=datetime.datetime.fromisoformat(ts[-1].replace('Z','+00:00'))-datetime.datetime.fromisoformat(ts[0].replace('Z','+00:00'))
-                wall['claude']=str(int(d.total_seconds()))
+        # A resumed seat's transcript spans every round: this round starts after the previous recorded round's end.
+        prev=rd_(os.path.join(rd, f'.claude-r{r-1}.transcript-end')).strip() if r>1 else ''
+        if prev:
+            try: ts=[t for t in ts if t>iso(prev)]
+            except Exception: pass
+        if ts:
+            if wall.get('claude','?')=='?': wall['claude']=str(int((ts[-1]-ts[0]).total_seconds()))
+            try: open(os.path.join(rd, f'.claude-r{r}.transcript-end'),'w').write(ts[-1].isoformat()+'\n')
             except Exception: pass
 if not cm:
     try:
-        cj=json.load(open(f('claude','json'))); cm=cj.get('model') or ''
+        cj=json.load(open(f1('claude','json'))); cm=cj.get('model') or ''
         if not cm and isinstance(cj.get('modelUsage'),dict) and cj['modelUsage']: cm=next(iter(cj['modelUsage']))
     except Exception: pass
-cm=cm or rd_(os.path.join(rd,'claude.model')).strip() or os.environ.get('CLAUDE_MODEL') or 'unknown'
+cm=cm or rd_(f1('claude','model')).strip() or os.environ.get('CLAUDE_MODEL') or 'unknown'
 models['claude']=cm
 synth='yes' if glob.glob(os.path.join(rd,'synthesis*')) else 'no'
 def lst(xs): return ' '.join(cap[s] for s in xs) if xs else 'none'
@@ -112,19 +124,31 @@ if [[ $ARCHIVE -eq 1 ]]; then
     echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1
   fi
   ! ls "$RUN_DIR"/synthesis* >/dev/null 2>&1 && echo "warning: no synthesis*.md in $RUN_DIR; write the synthesis and terminal state there before recording" >&2
-  MARK="$RUN_DIR/.archive-path"
-  if [[ "$ROUND" -gt 1 && -f "$MARK" && -d "$VAULT/$(cat "$MARK")" ]]; then
-    EVIDENCE="$(cat "$MARK")"; DEST="$VAULT/$EVIDENCE"
+  RUNS_REL="06 Archive/OpenCairn/Panel Runs"; RUNS="$VAULT/$RUNS_REL"; mkdir -p "$RUNS"
+  MARK="$RUN_DIR/.archive-path"; JOIN=""
+  if [[ "$ROUND" -gt 1 ]]; then
+    if [[ -f "$MARK" && -d "$VAULT/$(cat "$MARK")" ]]; then JOIN="$(cat "$MARK")"
+    elif [[ "$SID8" != "unknown" ]]; then
+      # Marker lost: the newest round-1 archive of this session that holds no round-N files yet.
+      for d in "$RUNS"/*-"$SID8"-r1 "$RUNS"/*-"$SID8"-r1-*; do
+        [[ -d "$d" ]] || continue
+        if ! compgen -G "$d/*-r$ROUND.*" >/dev/null; then JOIN="$RUNS_REL/$(basename "$d")"; fi
+      done
+    fi
+  fi
+  if [[ -n "$JOIN" ]]; then
+    EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
     find "$RUN_DIR" -maxdepth 1 -name "*-r$ROUND.*" -exec cp -a {} "$DEST"/ \;
     for md in "$DEST"/*-r"$ROUND".md; do [[ -e "$md" ]] && mv "$md" "${md%.md}.txt"; done
   else
-    STAMP="$(date +%H%M%S)"; BASE="06 Archive/OpenCairn/Panel Runs/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
+    STAMP="$(date +%H%M%S)"; BASE="$RUNS_REL/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive
     DEST="$VAULT/$EVIDENCE"; mkdir -p "$DEST"
     cp -a "$RUN_DIR"/. "$DEST"/
     for md in "$DEST"/*.md; do [[ -e "$md" ]] && mv "$md" "${md%.md}.txt"; done
-    printf '%s\n' "$EVIDENCE" > "$MARK"
+    [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session found; round $ROUND archived whole to $EVIDENCE" >&2
   fi
+  printf '%s\n' "$EVIDENCE" > "$MARK"
   LEDGER="$VAULT/07 System/Panel Seat Ledger.md"
   HEADER='# Panel Seat Ledger
 
