@@ -250,7 +250,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    printf 'SESSIONS DIR: %s\n' "${SESSIONS[@]:-none}"
    # Attribution evidence: transcripts in the vault's own project dir whose cwd IS the vault. Empty when the single dir is not the vault-derived one (a shared launch dir), when several or none resolved, or when no transcript records the vault as cwd.
    TRANSCRIPTS=()
-   if [ "${#SESSIONS[@]}" -eq 1 ] && [ "${SESSIONS[0]}" = "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "{VAULT}" | sed 's#[^A-Za-z0-9]#-#g')" ]; then
+   if [ "${#SESSIONS[@]}" -eq 1 ] && [ "${SESSIONS[0]}" = "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "{VAULT}" | sed 's#/*$##; s#[^A-Za-z0-9]#-#g')" ]; then
      while IFS= read -r t; do TRANSCRIPTS+=("$t"); done < <(rg -l -F --no-ignore -g '*.jsonl' "\"cwd\":\"{VAULT}\"" "${SESSIONS[0]}" 2>/dev/null)
    fi
    printf 'ATTRIBUTION TRANSCRIPTS: %s\n' "${#TRANSCRIPTS[@]}"

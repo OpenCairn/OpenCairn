@@ -182,6 +182,22 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("note: run directory has no brief.md; round 2 archived whole to", r2.stderr)
         self.assertNotIn("matches this run directory's brief.md", r2.stderr)
 
+    def test_whole_directory_fallback_archives_the_stand_in_synthesis_under_round_name(self) -> None:
+        import time
+        self.other_review("runB", "brief B\n")
+        (self.run / "brief.md").write_text("brief C\n", encoding="utf-8")
+        self.full_round(1)
+        self.assertEqual(self.record(1, archive=False).returncode, 0)
+        self.full_round(2, tag="C")
+        time.sleep(1.1)
+        (self.run / "synthesis.md").write_text("round 2 verdict\n", encoding="utf-8")
+        r2 = self.record(2)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        new = [d for d in self.archives() if d.name.endswith("-r2")]
+        self.assertEqual(len(new), 1)
+        self.assertTrue((new[0] / "synthesis-r2.md").is_file(), sorted(p.name for p in new[0].iterdir()))
+        self.assertIn("| synthesis: yes |", r2.stdout)
+
     def test_lost_marker_with_two_matching_archives_fails_explicitly(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")
         self.full_round(1)

@@ -200,7 +200,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
       MATCHES=()
       for d in "$RUNS"/*-"$SID8"-r1 "$RUNS"/*-"$SID8"-r1-*; do
         [[ -d "$d" ]] || continue
-        compgen -G "$d/*-r$ROUND.*" >/dev/null && continue
+        { compgen -G "$d/*-r$ROUND.*" >/dev/null || compgen -G "$d/*-r$ROUND-*" >/dev/null; } && continue
         _round1_fingerprint_matches "$RUN_DIR" "$d" "$ROUND" && MATCHES+=("$RUNS_REL/$(basename "$d")")
       done
       if [[ ${#MATCHES[@]} -eq 1 ]]; then JOIN="${MATCHES[0]}"
@@ -214,13 +214,15 @@ if [[ $ARCHIVE -eq 1 ]]; then
   if [[ -n "$JOIN" ]]; then
     EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
     # Round files: <seat>-rN.<ext>, and per-reviewer round files such as brief-rN-<reviewer>.md.
-    find "$RUN_DIR" -maxdepth 1 \( -name "*-r$ROUND.*" -o -name "*-r$ROUND-*" \) -exec cp -a {} "$DEST"/ \;
+    find "$RUN_DIR" -maxdepth 1 \( -name "*-r$ROUND.*" -o -name "*-r$ROUND-*" \) ! -type d -exec cp -a {} "$DEST"/ \;
     [[ $STANDIN -eq 1 ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
   else
     STAMP="$(date +%H%M%S)"; BASE="$RUNS_REL/$DATE-$STAMP-$SID8-r$ROUND"; EVIDENCE="$BASE"; n=1
     while [[ -e "$VAULT/$EVIDENCE" ]]; do EVIDENCE="$BASE-$n"; n=$((n+1)); done   # never merge into an existing archive
     DEST="$VAULT/$EVIDENCE"; mkdir -p "$DEST"
     cp -a "$RUN_DIR"/. "$DEST"/
+    # The stand-in synthesis is round N's: give it round N's name here too.
+    [[ $STANDIN -eq 1 ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"
     if [[ "$ROUND" -gt 1 ]]; then
       if [[ -f "$RUN_DIR/brief.md" ]]; then echo "note: no round-1 archive of this session matches this run directory's brief.md; round $ROUND archived whole to $EVIDENCE" >&2
       else echo "note: run directory has no brief.md; round $ROUND archived whole to $EVIDENCE" >&2; fi
