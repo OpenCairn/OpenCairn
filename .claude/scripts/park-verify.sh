@@ -50,8 +50,11 @@
 #   touched     each --touched path exists, unless a Files Deleted row (or a
 #               row annotated "(deleted)") accounts for it, --nonlocal or a
 #               "(remote)" annotation classifies it, it lies under a
-#               PARK_VERIFY_REMOTE_PREFIXES entry, or it is an off-host form
-#               ("host:/path", "C:\path", a URL) that names nothing local.
+#               PARK_VERIFY_REMOTE_PREFIXES entry (one naming a subtree of the
+#               vault or a path outside it; a prefix covering the vault root
+#               exempts nothing under the vault, as at the content-read gate),
+#               or it is an off-host form ("host:/path", "C:\path", a URL)
+#               that names nothing local.
 #               Existing paths that must not be read (see the content-read
 #               gate: remote mount, over-size, binary) print
 #               "PASS touched: existence-only (<reason>): <path>" and are
@@ -324,8 +327,18 @@ REMOTE_PREFIXES = [slash(p).rstrip("/") for p in
 
 
 def remote_prefixed(path):
+    """Same rule as the shell content_skip_reason: a prefix covering the vault
+    root says the vault is remote, not that a vault path it does not find is
+    off-host; only a prefix naming a subtree inside the vault, or a path
+    outside it, makes an absent path "not compared"."""
     path = norm(path)
-    return any(path == p or path.startswith(p + "/") for p in REMOTE_PREFIXES)
+    under_vault = path == vault or path.startswith(vault + "/")
+    for p in REMOTE_PREFIXES:
+        if under_vault and (vault == p or vault.startswith(p + "/")):
+            continue
+        if path == p or path.startswith(p + "/"):
+            return True
+    return False
 
 
 def is_file(path):
