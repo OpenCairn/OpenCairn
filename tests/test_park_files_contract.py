@@ -33,6 +33,16 @@ class ParkFilesContractTests(unittest.TestCase):
                 self.assertIn('same resolved path', step)
                 self.assertIn('distinct installed/source paths', step)
 
+    def test_inventory_names_extra_roots_and_remote_writes(self):
+        for path in (ROOT / '.claude/commands/_closeout.md', ROOT / 'codex/skills/_closeout.md'):
+            with self.subTest(path=path):
+                section = path.read_text(encoding='utf-8').split('## Inventory', 1)[1].split('## Coverage', 1)[0]
+                self.assertIn('[--root DIR ...]', section)
+                self.assertIn('`# roots searched:`', section)
+                self.assertIn('`~/.local/bin`', section)
+                self.assertIn('`/etc`', section)
+                self.assertIn('recall-only class', section)
+                self.assertIn('`[remote]` row', section)
 
 if __name__ == '__main__':
     unittest.main()

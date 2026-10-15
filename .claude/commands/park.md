@@ -67,7 +67,7 @@ If this session directly continues a just-parked session dated today (a `/pickup
 
 #### Explicit `--quick` gate
 
-Run this gate only when the complete argument string is exactly `--quick`, after inventory and before any full reads, persistence, routing, or agent despatch. Supply every repository touched during the session to `park-files.sh`.
+Run this gate only when the complete argument string is exactly `--quick`, after inventory and before any full reads, persistence, routing, or agent despatch. Supply every repository touched during the session to `park-files.sh`, and `--root` for every directory it installed into outside the default sweep.
 
 1. Review the session's actual tool calls and shell commands. Display one row per filesystem-mutating action as `tool/action | resolved path | ledger/park-files/repo coverage`. Every action must resolve to an inventoried path; print `none` only when there were no such actions. Any attributed creation, update, or deletion fails the gate, as does a mutation outside inventory coverage or an action whose target or ownership is uncertain.
 2. Check the at-risk surfaces before Step 4: the inventory's `[transient]` hits, each recent `~/.claude/plans` file, and assistant-authored drafts that exist only in the conversation. Any candidate fails the gate.

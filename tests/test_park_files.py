@@ -81,6 +81,65 @@ class ParkFilesTests(unittest.TestCase):
             self.assertIn(str(kwin), result.stdout)
 
 
+    def test_extra_roots_are_scanned_only_when_passed_and_header_lists_them(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            (vault / "01 Now").mkdir(parents=True)
+            (vault / "02 Inbox").mkdir()
+            claude = root / "claude"
+            (claude / "commands").mkdir(parents=True)
+            (claude / "scripts").mkdir()
+            codex = root / "codex"
+            (codex / "skills").mkdir(parents=True)
+            home = root / "home"
+            installed = home / ".local/bin/tool"
+            installed.parent.mkdir(parents=True)
+            installed.write_text("#!/bin/sh\n", encoding="utf-8")
+            cache = home / ".local/bin/__pycache__/tool.cpython.pyc"
+            cache.parent.mkdir()
+            cache.write_bytes(b"\x00")
+            setting = home / ".claude/settings.json"
+            setting.parent.mkdir()
+            setting.write_text("{}\n", encoding="utf-8")
+
+            env = os.environ.copy()
+            env["HOME"] = str(home)
+            env["CLAUDE_CONFIG_DIR"] = str(claude)
+            env["CODEX_HOME"] = str(codex)
+
+            def run(*extra: str) -> str:
+                return subprocess.run(
+                    [str(SCRIPT), str(vault), "-m", "5", *extra],
+                    check=True, capture_output=True, text=True, env=env,
+                ).stdout
+
+            # Negative control: without --root the install is invisible, but
+            # the header still names the default roots.
+            without = run()
+            self.assertNotIn(str(installed), without)
+            header = [l for l in without.splitlines() if l.startswith("# roots searched:")]
+            self.assertEqual(len(header), 1)
+            self.assertIn(str(claude / "commands"), header[0])
+            self.assertIn(str(vault), header[0])
+            self.assertNotIn(str(installed.parent), header[0])
+
+            # Positive control: each --root is scanned and listed in the header.
+            with_roots = run("--root", str(installed.parent), "--root", str(setting.parent))
+            self.assertIn(f"[root]\t{installed.parent}\t{installed}\n", with_roots)
+            self.assertIn(f"[root]\t{setting.parent}\t{setting}\n", with_roots)
+            self.assertNotIn(str(cache), with_roots)
+            header = [l for l in with_roots.splitlines() if l.startswith("# roots searched:")]
+            self.assertEqual(len(header), 1)
+            self.assertIn(str(installed.parent), header[0])
+            self.assertIn(str(setting.parent), header[0])
+            self.assertIn(str(claude / "commands"), header[0])
+
+            # A root that does not exist is reported, never silently skipped.
+            missing = run("--root", str(home / "absent"))
+            self.assertIn(f"[root]\t{home / 'absent'}\tERROR: not found\n", missing)
+
+
 class VaultInventoryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory(prefix="park-inventory-")
