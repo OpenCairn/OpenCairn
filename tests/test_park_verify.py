@@ -1104,6 +1104,26 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("INFO closure", result.stdout)
         self.assertIn("REVIEW closure: ident 'Budget plan' has unchecked matches", result.stdout)
 
+    def test_default_closure_target_under_the_content_gate_is_not_grepped(self) -> None:
+        # The Tickler is a closure target by default, not by --touched; it is
+        # under the same content gate as a touched hub.
+        tickler = self.vault / "01 Now/Tickler.md"
+        tickler.write_text("- [ ] Budget plan\n" + "x" * 4096 + "\n", encoding="utf-8")
+        env = dict(os.environ, PARK_VERIFY_MAX_CONTENT_BYTES="1024")
+        log = write_log(self.vault)
+        result = subprocess.run([str(SCRIPT), str(self.vault), str(log), "1", "--ident", "Budget plan"],
+                                check=False, capture_output=True, text=True, env=env)
+        self.assertIn("INFO closure: existence-only target not grepped: 01 Now/Tickler.md", result.stdout)
+        self.assertNotIn("REVIEW closure", result.stdout)
+        self.assertNotIn("PASS closure", result.stdout)
+        self.assertIn("N/A closure: ident 'Budget plan' absent from every planning file (1 checked)",
+                      result.stdout)
+        self.assertIn("RESULT: PASS (1 N/A)", result.stdout)
+        # Control: under the default limit the same Tickler is grepped and is a REVIEW.
+        result = verify(self.vault, log, "--ident", "Budget plan")
+        self.assertNotIn("INFO closure", result.stdout)
+        self.assertIn("REVIEW closure: ident 'Budget plan' has unchecked matches", result.stdout)
+
     def fake_tools(self, stat_output: str, findmnt_output: str) -> dict:
         # A stat whose filesystem probe prints `stat_output` (a BSD stat given
         # GNU flags prints the literal "-c"), passing every other call through.
