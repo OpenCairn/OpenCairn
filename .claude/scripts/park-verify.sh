@@ -900,11 +900,12 @@ fi
 # filesystem type. The planning files are what these checks exist for, and the
 # script reads them regardless; a prefix naming a subtree inside the vault, or
 # a differently-mounted subtree, still applies. The size and NUL tests always do.
-#   size <n> bytes exceeds <m>  larger than PARK_VERIFY_MAX_CONTENT_BYTES (2 MiB:
-#                               no planning doc or session log approaches it;
-#                               exports and images routinely exceed it)
+#   size <n> bytes exceeds <m>  larger than PARK_VERIFY_MAX_CONTENT_BYTES (an
+#                               environment tunable; default 2 MiB: no planning
+#                               doc or session log approaches it; exports and
+#                               images routinely exceed it)
 #   binary content              a NUL byte within the first 8 KiB
-PARK_VERIFY_MAX_CONTENT_BYTES=2097152
+PARK_VERIFY_MAX_CONTENT_BYTES="${PARK_VERIFY_MAX_CONTENT_BYTES:-2097152}"
 REMOTE_FS_TYPES='cifs smb smb2 smb3 smbfs nfs nfs4 afs 9p ceph davfs fuse fuseblk sshfs'
 declare -A CONTENT_SKIP=()
 bounded() { if command -v timeout >/dev/null 2>&1; then timeout 10 "$@"; else "$@"; fi; }
