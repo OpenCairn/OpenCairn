@@ -113,10 +113,12 @@ fi
 # 2b. Caller-supplied roots, same window as the config sweep but pruning only
 #     .git: the caller named the root because its byproducts (__pycache__ and
 #     the like) are exactly what the default sweep omits. A root that does not
-#     exist is reported, never silently skipped.
+#     exist is reported, never silently skipped. -H follows the root itself
+#     when it is a symlink to a directory (macOS /etc -> private/etc), so the
+#     files inside are listed; links below the root are still not followed.
 for extra in ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"}; do
     if [ -e "$extra" ]; then
-        find "$extra" -name .git -prune -o \
+        find -H "$extra" -name .git -prune -o \
                 \( -type f -o -type l \) \( -mmin -"$MIN" -o -cmin -"$MIN" \) -print 2>/dev/null \
             | awk -v root="$extra" '{ print "[root]\t" root "\t" $0 }' || true
     else

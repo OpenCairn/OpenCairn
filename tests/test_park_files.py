@@ -157,6 +157,33 @@ class ParkFilesTests(unittest.TestCase):
             missing = run("--root", str(home / "absent"))
             self.assertIn(f"[root]\t{home / 'absent'}\tERROR: not found\n", missing)
 
+    def test_extra_root_that_is_a_symlink_to_a_directory_is_descended(self) -> None:
+        # A root given as a symlink to a directory (macOS /etc -> private/etc)
+        # must list the files inside it, not just the link itself.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            (vault / "01 Now").mkdir(parents=True)
+            (vault / "02 Inbox").mkdir()
+            claude = root / "claude"
+            (claude / "commands").mkdir(parents=True)
+            (claude / "scripts").mkdir()
+            codex = root / "codex"
+            (codex / "skills").mkdir(parents=True)
+            real = root / "private/etc"
+            real.mkdir(parents=True)
+            inside = real / "hosts"
+            inside.write_text("127.0.0.1 localhost\n", encoding="utf-8")
+            link = root / "etc"
+            link.symlink_to(real, target_is_directory=True)
+
+            env = os.environ.copy()
+            env.update({"CLAUDE_CONFIG_DIR": str(claude), "CODEX_HOME": str(codex),
+                        "HOME": str(root / "home")})
+            result = subprocess.run([str(SCRIPT), str(vault), "-m", "5", "--root", str(link)],
+                                    check=True, capture_output=True, text=True, env=env)
+            self.assertIn(f"[root]\t{link}\t{link / 'hosts'}\n", result.stdout)
+
 
 class VaultInventoryTests(unittest.TestCase):
     def setUp(self) -> None:
