@@ -15,7 +15,7 @@ The collection output reports the source-file inventory, parse errors and run co
 
 ## Boundaries and limitations
 
-- Start: an actual `/park` or `$park` request, a Claude command envelope, or a standalone Codex park-skill invocation. Repeated skill expansion does not start a second run; quoted mentions and unrelated injected instructions do not count.
+- Start: an actual `/park` or `$park` request, a Claude command envelope (anywhere in the message, so prose typed before `/park` still counts), a Claude Skill-tool `park` invocation, or a standalone Codex park-skill invocation. Repeated skill expansion does not start a second run; quoted mentions and unrelated injected instructions do not count.
 - End: Codex's matching turn-completion event or final response; Claude's last `end_turn` text before a new genuine user request, allowing asynchronous reviewer continuations. No idle-gap cutoff. A later continuation can revise a provisional Claude endpoint.
 - A returned response is not necessarily a successful park. Summary timing includes only explicit `Parked`/merge confirmations, excludes incomplete parses, and separates requested quick mode. Blocked/unfinished requests remain visible in the dataset.
 - User interruption ends the measured request; a conversational backfill that does not invoke park is not a new park. Time includes waits, model latency and any work done during the request. It is **not** active human time or pure model thinking time.

@@ -136,6 +136,62 @@ class MetricsTests(unittest.TestCase):
             finally:
                 os.umask(oldmask)
 
+    def test_prose_then_skill_tool_park_is_one_run(self):
+        skill_call = [{'type':'tool_use','id':'s1','name':'Skill','input':{'skill':'park','args':''}}]
+        expansion = [{'type':'tool_result','tool_use_id':'s1','content':'<command-message>park is running…</command-message>\n<command-name>/park</command-name>'}]
+        rows, errors = self.parse([
+            self.claude('10:00:00', 'user', "Thanks, that's done.\n/park"),
+            self.claude('10:00:05', 'assistant', skill_call, 'tool_use'),
+            self.claude('10:00:05', 'user', expansion),
+            self.claude('10:20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn')])
+        self.assertFalse(errors)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['mode'], 'full')
+        self.assertEqual(rows[0]['started_at'], '2026-09-26T10:00:00Z')
+        self.assertEqual(rows[0]['wall_seconds'], 1200)
+        self.assertEqual(rows[0]['status'], 'parked')
+        quick = [{'type':'tool_use','id':'s2','name':'Skill','input':{'skill':'park','args':'--quick'}}]
+        rows, _ = self.parse([
+            self.claude('10:00:00', 'user', 'Wrap up please. /park --quick'),
+            self.claude('10:00:05', 'assistant', quick, 'tool_use'),
+            self.claude('10:01:00', 'assistant', [{'type':'text','text':'Quick parked.'}], 'end_turn')])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['mode'], 'quick-requested')
+        # Envelope + Skill expansion in the same turn is still one run; other skills never start one.
+        rows, _ = self.parse([
+            self.claude('10:00:00', 'user', '<command-name>/park</command-name>'),
+            self.claude('10:00:05', 'assistant', skill_call, 'tool_use'),
+            self.claude('10:20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn'),
+            self.claude('11:00:00', 'user', 'Now the morning routine'),
+            self.claude('11:00:05', 'assistant', [{'type':'tool_use','id':'s3','name':'Skill','input':{'skill':'morning'}}], 'tool_use'),
+            self.claude('11:05:00', 'assistant', [{'type':'text','text':'Done.'}], 'end_turn')])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['wall_seconds'], 1200)
+
+    def test_command_envelope_after_prose(self):
+        rows, _ = self.parse([
+            self.claude('10:00:00', 'user', 'One more note first.\n<command-message>park is running…</command-message>\n<command-name>/park</command-name>\n<command-args>--quick</command-args>'),
+            self.claude('10:01:00', 'assistant', [{'type':'text','text':'Quick parked.'}], 'end_turn')])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['mode'], 'quick-requested')
+        self.assertEqual(rows[0]['wall_seconds'], 60)
+
+    def test_record_finds_skill_tool_park(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transcript = root/'claude/projects/example/skill-id.jsonl'
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(''.join(json.dumps(e)+'\n' for e in [
+                self.claude('10:00:00', 'user', 'All done here.\n/park'),
+                self.claude('10:00:05', 'assistant', [{'type':'tool_use','id':'s1','name':'Skill','input':{'skill':'park','args':''}}], 'tool_use'),
+                self.claude('10:20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn')]))
+            base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
+                    '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
+            result = subprocess.run(base+['record', '--harness', 'claude', '--session-id', 'skill-id', '--outcome', 'completed'],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('run_id', result.stdout)
+
     def test_cli_collection_annotation_and_refresh(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
