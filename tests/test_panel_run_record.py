@@ -267,6 +267,34 @@ class PanelRunRecordTests(unittest.TestCase):
         ledger = str(self.vault / LEDGER_REL)
         self.assertTrue(any(row[1] == "locked-edit" and row[2] == ledger for row in rows), rows)
 
+    # -- 5. the ledger line is the record; --archive only adds the copy ----
+    def test_vault_without_archive_writes_the_ledger_line(self) -> None:
+        self.full_round(1)
+        r = self.record(1, archive=False)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lines = self.ledger_lines()
+        self.assertEqual(len(lines), 1, (self.vault / LEDGER_REL).exists())
+        self.assertTrue(lines[0].endswith(f"evidence: {self.run}"), lines[0])
+        self.assertEqual(lines[0], r.stdout.strip())
+        self.assertEqual(self.archives(), [])
+        self.assertNotIn("NOT WRITTEN", r.stderr)
+
+    def test_no_vault_prints_the_line_and_says_the_ledger_is_not_written(self) -> None:
+        self.full_round(1)
+        r = self.record(1, archive=False, vault=False)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(r.stdout.startswith("- "), r.stdout)
+        self.assertIn("warning: ledger NOT WRITTEN (no vault: pass --vault or set VAULT_PATH)", r.stderr)
+        self.assertFalse((self.vault / LEDGER_REL).exists())
+
+    def test_help_prints_the_header_only(self) -> None:
+        r = subprocess.run([str(SCRIPT), "--help"], check=False, capture_output=True, text=True,
+                           env=os.environ.copy())
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("What is written, when", r.stdout)
+        self.assertNotIn("set -euo pipefail", r.stdout)
+        self.assertTrue(r.stdout.rstrip().endswith("Needs python3."), r.stdout[-200:])
+
 
 if __name__ == "__main__":
     unittest.main()
