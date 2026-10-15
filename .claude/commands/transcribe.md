@@ -48,9 +48,9 @@ A published transcript (podcast show site, Substack, official transcript page) i
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
    2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is appended verbatim per §14, whoever produced it). **First confirm where to save** — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then write **only the metadata header** with the editor (Phase 3 step 7's header block), then **append the body straight from the file** — `printf '\n' >> "<note>.md" && cat "<BODY_FILE>" >> "<note>.md"` (`_shared-rules-content.md` §14). Do **not** use step 7's `{formatted transcript text}` staging block — that is for the in-context WhisperX output; here the body is a file and must never enter context. Don't `Edit` the note afterward; spot-check `head`/`tail` to confirm boundaries. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). **First confirm where to save** — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` in place of `$STAGE/body.md` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<note>.md" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** use step 7's `{formatted transcript text}` heredoc — that is for the in-context WhisperX output; here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
-   - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is appended verbatim (`_shared-rules-content.md` §14); never clean it.
+   - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is saved verbatim (`_shared-rules-content.md` §14); never clean it.
    - **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" — already in context from step 4.
    - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
 
@@ -246,9 +246,9 @@ Replace the placeholder variables with actual values.
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
-   > ⚠️ **Verbatim fidelity (`_shared-rules-content.md` §14 — read that section now; this skill doesn't load the file wholesale):** saving the whole note via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+   > ⚠️ **Verbatim fidelity (`_shared-rules-content.md` §14 — read that section now; this skill doesn't load the file wholesale):** saving the note via the editor tool fires the vault's formatting hook, which rewrites spelling in place and corrupts the speaker's verbatim words (a real past instance occurred). So the editor tool never touches the note: stage header and body in the shell and create the note in **one atomic locked write**. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
 
-   **Write the header only** with the editor tool (down to and including the `---`):
+   **The header** (down to and including the `---`):
 
    ```markdown
    # Transcript: {video title or filename}
@@ -263,16 +263,28 @@ Replace the placeholder variables with actual values.
    ---
    ```
 
-   **Then append the body via the shell** so the hook never touches it (the formatted text is in your context after the cleanup pass — stage it to a temp file, then append):
+   **Stage header and body, assemble, and create the note atomically.** The formatted text is in your context after the cleanup pass. `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
 
    ```bash
-   cat > /tmp/transcript-body.md <<'TRANSCRIPT_BODY_EOF'
+   STAGE=$(mktemp -d)
+   cat > "$STAGE/header.md" <<'TRANSCRIPT_HEADER_EOF'
+   {header block above}
+   TRANSCRIPT_HEADER_EOF
+   cat > "$STAGE/body.md" <<'TRANSCRIPT_BODY_EOF'
    {formatted transcript text}
    TRANSCRIPT_BODY_EOF
-   printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
+   { cat "$STAGE/header.md"; printf '\n'; cat "$STAGE/body.md"; } > "$STAGE/note.md"
+   "{VAULT}/.claude/scripts/locked-edit.sh" "<note>.md" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
+   cmp "$STAGE/note.md" "<note>.md"; echo "cmp=$?"
    ```
 
-   (Keep an improbable heredoc delimiter — a line consisting of exactly the delimiter inside the transcript would terminate the heredoc early. Don't stage the body with the editor tool: that fires the same formatting hook the split-write exists to dodge.)
+   Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves a destination outside the vault (`--replace-whole` needs no vault path; only `--move` does).
+
+   - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
+   - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
+   - **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
+
+   (Keep improbable heredoc delimiters — a line consisting of exactly the delimiter inside the transcript would terminate the heredoc early. Don't stage the header or body with the editor tool: that fires the same formatting hook the atomic save exists to dodge.)
 
 8. **If the user chose to discuss**, proceed with whatever they asked for (summary, Q&A, extraction, etc.).
 
