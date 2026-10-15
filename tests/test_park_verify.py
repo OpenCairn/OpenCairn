@@ -882,5 +882,150 @@ class CoverageRoundTwoTests(unittest.TestCase):
         self.assert_pass(self.run_rows("~/repos/proj/tests/t.py", env=env, updated=["proj/tests/t.py - edited"]))
 
 
+SEP_LINE = "========OPENCAIRN-LOCKED-EDIT-SEP========\n"
+MAX_CONTENT_BYTES = 2 * 1024 * 1024
+
+
+class TouchedContentTests(unittest.TestCase):
+    """--touched paths whose contents must not be read: existence check only."""
+
+    setUp = CoverageIdentityTests.setUp
+    run_rows = CoverageIdentityTests.run_rows
+    assert_pass = CoverageIdentityTests.assert_pass
+
+    def tainted(self, path: str, pad: int = 0) -> None:
+        # A joined list (lint) and a stranded separator line (separator): both
+        # checks fail on this content whenever the file is actually read.
+        target = self.vault / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        body = "joined- [ ] item\n" + SEP_LINE
+        target.write_text(body + "x" * max(pad - len(body), 0) + "\n", encoding="utf-8")
+
+    def test_small_text_file_is_still_read_positive_control(self) -> None:
+        self.tainted("docs/small.md")
+        result = self.run_rows("docs/small.md", updated=["docs/small.md - edited"])
+        self.assertIn("FAIL lint: ", result.stdout)
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("existence-only", result.stdout)
+
+    def test_large_file_is_existence_only(self) -> None:
+        self.tainted("docs/big.md", pad=MAX_CONTENT_BYTES + 1)
+        size = (self.vault / "docs/big.md").stat().st_size
+        self.assertGreater(size, MAX_CONTENT_BYTES)
+        result = self.run_rows("docs/big.md", updated=["docs/big.md - regenerated"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (size %d bytes exceeds %d): docs/big.md"
+                      % (size, MAX_CONTENT_BYTES), result.stdout)
+        self.assertNotIn("FAIL lint", result.stdout)
+        self.assertNotIn("FAIL separator", result.stdout)
+        self.assertIn("PASS separator: no leftover separator tokens (3 scanned, 1 skipped)", result.stdout)
+
+    def test_binary_file_is_existence_only(self) -> None:
+        for name in ("docs/image.bin", "docs/odd.md"):
+            with self.subTest(name=name):
+                target = self.vault / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"\x89PNG\x00\x00binary\n" + SEP_LINE.encode() + b"joined- [ ] item\n")
+                result = self.run_rows(name, updated=[name + " - exported"])
+                self.assert_pass(result)
+                self.assertIn("PASS touched: existence-only (binary content): " + name, result.stdout)
+                self.assertNotIn("FAIL separator", result.stdout)
+                self.assertNotIn("FAIL lint", result.stdout)
+
+    def test_remote_prefix_is_existence_only_and_absence_is_not_a_failure(self) -> None:
+        share = self.base / "mnt/nas/share"
+        share.mkdir(parents=True)
+        (share / "disk.img").write_text("image\n" + SEP_LINE, encoding="utf-8")
+        env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES=str(self.base / "mnt/nas"))
+        present = str(share / "disk.img")
+        result = self.run_rows(present, env=env, updated=[present + " - rewritten"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (remote prefix: %s): %s"
+                      % (self.base / "mnt/nas", present), result.stdout)
+        self.assertNotIn("FAIL separator", result.stdout)
+        # The same prefix, unmounted: the path is not on disk, and that is not
+        # a missing-file failure; the row is counted, not compared.
+        absent = str(self.base / "mnt/nas/other/big.iso")
+        result = self.run_rows(absent, env=env, updated=[absent + " - copied"])
+        self.assert_pass(result)
+        self.assertNotIn("FAIL touched", result.stdout)
+        self.assertIn("1 off-host path form(s) not compared", result.stdout)
+        # Without the prefix, both checks behave as before.
+        control = self.run_rows(present, updated=[present + " - rewritten"])
+        self.assertIn("FAIL separator", control.stdout)
+        control = self.run_rows(absent, updated=[absent + " - copied"])
+        self.assertIn("FAIL touched: ", control.stdout)
+
+    def test_deleted_annotation_excuses_an_absent_path_in_any_files_list(self) -> None:
+        gone = "docs/Old - v1.md"
+        # An unsplittable row (absent, two " - " boundaries) is shown by its
+        # shortest candidate, as every other backfill line shows it.
+        info = "INFO backfill: row annotated (deleted) not compared: docs/Old"
+        for row in (gone + " (deleted) - merged into v2", "`" + gone + "` (deleted)",
+                    gone + " - merged into v2 (deleted)", "[[" + gone + "]] (deleted) - merged"):
+            for section in ("created", "updated"):
+                with self.subTest(row=row, section=section):
+                    result = self.run_rows(gone, **{section: [row]})
+                    self.assert_pass(result)
+                    self.assertIn(info, result.stdout)
+                    # Not passed to --touched: still no REVIEW, same INFO.
+                    result = self.run_rows(**{section: [row]})
+                    self.assert_pass(result)
+                    self.assertNotIn("REVIEW backfill", result.stdout)
+                    self.assertIn(info, result.stdout)
+        # A deleted directory behaves the same way.
+        result = self.run_rows("docs/old-folder", updated=["docs/old-folder (deleted) - removed tree"])
+        self.assert_pass(result)
+        self.assertIn("INFO backfill: row annotated (deleted) not compared: docs/old-folder", result.stdout)
+        # Unannotated controls: an absent Updated row is a failure and a review.
+        result = self.run_rows(gone, updated=[gone + " - merged into v2"])
+        self.assertIn("FAIL touched: ", result.stdout)
+        result = self.run_rows(updated=[gone + " - merged into v2"])
+        self.assertIn("REVIEW backfill: Files lists name path(s) not passed", result.stdout)
+        # The annotation does not excuse a file that is still on disk.
+        touch(self.vault, gone)
+        result = self.run_rows(updated=[gone + " (deleted) - merged"])
+        self.assertIn("REVIEW backfill: Files lists name path(s) not passed", result.stdout)
+        self.assertNotIn("INFO backfill", result.stdout)
+
+    def test_remote_annotation_excuses_absence_and_skips_content(self) -> None:
+        remote = "/mnt/nas/photos/2026 - raw/export.tif"
+        # Shown by its shortest candidate when the row is absent and unsplittable.
+        info = "INFO backfill: row annotated (remote) not compared: /mnt/nas/photos/2026"
+        for row in (remote + " (remote) - re-exported", "`" + remote + "` (remote)",
+                    remote + " - re-exported (remote)"):
+            with self.subTest(row=row):
+                result = self.run_rows(remote, updated=[row])
+                self.assert_pass(result)
+                self.assertNotIn("FAIL touched", result.stdout)
+                self.assertIn(info, result.stdout)
+                result = self.run_rows(updated=[row])
+                self.assert_pass(result)
+                self.assertNotIn("REVIEW backfill", result.stdout)
+                self.assertIn(info, result.stdout)
+        # Present on disk (a mounted share): compared, but never read.
+        local = "mirror/share/disk.img"
+        touch(self.vault, local)
+        (self.vault / local).write_text("image\n" + SEP_LINE, encoding="utf-8")
+        result = self.run_rows(local, updated=[local + " (remote) - rewritten"])
+        self.assert_pass(result)
+        self.assertIn("PASS touched: existence-only (row annotated (remote)): " + local, result.stdout)
+        self.assertNotIn("INFO backfill", result.stdout)
+        self.assertNotIn("FAIL separator", result.stdout)
+        control = self.run_rows(local, updated=[local + " - rewritten"])
+        self.assertIn("FAIL separator", control.stdout)
+        control = self.run_rows(remote, updated=[remote + " - re-exported"])
+        self.assertIn("FAIL touched: ", control.stdout)
+
+    def test_session_log_itself_is_always_read(self) -> None:
+        log = write_log(self.vault, updated=["docs/a.md - edited"])
+        touch(self.vault, "docs/a.md")
+        body = log.read_text(encoding="utf-8")
+        log.write_text(body + "x" * (MAX_CONTENT_BYTES + 1) + "\n" + SEP_LINE, encoding="utf-8")
+        result = verify(self.vault, log, "--touched", "docs/a.md", "--touched", str(log))
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("existence-only", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
