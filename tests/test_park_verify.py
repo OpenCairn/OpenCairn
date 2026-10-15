@@ -1046,6 +1046,20 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("FAIL touched", result.stdout)
         self.assertIn("1 off-host path form(s) not compared", result.stdout)
 
+    def test_root_remote_prefix_does_not_mark_every_absolute_path_off_host(self) -> None:
+        # A prefix of "/" strips to the empty string; the shell skips it, and so
+        # must the backfill pass: an absent absolute path stays FAIL touched
+        # (inside the vault the root guard already applies; outside it only the
+        # empty-prefix skip does).
+        env = dict(os.environ, PARK_VERIFY_REMOTE_PREFIXES="/")
+        for gone in ("docs/gone.md", str(self.base / "elsewhere/gone.md")):
+            with self.subTest(path=gone):
+                result = self.run_rows(gone, env=env, updated=[gone + " - edited"])
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn("FAIL touched: ", result.stdout)
+                self.assertIn(gone, result.stdout)
+                self.assertNotIn("not compared", result.stdout)
+
     def test_deleted_annotation_excuses_an_absent_path_in_any_files_list(self) -> None:
         gone = "docs/Old - v1.md"
         # An unsplittable row (absent, two " - " boundaries) is shown by its

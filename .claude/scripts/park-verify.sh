@@ -322,8 +322,10 @@ def canon(path):
     return realpath(norm(path))
 
 
-REMOTE_PREFIXES = [slash(p).rstrip("/") for p in
-                   os.environ.get("PARK_VERIFY_REMOTE_PREFIXES", "").split(":") if p.strip()]
+# Same filter as the shell: strip the trailing slash first and skip an empty
+# result, so a prefix of "/" is dropped rather than matching every absolute path.
+REMOTE_PREFIXES = [p for p in (slash(p).rstrip("/") for p in
+                   os.environ.get("PARK_VERIFY_REMOTE_PREFIXES", "").split(":")) if p]
 
 
 def remote_prefixed(path):
