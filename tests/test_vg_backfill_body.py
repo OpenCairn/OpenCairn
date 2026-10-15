@@ -261,6 +261,23 @@ class BackfillBodyTests(unittest.TestCase):
             '- Absent - draft.md - not on disk\n- plain.md - changed\n'))
         self.assertTrue(result.stdout.endswith('4 added, 1 skipped\n'), result.stdout)
 
+    def test_extensionless_file_does_not_claim_a_longer_file_shaped_row(self):
+        # "tools/check" exists; "tools/check - release.md" is gone. The row is
+        # the longer, file-shaped name, not a truncation at the existing prefix.
+        self.on_disk('tools/check')
+        before = '## Session 1 - Fixture\n### Files Updated\n- tools/check - original\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, '- tools/check - release.md - note\n')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace(
+            '- tools/check - original\n', '- tools/check - original\n- tools/check - release.md - note\n'))
+        self.assertTrue(result.stdout.endswith('1 added, 0 skipped\n'), result.stdout)
+        # The same row listed already is still a duplicate of itself.
+        before = '## Session 1 - Fixture\n### Files Updated\n- tools/check - release.md - original\n\n### Notes\nKeep\n'
+        self.assert_skipped(before, '- tools/check - release.md - note\n', 'tools/check - release.md')
+        # Control: a row naming the extensionless file itself still resolves to it.
+        before = '## Session 1 - Fixture\n### Files Updated\n- tools/check - original\n\n### Notes\nKeep\n'
+        self.assert_skipped(before, '- tools/check - again\n', 'tools/check')
+
     def test_directory_prefix_does_not_claim_a_separator_bearing_row(self):
         (self.root / 'docs').mkdir()
         before = '## Session 1 - Fixture\n### Files Updated\n- docs - notes.md - original\n\n### Notes\nKeep\n'
