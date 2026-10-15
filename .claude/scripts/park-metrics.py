@@ -43,10 +43,18 @@ def prompt_mode(value):
         return 'full'
     if re.fullmatch(r'[$/]park(?:\s+[^\n]*)?', value):
         return 'quick-requested' if value.split()[1:] == ['--quick'] else 'full'
-    if '<command-name>/park</command-name>' in value and value.startswith('<command-'):
+    # Command envelope anywhere in the request: prose typed before /park precedes it.
+    if '<command-name>/park</command-name>' in value:
         args = re.search(r'<command-args>(.*?)</command-args>', value, re.S)
         return 'quick-requested' if args and args[1].strip() == '--quick' else 'full'
     return None
+
+
+def skill_mode(name, args):
+    # Claude Code expands /park through the Skill tool when it follows prose.
+    if name != 'Skill' or not isinstance(args, dict) or args.get('skill') != 'park':
+        return None
+    return 'quick-requested' if str(args.get('args') or '').strip() == '--quick' else 'full'
 
 
 def user_text(value):
@@ -66,6 +74,20 @@ def extract(path, harness, since):
     models = set()
     current_model = None
     latest_ts = None
+    last_request = None  # (ts, line) of the most recent genuine user request
+
+    def start(ts, number, mode):
+        nonlocal active, seen_calls, models
+        if epoch(ts) < epoch(since):
+            return
+        rid = hashlib.sha256(f'{harness}:{sid}:{ts}'.encode()).hexdigest()[:16]
+        active = dict(id=rid, harness=harness, session_id=sid, transcript=str(path),
+                      start_line=number, started_at=ts, ended_at=None, wall_seconds=None,
+                      mode=mode, status='no_completion_observed', boundary=None,
+                      tool_calls=0, tool_error_results=0, prepare_calls=0)
+        active['_turn'] = msg.get('internal_chat_message_metadata_passthrough', {}).get('turn_id', turn)
+        seen_calls = set()
+        models = {current_model} if current_model else set()
 
     def close():
         nonlocal active
@@ -120,15 +142,20 @@ def extract(path, harness, since):
                     continue
                 if mode or user_text(request):
                     close()
-                if mode and epoch(ts) >= epoch(since):
-                    rid = hashlib.sha256(f'{harness}:{sid}:{ts}'.encode()).hexdigest()[:16]
-                    active = dict(id=rid, harness=harness, session_id=sid, transcript=str(path),
-                                  start_line=number, started_at=ts, ended_at=None, wall_seconds=None,
-                                  mode=mode, status='no_completion_observed', boundary=None,
-                                  tool_calls=0, tool_error_results=0, prepare_calls=0)
-                    active['_turn'] = msg.get('internal_chat_message_metadata_passthrough', {}).get('turn_id', turn)
-                    seen_calls = set()
-                    models = {current_model} if current_model else set()
+                    last_request = (ts, number)
+                if mode:
+                    start(ts, number, mode)
+            if harness == 'claude' and role == 'assistant' and isinstance(content, list):
+                for x in content:
+                    mode = skill_mode(x.get('name'), x.get('input')) if x.get('type') == 'tool_use' else None
+                    if not mode:
+                        continue
+                    if active and active['ended_at'] is None:
+                        break  # expansion of the already observed park request
+                    close()
+                    # The run starts at the user request that produced the invocation.
+                    start(*(last_request or (ts, number)), mode)
+                    break
             if not active:
                 continue
             if harness == 'codex' and kind == 'turn_context' and p.get('model'):
