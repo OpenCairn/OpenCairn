@@ -1080,6 +1080,26 @@ class TouchedContentTests(unittest.TestCase):
         control = self.run_rows(remote, updated=[remote + " - re-exported"])
         self.assertIn("FAIL touched: ", control.stdout)
 
+    def test_annotation_word_inside_a_description_is_not_an_annotation(self) -> None:
+        # "(remote)" or "(deleted)" as a word of the description leaves the row
+        # an ordinary local row: compared, and read.
+        local = "04 Areas/IT/Sync.md"
+        self.tainted(local)
+        result = self.run_rows(local, updated=[local + " - documented the (remote) fallback"])
+        self.assertIn("FAIL separator: ", result.stdout)
+        self.assertNotIn("row annotated (remote)", result.stdout)
+        other = "docs/old.md"
+        touch(self.vault, other)
+        result = self.run_rows(other, updated=[other + " - removed the (deleted) section"])
+        self.assert_pass(result)
+        self.assertNotIn("row annotated (deleted)", result.stdout)
+        # The annotation forms themselves still annotate.
+        for row in ("`" + local + "` (remote) - rewritten", local + " (remote) - rewritten"):
+            with self.subTest(row=row):
+                result = self.run_rows(local, updated=[row])
+                self.assert_pass(result)
+                self.assertIn("PASS touched: existence-only (row annotated (remote)): " + local, result.stdout)
+
     def test_closure_target_under_the_content_gate_is_not_grepped(self) -> None:
         area = "04 Areas/Photo/Export.md"
         info = "INFO closure: existence-only target not grepped: " + area
