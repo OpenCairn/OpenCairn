@@ -71,7 +71,9 @@ run, rnd = sys.argv[1], sys.argv[2]
 s = os.path.join(run, 'synthesis.md')
 if not os.path.exists(s): sys.exit(1)
 m = os.path.getmtime(s)
-sys.exit(0 if all(m > os.path.getmtime(o) for o in glob.glob(os.path.join(glob.escape(run), f'*-r{rnd}.out'))) else 1)
+outs = glob.glob(os.path.join(glob.escape(run), f'*-r{rnd}.out'))
+# No round-N seat output at all: nothing for synthesis.md to be newer than, so it does not stand in.
+sys.exit(0 if outs and all(m > os.path.getmtime(o) for o in outs) else 1)
 PY
 }
 RUN_DIR=""; SKILL=""; ROUND=1; TARGET=""; CLAUDE_MODEL=""; CLAUDE_AGENT=""; VAULT="${VAULT_PATH:-}"; ARCHIVE=0
