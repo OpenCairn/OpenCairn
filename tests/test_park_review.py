@@ -1778,6 +1778,20 @@ class AnnotatedFilesRowTests(unittest.TestCase):
         self.assertEqual([note for _, note in rows],
                          [None, "deleted", "deleted", "remote", "remote"])
 
+    def test_annotation_word_inside_a_description_is_not_an_annotation(self) -> None:
+        text = (
+            "- 04 Areas/IT/Sync.md - documented the (remote) fallback\n"
+            "- `docs/a.md` - removed the (deleted) section\n"
+            "- docs/b.md (remote) - rewritten\n"
+            "- `docs/c.md` (deleted) - removed\n"
+        )
+        self.assertEqual(
+            park_review.parse_file_lines(text, self.vault, {}),
+            ["04 Areas/IT/Sync.md", "docs/a.md", "docs/b.md", "docs/c.md"],
+        )
+        rows = park_review.parse_file_rows(text, self.vault, {})
+        self.assertEqual([note for _, note in rows], [None, None, "remote", "deleted"])
+
     def test_build_routes_deleted_rows_and_never_reads_remote_rows(self) -> None:
         gone = self.vault / "docs/Plan - draft.md"
         share = self.vault / "share/disk.img"
