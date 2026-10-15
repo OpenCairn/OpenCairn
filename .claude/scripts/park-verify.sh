@@ -897,9 +897,13 @@ fi
 #                               without either tool is not classified this way
 # Neither remote reason applies to a path under the vault when the vault itself
 # is what is remote: a prefix covering the vault root, or the vault root's own
-# filesystem type. The planning files are what these checks exist for, and the
-# script reads them regardless; a prefix naming a subtree inside the vault, or
-# a differently-mounted subtree, still applies. The size and NUL tests always do.
+# mount (same filesystem type and the same device id from `stat -c %d` (GNU) /
+# `stat -f %d` (BSD), or the same `findmnt -T` mount target). The planning
+# files are what these checks exist for, and the script reads them regardless;
+# a prefix naming a subtree inside the vault, or a separately mounted subtree
+# of the same type, still applies. When no probe can name the mount on either
+# side, the type comparison alone decides, as it did before the identity probe
+# existed. The size and NUL tests always do.
 #   size <n> bytes exceeds <m>  larger than PARK_VERIFY_MAX_CONTENT_BYTES (an
 #                               environment tunable; default 2 MiB: no planning
 #                               doc or session log approaches it; exports and
@@ -922,11 +926,35 @@ fs_type() {
     [[ $type =~ ^[A-Za-z0-9._/-]+$ ]] || type=""
     printf '%s' "$type"
 }
+# Which mount a path is on: "dev:<id>" from stat (GNU `-c %d`, then BSD
+# `-f %d`; a BSD stat rejects `-c`, a GNU stat never reaches `-f`), else
+# "mount:<target>" from findmnt, else empty when neither tool answers.
+mount_id() {
+    local id
+    id=$(bounded stat -c %d -- "$1" 2>/dev/null || true)
+    [[ $id =~ ^[0-9]+$ ]] || id=$(bounded stat -f %d -- "$1" 2>/dev/null || true)
+    if [[ $id =~ ^[0-9]+$ ]]; then printf 'dev:%s' "$id"; return 0; fi
+    id=$(bounded findmnt -n -o TARGET -T "$1" 2>/dev/null || true)
+    case "$id" in /*) printf 'mount:%s' "$id" ;; esac
+}
 under_vault() { case "$1" in "$VAULT"/*) return 0 ;; *) return 1 ;; esac; }
 VAULT_FS_TYPE=""; VAULT_FS_TYPE_SET=false
 vault_fs_type() {
     if [ "$VAULT_FS_TYPE_SET" != true ]; then VAULT_FS_TYPE=$(fs_type "$VAULT"); VAULT_FS_TYPE_SET=true; fi
     printf '%s' "$VAULT_FS_TYPE"
+}
+VAULT_MOUNT_ID=""; VAULT_MOUNT_ID_SET=false
+vault_mount_id() {
+    if [ "$VAULT_MOUNT_ID_SET" != true ]; then VAULT_MOUNT_ID=$(mount_id "$VAULT"); VAULT_MOUNT_ID_SET=true; fi
+    printf '%s' "$VAULT_MOUNT_ID"
+}
+# The vault root's own mount: same type, and the same mount identity when both
+# sides can be probed.
+on_vault_mount() {
+    local type="$1" path="$2" vault_id path_id
+    [ "$type" = "$(vault_fs_type)" ] || return 1
+    vault_id=$(vault_mount_id); path_id=$(mount_id "$path")
+    [ -z "$vault_id" ] || [ -z "$path_id" ] || [ "$vault_id" = "$path_id" ]
 }
 content_skip_reason() {
     local t="$1" reason="" prefix type size nul prefixes=()
@@ -951,8 +979,8 @@ content_skip_reason() {
         case " $REMOTE_FS_TYPES " in
             *" ${type%%.*} "*)
                 if [ -n "$type" ]; then
-                    # The vault's own filesystem: its files are read regardless.
-                    if under_vault "$t" && [ "$type" = "$(vault_fs_type)" ]; then :; else reason="remote mount: $type"; fi
+                    # The vault's own mount: its files are read regardless.
+                    if under_vault "$t" && on_vault_mount "$type" "$t"; then :; else reason="remote mount: $type"; fi
                 fi ;;
         esac
     fi
