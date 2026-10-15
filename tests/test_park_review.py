@@ -1724,5 +1724,55 @@ class MechanicalTokenClassificationTests(unittest.TestCase):
             self.assertTrue(entry["no_locator_target"])
 
 
+class AnnotatedFilesRowTests(unittest.TestCase):
+    """Files rows may carry "(deleted)" or "(remote)" after the path."""
+
+    setUp = AuthoredBinaryReviewTests.setUp
+    run_review = AuthoredBinaryReviewTests.run_review
+    write_log = AuthoredBinaryReviewTests.write_log
+    classify = AuthoredBinaryReviewTests.classify
+    build = AuthoredBinaryReviewTests.build
+
+    def test_annotations_are_stripped_in_every_row_form(self) -> None:
+        plan = self.vault / "docs/Plan.md"
+        plan.parent.mkdir(parents=True)
+        plan.write_text("fixture\n", encoding="utf-8")
+        text = (
+            "- `docs/Plan.md` - kept\n"
+            "- `docs/Plan - draft.md` (deleted) - removed\n"
+            "- docs/old.md (deleted) - removed\n"
+            "- /mnt/nas/photos/2026 - raw/export.tif (remote) - re-exported\n"
+            "- `/mnt/nas/export.tif` (remote)\n"
+        )
+        self.assertEqual(
+            park_review.parse_file_lines(text, self.vault, {}),
+            ["docs/Plan.md", "docs/Plan - draft.md", "docs/old.md",
+             "/mnt/nas/photos/2026 - raw/export.tif", "/mnt/nas/export.tif"],
+        )
+        rows = park_review.parse_file_rows(text, self.vault, {})
+        self.assertEqual([note for _, note in rows],
+                         [None, "deleted", "deleted", "remote", "remote"])
+
+    def test_build_routes_deleted_rows_and_never_reads_remote_rows(self) -> None:
+        gone = self.vault / "docs/Plan - draft.md"
+        share = self.vault / "share/disk.img"
+        share.parent.mkdir(parents=True)
+        share.write_bytes(b"image\x00" + b"\x00" * 64)
+        self.write_log([], [])
+        body = self.log.read_text(encoding="utf-8").replace(
+            "### Files Updated\n",
+            f"### Files Updated\n- `{gone}` (deleted) - removed\n- {share} (remote) - rewritten\n")
+        self.log.write_text(body, encoding="utf-8")
+        self.classify(self.log)
+        manifest = self.build()
+        self.assertEqual(manifest["deleted"], [str(gone)])
+        self.assertEqual([item["path"] for item in manifest["external"]], [str(share)])
+        attributed = [item["physical_path"] for item in manifest["attributed_paths"]]
+        self.assertNotIn(str(share), attributed)
+        self.assertNotIn(str(gone), attributed)
+        for group in ("full_read", "targeted_review", "mechanical", "reused"):
+            self.assertNotIn(str(share), [item["path"] for item in manifest[group]])
+
+
 if __name__ == "__main__":
     unittest.main()

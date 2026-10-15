@@ -30,6 +30,10 @@ SEP_RE = re.compile(
 JOINED_LIST_RE = re.compile(r"[^\s=`]- \[[ x]\]")
 ATTEST_RE = re.compile(r"^ATTEST ([0-9a-fA-F]{64}) (/.+)$", re.MULTILINE)
 REMOTE_PATH_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+# "(deleted)" / "(remote)" after a Files-row path, outside any backticks: the
+# row names something not on this host's disk, or not to be read from it.
+# Mirrors park-verify.sh's ANNOTATION handling.
+ANNOTATION_RE = re.compile(r"\s*\((deleted|remote)\)(?=\s|$)", re.IGNORECASE)
 # Media types whose full-read review copy is text read by line range.
 TEXT_REVIEW_MEDIA_TYPES = ("text/plain", "application/pdf")
 AUDIT_TABLE = """| Seat can reach | Required attestation |
@@ -1183,7 +1187,14 @@ def extract_session(log: Path, number: int) -> tuple[str, dict[str, str]]:
 
 
 def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]:
-    paths: list[str] = []
+    return [path for path, _ in parse_file_rows(text, vault, classifications)]
+
+
+def parse_file_rows(
+    text: str, vault: Path, classifications: dict
+) -> list[tuple[str, str | None]]:
+    """Each Files row as (path, annotation); annotation is "deleted", "remote" or None."""
+    rows: list[tuple[str, str | None]] = []
     for line in text.splitlines():
         value = line.strip()
         if not value.startswith("- "):
@@ -1191,11 +1202,19 @@ def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]
         value = value[2:]
         if not value or value.casefold() == "none":
             continue
+        # The annotation sits outside a backticked path; strip it before the
+        # " - " split so it is never read as part of the path or description.
+        note = None
+        quoted_end = value.find("`", 1) if value.startswith("`") else -1
+        annotated = ANNOTATION_RE.search(value, quoted_end + 1 if quoted_end > 0 else 0)
+        if annotated:
+            note = annotated.group(1).lower()
+            value = (value[: annotated.start()] + value[annotated.end() :]).strip()
         if value.startswith("`"):
             end = value.find("`", 1)
             if end < 0 or (value[end + 1 :] and not value[end + 1 :].startswith(" - ")):
                 die(f"malformed backticked Files-list path: {line}")
-            paths.append(value[1:end])
+            rows.append((value[1:end], note))
             continue
 
         # Descriptions use the same " - " token that ordinary filenames may
@@ -1214,24 +1233,31 @@ def parse_file_lines(text: str, vault: Path, classifications: dict) -> list[str]
             None,
         )
         if matched is not None:
-            paths.append(matched)
+            rows.append((matched, note))
         elif split_points:
             # Backwards-compatible fallback for deleted paths, which no longer
             # exist and may predate explicit classification.
-            paths.append(value[: split_points[-1]])
+            rows.append((value[: split_points[-1]], note))
         else:
-            paths.append(value)
-    return paths
+            rows.append((value, note))
+    return rows
 
 
 def partition_attributed_paths(
-    raw_paths: list[str], vault: Path, classifications: dict
+    raw_paths: list[str],
+    vault: Path,
+    classifications: dict,
+    remote_rows: frozenset[str] = frozenset(),
 ) -> tuple[list[Path], list[dict]]:
-    """Separate local paths from exact, explicitly classified remote artefacts."""
+    """Separate local paths from remote artefacts: rows annotated (remote), or
+    exact, explicitly classified remote rows."""
     local_paths: list[Path] = []
     external_files: list[dict] = []
     seen: set[Path] = set()
     for raw in raw_paths:
+        if raw in remote_rows:
+            external_files.append({"path": raw, "reason": "row annotated (remote)"})
+            continue
         external = classifications.get(f"external::{raw}")
         if isinstance(external, dict) and external.get("mode") == "nonlocal":
             external_files.append(
@@ -1565,19 +1591,29 @@ def cmd_build(args: argparse.Namespace) -> int:
     classifications = load_json(manifest_path, {})
     if not isinstance(classifications, dict):
         die(f"invalid file manifest: {manifest_path}")
-    created_raw = parse_file_lines(
+    created_rows = parse_file_rows(
         sections.get("Files Created", ""), vault, classifications
     )
-    updated_raw = parse_file_lines(
+    updated_rows = parse_file_rows(
         sections.get("Files Updated", ""), vault, classifications
     )
-    deleted_raw = parse_file_lines(
+    deleted_rows = parse_file_rows(
         sections.get("Files Deleted", ""), vault, classifications
+    )
+    # A row annotated (deleted) in any list names a path that is gone; a row
+    # annotated (remote) names one the build must never read.
+    created_raw = [path for path, note in created_rows if note != "deleted"]
+    updated_raw = [path for path, note in updated_rows if note != "deleted"]
+    deleted_raw = [path for path, _ in deleted_rows] + [
+        path for path, note in created_rows + updated_rows if note == "deleted"
+    ]
+    remote_rows = frozenset(
+        path for path, note in created_rows + updated_rows if note == "remote"
     )
 
     created = {canonical_path(path, vault) for path in created_raw}
     local_paths, external_files = partition_attributed_paths(
-        created_raw + updated_raw, vault, classifications
+        created_raw + updated_raw, vault, classifications, remote_rows
     )
     attributed_paths = []
     for raw in created_raw + updated_raw:
