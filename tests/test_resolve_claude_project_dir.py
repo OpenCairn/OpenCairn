@@ -117,6 +117,33 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
         self.assertIn("sweep", result.stderr)
 
     @unittest.skipIf(shutil.which("rg") is None, "rg required for the sweep")
+    def test_sweep_ignores_transcripts_that_only_mention_the_vault_path(self) -> None:
+        reader = self.projects / "-home-user-repos-tool"
+        reader.mkdir()
+        # A session elsewhere that read a vault file: the path appears, the cwd field does not.
+        (reader / "abc.jsonl").write_text(
+            '{"type":"user","cwd":"/home/user/repos/tool","message":"read %s/note.md"}\n' % self.vault,
+            encoding="utf-8",
+        )
+        result = run(self.vault, self.home, self.elsewhere)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("project dir: none (", result.stderr)
+
+    @unittest.skipIf(shutil.which("rg") is None, "rg required for the sweep")
+    def test_sweep_with_two_cwd_matches_prints_both_and_exits_three(self) -> None:
+        dirs = []
+        for name in ("-home-user-repos-tool", "-home-user-other"):
+            d = self.projects / name
+            d.mkdir()
+            (d / "abc.jsonl").write_text('{"type":"user","cwd":"%s"}\n' % self.vault, encoding="utf-8")
+            dirs.append(str(d))
+        result = run(self.vault, self.home, self.elsewhere)
+        self.assertEqual(result.returncode, 3, result.stderr)
+        self.assertEqual(sorted(result.stdout.splitlines()), sorted(dirs))
+        self.assertIn("project dir: ambiguous (2 candidates)", result.stderr)
+
+    @unittest.skipIf(shutil.which("rg") is None, "rg required for the sweep")
     def test_nothing_found_exits_nonzero(self) -> None:
         (self.projects / "-home-user-unrelated").mkdir()
         result = run(self.vault, self.home, self.elsewhere)
