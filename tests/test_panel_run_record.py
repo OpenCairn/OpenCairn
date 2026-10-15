@@ -243,6 +243,30 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("| synthesis: no |", r.stdout)
         self.assertIn("warning: no synthesis for round 2 in", r.stderr)
 
+    # -- 4. locking -------------------------------------------------------
+    def test_archive_copy_waits_for_the_panel_runs_lock(self) -> None:
+        self.full_round(1)
+        runs = self.vault / RUNS_REL
+        runs.mkdir(parents=True)
+        lock = runs.parent / ".Panel Runs.lock"
+        holder = subprocess.Popen(["flock", str(lock), "sleep", "2"])
+        self.addCleanup(holder.wait)
+        time.sleep(0.3)  # let the holder take the lock
+        started = time.monotonic()
+        r = self.record(1)
+        elapsed = time.monotonic() - started
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertGreaterEqual(elapsed, 1.5, "the archive copy ran while another writer held the lock")
+        self.assertEqual(len(self.archives()), 1)
+
+    def test_ledger_append_goes_through_locked_edit(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        state = self.root / "state/.session-state" / f"{SESSION}.tsv"
+        rows = [row.split("\t") for row in state.read_text(encoding="utf-8").splitlines()]
+        ledger = str(self.vault / LEDGER_REL)
+        self.assertTrue(any(row[1] == "locked-edit" and row[2] == ledger for row in rows), rows)
+
 
 if __name__ == "__main__":
     unittest.main()

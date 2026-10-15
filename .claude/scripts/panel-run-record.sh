@@ -24,13 +24,15 @@
 # else into the newest round-1 archive of this session that holds no round-N files yet, else into a new -rN directory holding
 # the whole run directory; a round N>1 without synthesis-rN.md has synthesis.md archived as synthesis-rN.md, never over the
 # archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold .md files renamed
-# .txt: read synthesis.txt there). The line is then appended to
+# .txt: read synthesis.txt there). Directory choice and copy run under the lock <vault>/06 Archive/OpenCairn/.Panel Runs.lock
+# (lib-lock.sh, the canonical lock path for the Panel Runs directory). The line is then appended to
 # <vault>/07 System/Panel Seat Ledger.md under lock (created atomically with a header if missing). Every run is archived
 # and indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
 # Platform: Linux, macOS, Windows (Git Bash). Needs python3.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/lib-session.sh"
+source "$HERE/lib-lock.sh"
 RUN_DIR=""; SKILL=""; ROUND=1; TARGET=""; CLAUDE_MODEL=""; CLAUDE_AGENT=""; VAULT="${VAULT_PATH:-}"; ARCHIVE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -141,6 +143,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
     echo "archive layout gate failed (check-archive-layout.sh --enforce); not archiving" >&2; echo "$RECORD | evidence: $RUN_DIR"; exit 1
   fi
   RUNS_REL="06 Archive/OpenCairn/Panel Runs"; RUNS="$VAULT/$RUNS_REL"; mkdir -p "$RUNS"
+  _lock "$(_lock_path_for "$RUNS")" 10 || { echo "archive lock busy: $RUNS; not archiving" >&2; echo "$RECORD | evidence: $EVIDENCE"; exit 1; }
   MARK="$RUN_DIR/.archive-path"; JOIN=""
   if [[ "$ROUND" -gt 1 ]]; then
     if [[ -f "$MARK" && -d "$VAULT/$(cat "$MARK")" ]]; then JOIN="$(cat "$MARK")"
@@ -164,6 +167,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
     [[ "$ROUND" -gt 1 ]] && echo "note: no round-1 archive of this session found; round $ROUND archived whole to $EVIDENCE" >&2
   fi
   printf '%s\n' "$EVIDENCE" > "$MARK"
+  _unlock
   LEDGER="$VAULT/07 System/Panel Seat Ledger.md"
   HEADER='# Panel Seat Ledger
 
