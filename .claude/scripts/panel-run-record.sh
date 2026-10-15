@@ -52,9 +52,9 @@ _round1_fingerprint_matches() {
   python3 - "$1" "$2" "$3" <<'PY'
 import hashlib, os, sys
 run, arc, rnd = sys.argv[1], sys.argv[2], sys.argv[3]
-names = ['brief.md'] + (['synthesis.md'] if os.path.exists(os.path.join(run, f'synthesis-r{rnd}.md')) else [])
-names = [n for n in names if os.path.exists(os.path.join(run, n))]
-if not names: sys.exit(1)
+# brief.md is the identity of a run: without it on both sides there is no join.
+if not os.path.exists(os.path.join(run, 'brief.md')): sys.exit(1)
+names = ['brief.md'] + (['synthesis.md'] if os.path.exists(os.path.join(run, f'synthesis-r{rnd}.md')) and os.path.exists(os.path.join(run, 'synthesis.md')) else [])
 def h(p): return hashlib.sha256(open(p, 'rb').read()).hexdigest()
 for n in names:
     a = os.path.join(arc, n)
