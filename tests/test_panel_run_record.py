@@ -161,6 +161,25 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("note: no round-1 archive of this session matches", r2.stderr)
         self.assertIn(f"round 2 archived whole to {RUNS_REL}/{new[0].name}", r2.stderr)
 
+    def test_lost_marker_without_a_brief_never_joins_on_synthesis_alone(self) -> None:
+        # Identity is brief.md; an identical short synthesis is not evidence of
+        # the same review, so a run that lost its brief archives separately.
+        self.other_review("runB", "brief B\n")
+        self.full_round(1)
+        self.assertEqual(self.record(1, archive=False).returncode, 0)
+        (self.run / "brief.md").unlink(missing_ok=True)
+        (self.run / "synthesis.md").write_text("CLEAR\n", encoding="utf-8")
+        for d in self.archives():
+            (d / "synthesis.md").write_text("CLEAR\n", encoding="utf-8")
+        self.full_round(2, tag="C")
+        (self.run / "synthesis-r2.md").write_text("round 2\n", encoding="utf-8")
+        r2 = self.record(2)
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        dirs = self.archives()
+        self.assertEqual(len(dirs), 2, [d.name for d in dirs])
+        self.assertTrue(any(d.name.endswith("-r2") for d in dirs), [d.name for d in dirs])
+        self.assertIn("note: no round-1 archive of this session matches", r2.stderr)
+
     def test_lost_marker_with_two_matching_archives_fails_explicitly(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")
         self.full_round(1)
