@@ -196,6 +196,53 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("warning: Gemini seat despatched, not returned (gemini.exit 1)", r.stderr)
         self.assertIn("returned: Claude Codex Grok |", r.stdout)
 
+    # -- 3. synthesis naming -------------------------------------------
+    def test_archived_synthesis_keeps_md_extension(self) -> None:
+        self.full_round(1)
+        (self.run / "brief.md").write_text("brief\n", encoding="utf-8")
+        r = self.record(1)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        archive = self.archives()[0]
+        self.assertTrue((archive / "synthesis.md").is_file(), sorted(p.name for p in archive.iterdir()))
+        self.assertFalse((archive / "synthesis.txt").exists())
+        self.assertTrue((archive / "brief.md").is_file())
+        self.assertIn("| synthesis: yes |", r.stdout)
+
+    def test_round_two_archives_its_own_synthesis(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        r = self.record(2)
+        archive = self.archives()[0]
+        self.assertEqual((archive / "synthesis-r2.md").read_text(encoding="utf-8"), "# synthesis round 2\n")
+        self.assertEqual((archive / "synthesis.md").read_text(encoding="utf-8"), "# synthesis round 1\n")
+        self.assertIn("| synthesis: yes |", r.stdout)
+        self.assertNotIn("warning: no synthesis", r.stderr)
+
+    def test_round_two_without_own_synthesis_archives_synthesis_md_as_round_file(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "synthesis-r2.md").unlink()
+        (self.run / "synthesis.md").write_text("# rewritten for round 2\n", encoding="utf-8")
+        r = self.record(2)
+        archive = self.archives()[0]
+        self.assertEqual((archive / "synthesis-r2.md").read_text(encoding="utf-8"), "# rewritten for round 2\n")
+        self.assertEqual((archive / "synthesis.md").read_text(encoding="utf-8"), "# synthesis round 1\n",
+                         "the archived round-1 synthesis is never overwritten")
+        self.assertIn("warning: no synthesis-r2.md in", r.stderr)
+        self.assertIn("synthesis.md taken as round 2's synthesis", r.stderr)
+
+    def test_round_without_any_synthesis_is_warned_and_recorded_no(self) -> None:
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "synthesis-r2.md").unlink()
+        (self.run / "synthesis.md").unlink()
+        r = self.record(2)
+        self.assertIn("| synthesis: no |", r.stdout)
+        self.assertIn("warning: no synthesis for round 2 in", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
