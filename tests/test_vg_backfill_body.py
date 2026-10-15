@@ -225,5 +225,48 @@ class BackfillBodyTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertIn('No file list provided on stdin', result.stdout)
 
+    def on_disk(self, path):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('fixture\n')
+
+    def test_separator_bearing_path_on_disk_is_deduplicated_by_longest_existing_prefix(self):
+        # Rows whose unquoted path contains " - " and exists on disk: the first
+        # or extension-anchored split truncates it; the disk settles it.
+        for path in ('Note - with dash.md', 'tools/check - release', 'A.md'):
+            self.on_disk(path)
+        cases = (('Note - with dash.md', '- Note - with dash.md - original', '- Note - with dash.md - again'),
+                 ('tools/check - release', '- tools/check - release - original', '- tools/check - release - again'),
+                 ('tools/check - release', '- `tools/check - release` - original', '- tools/check - release - again'),
+                 ('tools/check - release', '- tools/check - release - original', '- `tools/check - release` - again'),
+                 ('A.md', '- A.md - original', '- A.md - changed foo.md - and more'))
+        for path, existing, incoming in cases:
+            with self.subTest(path=path, existing=existing, incoming=incoming):
+                before = '## Session 1 - Fixture\n### Files Updated\n' + existing + '\n\n### Notes\nKeep\n'
+                self.assert_skipped(before, incoming + '\n', path)
+
+    def test_separator_bearing_path_on_disk_is_backticked_when_written(self):
+        for path in ('Note - with dash.md', 'tools/check - release'):
+            self.on_disk(path)
+        before = '## Session 1 - Fixture\n### Files Updated\nNone\n\n### Notes\nKeep\n'
+        incoming = ('- Note - with dash.md - restructured\n  - nested detail\n'
+                    '- tools/check - release\n- `tools/check - release` - already quoted\n'
+                    '- Absent - draft.md - not on disk\n- plain.md - changed\n')
+        result, after = self.run_helper(before, incoming)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(after, before.replace(
+            'None\n',
+            '- `Note - with dash.md` - restructured\n  - nested detail\n'
+            '- `tools/check - release`\n'
+            '- Absent - draft.md - not on disk\n- plain.md - changed\n'))
+        self.assertTrue(result.stdout.endswith('4 added, 1 skipped\n'), result.stdout)
+
+    def test_directory_prefix_does_not_claim_a_separator_bearing_row(self):
+        (self.root / 'docs').mkdir()
+        before = '## Session 1 - Fixture\n### Files Updated\n- docs - notes.md - original\n\n### Notes\nKeep\n'
+        result, after = self.run_helper(before, '- docs - notes.md - again\n')
+        self.assertEqual(result.returncode, 3, result.stdout)
+        self.assertIn('skipped (already listed in Created/Updated): docs - notes.md', result.stdout)
+
 if __name__ == '__main__':
     unittest.main()
