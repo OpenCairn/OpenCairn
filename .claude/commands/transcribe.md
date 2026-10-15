@@ -274,11 +274,11 @@ Replace the placeholder variables with actual values.
    {formatted transcript text}
    TRANSCRIPT_BODY_EOF
    { cat "$STAGE/header.md"; printf '\n'; cat "$STAGE/body.md"; } > "$STAGE/note.md"
-   "{VAULT}/.claude/scripts/locked-edit.sh" "<note>.md" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
+   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<note>.md" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
    cmp "$STAGE/note.md" "<note>.md"; echo "cmp=$?"
    ```
 
-   Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves a destination outside the vault (`--replace-whole` needs no vault path; only `--move` does).
+   Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves a destination outside the vault (`--replace-whole` does not require the target to lie inside the vault; only `--move` does).
 
    - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
    - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
