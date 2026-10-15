@@ -56,10 +56,10 @@ A published transcript (podcast show site, Substack, official transcript page) i
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
    2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is appended verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing. Stage only the metadata header; assemble it with the existing `<BODY_FILE>` directly from disk using Phase 3 step 7's locked save procedure. The published body must not pass through model context or LLM cleanup. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing. Stage only the metadata header; assemble it with the existing `<BODY_FILE>` directly from disk using Phase 3 step 7's locked save procedure. The published body must not pass through model context or LLM cleanup. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
    - **Date acquired:** use this run’s acquisition date instead of **Date transcribed**.
-   - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is appended verbatim (`_shared-rules-content.md` §14); never clean it.
+   - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is saved verbatim (`_shared-rules-content.md` §14); never clean it.
    - **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" — already in context from step 4.
    - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
 
@@ -257,13 +257,15 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
 
 Stage the metadata header and transcript body in a unique scratch directory outside the vault. Preserve the body verbatim; do not run a spelling normaliser or rewrite the completed note through an editor. Read `../_shared-rules.md` §5 and `../_shared-rules-content.md` §14 before saving.
 
-For a new vault note, assemble header + blank line + body into a staging file, then write that file in one locked append:
+For a new note, assemble header + blank line + body into a staging file, then create the destination with one atomic locked compare-and-swap. `MISSING` asserts that the destination does not exist yet; the wrapper checks that under the lock and installs the whole note in one rename, so no separate existence check precedes the write and nothing is ever appended to an existing file:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION>" --append < "<STAGED_NOTE>"
+{ cat "<HEADER_FILE>"; printf '\n'; cat "<BODY_FILE>"; } > "<STAGED_NOTE>"
+"$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION>" --replace-whole MISSING < "<STAGED_NOTE>"
+cmp "<STAGED_NOTE>" "<DESTINATION>"
 ```
 
-Check for an existing destination before writing. Do not append a duplicate transcript or overwrite existing content; resolve a filename collision with the user unless the request already specifies replacement. For an authorised replacement use the locked wrapper's literal `--replace` mode, re-reading on exit 2 or 3. Outside the vault, write the staged bytes directly to the agreed destination. Check the write exit code and compare the saved body with the staged body byte-for-byte. Report success only after that comparison passes. The header's transcription date comes from `date +%F` for this run; a published transcript's acquisition date is not its original transcription date.
+Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report success only after that byte comparison passes. Wrapper exit 2 means the destination already existed and nothing was written: run the same `cmp`. Identical bytes mean this transcript is already saved; report that and do not write again. Differing bytes are a filename collision to resolve with the user unless the request already specifies replacement. Never append to the existing note. For an authorised replacement, hash the existing destination with `sha256sum` and repeat the call with that hash in place of `MISSING`, re-reading and rebuilding on a further exit 2. Exit 1 with a lock message means another writer holds the lock; report it and stop rather than bypassing the lock. The same command serves a destination outside the vault; only the wrapper's `--move` mode needs `VAULT_PATH`. The header's transcription date comes from `date +%F` for this run; a published transcript's acquisition date is not its original transcription date.
 
    ```markdown
    # Transcript: {video title or filename}

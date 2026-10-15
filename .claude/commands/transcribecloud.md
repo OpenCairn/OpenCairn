@@ -85,7 +85,7 @@ A cloud run **costs money**, so the bar to spend pod time is *higher* than for l
 
 When the gate passes, run the **full discover → validate → choose** logic from `/transcribe` Phase 0 steps 1–5 (user-supplied URL wins; else scan the YouTube description / show-notes / one web search; validate it's a *full verbatim transcript*, not show-notes or a summary; present the choice and wait — don't auto-pick). The only cloud-specific change to the choice framing: option 2 is **"run WhisperX on a paid RunPod GPU"**, so state the *dollar* cost of the cloud run alongside the fidelity tradeoff.
 
-**If the user picks the published transcript:** the body is already at `<BODY_FILE>` from the **`_shared-rules-content.md` §15 extractor** (run during the validate step above — §15's printed `BODY=` path, reconstructable from the URL). Do **not** enter Phase 8's `For each JSON transcript file` loop (there is no JSON here), and run no LLM cleanup pass — the body is appended verbatim per §14, whoever produced it. Confirm the output dir/filename here if Phase 1 step 7 didn't (its prompt assumes a cloud run; the episode title is a sensible default filename). Write **only the header** with the editor (Phase 8 step 5's header block), then **append the body straight from the file** — `printf '\n' >> "<note>.md" && cat "<BODY_FILE>" >> "<note>.md"` (`_shared-rules-content.md` §14, no `Edit` afterward); do **not** use Phase 8 step 5's `{formatted transcript text}` staging (that is for in-context WhisperX output). Header: **Source** = transcript URL, add an **Original media:** line for the YouTube/audio URL, **Model:** default `published transcript (provenance unverified)`, upgraded to `(source-provided, auto-generated)` on a disclaimer match near the transcript heading, or to `(human-edited)` only on a positive claim of editing (§15's three-value ladder; the unverified default is what stops a null selecting the stronger claim). Mark **Diarisation** and **Cleanup** `n/a` (or drop them), keep **Duration** only if known. Don't print the whole body to the conversation. **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" (human-written page text outranks the transcript body on identity). **Skip Phases 2–8's loop entirely — no pod is provisioned, no money spent.** Otherwise continue to Phase 2.
+**If the user picks the published transcript:** the body is already at `<BODY_FILE>` from the **`_shared-rules-content.md` §15 extractor** (run during the validate step above — §15's printed `BODY=` path, reconstructable from the URL). Do **not** enter Phase 8's `For each JSON transcript file` loop (there is no JSON here), and run no LLM cleanup pass — the body is saved verbatim per §14, whoever produced it. Confirm the output dir/filename here if Phase 1 step 7 didn't (its prompt assumes a cloud run; the episode title is a sensible default filename). Stage **only the header** via a shell heredoc (Phase 8 step 5's header block) and assemble it with `<BODY_FILE>` in place of `$STAGE/body.md` in step 5's **atomic locked save** (`--replace-whole MISSING`, then `cmp`, with step 5's exit-code handling; `_shared-rules-content.md` §14, no `Edit` afterward); do **not** use step 5's `{formatted transcript text}` heredoc (that is for in-context WhisperX output — here the body is already a file and must never enter context). Header: **Source** = transcript URL, add an **Original media:** line for the YouTube/audio URL, **Model:** default `published transcript (provenance unverified)`, upgraded to `(source-provided, auto-generated)` on a disclaimer match near the transcript heading, or to `(human-edited)` only on a positive claim of editing (§15's three-value ladder; the unverified default is what stops a null selecting the stronger claim). Mark **Diarisation** and **Cleanup** `n/a` (or drop them), keep **Duration** only if known. Don't print the whole body to the conversation. **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" (human-written page text outranks the transcript body on identity). **Skip Phases 2–8's loop entirely — no pod is provisioned, no money spent.** Otherwise continue to Phase 2.
 
 ### Phase 2: Provision pod
 
@@ -645,9 +645,9 @@ For each JSON transcript file:
 
 5. **Save as markdown** in the output directory:
 
-   > ⚠️ **Verbatim fidelity (`_shared-rules-content.md` §14):** the vault's formatting hook rewrites spelling in place on `Write`/`Edit` and corrupts the speaker's verbatim words. So **split the write**: header via the editor, body via the shell. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
+   > ⚠️ **Verbatim fidelity (`_shared-rules-content.md` §14):** the vault's formatting hook rewrites spelling in place on `Write`/`Edit` and corrupts the speaker's verbatim words. So the editor tool never touches the note: stage header and body in the shell and create the note in **one atomic locked write**. Don't `Edit` the file afterwards — or rely on a path-level exclude for the output folder.
 
-**Write the header only** with the editor tool (down to and including the `---`):
+**The header** (down to and including the `---`):
 
 ```markdown
 # Transcript: {title}
@@ -662,14 +662,28 @@ For each JSON transcript file:
 ---
 ```
 
-**Then append the body via the shell** so the hook never touches it (stage the formatted text to a temp file, then append):
+**Stage header and body, assemble, and create the note atomically.** `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to an existing file. Use a fresh staging directory per note (batch jobs write several):
 
 ```bash
-cat > /tmp/transcript-body.md <<'BODY'
+STAGE=$(mktemp -d)
+cat > "$STAGE/header.md" <<'TRANSCRIPT_HEADER_EOF'
+{header block above}
+TRANSCRIPT_HEADER_EOF
+cat > "$STAGE/body.md" <<'TRANSCRIPT_BODY_EOF'
 {formatted transcript text}
-BODY
-printf '\n' >> "<note>.md" && cat /tmp/transcript-body.md >> "<note>.md"
+TRANSCRIPT_BODY_EOF
+{ cat "$STAGE/header.md"; printf '\n'; cat "$STAGE/body.md"; } > "$STAGE/note.md"
+"{VAULT}/.claude/scripts/locked-edit.sh" "<note>.md" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
+cmp "$STAGE/note.md" "<note>.md"; echo "cmp=$?"
 ```
+
+Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves an output directory outside the vault (`--replace-whole` needs no vault path; only `--move` does).
+
+- **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
+- **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and move on. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
+- **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
+
+(Keep improbable heredoc delimiters — a line consisting of exactly the delimiter inside the transcript would terminate the heredoc early. Don't stage the header or body with the editor tool: that fires the same formatting hook the atomic save exists to dodge.)
 
 6. **If batch job (multiple files):** Create index file (`00 - Index.md`) with wikilinks to all transcripts, sorted by filename. Skip for single-file jobs.
 
