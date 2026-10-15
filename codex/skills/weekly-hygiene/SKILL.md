@@ -173,11 +173,13 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Doctrine: memory is a legitimate thin layer, not a silo to drain.** Most behavioural corrections belong *in memory* — relevance-matching fires them whenever the situation resembles the original, including cases no routing keyword would predict. Migrating such a rule to a keyword-routed context file (or into always-loaded `CLAUDE.md`) changes *when it fires* and can silently weaken it. So the weekly job is to keep memory **lean and the index under cap** — primarily by trimming bloated index hooks in place — *not* to relocate rules by default. Migration is the **exception**, reserved for entries that are genuinely mis-homed (below).
 
    **Gather:**
-   - Locate the active memory directory. The project directory name is the absolute cwd with every `/` **and** `.` replaced by `-` (so a dot-prefixed folder yields a doubled `-`), which resolves without guessing:
+   - Locate the active memory directory. Claude Code names the project directory after the **launch** cwd with every `/` **and** `.` replaced by `-` (so a dot-prefixed folder yields a doubled `-`). Derive it from the resolved vault path, never from `pwd` — `pwd` follows any earlier `cd`, and a wrong project directory audits another project's memory. `resolve-claude-project-dir.sh` does the derivation, verifies the directory exists, and otherwise sweeps every `~/.claude/projects/*/` whose transcripts (`*.jsonl`, size-bounded) name the vault path; it prints the directory(ies) actually used, one per line. Re-run it in every Bash call that needs it (shell state does not persist between calls) and report the printed directory in the hygiene report:
      ```bash
-     M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory
-     [ -d "$M" ] || ls -d ~/.claude/projects/*/memory/   # fall back to listing if the derived path is absent
+     mapfile -t DIRS < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")
+     printf 'PROJECT DIR: %s\n' "${DIRS[@]:-none}"
+     for P in "${DIRS[@]}"; do M="$P/memory"; [ -d "$M" ] && echo "MEMORY DIR: $M" || echo "NO MEMORY DIR under $P"; done
      ```
+     If it prints nothing (exit 1), record `Claude Code memory: not present` for this vault and continue — do not fall back to `pwd` or to an arbitrary `~/.claude/projects/*/memory/`.
    - Read `MEMORY.md`. **Do not read the topic files wholesale** — the directory grows to hundreds of files and its full text dwarfs the index; every mechanical check below operates on the index alone. Read an individual topic file only when its index line is a Migrate or Delete candidate and the decision needs its body.
    - Read `CLAUDE.md` from the vault root (needed for duplicate detection)
    - Count the index's entries/lines, and the topic-file count (`ls "$M"/*.md | wc -l`) — not their combined line count
@@ -191,9 +193,11 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - Flag any index **hook** (the text after ` — `) longer than ~120 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.) Don't set this threshold so high that the flagged set can't close the gap to the size budget: an index needing several KB shed has dozens of over-long hooks, not three.
    - **Orphan check — topic files missing from the index.** Every `.md` in the memory directory except `MEMORY.md` must have an index line; a topic file with none is invisible to relevance matching and can never fire, however good the rule is. Nothing warns about this, and it survives every sweep that only reads the index.
      ```bash
-     M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory   # re-derive: shell state doesn't persist between calls
-     for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; rg -q -F "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
-     rg -o -P '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
+     mapfile -t DIRS < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")   # re-derive from the vault path: shell state doesn't persist between calls
+     for P in "${DIRS[@]}"; do M="$P/memory"; [ -d "$M" ] || continue
+       for f in "$M"/*.md; do b=$(basename "$f"); [ "$b" = "MEMORY.md" ] && continue; rg -q -F "($b)" "$M/MEMORY.md" || echo "ORPHAN $b"; done
+       rg -o -P '\]\(\K[^)]+' "$M/MEMORY.md" | while read -r f; do [ -f "$M/$f" ] || echo "DANGLING $f"; done
+     done
      ```
      An `ORPHAN` is triaged like any entry — index it if the fact is still live, delete the file if it isn't. A `DANGLING` index line points at a file that no longer exists: drop the line. Run both directions after any index rewrite.
 
@@ -240,14 +244,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    done
    ```
 
-   **Plans directory — delete only positively attributed plans.** `~/.claude/plans/` is machine-global: every Claude Code project on this machine writes there, so a stale plan this vault does not reference may be another repository's open work. Attribution is positive, not by elimination: a plan is this project's only if a transcript under this cwd's session directory (`~/.claude/projects/<cwd with / replaced by ->/`, the same scoping the transcript exporter uses) names it. Delete a stale plan only when it is attributed here **and** no open work (`03 Projects/`, `01 Now/This Week.md`, `01 Now/Tickler.md`) references its basename. Report the rest: referenced plans as "retained", unattributed plans as "left" — never delete those. A plan whose transcripts have already aged out of `~/.claude/projects/` stays unattributed and is left; that is the fail-safe direction.
+   **Plans directory — delete only positively attributed plans.** `~/.claude/plans/` is machine-global: every Claude Code project on this machine writes there, so a stale plan this vault does not reference may be another repository's open work. Attribution is positive, not by elimination: a plan is this project's only if a transcript under this vault's project directory names it — the directory `resolve-claude-project-dir.sh` derives from the vault path (never from `pwd`, which follows any earlier `cd`); print the directory it used. Delete a stale plan only when it is attributed here **and** no open work (`03 Projects/`, `01 Now/This Week.md`, `01 Now/Tickler.md`) references its basename. Report the rest: referenced plans as "retained", unattributed plans as "left" — never delete those. A plan whose transcripts have already aged out of `~/.claude/projects/` stays unattributed and is left; that is the fail-safe direction.
    ```bash
-   SESSIONS=~/.claude/projects/$(pwd | tr / -)
+   mapfile -t SESSIONS < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")   # derived from the vault path, not pwd; re-derived per call
+   printf 'SESSIONS DIR: %s\n' "${SESSIONS[@]:-none}"
    find ~/.claude/plans/ -type f -mtime +7 2>/dev/null | while read -r f; do
      base=$(basename "$f")
      if rg -q -F "$base" "{VAULT}/03 Projects" "{VAULT}/01 Now/This Week.md" "{VAULT}/01 Now/Tickler.md" 2>/dev/null; then
        echo "RETAINED (referenced by open work): $base"
-     elif [ -d "$SESSIONS" ] && rg -q -F -g '*.jsonl' "$base" "$SESSIONS" 2>/dev/null; then
+     elif [ "${#SESSIONS[@]}" -gt 0 ] && rg -q -F -g '*.jsonl' "$base" "${SESSIONS[@]}" 2>/dev/null; then
        rm "$f" && echo "DELETED: $base"
      else
        echo "LEFT (not attributed to this project): $base"
