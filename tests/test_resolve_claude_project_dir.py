@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -9,10 +10,17 @@ import unittest
 SCRIPT = Path(__file__).parents[1] / ".claude/scripts/resolve-claude-project-dir.sh"
 
 
-def run(vault: Path, home: Path, cwd: Path) -> subprocess.CompletedProcess:
+def project_dir_name(path: Path) -> str:
+    """Claude Code's naming: every non-alphanumeric character becomes '-'."""
+    return re.sub(r"[^A-Za-z0-9]", "-", str(path))
+
+
+def run(vault: Path, home: Path, cwd: Path, path: str = None) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env["HOME"] = str(home)
     env.pop("CLAUDE_CONFIG_DIR", None)
+    if path is not None:
+        env["PATH"] = path
     return subprocess.run(
         ["bash", str(SCRIPT), str(vault)],
         capture_output=True,
@@ -34,7 +42,7 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
         self.elsewhere.mkdir()
         self.projects = self.home / ".claude/projects"
         self.projects.mkdir(parents=True)
-        self.derived = self.projects / str(self.vault).replace("/", "-").replace(".", "-")
+        self.derived = self.projects / project_dir_name(self.vault)
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -45,6 +53,20 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
         result = run(self.vault, self.home, self.elsewhere)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines(), [str(self.derived)])
+        self.assertIn("derived", result.stderr)
+
+    def test_derived_dir_replaces_every_non_alphanumeric_character(self) -> None:
+        vault = Path(self.tmp.name) / "review/my_vault dir"
+        vault.mkdir(parents=True)
+        derived = self.projects / project_dir_name(vault)
+        self.assertNotIn("_", derived.name)
+        self.assertNotIn(" ", derived.name)
+        derived.mkdir()
+        # The slash-and-dot-only rendering is a decoy: it must not be chosen.
+        (self.projects / str(vault).replace("/", "-").replace(".", "-")).mkdir()
+        result = run(vault, self.home, self.elsewhere)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines(), [str(derived)])
         self.assertIn("derived", result.stderr)
 
     @unittest.skipIf(shutil.which("rg") is None, "rg required for the sweep")
@@ -71,7 +93,24 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
         result = run(self.vault, self.home, self.elsewhere)
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, "")
-        self.assertIn("none", result.stderr)
+        self.assertIn("project dir: none (", result.stderr)
+        self.assertNotIn("lookup failed", result.stderr)
+
+    def test_missing_rg_is_a_lookup_failure_not_a_confirmed_absence(self) -> None:
+        (self.projects / "-home-user-unrelated").mkdir()
+        # A PATH holding only the tools the script needs besides rg.
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        for tool in ("bash", "sed", "dirname", "sort"):
+            real = shutil.which(tool)
+            self.assertIsNotNone(real, tool)
+            (bin_dir / tool).symlink_to(real)
+        result = run(self.vault, self.home, self.elsewhere, path=str(bin_dir))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("project dir: lookup failed (", result.stderr)
+        self.assertIn("rg unavailable", result.stderr)
+        self.assertNotIn("project dir: none", result.stderr)
 
 
 if __name__ == "__main__":
