@@ -178,6 +178,26 @@ class PanelRunRecordTests(unittest.TestCase):
         self.assertIn("returned: Gemini Codex Grok |", r.stdout)
         self.assertIn("warning: Claude seat despatched, not returned (claude-r2.out missing)", r.stderr)
 
+    def test_claude_agent_flag_counts_the_seat_as_despatched_even_without_files(self) -> None:
+        # A Claude seat despatched via --claude-agent that never wrote claude.out
+        # (and no .err/.time/.exit/.json either) is still a despatched seat.
+        self.seat("gemini", 1, model="gemini-A")
+        (self.run / "synthesis.md").write_text("r1\n", encoding="utf-8")
+        r = self.record(1, "--claude-agent", "x", archive=False)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("despatched: Claude Gemini | returned: Gemini |", r.stdout)
+        self.assertIn("warning: Claude seat despatched, not returned (claude.out missing)", r.stderr)
+        self.assertEqual(len(self.ledger_lines()), 1, "the line is still written")
+
+    def test_claude_model_flag_counts_the_seat_as_despatched_even_without_files(self) -> None:
+        self.seat("gemini", 1, model="gemini-A")
+        (self.run / "synthesis.md").write_text("r1\n", encoding="utf-8")
+        r = self.record(1, "--claude-model", "claude-x", archive=False)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("despatched: Claude Gemini | returned: Gemini |", r.stdout)
+        self.assertIn("models: Claude=claude-x Gemini=gemini-A", r.stdout)
+        self.assertIn("warning: Claude seat despatched, not returned (claude.out missing)", r.stderr)
+
     def test_no_seat_returned_still_records_and_exits_two(self) -> None:
         self.full_round(1)
         for seat in ("claude", "gemini", "codex", "grok"):
