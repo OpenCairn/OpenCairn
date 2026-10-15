@@ -197,6 +197,20 @@ class PanelRunRecordTests(unittest.TestCase):
         for d in dirs:
             self.assertFalse((d / "claude-r2.out").exists(), d.name)
 
+    def test_round_join_copies_per_reviewer_round_briefs(self) -> None:
+        # Cross-examination writes brief-rN-<reviewer>.md: a round file with a
+        # suffix after the round tag, not a .ext directly after it.
+        self.full_round(1)
+        self.record(1)
+        self.full_round(2, tag="B")
+        (self.run / "brief-r2-gemini.md").write_text("cross-examination brief\n", encoding="utf-8")
+        r = self.record(2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        archive = self.archives()[0]
+        self.assertEqual(len(self.archives()), 1)
+        self.assertEqual((archive / "brief-r2-gemini.md").read_text(encoding="utf-8"), "cross-examination brief\n")
+        self.assertTrue((archive / "codex-r2.out").is_file())
+
     def test_round_two_recorded_twice_makes_no_duplicate_directory(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")  # a run's identity for lost-marker recovery
         self.full_round(1)
