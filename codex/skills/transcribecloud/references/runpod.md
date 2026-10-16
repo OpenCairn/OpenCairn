@@ -311,7 +311,7 @@ if not files:
 
 # Load ASR model ONCE
 print("Loading ASR model (first run downloads ~3 GB — log may be quiet for a few minutes)...", flush=True)
-model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # cloud = accuracy; keep distil-large-v3.5 for local CPU only
+model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # Cloud model; local engine selection is defined by the transcribe skill.
 align_models = {}  # per-language cache — a --language auto batch can mix languages
 
 if diarize:

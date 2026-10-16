@@ -1,11 +1,11 @@
 ---
 name: transcribe
-description: Transcribe audio files or YouTube videos using WhisperX (distil-large-v3.5) with optional speaker diarisation
+description: Transcribe audio files or YouTube videos locally with Parakeet GGUF by default for English, WhisperX fallback, and optional speaker diarisation
 ---
 
 # Transcribe — Audio to Text
 
-Transcribe audio files using WhisperX with distil-large-v3.5, locally. Optional speaker diarisation via pyannote.
+Transcribe audio files locally. Handy Parakeet V3 GGUF is the default for English; WhisperX is available for retries, other languages, or when Handy/GPU support is unavailable. Both paths use WhisperX alignment and optional pyannote diarisation.
 
 ## When to use
 
@@ -36,9 +36,10 @@ Flags (parsed from arguments):
 - `--diarize` or `--diarise` — enable speaker diarisation
 - `--speakers N` — exact number of speakers (implicitly enables diarisation)
 - `--min-speakers N` / `--max-speakers N` — speaker count range (implicitly enables diarisation)
-- `--raw` — skip LLM cleanup pass (save unprocessed WhisperX output)
+- `--engine whisperx|handy-gguf` — default `handy-gguf` for English; `whisperx` explicitly selects the fallback. The Handy adapter requires English audio and the installed GGUF model; it does not detect the source language.
+- `--raw` — skip LLM cleanup pass (save the selected engine's output)
 - `--no-timestamps` — omit timestamps from output
-- `--no-published` — skip the published-transcript check (Phase 0); go straight to WhisperX
+- `--no-published` — skip the published-transcript check (Phase 0); use the selected local engine
 
 ## Workflow
 
@@ -55,7 +56,7 @@ A published transcript (podcast show site, Substack, official transcript page) i
 4. **Fetch and validate the candidate.** Read §15 of `../_shared-rules-content.md` (relative to this SKILL.md) first — this skill doesn't load that file wholesale, so the extractor isn't in context until you read it. Extract the body to a file with the **§15 extractor**, which needs `curl`/`pandoc`/`python3`+`bs4`/`lxml` (its prereq check is the gate — if those are missing, skip the published path and fall through to Phase 1's WhisperX run after telling the user). The body lands at `<BODY_FILE>` — §15's printed `BODY=` path, a **deterministic function of the URL**, so you can reuse that exact path in step 6 (or re-derive it from the URL); there is no random temp name to carry across tool calls. Judge it on structure with **shell probes, not by reading the whole body into context** — `wc -w "<BODY_FILE>"`, `rg -n` for speaker labels / transcript markers, and `head`/`tail` for a bounded look. Accept as a genuine transcript if it has sustained episode-specific prose AND either (a) speaker turn-taking, (b) continuous single-speaker prose (lectures/monologues have no turns), or (c) the page explicitly labels itself a transcript. Reject show notes, a summary, an excerpt, or a paywalled stub. As a sanity floor, *if you can cheaply get duration* (`yt-dlp --print "%(duration)s" "URL"` for YouTube), expect ≳80–100 words per minute of audio — but don't reject a labelled transcript just for running light, and skip the floor when duration is unknown. If it's a summary or partial, discard it and fall through to Phase 1.
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
-   2. **Run WhisperX** — machine transcription with timestamps and optional diarisation, at lower text fidelity.
+   2. **Run local transcription** — the selected engine with timestamps and optional diarisation; follow engine selection below.
 6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing. Stage only the metadata header; assemble it with the existing `<BODY_FILE>` directly from disk using Phase 3 step 7's locked save procedure. The published body must not pass through model context or LLM cleanup. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
    - **Date acquired:** use this run’s acquisition date instead of **Date transcribed**.
@@ -63,7 +64,7 @@ A published transcript (podcast show site, Substack, official transcript page) i
    - **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" — already in context from step 4.
    - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
 
-   Otherwise (user picks WhisperX, or no transcript was found/accepted), continue to Phase 1.
+   Otherwise (user picks local transcription, or no transcript was found/accepted), continue to Phase 1.
 
 ### Phase 1: Validate
 
@@ -89,25 +90,40 @@ A published transcript (podcast show site, Substack, official transcript page) i
    ```bash
    ffprobe -v quiet -show_entries format=duration -of csv=p=0 "INPUT_FILE_PATH"
    ```
-6. Check for GPU:
+6. Check for CUDA support in the WhisperX environment:
    ```bash
    ~/venvs/whisperx/bin/python3 -c "import torch; print(torch.cuda.is_available())"
    ```
+   `False` means this WhisperX/PyTorch path cannot use CUDA; it does not mean the machine has no usable GPU. Parakeet GGUF uses a separate Vulkan/Metal backend. Verify its actual bound backend and device in the model-load log before claiming acceleration; a selected Auto setting or enumerated GPU alone is insufficient.
 7. Determine if diarisation was requested (check for `--diarize`, `--diarise`, `--speakers`, `--min-speakers`, or `--max-speakers` in arguments — any of these enables diarisation).
 8. If diarisation requested, verify HF token is available:
    ```bash
    ~/venvs/whisperx/bin/python3 -c "from huggingface_hub import HfApi; HfApi().whoami()" 2>/dev/null && echo "ok" || echo "no_token"
    ```
    If no token, tell the user to run `huggingface-cli login` or set `HF_TOKEN` and stop. Note `whoami()` only proves the token is valid — it does not prove the pyannote licence gates were accepted; a 403 later, inside diarisation, means a licence page from the Prerequisites list still needs accepting.
-9. **Background decision:** If no GPU and (duration > 120s OR diarisation is enabled), tell the user the estimated wait and run as a **tracked Codex exec session**. Diarisation on CPU is slow (~2-3x audio length on top of transcription time).
-   - **Cloud escape hatch:** when there's no GPU and the job is heavy — audio > ~30 min, or a batch of files — surface `$transcribecloud` (RunPod GPU; same WhisperX) as a faster **paid** alternative *before* committing to a long local grind, and let the user choose. It costs money and needs `runpodctl` + credits, so don't auto-switch: if those are absent, say so and fall back to the local exec session. (This is the reciprocal of `$transcribecloud`'s own "use instead of `$transcribe` when no local GPU and audio > 30 min" trigger.)
+9. **Background decision:** If diarisation is enabled, or the selected engine is WhisperX without CUDA and duration > 120s, tell the user the estimated wait and run as a **tracked Codex exec session**. Diarisation on CPU is slow (~2-3x audio length on top of transcription time).
+   - **Cloud escape hatch:** when the selected engine is WhisperX without CUDA and the job is heavy — audio > ~30 min, or a batch of files — surface `$transcribecloud` (RunPod GPU; same WhisperX) as a faster **paid** alternative *before* committing to a long local grind, and let the user choose. It costs money and needs `runpodctl` + credits, so don't auto-switch: if those are absent, say so and fall back to the local exec session. (This is the reciprocal of `$transcribecloud`'s own "use instead of `$transcribe` when the selected local engine lacks usable acceleration and audio > 30 min" trigger.)
+
+### Engine selection and Handy GGUF input
+
+Use Handy GGUF for English unless the user selects WhisperX. Establish the source language from reliable source information or a short language probe if unknown. For non-English or mixed-language material, select WhisperX with multilingual `large-v3` before inference; export `TRANSCRIBE_ENGINE=whisperx` and `TRANSCRIBE_WHISPER_MODEL=large-v3`. For an English WhisperX retry/fallback, use `distil-large-v3.5`.
+
+If the default Handy route is unavailable or fails its GPU-binding check, retry locally with WhisperX and report the effective engine. Honour an explicit engine request by reporting its failure rather than silently switching. Do not change to paid cloud processing without authorisation.
+
+For the Handy route, first verify `handy --help` advertises `--transcribe-file` and `--json`, and the requested GGUF model is already installed. Do not change live dictation settings or download/install software implicitly. Keep the normal WhisperX prerequisites: this route still uses its alignment and diarisation environment.
+
+Convert the complete input with ffmpeg to **16kHz mono signed 16-bit PCM WAV**, using a unique scratch directory outside the vault. Run `scripts/handy_gguf.py` with `~/venvs/whisperx/bin/python3`, passing the WAV and a fresh scratch JSON path as positional arguments. The helper keeps all audio, divides it at quiet points near 30 seconds, transcribes through Handy, and returns timed chunk text. Set `TRANSCRIBE_INPUT` to that same converted WAV, `TRANSCRIBE_GGUF_JSON` to that JSON path, and `TRANSCRIBE_ENGINE=handy-gguf` in the Phase 2 exec call. Resolve the helper relative to this skill/command file, not the working directory.
+
+The helper records the actual backend, durations and logs, and fails if a GPU binding is not verified. Use `--allow-cpu` only for an intentional CPU run; do not label that accelerated. Its text includes Handy's configured custom-word corrections, so record vocabulary/configuration when comparing engines. Chunk bounds are approximate: run the alignment below before presenting timestamps. Empty chunks may represent silence; inspect the source if they contain speech. Keep the existing output formatting, cleanup and locked-save rules, and use the actual `model` field in the transcript header.
 
 ### Phase 2: Transcribe
 
 Run via a tracked Codex exec session, polling until completion. **Redirect stderr to a temp file** (not /dev/null). On success, discard it. On failure, read it for diagnostics.
 
 Set these variables before substituting into the script:
-- `INPUT_FILE_PATH` — the audio file path
+- `TRANSCRIBE_ENGINE` — export the effective engine when overriding the English GGUF default; for multilingual WhisperX also export `TRANSCRIBE_WHISPER_MODEL=large-v3`
+- `TRANSCRIBE_OUTPUT` — export a fresh JSON path in a unique scratch directory outside the vault in the same exec call; existing files are rejected
+- `TRANSCRIBE_INPUT` — export the audio file path in the same exec call; for Handy, use the converted WAV passed to the helper
 - `DIARIZE` — `True` or `False`
 - `NUM_SPEAKERS` — integer or `None`
 - `MIN_SPEAKERS` — integer or `None`
@@ -116,7 +132,7 @@ Set these variables before substituting into the script:
 ```bash
 STDERR_TMP=$(mktemp)
 ~/venvs/whisperx/bin/python3 << 'PYEOF' 2>"$STDERR_TMP"
-import os, json
+import os, json, hashlib
 os.environ["TQDM_DISABLE"] = "1"
 
 import torch
@@ -132,13 +148,29 @@ min_speakers = MIN_SPEAKERS
 max_speakers = MAX_SPEAKERS
 
 # 1. Transcribe
-model = whisperx.load_model("distil-large-v3.5", device, compute_type=compute_type)
+engine = os.environ.get("TRANSCRIBE_ENGINE", "handy-gguf")
 audio = whisperx.load_audio(audio_file)
-result = model.transcribe(audio, batch_size=batch_size)
+engine_metadata = {}
+if engine == "handy-gguf":
+    with open(os.environ["TRANSCRIBE_GGUF_JSON"]) as f:
+        result = json.load(f)
+    engine_metadata = result["engine_metadata"]
+    pcm_hash = hashlib.sha256((audio * 32768).astype("<i2").tobytes()).hexdigest()
+    if (abs(engine_metadata["duration_seconds"] - len(audio) / 16000) > 0.1
+            or engine_metadata["audio_sha256"] != pcm_hash):
+        raise ValueError("GGUF transcript/audio mismatch")
+    model_label = "handy / " + result["model"]
+elif engine == "whisperx":
+    whisper_model = os.environ.get("TRANSCRIBE_WHISPER_MODEL", "distil-large-v3.5")
+    model = whisperx.load_model(whisper_model, device, compute_type=compute_type)
+    result = model.transcribe(audio, batch_size=batch_size)
+    model_label = "whisperx / " + whisper_model
+else:
+    raise ValueError("Unknown transcription engine: " + engine)
 language = result["language"]
 
 # distil-large-v3.5 is English-only — its output on other languages is unreliable.
-if language != "en":
+if engine == "whisperx" and whisper_model.startswith("distil-") and language != "en":
     raise SystemExit(
         f"Detected language '{language}', but distil-large-v3.5 is English-only. "
         "Re-run with a multilingual model (large-v3) or use $transcribecloud."
@@ -172,9 +204,9 @@ if diarize:
     )
     result = whisperx.assign_word_speakers(diarize_segments, result)
 
-out_path = "/tmp/transcribe_segments_" + os.path.splitext(os.path.basename(audio_file))[0] + ".json"
-with open(out_path, "w") as f:
-    json.dump({"segments": result["segments"], "language": language}, f)
+out_path = os.environ["TRANSCRIBE_OUTPUT"]  # fresh JSON path inside this run's unique scratch directory
+with open(out_path, "x") as f:
+    json.dump({"segments": result["segments"], "language": language, "model": model_label, "engine_metadata": engine_metadata}, f)
 print(out_path)
 PYEOF
 EXIT_CODE=$?
@@ -209,6 +241,8 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
 
    [01:23] Next paragraph after a gap.
    ```
+
+   **Alignment-failure fallback:** if a segment has nonempty `text` but an empty/missing `words` array, preserve its text as a paragraph using its existing segment start and mark the timestamp approximate and alignment unavailable. Use its segment speaker if present, otherwise `Speaker unknown`; never drop the text or invent word times/speaker identity. This fallback also applies when formatting a non-diarised transcript.
 
    **With diarisation:** Iterate over the **words** array (not segments), since a single segment often contains multiple speakers. Before grouping, forward/back-fill any words with a missing or `None` speaker from their nearest non-None neighbour (pyannote occasionally leaves words unassigned; treating `None` as its own speaker produces a spurious extra speaker). Then group consecutive words by speaker. Start a new paragraph when the speaker label changes OR when the gap between consecutive words exceeds 1.5 seconds. Prefix each paragraph with a timestamp and speaker label in bold:
    ```
@@ -273,7 +307,7 @@ Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report su
    **Source:** `{YouTube URL or filename/path to audio file}`
    **Date transcribed:** {YYYY-MM-DD}
    **Duration:** {MM:SS or H:MM:SS}
-   **Model:** whisperx / distil-large-v3.5
+   **Model:** {actual Phase 2 model field}
    **Diarisation:** {yes (N speakers) | no}
    **Cleanup:** {yes | no (--raw)}
 
@@ -281,6 +315,12 @@ Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report su
    ```
 
 8. **If the user chose to discuss**, proceed with whatever they asked for (summary, Q&A, extraction, etc.).
+
+## Missing-speech diagnosis
+
+If audible speech is absent from the transcript, compare the source audio with the audio retained after VAD before changing recognition models. If filtering discarded it, test a representative section with adjusted/bypassed VAD; do not disable VAD globally based on a different application's failure. If the model received the speech, compare the identical audio and preprocessing using another precision/export/backend, changing one variable at a time. Retain the failing sample and raw outputs; process success and plausible text do not establish completeness.
+
+A demonstrated omission defect in a legacy Parakeet V3 ONNX INT8 encoder does not establish a defect in WhisperX/CTranslate2 INT8, GGUF Q8_0, or all quantized models. Preserve existing defaults unless the affected path reproduces the failure.
 
 ## Notes
 
