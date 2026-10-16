@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import subprocess
 import tempfile
@@ -230,6 +231,57 @@ class VaultInventoryTests(unittest.TestCase):
             env=self.env, capture_output=True, text=True, check=True,
         )
         return result.stdout
+
+    def run_args(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(SCRIPT), str(self.vault), *args], env=self.env,
+            cwd=self.root, capture_output=True, text=True,
+        )
+
+    def test_options_after_and_between_repos_honour_window_and_roots(self) -> None:
+        repo = self.root / "repo with spaces"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True, env=self.env)
+        (repo / "untracked.txt").write_text("fixture\n")
+        extra = self.root / "extra root"
+        extra.mkdir()
+        candidate = extra / "candidate.txt"
+        candidate.write_text("fixture\n")
+        config = Path(self.env["CLAUDE_CONFIG_DIR"])
+        config.mkdir()
+        stamp = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (config / ".sync-receipt").write_text(stamp + "\twindow-control\tfixture\n")
+        before = self.run_args("-m", "5", "--root", str(extra), str(repo))
+        after = self.run_args(str(repo), "-m", "5", "--root", str(extra))
+        between = self.run_args(str(repo), "--root", str(extra), str(repo), "-m", "5")
+        for result in (before, after, between):
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"[root]\t{extra}\t{candidate}\n", result.stdout)
+            self.assertIn(f"[repo]\t{repo}\t?? untracked.txt\n", result.stdout)
+            self.assertNotIn("window-control", result.stdout)
+            self.assertNotIn("ERROR: not a git repo", result.stdout)
+        self.assertEqual(before.stdout, after.stdout)
+        default = self.run_args(str(repo))
+        self.assertIn("window-control", default.stdout, "receipt must be inside the default window")
+        self.assertNotIn(str(candidate), default.stdout)
+
+    def test_double_dash_preserves_option_shaped_repo_names(self) -> None:
+        result = self.run_args("--", "-m", "5", "--root", "other")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for repo in ("-m", "5", "--root", "other"):
+            self.assertIn(f"[repo]\t{repo}\tERROR: not a git repo\n", result.stdout)
+        self.assertNotIn("[root]", result.stdout)
+
+    def test_invalid_options_fail_before_inventory(self) -> None:
+        for args in (("repo", "-m"), ("repo", "--root"),
+                     ("-m", "nonsense"), ("repo", "-m", "-1"),
+                     ("repo", "-m", "1.5"), ("--unknown",),
+                     ("repo", "--root", ""), ("--root", "--", "repo")):
+            with self.subTest(args=args):
+                result = self.run_args(*args)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Usage:", result.stderr)
+                self.assertEqual(result.stdout, "")
 
     def test_vault_body_candidates_reach_deep_notes_and_prune_metadata(self) -> None:
         for name in ("03 Projects/Example/deep/note.md", "04 Areas/Example.md",
