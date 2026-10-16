@@ -55,6 +55,47 @@ class ResolveClaudeProjectDirTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
+    def test_oops_memory_lookup_uses_session_from_foreign_cwd(self) -> None:
+        # Execute the actual command snippet, with a conflicting cwd memory
+        # directory: finding the resolver name alone would not prove routing.
+        command = (SCRIPT.parents[1] / "commands/oops.md").read_text()
+        phase = command.split("### Phase 2:", 1)[1].split("### Phase 3:", 1)[0]
+        snippet = re.search(r"```bash\n(.*?)```", phase, re.S).group(1)
+        scripts = self.vault / ".claude/scripts"
+        scripts.mkdir(parents=True)
+        for name in ("resolve-claude-project-dir.sh", "lib-session.sh"):
+            shutil.copy2(SCRIPT.parent / name, scripts / name)
+        launch = self.projects / "-launch-project"
+        memory = launch / "memory"
+        memory.mkdir(parents=True)
+        (launch / "fixture-session.jsonl").write_text('{}\n')
+        decoy = self.projects / project_dir_name(self.elsewhere) / "memory"
+        decoy.mkdir(parents=True)
+        env = os.environ.copy()
+        env.update({"HOME": str(self.home), "CLAUDE_CONFIG_DIR": str(self.home / ".claude")})
+        for var in SESSION_VARS:
+            env.pop(var, None)
+        env["OPENCAIRN_SESSION_ID"] = "fixture-session"
+        result = subprocess.run(
+            ["bash", "-c", snippet.replace("{VAULT}", str(self.vault))],
+            env=env, cwd=self.elsewhere, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("MEMORY DIR: " + str(memory), result.stdout)
+        self.assertNotIn(str(decoy), result.stdout)
+        self.assertIn("this session's transcript", result.stderr)
+
+        # Removing the only attribution leaves the decoy intact. No arbitrary
+        # project memory may be offered as a fallback.
+        (launch / "fixture-session.jsonl").unlink()
+        result = subprocess.run(
+            ["bash", "-c", snippet.replace("{VAULT}", str(self.vault))],
+            env=env, cwd=self.elsewhere, capture_output=True, text=True,
+        )
+        self.assertNotIn("MEMORY DIR:", result.stdout)
+        self.assertNotIn(str(decoy), result.stdout)
+        self.assertIn("project dir: none", result.stderr)
+
     def test_derived_dir_found_from_foreign_cwd(self) -> None:
         self.derived.mkdir()
         (self.projects / "-some-other-project").mkdir()

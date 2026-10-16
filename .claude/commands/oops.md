@@ -46,14 +46,15 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
 
 3. **Before writing the lesson, check whether an existing rule should have prevented this mistake.** Search CLAUDE.md, the auto-memory directory, and any loaded context files for rules that cover this situation.
 
-   **Grep the memory directory — don't rely on what's loaded.** `MEMORY.md` is an index of one-line pointers; the trigger conditions Phase 2 has to diagnose live in the topic files, and a topic file only loads when relevance-matching happened to fire. Resolve the directory rather than guessing it (the project directory name is the absolute cwd with every `/` and `.` replaced by `-`):
+   **Grep the memory directory — don't rely on what's loaded.** `MEMORY.md` is an index of one-line pointers; the trigger conditions Phase 2 has to diagnose live in the topic files. First run `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`; abort if it errors, and substitute its resolved path for `{VAULT}` below. Use the same session-first resolver as weekly-hygiene: this session's transcript directory, then the vault-derived directory, then directories whose transcripts record the vault as their `cwd`. Re-run the resolver in each Bash call that needs the directories; shell state does not persist between calls.
 
    ```bash
-   M=~/.claude/projects/$(pwd | sed 's#[/.]#-#g')/memory
-   [ -d "$M" ] || ls -d ~/.claude/projects/*/memory/   # fall back to listing if the derived path is absent
+   DIRS=(); while IFS= read -r d; do DIRS+=("$d"); done < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")
+   printf 'PROJECT DIR: %s\n' "${DIRS[@]:-none}"
+   for P in "${DIRS[@]}"; do M="$P/memory"; [ -d "$M" ] && echo "MEMORY DIR: $M" || echo "NO MEMORY DIR under $P"; done
    ```
 
-   Then Grep that directory for key nouns from the mistake. If no memory directory exists, note it and carry on with CLAUDE.md and context files.
+   Grep each printed `MEMORY DIR` for key nouns from the mistake, reporting matches separately if several directories resolve. If none resolves, report the helper's stderr reason verbatim and continue with CLAUDE.md and context files; distinguish confirmed absence from lookup failure. Report `NO MEMORY DIR under <P>` as that observation. Never fall back to the current shell directory or an arbitrary project memory directory.
 
    **If a matching rule exists**, the lesson isn't "follow the rule" — the rule already failed to fire. Diagnose why:
    - **Was the rule in context?** (Was CLAUDE.md or the relevant context file loaded when the mistake happened?)
