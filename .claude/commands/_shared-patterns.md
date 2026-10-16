@@ -32,6 +32,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **WhisperX audio→JSON core** — model → align → diarise → segments JSON. → `transcribe`
 - **Gated-model silent-None assert** — assert `diarize_model.model` after `DiarizationPipeline`. → `transcribecloud`, `transcribe`
 - **Tag-scan hygiene** — md-glob filter; exclude archive, frozen artefacts, tag mentions. → `guillotines` Step 2, `longpoles`, `cornerstones`
+- **Task/example triage** — Read heading ancestry/fences; exclude examples, isolate uncertainty. → `longpoles` Step 1, `cornerstones` Step 1, `guillotines` Step 2
 - **Published-transcript-first** — prefer ready-made published transcript over re-running ASR. → `transcribe` Phase 0
 - **Page text outranks transcript body** — human-written show notes win names + speakers. → `_shared-rules-content.md §15`
 - **Grep-hit triage on identifier change** — stale-ref / live-locator / historical / unrelated → act. → `_shared-rules.md §12`
