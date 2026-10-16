@@ -46,6 +46,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Cross-call scratch path: derive or record, never remember** — stable-input slug; else `mktemp` once and record it. → `_shared-rules-content.md §15`, `podcast-digest` Phase 0 (derived), `second-opinion` Phase 1 (recorded), `quarterly-hygiene` Step 6 (recorded + hash)
 - **Collision filenames take letter suffixes** — letters sort after bare name; `-N` sorts before. → `weekly-review` Step 5, `quarterly-review` Step 10
 - **Dated report install** — draft outside; locked CAS install; exit 2 = claimed. → `weekly-review` Step 5, `quarterly-review` Step 11 (immutable record), `weekly-hygiene` Step 16, `quarterly-hygiene` Step 9 (mutable hand-off)
+- **Quarter-boundary selection** — Ask at boundary; hygiene retains unattended fallback. → `quarterly-review` Step 1, `quarterly-hygiene` Step 1
 - **ISO-week basename via `%G-W%V`** — `%G` not `%Y`; they differ at year boundary. → `weekly-review` Step 1, `weekly-hygiene` Step 16, `landscape-scan` Step 2
 - **Routing is an upsert** — key by finding identity + normalised action, never period. → `weekly-hygiene` Step 17, `quarterly-hygiene` Step 9
 - **Explicit self-review step on low-cadence skills** — rare runs skip the implicit watch; instantiate it. → `_shared-rules.md §8`, `quarterly-hygiene` Step 10, `quarterly-review` Step 12
