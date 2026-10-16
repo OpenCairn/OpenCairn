@@ -32,11 +32,13 @@ Use the Grep tool to find all `[GT]` references across `{VAULT}`:
 - Exclude `06 Archive/` — archived items aren't actionable. If the Grep tool can't express the exclusion directly, scan the whole vault and drop any hits under `06 Archive/` when grouping
 - Also drop hits inside frozen or generated artefacts — provenance snapshots, session transcripts, and similar records that quote historical text verbatim (e.g. `07 System/.Provenance/`). A `[GT]` copied into a frozen snapshot is not a live deadline
 - Drop **mentions of the tag** as opposed to tagged items. A `[GT]` sitting inside running prose, or listed alongside other bare tag tokens (documentation of the tagging scheme, notes about the scanner, examples in a how-to), is describing the tag, not carrying a deadline. The tell: the tag isn't the leading marker of a task line, and the line reads as a sentence about tags. These are not mis-tagged items — never surface them for correction
-- Note each hit's completion marker: a checked-off item (`- [x]`) is a *met* (or dead) deadline, not a live one — route it to the Done section in Step 4, never to the timeline
+- For confirmed items, note the completion marker: a checked-off item (`- [x]`) is a *met* (or dead) deadline, not a live one — route it to the Done section in Step 5, never to the timeline
+
+Before classifying any task-shaped hit, read its enclosing heading ancestry (a parent heading may identify a sample even when the nearest heading does not) and the section through the hit. Establish whether it is inside a Markdown fence by locating the opening and closing fence; nearby grep context alone is insufficient. Exclude fenced examples and documented sample tasks. If the available read cannot settle task/example context, retain the hit as **Undetermined — task/example context unresolved**, outside confirmed task/status totals. A checkbox or a plausible deadline does not establish that a sample is live work.
 
 ### 3. Extract the Deadline for Each Item
 
-For every `[GT]` hit, pull the hard date from the item text (e.g. "expires 30 Sep 2026", "by 1 Jul", "due 2026-09-30"):
+For every confirmed `[GT]` item, pull the hard date from the item text (e.g. "expires 30 Sep 2026", "by 1 Jul", "due 2026-09-30"):
 
 - If a date is present, strip the surrounding prose first and pass **only the bare date token** to `date -d` — `expires 30 Sep 2026` → `30 Sep 2026`, `by 1 Jul` → `1 Jul`. `date -d` cannot parse the leading verb and will reject the whole string.
 - Compute days remaining mechanically — `d=$(date -d "<bare date>" +%s) && echo $(( ($d - $(date -d "<today>" +%s)) / 86400 ))` with `<today>` from Step 1, so both ends anchor at midnight and the result is exact whole days — never by internal arithmetic; month-boundary slips are exactly the errors this skill exists to prevent. Verify any ambiguous or weekday-bearing date with `date -d "<date>"` too.
@@ -60,7 +62,7 @@ Order items by deadline **ascending — soonest blade first.** Undated items are
 ```markdown
 ## Guillotines
 
-**N items across M files** | Today: YYYY-MM-DD
+**N confirmed obligations across M files; V undetermined hits** | Today: YYYY-MM-DD
 
 🔴 **OVERDUE**
 - [ ] [GT] Item description — deadline DD Mon YYYY (**X days ago**) — `relative/path.md`
@@ -74,6 +76,9 @@ Order items by deadline **ascending — soonest blade first.** Undated items are
 
 ⚪ **DISTANT (>90d)**
 - [ ] [GT] Item description — deadline DD Mon YYYY — `relative/path.md`
+
+❓ **UNDETERMINED — task/example context unresolved**
+- [GT] [verbatim hit] — `relative/path.md` — context unavailable or inconclusive
 
 ❓ **AMBIGUOUS**
 - [ ] [GT] Item whose deadline can't be resolved — ~DD Mon YYYY? — `relative/path.md` *(clarify the date)*
@@ -89,7 +94,9 @@ Order items by deadline **ascending — soonest blade first.** Undated items are
 The next blade: **[item]** in **X days** (DD Mon YYYY).
 ```
 
-**N** is the count of distinct obligations *after* deduplication (per "One obligation, one line" below), not the raw grep hit count; **M** is the number of distinct source files those obligations appear in. Where one obligation lives in several files, list every path on its single line, comma-separated, with the canonical source first.
+**N** is the count of confirmed distinct obligations *after* deduplication (per "One obligation, one line" below), not the raw grep hit count; **M** is the number of distinct source files those obligations appear in. Where one obligation lives in several files, list every path on its single line, comma-separated, with the canonical source first.
+
+Keep task/example uncertainty separate from deadline ambiguity: each unresolved hit appears only in Undetermined, counts only toward **V**, and contributes neither to **N/M**, Done, Undated, Ambiguous, nor the deadline timeline. Do not ask for a deadline correction on an unconfirmed task. Count each confirmed obligation once across the timeline, Ambiguous, Undated and Done sections.
 
 Omit any section with no items. Mirror each item's source marker (`- [ ]` / `- [x]` / plain bullet) — don't invent checkboxes. Bottom line adapts: if the soonest dated open item is overdue, lead with "The blade has dropped on **[item]** — X days ago"; if no dated open items exist, "No dated guillotines open."
 
