@@ -4,8 +4,8 @@
     "_shared-patterns": {
       "source": ".claude/commands/_shared-patterns.md",
       "render": "codex/skills/_shared-patterns.md",
-      "source_sha256": "6bd9eb42c9d7b862e05d2b8a2c80dcb3ab43e56de6e4f199f3f2563becacc9dc",
-      "render_sha256": "506b163e669f271d36ba031391a57ca44d721bf8c928a0f4d29597d00f43e45a"
+      "source_sha256": "13d3f7a60db717a46b8dbbaf4c22bc2a85840e4ac7b770083601e17eb859e4af",
+      "render_sha256": "ef7d5bddaa7f6a78bdce53b1a148d95227b9a308c85ce25de76d9ef44b80dd30"
     },
     "_shared-rules": {
       "source": ".claude/commands/_shared-rules.md",
@@ -70,8 +70,8 @@
     "cornerstones": {
       "source": ".claude/commands/cornerstones.md",
       "render": "codex/skills/cornerstones/SKILL.md",
-      "source_sha256": "fa54260b65bb94edf69d1054fd89e1daf3f6bef67a40c8eb520a9f782113e60c",
-      "render_sha256": "5c131c16c695aad612cbdd096c3aaa828b6e80cc5c66ee3aaaab7b3d7005796b"
+      "source_sha256": "d03219624ec940cb43fe18bffe47702cb79f5cb64f415eb0aa0cd21dec3b1453",
+      "render_sha256": "9ed68cae379e87136734ac22e49b9038a6dece2d44dd44d1628a55dfe0b9f61d"
     },
     "de-ai-ify": {
       "source": ".claude/commands/de-ai-ify.md",
@@ -88,8 +88,8 @@
     "guillotines": {
       "source": ".claude/commands/guillotines.md",
       "render": "codex/skills/guillotines/SKILL.md",
-      "source_sha256": "5eda15fdbd4b76369dfb6e994a8386ec270867abc1d9da59f04ba3d66a4c0e39",
-      "render_sha256": "474f3a4a7283120d1dfdbdba0153d80cab52ebdbc31921827b7b8a8468db6feb"
+      "source_sha256": "b14d56fd0bc5994c82dc9306313d36c57faeb0c6d1c03f42367e6745585d3f3c",
+      "render_sha256": "fb8bb5bc66ebb419ec51c1f3fa63057b4b73ba03708c674f0f348322689f7913"
     },
     "hibernate": {
       "source": ".claude/commands/hibernate.md",
@@ -112,8 +112,8 @@
     "longpoles": {
       "source": ".claude/commands/longpoles.md",
       "render": "codex/skills/longpoles/SKILL.md",
-      "source_sha256": "d746042c2cee30a9ca65a9495df182fca28e7c8804e94ed5a54ca6b8127fc24e",
-      "render_sha256": "01b4b9cb2b05ad390e2fb09fbf58b327e94e20cf0752519f731fa75f9d49c489"
+      "source_sha256": "03cc6eb4f7d137f6fe2e8ce972271f2d88f13764db9ee6f1fbe17f0e418eb5b8",
+      "render_sha256": "f096cc100ca955edf1258bd68cbc986ea9ace95aa01ad259de03055e4d1869a4"
     },
     "map-day": {
       "source": ".claude/commands/map-day.md",
@@ -142,7 +142,7 @@
     "oops": {
       "source": ".claude/commands/oops.md",
       "render": "codex/skills/oops/SKILL.md",
-      "source_sha256": "8d91246f8723e2f232492298daafa750a575856298d8f63f35e8f68f64ca614a",
+      "source_sha256": "a6f4e359738b46d234e7b63539e13a5ecd3e0022a8c4b1c7f72a299cf44f686c",
       "render_sha256": "d93313866d78bcd3e428d2c33eaa179fcf7cc30cbc4e422a4470253a4773af20"
     },
     "park": {
