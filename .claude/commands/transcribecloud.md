@@ -6,7 +6,7 @@ description: Batch transcribe audio/video on RunPod GPU cloud — for large jobs
 # Cloud Transcribe — Batch Audio to Text via RunPod
 
 Batch transcribe audio or video files using WhisperX on a RunPod GPU instance. Use this instead of `/transcribe` when:
-- No local GPU and total audio > 30 minutes
+- The selected local engine lacks usable acceleration and total audio > 30 minutes
 - Batch of multiple files (5+)
 - User explicitly requests cloud/RunPod transcription
 
@@ -418,7 +418,7 @@ if not files:
 
 # Load ASR model ONCE
 print("Loading ASR model (first run downloads ~3 GB — log may be quiet for a few minutes)...", flush=True)
-model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # cloud = accuracy; keep distil-large-v3.5 for local CPU only
+model = whisperx.load_model("large-v3", device, compute_type=compute_type)  # Cloud model; local engine selection is defined by the transcribe skill.
 align_models = {}  # per-language cache — a --language auto batch can mix languages
 
 if diarize:
@@ -616,6 +616,8 @@ For each JSON transcript file:
    **Without diarisation:** Insert paragraph break wherever gap between segments exceeds 1.5 seconds. Concatenate segment text within each paragraph. Prefix each paragraph with a timestamp (`[MM:SS]` for <1hr, `[H:MM:SS]` for ≥1hr) derived from the first segment's `start`.
 
    **Monologue fallback.** For recordings longer than 5 minutes, after the initial split, check: is the paragraph count at least `duration_seconds / 120` (roughly one per two minutes)? If not, recompute — sort segment-to-segment gaps descending, let `N = min(floor(duration_seconds / 90), len(gaps))`, use `gaps_desc[N-1]` as the new threshold, re-split; if there are no gaps at all (`len(gaps) == 0`, e.g. a single segment), skip the fallback and keep the initial split. State the threshold used in your user-facing response.
+
+   **Alignment-failure fallback:** if a segment has nonempty `text` but an empty/missing `words` array, preserve its text as a paragraph using its existing segment start and mark the timestamp approximate and alignment unavailable. Use its segment speaker if present, otherwise `Speaker unknown`; never drop the text or invent word times/speaker identity. This fallback also applies when formatting a non-diarised transcript.
 
    **With diarisation:** Iterate over the **words** array (not segments) — a single segment often contains multiple speakers. Before grouping, **forward/back-fill any words with `speaker: None`** from their nearest non-None neighbour (pyannote occasionally leaves words unassigned; treating `None` as a new speaker produces a spurious "Speaker 4+"). Then group consecutive words by speaker. Start a new paragraph on speaker change OR >1.5s gap. Prefix each paragraph with timestamp + speaker label in bold:
    ```
@@ -857,6 +859,10 @@ Caught and fixed 2026-04-27 against a fresh secure-cloud RTX 4090 pod (Linux cli
 - Cross-platform token-source documentation (Linux/macOS/Git-Bash bash and Windows PowerShell variants); `huggingface_hub` writes to `~/.cache/huggingface/token` on all three platforms regardless of `XDG_CACHE_HOME`/`LOCALAPPDATA`. Windows-side commands logic-checked, NOT executed end-to-end on Windows.
 
 First real-use of the untested pieces will likely surface minor issues — trust but verify.
+
+## Missing-speech diagnosis
+
+A successful job and valid JSON do not establish transcript completeness. For audible speech missing from the text, compare source audio with the audio retained after VAD, then compare recognition on identical retained audio. Test VAD changes on a representative excerpt before rerunning the batch. If recognition is responsible, isolate precision/export/backend changes one at a time and retain the failing sample and outputs. A defect in a Parakeet ONNX INT8 encoder is not evidence against this skill's WhisperX `large-v3` float16 path; keep the pinned pipeline unless its own failure is reproduced.
 
 ## Notes
 

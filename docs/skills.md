@@ -74,7 +74,7 @@ Standalone workflows can still have dependencies: research needs web access, and
 | [/de-ai-ify](../.claude/commands/de-ai-ify.md) | [$de-ai-ify](../codex/skills/de-ai-ify/SKILL.md) | Edit a draft to match your voice and remove formulaic AI phrasing. |
 | [/reply](../.claude/commands/reply.md) | [$reply](../codex/skills/reply/SKILL.md) | Draft a reply using your writing preferences and contact context. |
 | [/ocr](../.claude/commands/ocr.md) | [$ocr](../codex/skills/ocr/SKILL.md) | Extract and structure text from screenshots. |
-| [/transcribe](../.claude/commands/transcribe.md) | [$transcribe](../codex/skills/transcribe/SKILL.md) | Transcribe audio or YouTube videos with local WhisperX. |
+| [/transcribe](../.claude/commands/transcribe.md) | [$transcribe](../codex/skills/transcribe/SKILL.md) | Transcribe audio or YouTube videos locally with Parakeet GGUF for English and WhisperX fallback. |
 | [/transcribecloud](../.claude/commands/transcribecloud.md) | [$transcribecloud](../codex/skills/transcribecloud/SKILL.md) | Transcribe audio or video on a rented RunPod GPU. |
 | [/podcast-digest](../.claude/commands/podcast-digest.md) | [$podcast-digest](../codex/skills/podcast-digest/SKILL.md) | Summarise a podcast or talk from a published transcript or transcription. |
 | [/archive-transcript](../.claude/commands/archive-transcript.md) | [$archive-transcript](../codex/skills/archive-transcript/SKILL.md) | Save a published transcript with a synthesis header and verbatim body. |
