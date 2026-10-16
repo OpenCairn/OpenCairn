@@ -2,7 +2,8 @@
 # park-files.sh - mechanical session-footprint enumeration for /park
 #
 # Usage: park-files.sh <vault> [-m MINUTES] [--root DIR ...] [repo ...]
-#   MINUTES  lookback window (default 240)
+#   Options may appear before or after repos; -- ends option parsing.
+#   MINUTES  non-negative integer lookback window (default 240)
 #   DIR      extra root to sweep with the same window (repeatable): any
 #            directory the session installed into that the defaults below
 #            do not cover (~/.local/bin, ~/.config, /etc, build output, ...),
@@ -61,14 +62,21 @@ VAULT="$1"; shift
 
 MIN=240
 EXTRA_ROOTS=()
+REPOS=()
 while [ $# -gt 0 ]; do
     case "$1" in
-        -m)     [ $# -ge 2 ] || usage; MIN="$2"; shift 2 ;;
-        --root) [ $# -ge 2 ] || usage; EXTRA_ROOTS+=("$2"); shift 2 ;;
-        --)     shift; break ;;
-        *)      break ;;
+        -m)     [ $# -ge 2 ] || usage
+                [[ "$2" =~ ^[0-9]+$ ]] || usage
+                MIN="$2"; shift 2 ;;
+        --root) [ $# -ge 2 ] && [ -n "$2" ] || usage
+                case "$2" in -m|--root|--) usage ;; esac
+                EXTRA_ROOTS+=("$2"); shift 2 ;;
+        --)     shift; REPOS+=("$@"); break ;;
+        -*)     usage ;;
+        *)      REPOS+=("$1"); shift ;;
     esac
 done
+set -- ${REPOS[@]+"${REPOS[@]}"}
 
 CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 CODEX_CONFIG_DIR="${CODEX_HOME:-$HOME/.codex}"
@@ -83,7 +91,7 @@ printf '\t%s' "${DEFAULT_ROOTS[@]}" ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"} "$@"
 printf '\n'
 CUTOFF=$(date -u -d "$MIN minutes ago" +%FT%TZ 2>/dev/null \
     || date -u -v-"${MIN}"M +%FT%TZ 2>/dev/null \
-    || python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(minutes=$MIN)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+    || python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(minutes=int('$MIN'))).strftime('%Y-%m-%dT%H:%M:%SZ'))")
 
 # 1. Receipts from tooling that records its own writes (e.g. /sync-template).
 #    Select by timestamp, never tail -N (silently truncates busy sessions).
