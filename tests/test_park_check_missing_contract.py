@@ -36,7 +36,9 @@ class ParkCheckMissingContractTests(unittest.TestCase):
                 self.assertIn(RULE, step12)
                 self.assertIn(OMIT, step12)
                 # Lines sit before the closing word, not after the summary.
-                self.assertLess(step12.index("Missing: "), step12.index("Parked."))
+                for row in ("Check: ", "Missing: "):
+                    self.assertGreater(step12.index(row), step12.index("Transcript exported"))
+                    self.assertLess(step12.index(row), step12.index("Parked."))
 
     def test_setup_collects_without_blocking_or_fabricating(self) -> None:
         for lane, text in self.renderings.items():
