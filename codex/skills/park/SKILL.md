@@ -29,6 +29,8 @@ Use Steps 2(a–c) and 3 to persist the attributable inventory, existing work pr
 
 **Full-run measurements:** keep a count of completed independent audit reports, rounds of fixes after those reports, and distinct confirmed audit findings. Before every completion or blocked return (including quick mode), record the observed counts as described under **Measurement close-out** below. Missing evidence stays unknown; human review time requires the user's report. Passive transcript collection measures the full request, including the final response.
 
+**Check / Missing ledger.** From Step 1 onward, note each judgement call the user should verify and each detail this park needed but did not have, for the `Check:` / `Missing:` lines in Step 12 (and the quick completion). Collect them silently and do not stop the run to ask: text before the final message is easily missed, and a mid-run question makes park blocking. Where a write needs a missing value, never invent the missing value; omit it from the write and list it under `Missing:`.
+
 Run `"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/resolve-vault.sh"`, then `"$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"`; abort on either error (usual causes: `VAULT_PATH` unset, or a pending archive migration). Resolve `CODEX_ROOT="${CODEX_HOME:-$HOME/.codex}"`, read `$CODEX_ROOT/skills/_shared-rules.md`, and apply it throughout. `{VAULT}` below = the resolved vault path: the part after `VAULT_PATH=` in the resolver's output (§1). Set `PARK_REVIEW="$CODEX_ROOT/skills/park/scripts/park-review.py"` and `PARK_ARTIFACT="{VAULT}/.claude/scripts/park-artifact.py"`; abort if either is absent.
 
 **Startup bundle (normal first tool call).** Codex has no UserPromptSubmit hook here. If the installed helper exists, include `python3 "{VAULT}/.claude/scripts/park-preflight.py" --manual --session-id "<actual parent session id>"` in setup's first tool call, after resolving the vault; otherwise run the normal setup/ledger reads. Inspect actual command statuses and source hashes before reusing checked observations. This is a normal tool call, not pre-first-model delivery. Its task candidates never replace fresh Step 7 literal/semantic dedup, attribution, propagation, verification or independent audit.
@@ -106,6 +108,7 @@ Keep this generation if a late mutation or verifier failure escalates the quick 
 ✓ Audit: skipped (--quick)
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
+[Check: / Missing: lines per Step 12 — omitted when empty]
 
 Quick parked.
 
@@ -308,10 +311,14 @@ Use the actual harness transcript session ID (resolve via `lib-session.sh` when 
 ✓ Audit: [clean pass | N findings fixed and re-audited clean]
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
+Check: [judgement call to verify — file or target]
+Missing: [detail needed but not available — where it was left out]
 
 Parked.
 
 [Roughly 50 words summarising the preceding session.]
 ```
+
+**Check / Missing lines:** print after the status lines and before the closing word. `Check:` names a judgement call this park made where a reasonable alternative would change what the user does next (a routing target, project link, dedup skip, classification or session framing). `Missing:` names detail this park needed but did not have (a value left out rather than invented, an unknown event date, an unresolved pass/fail criterion) and where the gap was left. One line per item, naming its file or target. Omit either heading entirely when it has no items; never write `none`. Choices made under this skill's rules and things omitted as routine are not listed. These lines are where the user answers; acting on an answer is post-park work (below).
 
 Work done after this message is unparked: a further `$park` in the same conversation takes Step 1's merge path.
