@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "ecf0c201ffaeb7c85c21fa4f3a35ee2dcd6fc848bd0b2269c59f621a21ef79b6",
-      "render_sha256": "faecea230f16fdcbebc6f9e538530b563fb9714467bcb962e630930900fe115a"
+      "source_sha256": "d5686a0b8e1ea043201a64c17f24891de1f51c053f27a0748625505a171fe017",
+      "render_sha256": "2266a386daa5798422018c4db0647318d472609762136cf7efce9008f0668df3"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
