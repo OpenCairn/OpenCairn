@@ -642,7 +642,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Unexplained hit you can't classify** → surface it to the user *in this session, now* — don't bury it in the report or defer it.
    - **Hit matching the malicious signature** → treat as an **active compromise, not a hygiene item.** Do NOT bury it in a project doc's `## Next Actions` or the Tickler as a backlog line — that is the wrong severity channel. Halt: stop opening projects in the affected directory, tell the user immediately and in plain language, and run incident response — assume everything reachable during the exposure window was already exfiltrated (1Password items unlocked in that window, SSH keys, API tokens, `.claude`/`.cursor`/`.gemini` configs), so rotate/revoke those, remove the hook from the config file, and trace which package introduced it. The weekly cadence is the *detection* budget; the *response* to a true positive is immediate, not weekly.
 
-   **Package drift review (routine awareness — separate from the tripwire outcomes above).** If the host runs a package-drift reporter (check `~/.local/state/package-drift-report.txt`, or the user's tech-infra context for its report path), read the latest report. Surface READY items for the user to apply manually; do not auto-apply. Items tagged `SELF` sit in the AI agent's own request path (the CLI itself, a router/proxy in front of it) — those are applied only from a plain shell outside the agent, never from within a session (an agent updating its own transport kills the session mid-update). No reporter → skip silently in execution but still record the report line in the hygiene report.
+   **Package drift review (routine awareness — separate from the tripwire outcomes above).** If the host runs a package-drift reporter (check `~/.local/state/package-drift-report.txt`, or the user's tech-infra context for its report path), read the latest report. Put each READY item to the user as an in-session decision (apply, hold, or skip this week) and wait for the answer; a READY item that appears only in the hygiene report has slipped past. Do not auto-apply; apply only what the user approves, and record each answer in the report. Items tagged `SELF` sit in the AI agent's own request path (the CLI itself, a router/proxy in front of it) — those are applied only from a plain shell outside the agent, never from within a session (an agent updating its own transport kills the session mid-update). No reporter → skip silently in execution but still record the report line in the hygiene report.
 
 15. **Skill-Monitor Log Processing**
 
@@ -723,7 +723,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ## Config Tripwire (supply-chain)
    - SessionStart / install hooks found: [list files, or "none"]
    - Suspicious `.pth` or hooks flagged: [list with reason, or "clean"]
-   - Package drift report: [not present / N READY, N SELF-held, M current]
+   - Package drift report: [not present / N READY (each with the user's decision), N SELF-held, M current]
 
    ## Skill Monitor
    - Log entries processed: N across M skills
