@@ -72,6 +72,10 @@ Calendar assistance is available only when explicitly requested. Handle that req
    - If a review map is configured, read its cadence/completion rules and the previous review’s Task-surface coverage; resume unread scopes and review the task sections due, including already-mapped homes. Reuse the independent discovery inventory; read the map's named task homes too, since discovery syntax does not find every plain-list action. Directory routes require checking task sections throughout that scope, including new files; a folder/status check is not a task review. Apply the map's weekly deadline/waiting-for checks across slower routes.
    - Bring decisions and proposed work to Align/the validation block; do not dump unchanged backlogs or automatically schedule them. Record which cadence/scopes were actually reviewed and what remains unread in Task-surface coverage. An uncompleted or skipped pass stays due; update completion records only in step 7 after the review.
 
+   **Untriaged capture union:** combine the previous review's Still-due surfaces, the map's still-due/progress entries, current hygiene markers and newly discovered captures. A surface does not disappear because its marker is absent. Record an explicit reason/evidence for every removal from that set; keep unread or unresolved surfaces under Still due.
+
+   **Large inspection option:** when due scopes exceed one bounded read, an available native read-only inspection seat may read an explicit path/section batch on the session's model per shared reviewer §10. Supply the source list and return `path/section | read range | task classification | unresolved`, with truncation/omissions explicit. The parent checks coverage and owns user questions, routing and writes; no nested reviewers or model-generated completion claims. Delegation is optional, and without it resume bounded batches rather than claim an unread cadence complete.
+
    **Sweep for tagged tasks:**
    - Long Poles [LP]: `rg -l '\[LP\]' "{VAULT}" -g '*.md' -g '!**/06 Archive/**' -g '!**/.stversions/**' -g '!**/.Provenance/**' -g '!**/.trash/**' -g '!**/.Trash-1000/**'`
    - Cornerstones [CS]: `rg -l '\[CS\]' "{VAULT}" -g '*.md' -g '!**/06 Archive/**' -g '!**/.stversions/**' -g '!**/.Provenance/**' -g '!**/.trash/**' -g '!**/.Trash-1000/**'`
@@ -344,6 +348,8 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
    - Not all users will have all sections. Omit any section with no corresponding context file or AGENTS.md content. The section list above is a superset — match to what the user's vault actually contains.
    - For stable sections, look for `07 System/Context - *.md` files matching the section topic (e.g., a photography context file for Photography, a health context file for Health & Medications).
 
+   **Shape and verification gate:** the current section contract and verified content win over a prior export's shape. The line target is guidance, not permission to omit a load-bearing stable section or carry an unverified one. Before saving or offering the export, enumerate every carried stable heading against `.verification-log.md`: a missing, invalid or older-than-30-days row fails that heading until its source is reread and reconciled. Report `Stable coverage: <heading> → <source/date or unresolved>`; retain the gap explicitly instead of calling the export verified.
+
    **Constraints:**
    - ~120-150 lines target. Stable sections should be detailed enough that the user doesn't need to re-explain these domains in web conversations.
    - Written in third person ("[Name] is...", "He/She prefers...") — Claude Web's Memory system uses third person, and imported content is restructured into the same style. Third person is more predictable and consistent.
@@ -404,6 +410,7 @@ The user manages the calendar; This Week tasks fill daily gaps. Daily execution 
    - Name each surface with its item count, then present the first surface's captures as one numbered proposal: each capture's wording, with a proposed home from the review map's capture routes or a disposition (delete as already done / leave in place). Group captures you cannot place and say so; do not guess a home.
    - The user accepts or overrides by number in one reply. File accepted items through `locked-edit.sh`, read back each destination, and remove the surface's hygiene marker once it no longer meets the marker's threshold. Captures the user leaves stay in place verbatim.
    - Then offer the next surface. The user may stop at any point; untriaged surfaces remain listed under **Still due**.
+   - After any post-save triage or monthly/quarterly pass, update the saved review's Task-surface coverage with a dated `After the review` outcome and surviving Still-due scopes through the lock. Read it back before marking the map cadence complete or pointing its completion row at that report; an unchanged report must not still say the completed pass is due.
    - If no capture surface is untriaged, say so in one line. Listing triage under **Still due** without making this offer is the failure this step exists to prevent.
 
 ## Guidelines

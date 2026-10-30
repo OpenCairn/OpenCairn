@@ -33,6 +33,7 @@ This is the **strategic half**, the reflective companion to `/quarterly-hygiene`
    - **Boundary rule:** if today falls in the first 2 weeks of a quarter, ask the user once whether this run reviews the just-ended quarter or the current one — a review run 2 Jul almost always covers Q2, and keying it to Q3 mislabels the output file and falsely stales a days-old hygiene report. Use the answer for the hygiene-report lookup, every "current quarter" test, and the output filename. (`/quarterly-hygiene` carries the same rule; keep the two runs on the same quarter.)
 
 2. **Gather quarterly data:**
+   - Read dated Tickler commitments through the next quarter's end, deriving that boundary from Step 1. Separate firm commitments/deadlines from optional reminders and routine administration. Bring only decision-relevant constraints into planning; neither a reminder nor an ongoing responsibility becomes a quarterly project without the user's confirmation.
    - Read the `03 Projects/` root docs — the SSOT for active-project state (`bucket:` frontmatter plus whatever current-state/action structure each doc uses), scanned in detail below
    - **Read the previous quarterly review:** filter to quarterly-review filenames, keep only quarters lexically older than the quarter under review, byte-sort them, then take the newest:
      ```bash

@@ -70,11 +70,13 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 
 **Initiative preflight:** when an initiative was selected, locate and read its actual hub before creating the child or writing its `**Initiative:**` link. If missing or ambiguous, show the candidates and ask for the existing hub or permission to proceed without an initiative; do not invent the hub. Record the resolved path, a unique backlink section anchor and the child's actual path. If the hub has no suitable section, confirm where to add one before writing.
 
+**Task dedup preflight:** search This Week and Tickler for both the project subject and each proposed first action. Read matching items before seeding Next Actions. Preserve an existing checkbox at its current home/date and link it from the project; do not create a second actionable copy or replace its execution-critical detail with a link alone.
+
 ### 4. Create project file
 
 Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
 
-**Write mechanism:** this step **creates** a file, so it uses a plain write, not `locked-edit.sh`. Per `_shared-rules.md` §5, the lock governs mutation of existing content; there is no read-modify-write cycle to lose here. Duplicate-creation safety is Step 3's collision check, not the lock's — the lock would serialise two racing creates and report success for both. Steps that mutate an initiative hub later in this skill are mutations and **do** go through `locked-edit.sh`.
+**Write mechanism:** stage the complete document outside the vault, then create it through `locked-edit.sh "<absolute project path>" --replace-whole MISSING` (§5/§14). Exit 2 is a competing creation: read it and repeat the conflict decision; never overwrite it or fall back to `Write`. Initiative-hub mutations retain their canonical locked writer.
 
 Omit the `**Initiative:**` line entirely when there's no initiative — don't write the words "(if applicable)" into the file.
 

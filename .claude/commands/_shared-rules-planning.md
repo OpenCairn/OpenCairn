@@ -41,6 +41,7 @@ When migrating Tickler items:
 - Preserve existing project/area links (`→ [[03 Projects/...]]`, `→ [[04 Areas/...]]`)
 - Replace session-log-only links with the relevant project/area link
 - Add links to bare items per the Item Linking Convention (Section 3)
+- Before deleting the old dated section, retain its exact `[[01 Now/Tickler#YYYY-MM-DD]]` anchor and each moved item's distinctive subject. Sweep the live text boundary per §12 for those old locators, including the item's linked owning hub. Repoint only task locators; a still-valid area SSOT link remains current. Verify the destination day contains that item's distinctive text, not just a matching heading, and emit `Transfer locator: <old anchor> → <destination day/task>`.
 
 ---
 
@@ -54,7 +55,7 @@ This procedure keeps the rolling 7-day window current. It runs during `/morning`
 
 ### Trim old day sections
 
-Delete any day sections whose date is more than 3 calendar days before today. Past days are already archived in Daily Reports — keeping them past 3 days adds clutter without value.
+A day more than 3 calendar days old is a trim candidate only after its daily report/collapse is confirmed; otherwise complete or retain catch-up first, since its checked items are still source material. Carry open tasks intact before deleting any old heading.
 
 1. Parse each `## ` heading for a date (e.g. `## ☀️ Fri 6 Mar` → 6 Mar, `## Mon 9 Mar` → 9 Mar). Skip headings that aren't day sections (e.g. `## Refs`).
 2. For each day section, compute `today_date - section_date`. If > 3 calendar days, execute /goodnight Step 9 with source = that section and destination = today’s section. Only after its open tasks are safely carried forward, run /goodnight Step 10's inbound-locator rule for that section's heading (find links to it, repoint them), then delete the old day section. Completed items remain in their Daily Report.
