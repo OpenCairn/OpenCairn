@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 from contextlib import contextmanager
 import datetime as dt
 import errno
@@ -12,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -145,6 +147,96 @@ def write_snapshot(root: Path, data: bytes) -> tuple[str, Path]:
     return digest, path
 
 
+def write_file_snapshot(root: Path, source: Path, category: str = "snapshots") -> tuple[str, Path]:
+    """Copy/hash a potentially large file without allocating it as one object."""
+    directory = root / category
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".capture-", dir=directory)
+    digest = hashlib.sha256()
+    try:
+        with os.fdopen(fd, "wb") as output, source.open("rb") as input_file:
+            for chunk in iter(lambda: input_file.read(1024 * 1024), b""):
+                digest.update(chunk)
+                output.write(chunk)
+        value = digest.hexdigest()
+        if sha256(source) != value:
+            die(f"source changed while capturing: {source}")
+        path = directory / f"{value}.snapshot"
+        if path.exists():
+            if sha256(path) != value:
+                die(f"snapshot digest collision or corruption: {path}")
+        else:
+            os.replace(temporary, path)
+        return value, path
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def raw_output_receipt(root: Path, source: Path) -> dict:
+    digest, snapshot = write_file_snapshot(root, source, "raw")
+    records = 0
+    prefix = b""
+    ongoing = False
+    per_file: dict[bytes, int] = {}
+    unparsed = 0
+
+    def finish() -> None:
+        nonlocal records, prefix, ongoing, unparsed
+        records += 1
+        # rg --null -n gives an unambiguous filename. Colon output is retained
+        # too, but its diagnostic count is labelled rather than assumed exact.
+        if b"\0" in prefix:
+            name, tail = prefix.split(b"\0", 1)
+            if not re.match(rb"^[0-9]+:", tail):
+                name = b""
+        else:
+            match = re.match(rb"^(.+?):[0-9]+:", prefix)
+            name = match.group(1) if match else b""
+        if name:
+            per_file[name] = per_file.get(name, 0) + 1
+        else:
+            unparsed += 1
+        prefix, ongoing = b"", False
+
+    with snapshot.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            pieces = chunk.split(b"\n")
+            for index, piece in enumerate(pieces):
+                if piece:
+                    ongoing = True
+                    prefix += piece[:max(0, 8192 - len(prefix))]
+                if index < len(pieces) - 1:
+                    finish()
+    if ongoing:
+        finish()
+    counts = []
+    for name, total in sorted(per_file.items()):
+        try:
+            display = name.decode("utf-8")
+        except UnicodeDecodeError:
+            display = None
+        counts.append({"path": display, "path_bytes_hex": name.hex(), "records": total})
+    return {"path": str(snapshot), "sha256": digest, "bytes": snapshot.stat().st_size,
+            "lf_records": records, "per_file_counts": counts,
+            "unparsed_records": unparsed,
+            "count_format": "LF records; rg --null -n filenames without LF exact; colon prefix diagnostic"}
+
+
+def file_is_utf8(path: Path) -> bool:
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                decoder.decode(chunk)
+        decoder.decode(b"", final=True)
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
 def artifact_helper(vault: Path) -> Path:
     candidates = []
     override = os.environ.get("OPENCAIRN_PARK_ARTIFACT_HELPER")
@@ -211,9 +303,17 @@ def forward_link_proof(vault: Path, path: Path, sid: str) -> dict | None:
 
 
 def semantic_review_copy(
-    root: Path, vault: Path, source: Path, data: bytes, classification: dict | None
+    root: Path, vault: Path, source: Path, data: bytes | None, classification: dict | None
 ) -> tuple[str, Path, Path, str, str, str]:
     """Return immutable source/review paths for a session-authored semantic file."""
+    if data is None:
+        digest = sha256(source)
+        receipt = validated_artifact_receipt(source, digest, classification or {})
+        source_snapshot = Path(receipt["source_snapshot"])
+        media_type = receipt.get("media_type") or "application/octet-stream"
+        if media_type not in TEXT_REVIEW_MEDIA_TYPES:
+            return digest, source_snapshot, source_snapshot, digest, "", media_type
+        data = source_snapshot.read_bytes()
     digest, snapshot_path = write_snapshot(root, data)
     binary = needs_binary_review(data)
     if not binary and not data.startswith(b"%PDF-"):
@@ -345,7 +445,7 @@ def cmd_begin_run(args: argparse.Namespace) -> int:
     generation = uuid.uuid4().hex
     root = base / "runs" / generation
     record = {"schema": 1, "session_id": sid, "generation": generation,
-              "started_at": now(), "root": str(root)}
+              "started_at": now(), "root": str(root), "completion_protocol": 1}
     atomic_json(root / "run.json", record)
     atomic_json(base / "active-run.json", record)
     print(json.dumps(record))
@@ -507,6 +607,10 @@ def verify_mechanical(
             if old in transformed:
                 transformed = transformed.replace(old, new)
                 used_here.append(index)
+                # Each producer receipt describes one actual transition. A later
+                # declared transition may consume this NEW in another receipt.
+                if transformed == new_text:
+                    break
         if transformed != new_text:
             failures.append(
                 f"receipt contains an undeclared or non-mechanical delta: {receipt['_receipt_path']}"
@@ -557,15 +661,21 @@ def verify_mechanical(
 
     text = target.read_text(encoding="utf-8")
     replacement_checks: list[dict] = []
-    for old, new in replacements:
+    for index, (old, new) in enumerate(replacements):
         old_count = text.count(old)
         new_count = text.count(new)
+        terminal = new
+        for later_old, later_new in replacements[index + 1:]:
+            if terminal == later_old:
+                terminal = later_new
+        terminal_count = text.count(terminal)
         if old_count:
             failures.append(f"old locator still present {old_count} time(s): {old!r}")
-        if not new_count:
-            failures.append(f"new locator absent: {new!r}")
+        if not terminal_count:
+            failures.append(f"new locator absent: {terminal!r}")
         replacement_checks.append(
-            {"old": old, "new": new, "old_count": old_count, "new_count": new_count}
+            {"old": old, "new": new, "old_count": old_count, "new_count": new_count,
+             "effective_new": terminal, "effective_new_count": terminal_count}
         )
 
     resolved_targets = [target_check(item, vault) for item in targets]
@@ -604,13 +714,95 @@ def receipt_lint_proof(receipt: dict) -> str:
     return "preserved" if post_lint == pre_lint else "introduced"
 
 
+def classification_registry(value: object, vault: Path) -> dict:
+    if not isinstance(value, dict):
+        die("invalid classification registry")
+    result: dict = {}
+    for raw, entry in value.items():
+        if not isinstance(raw, str) or not isinstance(entry, dict):
+            die("malformed classification registry row")
+        if entry.get("mode") not in ("semantic", "reference", "mechanical", "nonlocal"):
+            die(f"invalid classification mode for {raw}")
+        key = raw if raw.startswith("external::") else str(canonical_path(raw, vault))
+        if key in result:
+            old = result[key]
+            signature = lambda item: (item.get("mode"), item.get("inspection_scope", "targeted" if item.get("mode") == "reference" else "full"),
+                                      item.get("replacements"), item.get("mechanical_kind"))
+            if signature(old) != signature(entry):
+                die(f"classification aliases disagree on mode: {key}")
+            if (old.get("sha256_at_classification") and entry.get("sha256_at_classification")
+                    and old["sha256_at_classification"] != entry["sha256_at_classification"]):
+                die(f"classification aliases disagree on content hash: {key}")
+        else:
+            result[key] = dict(entry)
+        if not raw.startswith("external::"):
+            aliases = result[key].setdefault("aliases", [])
+            for alias in [*entry.get("aliases", []), str(lexical_path(raw, vault))]:
+                if alias not in aliases:
+                    aliases.append(alias)
+    return result
+
+
+@contextmanager
+def classification_writer(root: Path, sid: str):
+    root.mkdir(parents=True, exist_ok=True)
+    directory_lock = root / ".classification.lockdir"
+    owns_directory = False
+    with (root / ".classification.lock").open("a+b") as handle:
+        if fcntl is not None:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        else:  # Windows: serialize the same writer's concurrent CLI calls too.
+            deadline = time.monotonic() + 10
+            while True:
+                try:
+                    directory_lock.mkdir()
+                    owns_directory = True
+                    break
+                except FileExistsError:
+                    if time.monotonic() >= deadline:
+                        die("classification lock timed out; inspect its owner or begin a new generation")
+                    time.sleep(0.02)
+        try:
+            identity = (os.environ.get("OPENCAIRN_AGENT_ID") or os.environ.get("CODEX_THREAD_ID")
+                        or os.environ.get("CLAUDE_AGENT_ID") or "session:" + sid)
+            owner_path = root / "classification-writer.json"
+            owner = load_json(owner_path, None)
+            if owner is not None and not isinstance(owner, dict):
+                die("malformed classification writer record")
+            if owner is not None and owner.get("writer") != identity:
+                die("classification generation already has another writer; use the owning coordinator")
+            if owner is None:
+                atomic_json(owner_path, {"writer": identity, "claimed_at": now()})
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+            elif owns_directory:
+                directory_lock.rmdir()
+
+
+def store_classification(manifest: dict, path: Path, alias: Path, entry: dict) -> None:
+    prior = manifest.get(str(path), {})
+    scope = lambda item: item.get("inspection_scope", "targeted" if item.get("mode") == "reference" else "full")
+    if alias != path and prior and (prior.get("mode"), scope(prior)) != (entry.get("mode"), scope(entry)):
+        die(f"classification alias conflicts with the physical file's mode: {alias} -> {path}")
+    entry["aliases"] = list(dict.fromkeys([*prior.get("aliases", []), str(alias)]))
+    if alias != path:
+        for key in ("inspection_targets", "dependencies"):
+            entry[key] = list(dict.fromkeys([*prior.get(key, []), *entry.get(key, [])]))
+    manifest[str(path)] = entry
+
+
 def cmd_classify(args: argparse.Namespace) -> int:
-    _, root, receipt_root, _ = state_paths(args.session_id)
+    sid, root, receipt_root, _ = state_paths(args.session_id)
+    with classification_writer(root, sid):
+        return classify_locked(args, root, receipt_root)
+
+
+def classify_locked(args: argparse.Namespace, root: Path, receipt_root: Path) -> int:
     vault = canonical_path(args.vault)
     manifest_path = root / "files.json"
-    manifest = load_json(manifest_path, {})
-    if not isinstance(manifest, dict):
-        die(f"invalid file manifest: {manifest_path}")
+    manifest = classification_registry(load_json(manifest_path, {}), vault)
     if args.non_local:
         manifest[f"external::{args.path}"] = {
             "mode": "nonlocal",
@@ -630,17 +822,19 @@ def cmd_classify(args: argparse.Namespace) -> int:
             die("targeted semantic review requires at least one --inspection-target")
         inspection_scope = "targeted" if args.reference or args.targeted else "full"
         artifact = None
-        data = path.read_bytes()
+        with path.open("rb") as handle:
+            prefix = handle.read(8192)
         if (
-            data.startswith(b"%PDF-")
+            prefix.startswith(b"%PDF-")
             or inspection_scope == "targeted"
-            or needs_binary_review(data)
+            or is_binary_artifact(prefix) or not file_is_utf8(path)
         ):
             artifact = prepare_artifact(root, vault, path, path)
-        manifest[str(path)] = {
+        entry = {
             "mode": "reference" if args.reference else "semantic",
             "inspection_scope": inspection_scope,
             "inspection_targets": args.inspection_target or [],
+            "dependencies": getattr(args, "dependency", None) or [],
             "reason": args.reason
             or (
                 "imported local reference artefact"
@@ -649,8 +843,10 @@ def cmd_classify(args: argparse.Namespace) -> int:
             ),
             "classified_at": now(),
             "sha256_at_classification": sha256(path),
+            "full_read_confirmed": bool(getattr(args, "confirm_full_read", False)),
             **({"artifact": artifact} if artifact else {}),
         }
+        store_classification(manifest, path, lexical_path(args.path, vault), entry)
         atomic_json(manifest_path, manifest)
         label = "REFERENCE" if args.reference else "SEMANTIC"
         detail = ""
@@ -683,14 +879,16 @@ def cmd_classify(args: argparse.Namespace) -> int:
         for failure in result["failures"]:
             print(f"FAIL mechanical: {failure}", file=sys.stderr)
         return 1
-    manifest[str(path)] = {
+    entry = {
         "mode": "mechanical",
         "classified_at": now(),
         "replacements": args.replace,
         "targets": args.target or [],
         "no_locator_target": bool(args.no_locator_target),
         "verification": result,
+        "dependencies": getattr(args, "dependency", None) or [],
     }
+    store_classification(manifest, path, lexical_path(args.path, vault), entry)
     atomic_json(manifest_path, manifest)
     print(
         f"PASS mechanical: {path} ({len(args.replace)} replacement(s), "
@@ -840,6 +1038,12 @@ def verify_preserved_move(path: Path, vault: Path, proof: dict, receipt_dir: Pat
 
 
 def cmd_import_preserved_move(args: argparse.Namespace) -> int:
+    sid, root, _, _ = state_paths(args.session_id)
+    with classification_writer(root, sid):
+        return import_preserved_move_locked(args)
+
+
+def import_preserved_move_locked(args: argparse.Namespace) -> int:
     sid, root, receipt_root, _ = state_paths(args.session_id)
     vault = canonical_path(args.vault)
     path = lexical_path(args.path, vault)
@@ -866,6 +1070,12 @@ def cmd_import_preserved_move(args: argparse.Namespace) -> int:
 
 
 def cmd_import_move_heals(args: argparse.Namespace) -> int:
+    sid, root, _, _ = state_paths(args.session_id)
+    with classification_writer(root, sid):
+        return import_move_heals_locked(args)
+
+
+def import_move_heals_locked(args: argparse.Namespace) -> int:
     """Import link-target-only rewrites proved by locked Obsidian moves."""
     sid, root, receipt_root, _ = state_paths(args.session_id)
     vault = canonical_path(args.vault)
@@ -900,8 +1110,6 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
     for _, receipt_name, receipt in sorted(receipts):
         move_path = Path(receipt_name)
         destination = canonical_path(str(receipt.get("destination", "")), vault)
-        if not destination.is_file():
-            die(f"project-move destination is missing: {destination}")
         moves += 1
         unverified += len(receipt.get("unverified_files", []))
         for item in receipt.get("affected_files", []):
@@ -928,20 +1136,24 @@ def cmd_import_move_heals(args: argparse.Namespace) -> int:
 
     for path_name, heals in grouped.items():
         path = Path(path_name)
+        prior = manifest.get(path_name, {})
+        if prior.get("mode") in ("semantic", "reference"):
+            incomplete.append(f"MOVE_HEAL_REVIEW {path}: explicit {prior['mode']} classification retained")
+            unverified += 1
+            continue
         proof = {"heals": heals} if len(heals) > 1 else heals[0]
         result = (verify_move_heal_chain(path, vault, proof) if len(heals) > 1
                   else verify_move_heal(path, vault, proof))
-        current_only = {"current file hash does not match the move-healing receipt",
-                        "current file hash does not match the final move-healing receipt"}
         if not result["ok"]:
-            if set(result["failures"]) <= current_only:
-                # Later edits require ordinary review, never a forged mechanical proof.
-                if manifest.get(path_name, {}).get("mode") == "mechanical":
-                    manifest.pop(path_name)
-                unverified += 1
-                incomplete.append(f"MOVE_HEAL_REVIEW {path}: later edits require semantic review")
-                continue
-            die(f"move-healing proof failed for {path}: " + "; ".join(result["failures"]))
+            # Reject this mechanical proof, not independently valid files from
+            # other moves. Semantic edits can interrupt a receipt chain; moves
+            # or deletions can also remove its target after it was produced.
+            if manifest.get(path_name, {}).get("mode") == "mechanical":
+                manifest.pop(path_name)
+            unverified += 1
+            incomplete.append(f"MOVE_HEAL_REVIEW {path}: semantic review required: "
+                              + "; ".join(result["failures"]))
+            continue
         manifest[path_name] = {
             "mode": "mechanical",
             "mechanical_kind": "obsidian-link-heal-chain" if len(heals) > 1 else "obsidian-link-heal",
@@ -1002,7 +1214,59 @@ def cmd_capture(args: argparse.Namespace) -> int:
     _, root, _, _ = state_paths(args.session_id)
     if args.kind == "evidence" and (not args.source or not args.provenance):
         die("evidence receipts require --source and --provenance")
-    text = sys.stdin.read()
+    structured = None
+    raw = None
+    if getattr(args, "raw_file", None):
+        raw = raw_output_receipt(root, canonical_path(args.raw_file))
+        text = (f"Complete raw-byte receipt: {raw['path']}\nSHA-256: {raw['sha256']}\n"
+                f"Bytes: {raw['bytes']}; LF-delimited records: {raw['lf_records']}; "
+                f"per-file counts retained in the capture JSON; unparsed records: {raw['unparsed_records']}")
+    else:
+        # Reading .buffer preserves CR and NUL bytes rather than universal-newline
+        # conversion. Large or non-UTF-8 output uses --raw-file, never replacement
+        # decoding that changes the receipt bytes.
+        buffer = getattr(sys.stdin, "buffer", None)
+        text = buffer.read().decode("utf-8") if buffer is not None else sys.stdin.read()
+    if args.kind in ("enumeration", "propagation") and not getattr(args, "raw_file", None):
+        try:
+            candidate = json.loads(text)
+        except ValueError:
+            candidate = None
+        if args.kind == "enumeration":
+            if not isinstance(candidate, dict) or not isinstance(candidate.get("needles"), list):
+                die('enumeration requires JSON {"needles": [{"needle": "...", "match_mode": "fixed|word|phrase"}]}')
+            structured = {"needles": normalise_needles(candidate["needles"])}
+        elif isinstance(candidate, dict) and "searches" in candidate:
+            if not isinstance(candidate["searches"], list):
+                die("propagation searches must be a list")
+            searches = []
+            for row in candidate["searches"]:
+                needle = normalise_needles([row])[0]
+                statuses = [row[k] for k in ("exit_status", "exit_code", "returncode") if k in row]
+                if (not statuses or any(type(v) is not int for v in statuses)
+                        or len(set(statuses)) != 1):
+                    die("search receipt requires one consistent integer exit_status/exit_code/returncode")
+                if not isinstance(row.get("command"), str) or not row["command"].strip():
+                    die("search receipt requires its literal command")
+                if not isinstance(row.get("cwd"), str) or not Path(row["cwd"]).is_absolute():
+                    die("search receipt requires absolute cwd")
+                validate_search_command({**row, **needle})
+                output = {}
+                for stream in ("stdout", "stderr"):
+                    name = row.get(stream + "_file")
+                    if not isinstance(name, str):
+                        die(f"search receipt requires {stream}_file, including an empty output file")
+                    output[stream] = raw_output_receipt(root, canonical_path(name))
+                searches.append({**needle, "exit_status": statuses[0], "command": row["command"],
+                                 "cwd": row["cwd"], **output})
+            structured = {"searches": searches}
+            text = str(candidate.get("report", "")) + "\nExecuted search receipts:\n" + "\n".join(
+                f"{row['needle']!r} ({row['match_mode']}), exit_status={row['exit_status']}; "
+                f"command={row['command']!r}; cwd={row['cwd']!r}; "
+                + "; ".join(f"{stream}={row[stream]['path']} SHA-256={row[stream]['sha256']} "
+                            f"bytes={row[stream]['bytes']} LF records={row[stream]['lf_records']}"
+                            for stream in ("stdout", "stderr"))
+                for row in searches)
     path = capture_record(
         root,
         kind=args.kind,
@@ -1011,8 +1275,279 @@ def cmd_capture(args: argparse.Namespace) -> int:
         source=args.source,
         provenance=args.provenance,
     )
+    if structured is not None or raw is not None:
+        record = load_json(path, {})
+        if structured is not None:
+            record["structured"] = structured
+        if raw is not None:
+            record["raw"] = raw
+        atomic_json(path, record)
+    if getattr(args, "dependency", None) or getattr(args, "mutation_for", None):
+        record = load_json(path, {})
+        record["dependencies"] = getattr(args, "dependency", None) or []
+        if getattr(args, "mutation_for", None):
+            if (not getattr(args, "command", None) or type(getattr(args, "exit_status", None)) is not int
+                    or not getattr(args, "cwd", None) or not Path(args.cwd).is_absolute()):
+                die("mutation evidence requires --command, absolute --cwd and integer --exit-status")
+            record["mutation"] = {"path": args.mutation_for, "command": args.command,
+                                  "cwd": args.cwd, "exit_status": args.exit_status}
+        atomic_json(path, record)
     print(f"Receipt: {path}")
     return 0
+
+
+def normalise_needles(rows: list) -> list[dict]:
+    result = []
+    for row in rows:
+        if (not isinstance(row, dict) or not isinstance(row.get("needle"), str)
+                or not row["needle"] or "\n" in row["needle"] or "\0" in row["needle"]):
+            die("needle rows require a non-empty single-line literal needle")
+        mode = row.get("match_mode", "fixed")
+        if mode not in ("fixed", "word", "phrase"):
+            die("needle match_mode must be fixed, word or phrase")
+        value = {"needle": row["needle"], "match_mode": mode}
+        if value in result:
+            die(f"duplicate needle/match_mode: {value}")
+        result.append(value)
+    return result
+
+
+def decoded_json(value: object) -> object:
+    """Unwrap escaped outer JSON without changing an ordinary textual result."""
+    for _ in range(4):
+        if not isinstance(value, str):
+            break
+        try:
+            nested = json.loads(value)
+        except ValueError:
+            break
+        if nested == value:
+            break
+        value = nested
+    return value
+
+
+def tool_text(value: object) -> str:
+    value = decoded_json(value)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(part for item in value if (part := tool_text(item)))
+    if isinstance(value, dict):
+        # URL/title/date/size are metadata, not a retrieved supporting passage.
+        for key in ("text", "body", "content", "output", "result"):
+            if key in value:
+                return tool_text(value[key])
+    return ""
+
+
+def tool_sources(arguments: object, output: object) -> list[str]:
+    found = []
+    def walk(value: object):
+        value = decoded_json(value)
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in ("file_path", "path", "source", "url", "ref_id") and isinstance(item, str):
+                    if (item.startswith(("/", "~/", "http://", "https://")) and item not in found):
+                        found.append(item)
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+        elif isinstance(value, str):
+            for url in re.findall(r"https?://[^\s\"'<>\\)\]}]+", value):
+                if url not in found:
+                    found.append(url)
+    walk(arguments)
+    walk(output)
+    return found
+
+
+def cmd_capture_tools(args: argparse.Namespace) -> int:
+    """Index actual tool returns, pairing native custom calls and async waits."""
+    _, root, _, _ = state_paths(args.session_id)
+    transcript = canonical_path(args.transcript)
+    index_path = root / "tool-source-index.json"
+    index = load_json(index_path, {"schema": 1, "records": []})
+    if not isinstance(index, dict) or not isinstance(index.get("records"), list):
+        die("malformed tool source index")
+    records = index["records"]
+    calls: dict[str, dict] = {}
+    cells: dict[str, dict] = {}
+    seen = {(item.get("call_id"), item.get("raw_sha256")) for item in records}
+    added = 0
+    with transcript.open("rb") as handle:
+        for line_number, raw_line in enumerate(handle, 1):
+            try:
+                line = raw_line.decode("utf-8")
+            except UnicodeDecodeError:
+                die(f"tool transcript is not UTF-8 at line {line_number}; retain it with capture --raw-file")
+            try:
+                outer = decoded_json(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(outer, dict):
+                continue
+            value = decoded_json(outer.get("payload", outer))
+            if not isinstance(value, dict):
+                continue
+            message = value.get("message", value)
+            events = ([value] if value.get("type") in (
+                "function_call", "custom_tool_call", "function_call_output", "custom_tool_call_output")
+                else message.get("content", []) if isinstance(message, dict)
+                and isinstance(message.get("content"), list) else [value])
+            for event in events:
+                if not isinstance(event, dict):
+                    continue
+                kind = event.get("type")
+                if kind in ("function_call", "custom_tool_call", "tool_use"):
+                    ident = str(event.get("call_id") or event.get("id") or "")
+                    calls[ident] = {"id": ident, "name": event.get("name", "unknown"),
+                                    "arguments": decoded_json(event.get("arguments", event.get("input", {})))}
+                    continue
+                if kind not in ("function_call_output", "custom_tool_call_output", "tool_result"):
+                    continue
+                ident = str(event.get("call_id") or event.get("tool_use_id") or "")
+                call = calls.get(ident, {"id": ident, "name": "unknown", "arguments": {}})
+                parent = call
+                arguments = call.get("arguments")
+                if isinstance(arguments, dict) and arguments.get("cell_id") in cells:
+                    parent = cells[arguments["cell_id"]]
+                output = event.get("output", event.get("content", ""))
+                body = tool_text(output)
+                match = re.search(r"Script running with cell ID\s+([\w-]+)", body)
+                if match:
+                    cells[match.group(1)] = parent
+                raw_digest, raw_path = write_snapshot(root, raw_line)
+                if (ident, raw_digest) in seen:
+                    continue
+                sources = tool_sources(parent.get("arguments"), output)
+                requested_sources = tool_sources(parent.get("arguments"), {})
+                entry = {"call_id": ident, "parent_call_id": parent.get("id"),
+                         "tool": call["name"], "source_tool": parent["name"],
+                         "sources": sources, "requested_sources": requested_sources,
+                         "raw_sha256": raw_digest, "raw_path": str(raw_path),
+                         "transcript": str(transcript), "line": line_number,
+                         "metadata_only": not bool(body.strip()) or body.strip() in sources or bool(match), "support": []}
+                # Keep decoded text as an immutable index for passage checks; the
+                # original JSON line remains available byte-for-byte beside it.
+                body_digest, body_path = write_snapshot(root, body.encode("utf-8"))
+                entry.update(text_path=str(body_path), text_sha256=body_digest)
+                origin = parent.get("arguments")
+                if not isinstance(origin, str):
+                    origin = json.dumps(origin, ensure_ascii=False)
+                requested = parent.get("arguments")
+                entry["direct_read"] = bool(
+                    parent["name"].casefold() in ("read", "read_file", "webfetch")
+                    or isinstance(requested, dict) and any(key in requested for key in ("open", "fetch"))
+                    or isinstance(requested, str) and re.search(
+                        r'web__run\s*\(\s*\{\s*["\']?open["\']?\s*:', origin))
+                records.append(entry)
+                seen.add((ident, raw_digest))
+                added += 1
+                source = sources[0] if len(sources) == 1 else f"tool:{call['name']}:{ident}"
+                text = body if 0 < len(body) <= 16384 else (
+                    f"Tool return retained at {raw_path} SHA-256 {raw_digest}; "
+                    f"decoded passage index {body_path} SHA-256 {body_digest}; "
+                    f"metadata_only={entry['metadata_only']}; sources={json.dumps(sources)}")
+                receipt_path = capture_record(root, kind="evidence", label=f"tool {call['name']} {ident}",
+                    text=text, source=source, provenance="unverified")
+                receipt = load_json(receipt_path, {})
+                receipt["tool_record"] = entry
+                atomic_json(receipt_path, receipt)
+    atomic_json(index_path, index)
+    for item in records:
+        for path_key, digest_key in (("raw_path", "raw_sha256"), ("text_path", "text_sha256")):
+            retained = Path(str(item.get(path_key, "")))
+            if not retained.is_file() or sha256(retained) != item.get(digest_key):
+                die(f"tool source index snapshot missing or corrupt: {retained}")
+    claims = load_json(canonical_path(args.claims_file), []) if args.claims_file else []
+    if not isinstance(claims, list):
+        die("claims file must be a list of source/passage declarations")
+    for claim in claims:
+        if (not isinstance(claim, dict) or not isinstance(claim.get("source"), str)
+                or not isinstance(claim.get("passage"), str) or not claim["passage"].strip()):
+            die("each source claim requires a source and nonempty literal passage")
+        matches = [item for item in records if claim["source"] in item["sources"]
+                   and (not claim.get("call_id") or claim["call_id"] in (item["call_id"], item["parent_call_id"]))
+                   and not item["metadata_only"]
+                   and claim["passage"] in Path(item["text_path"]).read_bytes().decode("utf-8")]
+        if not matches:
+            die(f"no captured passage supports source claim: {claim['source']}")
+        item = matches[-1]
+        provenance = claim.get("provenance", "primary")
+        if provenance not in ("primary", "secondary", "unverified"):
+            die("source claim provenance must be primary, secondary or unverified")
+        if provenance == "primary" and (not item["direct_read"]
+                or item.get("requested_sources") != [claim["source"]]):
+            die(f"primary passage has ambiguous or discovery-only source association: {claim['source']}")
+        capture_record(root, kind="evidence", label="captured supporting passage", text=claim["passage"],
+                       source=claim["source"], provenance=provenance)
+        item["support"].append(claim["passage"])
+    atomic_json(index_path, index)
+    print(f"Tool source index: {index_path}; returns added {added}; total {len(records)}; supported claims {len(claims)}")
+    return 0
+
+
+def validate_search_command(row: dict) -> None:
+    try:
+        argv = shlex.split(row.get("command", ""))
+    except ValueError as exc:
+        die(f"invalid literal search command: {exc}")
+    if any(token in argv for token in ("|", "||", "&&", ";", ">", ">>")):
+        die("search command must name rg before output redirection, without a filtering pipeline")
+    start = next((i for i, value in enumerate(argv)
+                  if Path(value).name.casefold() in ("rg", "rg.exe")), None)
+    if start is None:
+        die("structured search command must invoke rg")
+    args = argv[start + 1:]
+    delimiter = args.index("--") if "--" in args else len(args)
+    options = args[:delimiter]
+    fixed = "--fixed-strings" in options or any(re.fullmatch(r"-[A-Za-z]*F[A-Za-z]*", x) for x in options)
+    word = "--word-regexp" in options or any(re.fullmatch(r"-[A-Za-z]*w[A-Za-z]*", x) for x in options)
+    if not fixed or (row.get("match_mode") == "word") != word:
+        die("search command flags do not match the declared literal match_mode")
+    patterns = [options[i + 1] for i, x in enumerate(options[:-1]) if x in ("-e", "--regexp")]
+    patterns += [x.split("=", 1)[1] for x in options if x.startswith("--regexp=")]
+    if not patterns and delimiter < len(args) - 1:
+        patterns = [args[delimiter + 1]]
+    if row.get("needle") not in patterns:
+        die("search command does not contain the declared pattern after -- or -e")
+
+
+def validate_propagation_coverage(captures: list[dict], propagation: dict) -> dict | None:
+    enumerations = [item for item in captures if item.get("kind") == "enumeration"]
+    if not enumerations:
+        return None  # Legacy callers remain usable; updated callers capture a final enumeration.
+    rows = enumerations[-1].get("structured", {}).get("needles")
+    if not isinstance(rows, list):
+        die("malformed final enumeration receipt")
+    expected = {(row["needle"], row["match_mode"]) for row in normalise_needles(rows)}
+    searches = propagation.get("structured", {}).get("searches")
+    if not isinstance(searches, list):
+        die("Propagation coverage: latest propagation receipt has no structured executed-search set")
+    executed = set()
+    failed = []
+    for row in searches:
+        validate_search_command(row)
+        needle = normalise_needles([row])[0]
+        key = (needle["needle"], needle["match_mode"])
+        if key in executed:
+            die(f"Propagation coverage: duplicate executed needle {key}")
+        executed.add(key)
+        if row.get("exit_status") not in (0, 1):
+            failed.append(key)
+        for stream in ("stdout", "stderr"):
+            raw = row.get(stream, {})
+            path = Path(str(raw.get("path", "")))
+            if not path.is_file() or sha256(path) != raw.get("sha256"):
+                die(f"Propagation coverage: {stream} receipt missing or corrupt for {key}")
+    result = {"enumerated": len(expected), "executed": len(executed),
+              "missing": sorted(expected - executed), "unexpected": sorted(executed - expected),
+              "failed": sorted(failed)}
+    if result["missing"] or result["unexpected"] or result["failed"]:
+        die("Propagation coverage: " + json.dumps(result, ensure_ascii=False))
+    return result
 
 
 def accepted_inherited_lint(
@@ -1315,9 +1850,48 @@ def load_captures(root: Path) -> list[dict]:
         item = load_json(path, None)
         if isinstance(item, dict):
             item["_path"] = str(path)
+            retained = [item["raw"]] if isinstance(item.get("raw"), dict) else []
+            for row in item.get("structured", {}).get("searches", []):
+                retained.extend(row.get(key, {}) for key in ("stdout", "stderr"))
+            tool = item.get("tool_record", {})
+            for path_key, hash_key in (("raw_path", "raw_sha256"), ("text_path", "text_sha256")):
+                if path_key in tool:
+                    retained.append({"path": tool[path_key], "sha256": tool.get(hash_key)})
+            for raw in retained:
+                source = Path(str(raw.get("path", "")))
+                if not source.is_file() or sha256(source) != raw.get("sha256"):
+                    die(f"capture snapshot missing or corrupt: {source}")
             records.append(item)
     records.sort(key=lambda item: item.get("captured_at", ""))
     return records
+
+
+def dependency_coverage(classifications: dict, captures: list[dict], attributed: list[Path],
+                        remote_rows: frozenset[str], vault: Path) -> dict:
+    known = {str(path) for path in attributed}
+    requested: set[str] = set()
+    for capture in captures:
+        source = capture.get("source")
+        if isinstance(source, str) and source.startswith(("/", "~/")):
+            known.add(str(canonical_path(source.split("#", 1)[0], vault)))
+        requested.update(str(canonical_path(raw, vault)) for raw in capture.get("dependencies", []))
+    for path in attributed:
+        entry = classifications.get(str(path), {})
+        requested.update(str(canonical_path(raw, vault)) for raw in entry.get("dependencies", []))
+        for target in entry.get("inspection_targets", []):
+            tokens = re.findall(r"`([^`]+)`", target)
+            tokens += re.findall(r"(?:^|\s)((?:/|~/)[^\s`]+)", target)
+            for token in tokens:
+                token = token.rstrip(".,;)").split("#", 1)[0]
+                if (not REMOTE_PATH_RE.match(token)
+                        and re.search(r"\.(?:md|txt|py|sh|json|jsonl|yaml|yml|toml|pdf|html|js|ts|css|csv|tsv|xml)$", token, re.I)):
+                    requested.add(str(canonical_path(token, vault)))
+    mutations = {item.get("mutation", {}).get("path") for item in captures
+                 if isinstance(item.get("mutation"), dict)
+                 and item["mutation"].get("command") and item["mutation"].get("cwd")
+                 and type(item["mutation"].get("exit_status")) is int}
+    return {"requested": sorted(requested), "covered": sorted(requested & known),
+            "missing": sorted(requested - known), "missing_remote_mutation": sorted(remote_rows - mutations)}
 
 
 def current_audit_receipts(audit_root: Path) -> list[dict]:
@@ -1618,9 +2192,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     log_text = decode_utf8(log_bytes, log)
     block, sections = extract_session_text(log_text, args.number, log)
     manifest_path = root / "files.json"
-    classifications = load_json(manifest_path, {})
-    if not isinstance(classifications, dict):
-        die(f"invalid file manifest: {manifest_path}")
+    classifications = classification_registry(load_json(manifest_path, {}), vault)
     created_rows = parse_file_rows(
         sections.get("Files Created", ""), vault, classifications
     )
@@ -1640,6 +2212,11 @@ def cmd_build(args: argparse.Namespace) -> int:
     remote_rows = frozenset(
         path for path, note in created_rows + updated_rows if note == "remote"
     )
+    descriptions: dict[str, list[str]] = {}
+    for line in (sections.get("Files Created", "") + "\n" + sections.get("Files Updated", "")).splitlines():
+        for raw, note in parse_file_rows(line, vault, classifications):
+            if note not in ("deleted", "remote"):
+                descriptions.setdefault(str(canonical_path(raw, vault)), []).append(line)
 
     created = {canonical_path(path, vault) for path in created_raw}
     local_paths, external_files = partition_attributed_paths(
@@ -1664,15 +2241,46 @@ def cmd_build(args: argparse.Namespace) -> int:
     for path in local_paths:
         if not path.is_file():
             die(f"attributed local file is missing: {path}")
-        data = captured_bytes.get(path)
-        if data is None:
-            snapshot_times[path] = now()
-            data = path.read_bytes()
-        snapshot_at = snapshot_times[path]
-        digest = sha256_bytes(data)
         classification = classifications.get(str(path))
+        data = captured_bytes.get(path)
+        snapshot_times.setdefault(path, now())
+        digest = sha256_bytes(data) if data is not None else sha256(path)
+        if isinstance(classification, dict) and classification.get("sha256_at_classification") not in (None, digest):
+            die(f"classification is stale for {path}; reclassify current bytes before build")
+        if isinstance(classification, dict) and (
+            classification.get("mode") == "reference"
+            or (classification.get("mode") == "semantic"
+                and classification.get("inspection_scope") == "targeted")
+        ):
+            artifact = validated_artifact_receipt(path, digest, classification)
+            targeted_review.append({
+                "path": str(path), "sha256": digest, "kind": classification.get("mode"),
+                "reason": classification.get("reason", "bounded inspection"),
+                "inspection_targets": classification.get("inspection_targets", []),
+                **{key: artifact.get(key) for key in (
+                    "source_snapshot", "media_type", "bytes", "pages", "review_path",
+                    "review_sha256", "review_lines", "text_status", "receipt_path")},
+            })
+            continue
+        binary_receipt = (classification.get("artifact") if isinstance(classification, dict) else None)
+        binary_receipt = (binary_receipt if isinstance(binary_receipt, dict)
+                          and binary_receipt.get("media_type") not in TEXT_REVIEW_MEDIA_TYPES else None)
+        automatic_proof = None
+        if classification is None and path != log:
+            if path not in created:
+                automatic_proof = forward_link_proof(vault, path, sid)
+            if not automatic_proof or automatic_proof.get("post_sha256") != digest:
+                with path.open("rb") as handle:
+                    prefix = handle.read(8192)
+                kind = "non-text artefact" if is_binary_artifact(prefix) or not file_is_utf8(path) else "file"
+                die(f"unclassified {kind}: {path}; use classify --reference for imported sources, "
+                    "--semantic for authored work, or --semantic --targeted with inspection targets")
+        if data is None:
+            if binary_receipt is None:
+                data = path.read_bytes()
+        snapshot_at = snapshot_times[path]
         if classification is None and path != log and path not in created:
-            proof = forward_link_proof(vault, path, sid)
+            proof = automatic_proof
             if proof and proof['post_sha256'] == digest and not lint_errors(proof['inserted_line']):
                 verification = {'ok': True, 'failures': [], 'replacements': [],
                     'targets': [target_check(p['target_log'], vault) for p in proof['receipts']],
@@ -1684,33 +2292,19 @@ def cmd_build(args: argparse.Namespace) -> int:
                         'unified_diff': '+ ' + p['inserted_line']} for p in proof['receipts']]}
                 mechanical.append({'path': str(path), 'sha256': digest, 'verification': verification})
                 continue
-        if isinstance(classification, dict) and (
-            classification.get("mode") == "reference"
-            or (
-                classification.get("mode") == "semantic"
-                and classification.get("inspection_scope") == "targeted"
-            )
-        ):
-            artifact = validated_artifact_receipt(path, digest, classification)
-            targeted_review.append(
-                {
-                    "path": str(path),
-                    "sha256": digest,
-                    "kind": classification.get("mode"),
-                    "reason": classification.get("reason", "bounded inspection"),
-                    "inspection_targets": classification.get("inspection_targets", []),
-                    "source_snapshot": artifact["source_snapshot"],
-                    "media_type": artifact.get("media_type"),
-                    "bytes": artifact.get("bytes"),
-                    "pages": artifact.get("pages"),
-                    "review_path": artifact.get("review_path"),
-                    "review_sha256": artifact.get("review_sha256"),
-                    "review_lines": artifact.get("review_lines"),
-                    "text_status": artifact.get("text_status"),
-                    "receipt_path": artifact.get("receipt_path"),
-                }
-            )
-            continue
+        if classification is None and path != log:
+            kind = "non-text artefact" if data is not None and (is_binary_artifact(data) or not is_utf8(data)) else "file"
+            die(f"unclassified {kind}: {path}; use classify --reference for imported sources, "
+                "--semantic for authored work, or --semantic --targeted with inspection targets")
+        if (classification and classification.get("mode") == "semantic"
+                and classification.get("inspection_scope", "full") == "full" and path not in created
+                and is_within(path, vault / "06 Archive")
+                and not classification.get("full_read_confirmed")
+                and re.search(r"continuation|continued|supersession|banner|forward.link",
+                              classification.get("reason", "") + "\n" + "\n".join(descriptions.get(str(path), [])),
+                              re.IGNORECASE)):
+            die(f"historical continuation-only file needs explicit coverage confirmation: {path}; "
+                "classify --semantic --targeted with inspection targets, or --confirm-full-read")
         if path in created:
             (
                 snapshot_digest,
@@ -1834,6 +2428,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     if not verifier_items:
         die("no verifier receipt; run park-verify through run-verifier")
     propagation = propagation_items[-1]
+    propagation_coverage = validate_propagation_coverage(captures, propagation)
+    dependencies = dependency_coverage(classifications, captures, local_paths, remote_rows, vault)
+    if getattr(args, "check_dependencies", False) and (dependencies["missing"] or dependencies["missing_remote_mutation"]):
+        die("Dependency coverage: " + json.dumps(dependencies, ensure_ascii=False))
     verifier = verifier_items[-1]
     if verifier.get("returncode") not in (None, 0):
         die("latest verifier receipt records a failing exit status")
@@ -1855,6 +2453,20 @@ def cmd_build(args: argparse.Namespace) -> int:
     ledger = ledger_path.read_text(encoding="utf-8") if ledger_path.exists() else "NOTE: no ledger"
 
     read_groups = group_full_reads(full_read)
+    digests = {item["path"]: item["sha256"]
+               for item in [*full_read, *targeted_review, *mechanical, *reused]}
+    modes = {item["path"]: label for rows, label in ((full_read, "semantic"),
+             (mechanical, "mechanical"), (reused, "receipt-reuse")) for item in rows}
+    modes.update({item["path"]: item["kind"] + "-targeted" for item in targeted_review})
+    alias_lines = [f"- `{item['path']}` -> `{item['physical_path']}`; "
+                   f"SHA-256 `{digests[item['physical_path']]}`; mode "
+                   f"`{modes[item['physical_path']]}`"
+                   for item in attributed_paths]
+    requested = {str(path) for path in local_paths}
+    registry_paths = {key for key in classifications if not key.startswith("external::")}
+    classification_coverage = {"requested": sorted(requested), "registered": sorted(requested & registry_paths),
+                               "automatic": sorted(requested - registry_paths),
+                               "unused": sorted(registry_paths - requested)}
     lines = [
         "# Park close-out review brief",
         "",
@@ -1867,6 +2479,10 @@ def cmd_build(args: argparse.Namespace) -> int:
         "## Session N block (attribution boundary)",
         "",
         fenced(block, "markdown"),
+        "",
+        "## Lexical aliases and physical identities",
+        "",
+        *alias_lines,
         "",
         "## Review modes",
         "",
@@ -1967,9 +2583,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             ]
         )
         for check in verification["replacements"]:
+            consumed = (f"; consumed by same-run chain -> `{check['effective_new']}`; "
+                        f"final count {check['effective_new_count']}"
+                        if check.get("effective_new", check["new"]) != check["new"] else "")
             lines.append(
                 f"- `{check['old']}` → `{check['new']}`; old count {check['old_count']}; "
-                f"new count {check['new_count']}"
+                f"new count {check['new_count']}" + consumed
             )
         lines.extend(["", "Target checks:", ""])
         for check in verification["targets"]:
@@ -2111,8 +2730,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
             "outputs; coverage gaps; and the required `ATTEST` line for every full-read file. Finish with "
             "a separate `COMPLETE <SHA-256 of this brief's exact bytes>` line (compute the digest or use the "
-            "digest supplied by the parent). This completion attestation is mandatory when there are no "
-            "full-read files; it does not attest a targeted artefact as full-read. Then finish with "
+            "digest supplied by the parent). Every new completion requires this binding, including "
+            "full-read reviews; it does not attest a targeted artefact as full-read. Then finish with "
             "exactly one line: `Terminal state: clean`, "
             "`Terminal state: findings`, or `Terminal state: incomplete`.",
         ]
@@ -2121,9 +2740,10 @@ def cmd_build(args: argparse.Namespace) -> int:
     brief = "\n".join(lines).rstrip() + "\n"
     out = canonical_path(args.out) if args.out else root / "review-brief.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(brief, encoding="utf-8")
+    atomic_bytes(out, brief.encode("utf-8"))
     brief_manifest = {
-        "schema": 2,
+        "schema": 3,
+        "completion_binding": 1,
         "run_generation": root.name if (root / "run.json").is_file() else None,
         "built_at": now(),
         "brief": str(out),
@@ -2136,14 +2756,22 @@ def cmd_build(args: argparse.Namespace) -> int:
         "capture_files": [{"path": item["_path"], "sha256": sha256(Path(item["_path"]))}
                           for item in captures],
         "attributed_paths": attributed_paths,
+        "classification_coverage": classification_coverage,
         "full_read": full_read,
         "targeted_review": targeted_review,
         "mechanical": [{"path": item["path"], "sha256": item["sha256"]} for item in mechanical],
         "reused": reused,
         "external": external_files,
         "deleted": deleted_raw,
+        "propagation_coverage": propagation_coverage,
+        "dependency_coverage": dependencies,
+        "tool_source_index_sha256": sha256(root / "tool-source-index.json") if (root / "tool-source-index.json").is_file() else None,
     }
     atomic_json(root / "review-brief-manifest.json", brief_manifest)
+    atomic_json(root / "completion-binding.json", {
+        "protocol": 1, "run_generation": generation, "brief_sha256": brief_manifest["brief_sha256"],
+        "manifest_sha256": sha256(root / "review-brief-manifest.json"),
+    })
     print(f"Reviewer brief: {out}")
     print(f"Reviewer brief SHA-256: {sha256(out)}")
     print(
@@ -2155,6 +2783,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     )
     for warning in warnings:
         print(f"WARNING: {warning}", file=sys.stderr)
+    print("Dependency coverage: " + json.dumps(dependencies, ensure_ascii=False))
+    print(f"Classification coverage: requested {len(requested)}; registered {len(requested & registry_paths)}; "
+          f"automatic {len(requested - registry_paths)}; unused registry entries {len(registry_paths - requested)} (see manifest)")
     return 0
 
 
@@ -2164,14 +2795,27 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
     if not isinstance(full_read, list):
         die("malformed full-read manifest")
     brief_digest = manifest.get("brief_sha256")
-    if brief_digest is not None or not full_read:
+    binding_path = root / "completion-binding.json"
+    run = load_json(root / "run.json", {})
+    bound = (manifest.get("schema") == 3 or "completion_binding" in manifest
+             or "brief_sha256" in manifest or "capture_files" in manifest
+             or binding_path.exists() or isinstance(run, dict) and run.get("completion_protocol") == 1)
+    if bound:
+        binding = load_json(binding_path, None)
+        if (manifest.get("schema") != 3 or manifest.get("completion_binding") != 1
+                or not isinstance(binding, dict) or binding.get("protocol") != 1
+                or binding.get("run_generation") != manifest.get("run_generation")
+                or binding.get("manifest_sha256") != sha256(root / "review-brief-manifest.json")
+                or binding.get("brief_sha256") != brief_digest):
+            die("missing, malformed or changed completion binding; rebuild brief")
+    if bound or brief_digest is not None or not full_read:
         brief = Path(str(manifest.get("brief", "")))
         if (not isinstance(brief_digest, str)
                 or not re.fullmatch(r"[0-9a-f]{64}", brief_digest)
                 or not brief.is_file() or sha256(brief) != brief_digest):
             die("review brief changed or is missing; rebuild brief")
         completions = COMPLETE_RE.findall(report)
-        if (completions or not full_read) and completions != [brief_digest]:
+        if (bound or completions or not full_read) and completions != [brief_digest]:
             die("missing, duplicate or stale completion attestation; expected COMPLETE " + brief_digest)
     if "capture_files" in manifest:
         expected = manifest["capture_files"]
@@ -2185,6 +2829,10 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
         digest = sha256(registry) if registry.is_file() else None
         if digest != manifest.get("classification_sha256"):
             die("classification inputs changed after build; rebuild brief")
+        source_index = root / "tool-source-index.json"
+        index_digest = sha256(source_index) if source_index.is_file() else None
+        if index_digest != manifest.get("tool_source_index_sha256"):
+            die("tool source index inputs changed after build; rebuild brief")
     if "session_block_sha256" in manifest:
         try:
             block, _ = extract_session(Path(manifest["session_log"]), manifest["session_number"])
@@ -2192,6 +2840,13 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
             die("review session block is missing or malformed")
         if sha256_bytes(block.encode("utf-8")) != manifest["session_block_sha256"]:
             die("session block changed after review; rebuild brief")
+    for item in manifest.get("attributed_paths", []):
+        if (not isinstance(item, dict) or not isinstance(item.get("path"), str)
+                or not isinstance(item.get("physical_path"), str)):
+            die("malformed attributed alias mapping")
+        alias = Path(item["path"])
+        if not alias.is_file() or str(canonical_path(str(alias))) != item["physical_path"]:
+            die(f"attributed alias changed after review: {alias}")
     completion_files: list[dict] = []
     for key in ("targeted_review", "mechanical", "reused"):
         entries = manifest.get(key, [])
@@ -2337,7 +2992,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
                 }
             )
         receipt = {
-            "schema": 2,
+            "schema": 3,
             "run_generation": root.name if (root / "run.json").is_file() else None,
             "captured_at": now(),
             "status": "pending",
@@ -2348,7 +3003,24 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             "post_review_changes": post_review_changes,
             "report_sha256": hashlib.sha256(report.encode()).hexdigest(),
             "report": report,
+            "kind": ("completion" if manifest is not None and manifest.get("completion_binding") == 1
+                     else "legacy-review" if manifest is not None else "source-attestation"),
+            "completion": bool(manifest is not None and manifest.get("completion_binding") == 1),
         }
+        if manifest is not None:
+            manifest_digest, manifest_snapshot = write_snapshot(
+                root, (root / "review-brief-manifest.json").read_bytes())
+            receipt.update({
+                "completion_binding": manifest.get("completion_binding"),
+                "session_log": manifest.get("session_log"),
+                "session_number": manifest.get("session_number"),
+                "brief_sha256": manifest.get("brief_sha256"),
+                "manifest_sha256": manifest_digest,
+                "manifest_snapshot": str(manifest_snapshot),
+            })
+            if manifest.get("brief_sha256"):
+                _, brief_snapshot = write_snapshot(root, Path(manifest["brief"]).read_bytes())
+                receipt["brief_snapshot"] = str(brief_snapshot)
         path = audit_root / f"audit-{uuid.uuid4().hex}.json"
         atomic_json(path, receipt)
         changed_after_validation = [
@@ -2365,6 +3037,10 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             )
             atomic_json(path, receipt)
             die(receipt["invalidation_reason"])
+        if manifest is not None and manifest.get("brief_sha256"):
+            # Captures, classification and immutable review inputs are evidence
+            # too: a late mutation cannot leave a reusable clean receipt.
+            validate_completion_manifest(manifest, root, report)
         receipt["status"] = "clean"
         receipt["completed_at"] = now()
         atomic_json(path, receipt)
@@ -2391,6 +3067,9 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--mechanical", action="store_true")
     mode.add_argument("--nonlocal", dest="non_local", action="store_true")
     classify.add_argument("--reason")
+    classify.add_argument("--dependency", action="append", help="local supporting file that must be attributed or captured")
+    classify.add_argument("--confirm-full-read", action="store_true",
+                          help="explicitly confirm a whole coherence read for historical continuation-only text")
     classify.add_argument(
         "--targeted",
         action="store_true",
@@ -2437,14 +3116,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     capture = subparsers.add_parser("capture", help="capture review evidence immediately")
     capture.add_argument(
-        "--kind", required=True, choices=("evidence", "prestate", "propagation")
+        "--kind", required=True, choices=("evidence", "prestate", "propagation", "enumeration")
     )
     capture.add_argument("--label", required=True)
     capture.add_argument("--source")
+    capture.add_argument("--dependency", action="append", help="local supporting file that must be attributed or captured")
+    capture.add_argument("--mutation-for", help="exact (remote) Files-row path supported by this command evidence")
+    capture.add_argument("--command", help="literal mutation command for --mutation-for")
+    capture.add_argument("--cwd", help="absolute working directory for --mutation-for")
+    capture.add_argument("--exit-status", type=int, help="actual mutation command exit status")
+    capture.add_argument("--raw-file", help="retain complete raw bytes with LF/per-file record counts")
     capture.add_argument(
         "--provenance", choices=("primary", "secondary", "unverified")
     )
     capture.set_defaults(func=cmd_capture)
+
+    tools_capture = subparsers.add_parser("capture-tools", help="capture/index native JSONL tool returns and literal supporting passages")
+    tools_capture.add_argument("--transcript", required=True)
+    tools_capture.add_argument("--claims-file", help="JSON list of source/passage[/call_id/provenance] declarations")
+    tools_capture.set_defaults(func=cmd_capture_tools)
 
     run_verifier = subparsers.add_parser(
         "run-verifier", help="run and capture park-verify without losing its exit status"
@@ -2468,6 +3158,7 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--session-log", required=True)
     build.add_argument("--number", required=True, type=int)
     build.add_argument("--out")
+    build.add_argument("--check-dependencies", action="store_true", help="fail if cited local dependencies or remote mutation evidence are missing")
     build.set_defaults(func=cmd_build)
 
     audit = subparsers.add_parser(
