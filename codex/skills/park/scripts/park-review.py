@@ -29,6 +29,7 @@ SEP_RE = re.compile(
 )
 JOINED_LIST_RE = re.compile(r"[^\s=`]- \[[ x]\]")
 ATTEST_RE = re.compile(r"^ATTEST ([0-9a-fA-F]{64}) (/.+)$", re.MULTILINE)
+COMPLETE_RE = re.compile(r"^COMPLETE ([0-9a-fA-F]{64})$", re.MULTILINE)
 REMOTE_PATH_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 # "(deleted)" / "(remote)" after a Files-row path, outside any backticks: the
 # row names something not on this host's disk, or not to be read from it.
@@ -2109,6 +2110,9 @@ def cmd_build(args: argparse.Namespace) -> int:
             "concrete fix (a fix to a path already in the file list is stated as `<path>: description extension: <text>`), "
             "or one evidence-bearing clean line; files read with SHA-256; commands and quoted "
             "outputs; coverage gaps; and the required `ATTEST` line for every full-read file. Finish with "
+            "a separate `COMPLETE <SHA-256 of this brief's exact bytes>` line (compute the digest or use the "
+            "digest supplied by the parent). This completion attestation is mandatory when there are no "
+            "full-read files; it does not attest a targeted artefact as full-read. Then finish with "
             "exactly one line: `Terminal state: clean`, "
             "`Terminal state: findings`, or `Terminal state: incomplete`.",
         ]
@@ -2126,6 +2130,11 @@ def cmd_build(args: argparse.Namespace) -> int:
         "vault": str(vault),
         "session_log": str(log),
         "session_number": args.number,
+        "session_block_sha256": sha256_bytes(block.encode("utf-8")),
+        "brief_sha256": sha256(out),
+        "classification_sha256": sha256(manifest_path) if manifest_path.is_file() else None,
+        "capture_files": [{"path": item["_path"], "sha256": sha256(Path(item["_path"]))}
+                          for item in captures],
         "attributed_paths": attributed_paths,
         "full_read": full_read,
         "targeted_review": targeted_review,
@@ -2149,6 +2158,77 @@ def cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def validate_completion_manifest(manifest: dict, root: Path, report: str) -> list[dict]:
+    """Bind completion to the prepared packet without inventing full-read reuse."""
+    full_read = manifest.get("full_read", [])
+    if not isinstance(full_read, list):
+        die("malformed full-read manifest")
+    brief_digest = manifest.get("brief_sha256")
+    if brief_digest is not None or not full_read:
+        brief = Path(str(manifest.get("brief", "")))
+        if (not isinstance(brief_digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", brief_digest)
+                or not brief.is_file() or sha256(brief) != brief_digest):
+            die("review brief changed or is missing; rebuild brief")
+        completions = COMPLETE_RE.findall(report)
+        if (completions or not full_read) and completions != [brief_digest]:
+            die("missing, duplicate or stale completion attestation; expected COMPLETE " + brief_digest)
+    if "capture_files" in manifest:
+        expected = manifest["capture_files"]
+        if not isinstance(expected, list):
+            die("malformed review input manifest")
+        current = [{"path": item["_path"], "sha256": sha256(Path(item["_path"]))}
+                   for item in load_captures(root)]
+        if current != expected:
+            die("review inputs changed after build; rebuild brief")
+        registry = root / "files.json"
+        digest = sha256(registry) if registry.is_file() else None
+        if digest != manifest.get("classification_sha256"):
+            die("classification inputs changed after build; rebuild brief")
+    if "session_block_sha256" in manifest:
+        try:
+            block, _ = extract_session(Path(manifest["session_log"]), manifest["session_number"])
+        except (KeyError, OSError, TypeError):
+            die("review session block is missing or malformed")
+        if sha256_bytes(block.encode("utf-8")) != manifest["session_block_sha256"]:
+            die("session block changed after review; rebuild brief")
+    completion_files: list[dict] = []
+    for key in ("targeted_review", "mechanical", "reused"):
+        entries = manifest.get(key, [])
+        if not isinstance(entries, list):
+            die(f"malformed {key} manifest")
+        for item in entries:
+            if (not isinstance(item, dict) or not isinstance(item.get("path"), str)
+                    or not Path(item["path"]).is_absolute()
+                    or not isinstance(item.get("sha256"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])):
+                die(f"malformed {key} file in review manifest")
+            path = canonical_path(item["path"])
+            if not path.is_file():
+                die(f"completion file missing: {path}")
+            if key == "targeted_review":
+                snapshot = Path(str(item.get("source_snapshot", "")))
+                if not snapshot.is_file() or sha256(snapshot) != item["sha256"]:
+                    die(f"review snapshot missing or corrupt: {snapshot}")
+                review_raw, review_digest = item.get("review_path"), item.get("review_sha256")
+                if review_raw is not None or review_digest is not None:
+                    review = Path(str(review_raw))
+                    if (not isinstance(review_digest, str) or not review.is_file()
+                            or sha256(review) != review_digest):
+                        die(f"review copy missing or corrupt: {review}")
+            # A concurrent append in another Session N does not change this packet's
+            # session boundary. The scoped block was compared above; targeted log
+            # bytes are never made reusable full-read attestations.
+            scoped_log = (str(path) == manifest.get("session_log")
+                          and "session_block_sha256" in manifest)
+            current = sha256(path)
+            if not scoped_log and current != item["sha256"]:
+                die(f"completion file changed after review: {path}")
+            completion_files.append({"path": str(path), "sha256": item["sha256"],
+                                     "live_sha256": current, "mode": key})
+    return completion_files
+
+
 def cmd_record_audit(args: argparse.Namespace) -> int:
     _, root, receipt_root, audit_root = state_paths(args.session_id)
     vault = canonical_path(args.vault) if args.vault else None
@@ -2162,6 +2242,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     files: list[dict] = []
     built_at = now()
     manifest: dict | None = None
+    completion_files: list[dict] = []
     if args.from_brief:
         manifest = load_json(root / "review-brief-manifest.json", None)
         if not isinstance(manifest, dict):
@@ -2173,6 +2254,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         built_at = manifest.get("built_at", built_at)
         if vault is None and isinstance(manifest.get("vault"), str):
             vault = canonical_path(manifest["vault"])
+        completion_files = validate_completion_manifest(manifest, root, report)
     for raw in args.file or []:
         path = canonical_path(raw, vault)
         if not path.is_file():
@@ -2180,7 +2262,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         files.append({"path": str(path), "sha256": sha256(path)})
     dedup: dict[str, dict] = {item["path"]: item for item in files}
     files = list(dedup.values())
-    if not files:
+    if not files and not args.from_brief:
         print("No full-read files; no audit receipt written")
         return 0
     validate_report_attestations(report, files)
@@ -2188,8 +2270,13 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     reusable: list[dict] = []
     post_review_changes: list[dict] = []
     live_hashes: dict[str, str] = {}
-    paths = [canonical_path(item["path"]) for item in files]
+    paths = [canonical_path(item["path"]) for item in files + completion_files]
     with vault_file_locks(paths, vault):
+        for item in completion_files:
+            path = canonical_path(item["path"])
+            if not path.is_file() or sha256(path) != item["live_sha256"]:
+                die(f"completion file changed after review validation: {path}")
+            live_hashes[str(path)] = item["live_sha256"]
         for item in files:
             path = canonical_path(item["path"])
             if not path.is_file():
@@ -2257,6 +2344,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
             "reviewer": args.reviewer,
             "files": reusable,
             "reviewed_files": files,
+            "completion_files": completion_files,
             "post_review_changes": post_review_changes,
             "report_sha256": hashlib.sha256(report.encode()).hexdigest(),
             "report": report,
