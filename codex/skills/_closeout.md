@@ -68,11 +68,13 @@ Reconcile park-files.sh's candidate lines (sync-receipt, config/runtime mtimes o
 
 **Confirm every inventoried path exists before it becomes a Files row.** The structural index (`obsidian links`, `obsidian unresolved`) lags fresh binaries and renames, so it cannot confirm presence. Run `ls -l -- "<exact path>"` on each path the inventory produced: exit 0 with the listing means the path is live; `No such file or directory` (non-zero exit) means it moved, was renamed or was deleted. Treat a missing path as a move to resolve — find the new path (ledger rows, `[git-diff]`/`[git-history]` `R`/`D` rows, `find` on the basename, the session's own tool calls, the user) and record it under Files Updated at the new path with `renamed from <full old path>` in the description (the old path goes under Files Deleted when it is gone), or under Files Deleted when deletion is evidenced. Never drop a missing path silently, and never write an unannotated local Files row for a path `ls` cannot find — a path that is gone is a `Files Deleted` row or a `(deleted)` annotation, a path on another host is a `(remote)` row.
 
+**Session-local inventory boundary:** cover the full session window even when shell/bypass mode leaves the ledger incomplete. Add the actual harness scratchpad path with `--root` and the specific runtime output roots of tool-invoking tests (for example the relevant `~/.local/state` subtree). Do not sweep the whole `.session-state` tree: name this session's ledger/receipt/run paths and any shared artifact-cache manifest actually used. A scratchpad reset is an evidenced deletion, not an inferred move; keep its directory-recreation evidence. Reconcile note renames/deletions against canonical move receipts; an unreceipted relocation needs review. Before disposing of a sync-conflict filename, read the vault's sync workflow and record its required disposal route.
+
 ## Coverage
 
 Apply receipt import/classification only to the caller’s attributed scope. In C1, prior dates’ move receipts do not add paths to this date’s inventory unless action evidence shows this date changed them.
 
-Keep every attributed lexical path spelling, including symlink aliases, in the Files record and preparation input. Preparation deduplicates content review by resolved physical identity while preserving aliases for attribution in the manifest. A missing or dangling retained path fails preparation; it is not silently treated as a deletion.
+Keep every attributed lexical path spelling, including symlink aliases, in the Files record and preparation input. Preparation deduplicates content review by resolved physical identity while preserving aliases for attribution in the manifest. A missing or dangling retained path fails preparation; it is not silently treated as a deletion. Mechanical classification also requires reading the whole replaced paragraph for co-located measurements or state clauses: a changed fact/premise is semantic even if the literal replacement is small.
 
 Older session logs touched only by `add-forward-link.sh` may use its exact producer proof automatically through preparation. The helper requires a complete forward-link-only receipt chain for all logged operations ending at current bytes, with source/target session context checked. Explicit classification takes precedence. If any proof or chain is missing, changed or includes other writes, retain normal coverage; do not exempt a file merely because it is a session log or the command reported success.
 
@@ -87,11 +89,11 @@ python3 "$PARK_REVIEW" import-move-heals --vault "{VAULT}"
 This validates each receipt's exact link-target-only delta and current hash, then pre-classifies healed files as mechanical, including files under `06 Archive/`. Inherited lint is accepted only when its fingerprint is unchanged. Mixed or later-edited files remain subject to ordinary classification; the move destination itself does too unless its only content delta was link healing. Treat an import failure as a quality-gate failure and never repair unrelated archive prose or lint.
 
 - `semantic` — session-authored, substantively rewritten, or otherwise meaning-bearing. A bounded file uses `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --semantic --reason "<created|substantive>"` and receives one full coherence read at the caller’s quality gate. For a large artefact where that is disproportionate, add `--targeted --inspection-target "<page/section/line range or outcome-specific check>"` (repeat as needed); the caller’s quality gate reviews only that delta-plus-context coverage.
-- `reference` — a local manual, textbook, paper, dataset or other source copied/downloaded but not authored this session. Register it with `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --reference --reason "<why retained>"`, adding `--inspection-target "<passage or claim actually used>"` for each source-dependent claim. The shared `park-artifact.py` helper creates a hash-bound source snapshot, metadata and text index in the cross-session/cross-lane `.park-artifacts` cache; extraction is not a whole-source read attestation. A reference with no source-dependent session claim needs identity/metadata verification only. A session-captured binary (a screenshot, an export) is this class: its coverage is the artefact receipt's hash and `text_status`, not a read. A generated directory (build output, an extracted archive) is listed and hashed (`find "<dir>" -type f -print0 | sort -z | xargs -0 sha256sum`) rather than read; retain the listing and digests with `capture --kind evidence` as its coverage, and name that captured manifest, not the directory, in the Files rows — `build` accepts regular files only.
+- `reference` — a local manual, textbook, paper, dataset or other source copied/downloaded but not authored this session. Register it with `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --reference --reason "<why retained>"`, adding `--inspection-target "<passage or claim actually used>"` for each source-dependent claim. The shared `park-artifact.py` helper creates a hash-bound source snapshot, metadata and text index in the cross-session/cross-lane `.park-artifacts` cache; extraction is not a whole-source read attestation. A reference with no source-dependent session claim needs identity/metadata verification only. A session-captured binary (a screenshot, an export) is this class: its coverage is the artefact receipt's hash and `text_status`, not a read. A generated directory (build output, an extracted archive) is listed and hashed (`find "<dir>" -type f -print0 | sort -z | xargs -0 sha256sum`) rather than read; save the listing outside the vault under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/.park-artifacts/manifests/<session-id>-<directory-slug>.sha256` and retain its path/digest with `capture --kind evidence` as coverage, and name that captured manifest, not the directory, in the Files rows — `build` accepts regular files only.
 - `mechanical` — only literal locator/token substitutions, with no other prose or state change in the same locked-edit payload. Register every exact pair and destination in one call: `python3 "$PARK_REVIEW" classify --vault "{VAULT}" --path "<file>" --mechanical --replace "<OLD>" "<NEW>" --target "<resolved target>"` (repeat `--replace` / `--target` as needed). For substitutions that change no locator, use `--no-locator-target` instead of `--target`; never pass both. The helper requires the current session's locked-edit receipts, proves their hash chain and exact declared delta, then checks old-locator absence, new-locator presence, target/anchor existence, separator integrity and lint. A missing receipt, undeclared delta or failed check means semantic; choose bounded-full or targeted coverage by the artefact rules above. If and only if lint predates an otherwise exact mechanical delta, rerun that classification with `--allow-inherited-lint`; the receipt records the exception for the verifier's exact-path gate.
 - `nonlocal` — an exact remote artefact, or a local root-only/secret-bearing file that must not be copied into a review brief. Use sanitised identity/configuration checks as evidence, never secret contents. Register it with `--nonlocal --reason "<surface represented by evidence>"`; the reviewer sees it only through evidence receipts. An unreadable path (`EACCES`, root-only) registers here with `--reason "unreadable: coverage incomplete"` and the remedy named in the Coverage receipt: re-run with access, or a substitute check (owner-supplied hash, sanitised metadata). Never omit it silently. Deleted files stay in `Files Deleted` and need no read classification.
 
-Display the inventory with its classification and declared coverage. Do not perform the quality read here; Park's enumeration check and any required propagation despatch precede the expensive quality pass; Goodnight inspects before its final verification.
+Display the inventory with its classification, byte/line counts, reason for any targeted class and declared coverage. A bounded semantic note requires a full coherence read even for a small edit; historical continuation-only deltas may stay targeted with producer proof. Do not perform the quality read here; Park's enumeration check and any required propagation despatch precede the expensive quality pass; Goodnight inspects before its final verification.
 
 **Earlier audit reuse:** if a clean independent reviewer already full-read any attributed file in this or an earlier session and returned its SHA-256, pipe that report once into `python3 "$PARK_REVIEW" record-audit --reviewer "<seat>" --vault "{VAULT}" --file "<file>" ...`. The helper records only hashes explicitly attested in a clean report. The shared review reuses the receipt only while the current file hash remains identical.
 
@@ -118,9 +120,77 @@ Output: `✓ Quality check: B bounded semantic files full-read; T large/referenc
 
 **Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred.
 
+
+**Semantic conformance checks (use the applicable rows, not a new pass per anecdote):**
+
+| Changed surface | Required comparison and retained observation |
+|---|---|
+| Approved implementation | List each applied change beside its approving decision/checklist item; flag an unmatched change before saving the session record. |
+| Governing prose and state | Read the subject's sections, including already-edited lines and the instructions above an appended status paragraph. Compare final state with headings, table legends/owners, adjacent clauses, list predicates and diagram labels/classes; account for each stale clause, not only matching tokens. Apply this after membership additions as well as status flips. |
+| Sources and derivations | Execute §19 before the log, including every cited clause and synthesis line. Compare a derived document item-by-item with its declared source's caveats; verify attributed linked-note content in the destination. Match ordered sequences against their source (`N/N`), and give appended claims their own provenance rather than inheriting a paragraph's tag. Public figures must retain any load-bearing discretionary/derived assumption. |
+| Procedures and code | Read header/docstring constraints for behaviour changes, run a minimal fixture for each claimed behaviour, and compare a durable recipe with the command actually executed (name deliberate generalisations). A new prohibition/rule requires searching its own runnable blocks and templates/examples for contradictions. Check destructive-automation cadence/order; a timed-stop fixture must advance time during blocking work and verify children stop, checkpoint/guard restoration and no completion marker. |
+| Instruments and branching claims | Calibrate a checker with known-present and known-absent inputs, including a valid case after a short/skipped token; retain distinct outputs before citing its null. Trace the branches a written next-action claim covers, rather than accepting neighbouring prose as proof. |
+| Locators and owning context | Resolve bare paths against the document's defined shorthand. Read a linked parent hub's constraints and each destination heading before changing a still-valid SSOT locator. Use code locators for extensionless scripts rather than unresolved wikilinks. New guides need their owning index/table row or an explicit exclusion; a cross-area move needs a route from the destination area's index/hub. |
+| Renders | A session-rendered PDF/image is semantic output, not an imported reference: inspect a representative page visually plus each outcome-critical region. Regenerate sibling PDF/HTML/site renders after the final source edit and verify the final edited content appears; timestamps/text extraction alone do not prove visual fidelity. |
+
+Run and display the count-word/ordinal/back-reference/relative-time scan over final authored spans, including replacement/deletion seams and Files descriptions. Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. For document stamps, search case-insensitively for the form the document uses (`Last updated`, `Last update`, `Current as of`, `Updated:`), not one preferred spelling.
+
 ## Backfill and verification
 
-**Backfill:** caller edits after the session entry was written (project docs, This Week, Tickler and report reconciliation) — pipe them as `- path - what changed` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script skips paths already in Files Created/Updated, keeps their existing descriptions, prints each incoming row it did not write, and ends with `<N> added, <M> skipped`. Exit 3 means it wrote nothing because every row was skipped: a result to read, not a failure to retry. Extend a skipped description in its existing section via `update-session-section.sh --replace` — after a fix round a `skipped` line for an already-listed path is the expected signal that its row needs rewriting, not a no-op; a created file stays in Files Created after later edits. If the caller has a Next Steps section, reconcile inline closures: an item that the caller closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
+### Assigned-session extraction
+
+Use this same bounded extraction for Summary quoting, final checks and `--touched`. Set the exact assigned `SESSION_LOG` and `N`; write scratch output outside the vault. A missing/duplicate N fails instead of borrowing a concurrent entry.
+
+<!-- BEGIN SESSION EXTRACT -->
+```bash
+set -e
+SESSION_BLOCK="$(mktemp)"; SESSION_PATHS="$(mktemp)"
+python3 - "$SESSION_LOG" "$N" "$SESSION_BLOCK" "$SESSION_PATHS" "{VAULT}" <<'PY'
+from pathlib import Path
+import re, sys
+log, number, block_out, paths_out, vault = sys.argv[1:]
+lines = Path(log).read_text(encoding="utf-8").splitlines(keepends=True)
+heads = [(i, re.match(r"^## Session ([0-9]+)(?:\s+-|\s*$)", line)) for i, line in enumerate(lines)]
+heads = [(i, m.group(1)) for i, m in heads if m]
+found = [j for j, (_, n) in enumerate(heads) if n == str(int(number))]
+if len(found) != 1:
+    raise SystemExit("ERROR: assigned session is absent or duplicated")
+j = found[0]; start = heads[j][0]; end = heads[j+1][0] if j+1 < len(heads) else len(lines)
+block = "".join(lines[start:end]); Path(block_out).write_text(block, encoding="utf-8")
+paths = []; identities = set(); in_files = False
+for line in block.splitlines():
+    if line.startswith("### "):
+        in_files = line.strip() in ("### Files Created", "### Files Updated", "### Files Deleted")
+        continue
+    if not in_files or not line.startswith("- "):
+        continue
+    row = line[2:]
+    if row.startswith("`"):
+        match = re.match(r"`([^`]+)`(?:\s+\((deleted|remote)\))?(?:\s+-.*)?$", row)
+        if not match: raise SystemExit("ERROR: malformed backticked Files row")
+        path, annotation = match.group(1), match.group(2)
+    else:
+        path = re.split(r"\s+\((?:deleted|remote)\)(?:\s+-|$)| - ", row, maxsplit=1)[0]
+        annotation = "remote" if " (remote)" in row else "deleted" if " (deleted)" in row else None
+        # Canonical rows use backticks; do not guess a legacy separator-containing path.
+        if " - " in row and not Path(path).suffix:
+            raise SystemExit("ERROR: backtick the complete Files path before extraction")
+    local = Path(path).expanduser()
+    if not local.is_absolute(): local = Path(vault)/local
+    identity = (annotation, path) if annotation else (None, str(local.resolve()))
+    if identity not in identities:
+        identities.add(identity); paths.append(path)
+Path(paths_out).write_text("".join(p+"\n" for p in paths), encoding="utf-8")
+PY
+TOUCHED=()
+while IFS= read -r path || [ -n "$path" ]; do TOUCHED+=(--touched "$path"); done < "$SESSION_PATHS"
+```
+<!-- END SESSION EXTRACT -->
+
+Read the extracted block and path list. Keep lexical aliases in the Files record; normalise/deduplicate the verifier's arguments by resolved identity while retaining distinct source/install paths. Every Files row written or rewritten now uses backticks around its complete path, so ` - ` in a filename is unambiguous. For a legacy ambiguous row, re-read and canonicalise its complete existing section before rerunning; never silently shorten a path.
+
+
+**Backfill:** `--section "Files Created"`, `--section "Files Updated"` (default) or `--section "Files Deleted"` selects the destination; missing Files sections are inserted before Pickup Context within the assigned N. Dedup remains warn-and-preserve, so moving an already-listed row between sections requires rewriting both complete section bodies. Caller edits after the session entry was written (project docs, This Week, Tickler and report reconciliation) — pipe them as ``- `path` - what changed`` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script skips paths already in Files Created/Updated, keeps their existing descriptions, prints each incoming row it did not write, and ends with `<N> added, <M> skipped`. Exit 3 means it wrote nothing because every row was skipped: a result to read, not a failure to retry. Extend a skipped description in its existing section via `update-session-section.sh <log> N "<section>" --replace` with the **full new section body** (every retained row plus its updated description, no OLD/NEW separator payload) — after a fix round a `skipped` line for an already-listed path is the expected signal that its row needs rewriting, not a no-op; a created file stays in Files Created after later edits. If the caller has a Next Steps section, reconcile inline closures: an item that the caller closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the initial inventory (including its non-ledger backstop), and the collected propagation/close-out edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
@@ -130,12 +200,12 @@ Reconcile the Files lists with a fresh `session-ledger.sh --read`, the initial i
 python3 "$PARK_REVIEW" run-verifier -- \
   "{VAULT}/.claude/scripts/park-verify.sh" "{VAULT}" "<session log>" N \
   --ident "<distinctive substring per item/identifier the session completed>" ... \
-  --touched "<each file the session+close-out created or edited>" ...
+  "${TOUCHED[@]}"  # one --touched flag per complete path from Assigned-session extraction
 ```
 
 **`--touched` must be the log's own Files-list paths**, all of them — they are already enumerated by this point, so pass that list rather than a subset you retype. The verifier can only speak for the paths it was handed: a narrower list still prints `PASS backfill`, and a `REVIEW backfill` naming paths the log lists but the run never saw means the list was short, not that the log is wrong. `--ident` values must be distinctive strings — a bare number under ~4 digits matches digit runs inside phone numbers, order IDs and amounts, and a common word or a doc's name matches every item that mentions or links it, burying real hits in noise. Paths may be absolute, `~`-prefixed, or relative to `{VAULT}`.
 
-**Files rows the verifier parses.** A path containing ` - ` goes in backticks — `` - `03 Projects/Plan - draft.md` - what changed `` — because an unquoted one is settled by the longest left side that exists on disk, which fails once the file is gone; the backfill script backticks such paths itself, rows written by hand must too. Annotate a path not on this host's disk after the path: `(deleted)` for a file or directory removed this session, `(remote)` for a path on another host or network share that must not be read; these print `INFO backfill: ... not compared` instead of `REVIEW backfill`/`FAIL touched`. A touched path on a network/FUSE mount, over 2 MiB or binary is checked for existence only and announced as `PASS touched: existence-only (<reason>): <path>`; `PARK_VERIFY_REMOTE_PREFIXES` (colon-separated) names mounts the filesystem probe cannot classify; a prefix covering the vault root itself does not exempt vault files from content checks, only a subtree prefix does. `PARK_VERIFY_MAX_CONTENT_BYTES` overrides the size threshold.
+**Files rows the verifier parses.** A path containing ` - ` goes in backticks — `` - `03 Projects/Plan - draft.md` - what changed `` — because an unquoted one is settled by the longest left side that exists on disk, which fails once the file is gone; the backfill script backticks such paths itself, rows written by hand must too. Annotate a path not on this host's disk after the path: `(deleted)` only for a path that is gone (bulk deletion inside a surviving directory is a Files Updated row on that directory), `(remote)` for a path on another host or network share that must not be read; these print `INFO backfill: ... not compared` instead of `REVIEW backfill`/`FAIL touched`. A touched path on a network/FUSE mount, over 2 MiB or binary is checked for existence only and announced as `PASS touched: existence-only (<reason>): <path>`; `PARK_VERIFY_REMOTE_PREFIXES` (colon-separated) names mounts the filesystem probe cannot classify; a prefix covering the vault root itself does not exempt vault files from content checks, only a subtree prefix does. `PARK_VERIFY_MAX_CONTENT_BYTES` overrides the size threshold.
 
 It checks the deterministic layer: session numbering, required sections, Project line (compare its printed line against the caller’s metadata — fix the log if they differ), stranded locked-edit separator lines, list-join/blank-line lint on touched files, unchecked planning-doc items matching each ident, that each touched path exists (`FAIL touched`: mistyped or truncated), and Files-list coverage of touched paths. **A closure `PASS` is not a completion check:** it means no unchecked line matched, which an ident present only in ticked lines also produces. An ident absent from every planning file prints `N/A closure: ident '<ident>' absent from every planning file (<k> checked)` and the `RESULT` line carries the N/A count; N/A is not a pass — usually a misspelt or never-tracked ident — and a run whose every ident is N/A has verified nothing about closures. An ident is the stable identifier the planning line itself carries — the path, booking reference or the item's own wording — never a verb, a paraphrase or a status word such as "done". Two closure classes the verifier cannot see are checked by that same identifier grep, not by the ledger: an item already ticked `[x]` before close-out that this session resolved (`grep -n -i -F -- "<ident>" <file> | grep -F '[x]'`) still gets the `→ [[log]] (Session N)` backlink appended via `locked-edit.sh --replace` when its line lacks one; and a task the user discharged by pasting content into the conversation, which writes no file and leaves no ledger row — enumerate these from the session's Summary and grep each one's identifier. A "line gone" conclusion is the identifier grep on the live file returning empty **after** the same grep matched the session's own pre-state excerpt; an empty grep for a different string or a verb is not that evidence. Judgement stays with you: each closure `REVIEW` hit is an item the caller wrote during routing (expected: ignore the hit, keep the item), an item the session genuinely completed — flip `[ ]`→`[x]` via `locked-edit.sh --replace` with a `→ [[log]] (Session N)` backlink (Tickler flips only after confirming it's the very item resolved — a false flip silently kills deferred work) — or an adjacent still-open item: surface it in Pickup Context, don't action it. Passing edited-file basenames as extra `--ident` args catches adjacent open items mechanically. Once an adjacent-open hit has been recorded in Pickup Context, the final rerun may omit only that discovery-only basename while retaining every core completion/value identifier; record the triage rather than accepting an unexplained `REVIEW` forever.
 
@@ -145,9 +215,13 @@ When this is the verifier's **only** failure, rerun through `run-verifier` with 
 
 Output: the script's `RESULT:` line plus what you fixed.
 
-**Final evidence check:** re-read the session entry as written and apply §19 to it and all caller-owned writes, including backfill descriptions; print §19's `Value check:` line again for this pass. Reconcile completion claims with surviving open items before assembling the review. If audit remediation or later edits change verified inputs, reconcile attribution and rerun this section before reporting its PASS.
+**Final evidence check:** re-read current edited regions and routed-task destinations, then extract only the assigned Session N with **Assigned-session extraction**. Run §19's behaviour-claim command on that block, trace each past-event/approval/status claim to its evidence, and print a fresh `Value check:` line. Run the count-word scan on the block and every rewritten description; reconcile all sections, including the heading and Key Insights, with surviving open items. Search retired wording separately in this session block (the live-vault sweep excludes the archive). Repeat this executed pass after every fix or later user/world-state change; a prior mental pass or a whole-day file read does not discharge it.
 
 ## Independent review
+
+**Review packet currency and reach:** after a fix, rewrite affected Files descriptions with the **whole new section body**, then regenerate scope, attribution (§20), evidence and inspection targets from the current assigned entry. Search the rebuilt brief for retired wording and fragile count/back-reference tokens before sending it; re-read changed source regions and refresh their hashes. A user edit or new status during/after review is another fix round: reconcile the entry, delta propagation, verification and brief before accepting it, or wait for the user's editing to pause.
+
+Embed the parent's literal propagation commands (argv, cwd, exclusions and statuses) beside their results, with digest-bound complete raw receipts and bounded contexts when display is large. Include raw hash commands/output and declare whether the seat has shell. A shell-denied seat must search without negated exclusion globs, first detect a known positive control, search hidden directories by explicit path, and triage archived hits by path. Its Grep may honour ignore files and omit non-Markdown text: supply the parent's `--hidden --no-ignore` receipts for that surface; a Grep null cannot supersede them. Vision transcriptions by the same session are `[unverified]` until the decisive detail is rechecked at native resolution. Report a required remote deployment separately as `Needs main session: remote copy`; source repair does not claim the remote copy changed.
 
 **Script probes:** embed this boundary in the reviewer brief: the reviewer may run a command only after reading its argument handling and establishing that the invocation is read-only. Otherwise copy its required inputs into a disposable scratch directory outside the vault and installed config, redirect all output/state there, and probe that fixture. `--help` is not evidence of a read-only command. If isolation cannot be established, inspect the source and report the execution check unverified; never weaken host policy or bypass a missing sandbox.
 
@@ -192,7 +266,7 @@ If recovery fails because the reviewer hits a model/context wall or the same-sea
 
 For each completed report, re-run `session-ledger.sh --read` and reconcile any row attributed to the reviewer against the read-only contract. An unexpected reviewer write is not cured by a clean final file: inspect the target for lost concurrent content, replay any warranted vault delta through `locked-edit.sh`, and add the path to attribution/backfill. Then sanity-check each finding in the live file.
 
-**Remediate and repeat:** the main seat fixes confirmed, attributable findings using the normal locked write mechanics, backfills newly touched paths while reporting each fix to a path already in the Files list as `<path>: description extension: <text>` and rewriting that row with `update-session-section.sh --replace` (§23), refreshes affected classification/evidence receipts, re-reads the changed portions and reruns **Backfill and verification**. Rebuild the brief, then use `collaboration.followup_task` to send the same independent reviewer the new brief path and SHA-256, with instructions to verify its digest and run the full scoped checklist again. Collect and assess that report by the same contract. Repeat after every fix round; there is no one-round cap. An incomplete report or missing attestation also requires a follow-up before claiming clean.
+**Remediate and repeat:** the main seat fixes confirmed, attributable findings using the normal locked write mechanics, backfills newly touched paths while reporting each fix to a path already in the Files list as `<path>: description extension: <text>` and rewriting its **complete section body**, retaining every other row, with `update-session-section.sh --replace` (§23), refreshes affected classification/evidence receipts, re-reads the changed portions and reruns **Backfill and verification**. Rebuild the brief, then use `collaboration.followup_task` to send the same independent reviewer the new brief path and SHA-256, with instructions to verify its digest and run the full scoped checklist again. Collect and assess that report by the same contract. Repeat after every fix round; there is no one-round cap. An incomplete report or missing attestation also requires a follow-up before claiming clean.
 
 If a finding requires unavailable evidence, a user decision or action beyond the authorised scope, report the concrete blocker and retain it as an open loop; do not label the audit clean or the caller complete. For a disputed finding, send the reviewer the counter-evidence; unresolved disagreement is a blocker, not grounds for silently accepting or endlessly repeating the finding.
 
@@ -202,8 +276,48 @@ Retain the accepted receipt and manifest per **Completion evidence** before retu
 
 Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited clean — see [paths]`. If blocked: `✗ Audit: not clean — [blocker]`; do not proceed to the completion message.
 
+**Late bookkeeping boundary:** the caller's monitor/export/provenance outputs and this protocol's generated receipts/review packets are close-out bookkeeping, not newly authored session work: retain their own receipts without retroactively adding them to the accepted Files list or recursively reviewing copied evidence. A later substantive content or state edit is another review round. Declare this boundary consistently in nightly, catch-up and merged entries.
+
 ## Completion evidence
 
 A report and a session entry prove that writing began, not that review completed. Retain the accepted independent report with its exact log path and assigned N so C1 can distinguish completion from interruption. Missing, incomplete or mismatched evidence does not authorise a clean verdict. Do not rewrite the session entry after acceptance just to stamp it complete; keep export/provenance after acceptance.
 
 Use the existing `review-brief-manifest.json` and accepted audit receipt; create no additional tracker. The manifest must name this exact `session_log` and `session_number`. Under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/`, search `*.park-review/runs/*/review-brief-manifest.json` for that pair, then `.park-audit-receipts/*.json` for the same `run_generation`, `status: clean`, a report ending `Terminal state: clean` and a matching `report_sha256`. A matching manifest without an accepted receipt is an interrupted review, not completion. Read the matching evidence rather than inferring completion from a directory name. The record establishes the accepted close-out at that time; later sessions are handled by C2, not by invalidating the historical verdict whenever a shared file changes.
+
+### Completion lookup
+
+Run this read-only lookup with exact `SESSION_LOG` and assigned `N`. It checks native manifest/receipt pairs and lists legacy saved reports for exact-subject verification; no filename or bare heading certifies completion. `ACCEPTED` is the positive observation; `NO_ACCEPTED_RECEIPT` means the structured stores did not establish completion, while `LEGACY_CANDIDATE` still needs its header, brief digest, final verifier and clean verdict read.
+
+<!-- BEGIN COMPLETION LOOKUP -->
+```bash
+python3 - "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state" "$SESSION_LOG" "$N" <<'PY'
+from pathlib import Path
+import hashlib, json, sys
+state, log, number = Path(sys.argv[1]), str(Path(sys.argv[2]).expanduser().resolve()), int(sys.argv[3])
+def load(p):
+    try: return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError): return {}
+receipts = list((state/".park-audit-receipts").glob("*.json")) + list(state.glob("*.closeout/**/audit-receipt.json"))
+accepted = []
+for path in [*state.glob("*.park-review/runs/*/review-brief-manifest.json"), *state.glob("*.closeout/**/review-brief-manifest.json")]:
+    m = load(path)
+    if (m.get("session_log"), m.get("session_number")) != (log, number): continue
+    for rp in receipts:
+        r = load(rp); report = r.get("report", "")
+        if (r.get("run_generation") == m.get("run_generation") and m.get("run_generation")
+            and r.get("status") == "clean" and isinstance(report, str)
+            and report.rstrip().endswith("Terminal state: clean")
+            and hashlib.sha256(report.encode()).hexdigest() == r.get("report_sha256")):
+            accepted.append((str(path), str(rp)))
+for m, r in sorted(set(accepted)): print("ACCEPTED", m, r, sep="\t")
+if not accepted: print("NO_ACCEPTED_RECEIPT")
+for p in sorted(state.glob("*.closeout/**/*.md")):
+    try: text = p.read_text(encoding="utf-8")
+    except (OSError, UnicodeError): continue
+    if log in text and (f"Session number: {number}\n" in text or f"Session N: {number}\n" in text):
+        print("LEGACY_CANDIDATE", p, sep="\t")
+PY
+```
+<!-- END COMPLETION LOOKUP -->
+
+A lookup null is trusted only after a known accepted log/N in these same stores returns `ACCEPTED`; a wrong N or tampered report must not. Inspect `LEGACY_CANDIDATE` evidence manually before calling a historical close-out incomplete. For pre-retention-rule entries, record `historical completion evidence unavailable` once, preserve any verified historical disposition, and do not manufacture a clean receipt or repeatedly re-audit unchanged old work merely because that evidence was never required.
