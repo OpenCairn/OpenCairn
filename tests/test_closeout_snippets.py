@@ -218,6 +218,12 @@ class CloseoutSnippetTests(unittest.TestCase):
                 malformed_binding = run_bash(recipe(source, 'COMPLETION LOOKUP'), root, **env)
                 self.assertIn('NO_ACCEPTED_RECEIPT', malformed_binding.stdout)
                 rp.write_text(json.dumps(receipt))
+                # Explicit legacy-review imports retain a manual path, not an automatic completion.
+                rp.write_text(json.dumps(dict(receipt, kind='legacy-review', completion=False)))
+                historical = run_bash(recipe(source, 'COMPLETION LOOKUP'), root, **env)
+                self.assertIn('LEGACY_CANDIDATE\t', historical.stdout)
+                self.assertNotIn('ACCEPTED\t', historical.stdout)
+                rp.write_text(json.dumps(receipt))
                 # A well-formed non-object receipt is ignored without breaking the lookup.
                 (receipts/'malformed.json').write_text('[]')
                 wrong = run_bash(recipe(source, 'COMPLETION LOOKUP'), root, **dict(env, N='2'))
