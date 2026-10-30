@@ -26,6 +26,7 @@ def recipe(path: Path, marker: str) -> str:
 
 def run_bash(script: str, root: Path, **values: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
+    env.pop('VAULT', None)  # Recipes must bind the resolved vault within their own call.
     env.update(values)
     env['TMPDIR'] = str(root)
     return subprocess.run(['bash', '-c', script.replace('{VAULT}', str(root/'vault'))], cwd=root, env=env, text=True, capture_output=True, timeout=20)
@@ -85,7 +86,7 @@ class CloseoutSnippetTests(unittest.TestCase):
                                    ('04 Areas/photo.xmp', 'UPS\n')]:
                     path = vault/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(text)
                 out, err = root/'raw.out', root/'raw.err'
-                result = run_bash(recipe(source, 'LIVE SEARCH'), root, VAULT=str(vault), NEEDLE='UPS',
+                result = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='UPS',
                                   MATCH_MODE='word', RAW_OUT=str(out), RAW_ERR=str(err))
                 self.assertEqual(result.returncode, 0, result.stderr)
                 hits = out.read_text().splitlines()
@@ -95,15 +96,28 @@ class CloseoutSnippetTests(unittest.TestCase):
                 self.assertNotIn('BACKUPS', out.read_text())
                 self.assertIn('exit_status: 0', result.stdout)
                 # A reused receipt path is an error, not silent truncation/overwrite.
-                reused = run_bash(recipe(source, 'LIVE SEARCH'), root, VAULT=str(vault), NEEDLE='UPS',
+                reused = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='UPS',
                                   MATCH_MODE='word', RAW_OUT=str(out), RAW_ERR=str(err))
                 self.assertEqual(reused.returncode, 2)
                 self.assertEqual(len(out.read_text().splitlines()), 2)
-                miss = run_bash(recipe(source, 'LIVE SEARCH'), root, VAULT=str(vault), NEEDLE='absent-subject',
+                miss = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='absent-subject',
                                 MATCH_MODE='fixed', RAW_OUT=str(root/'miss.out'), RAW_ERR=str(root/'miss.err'))
                 self.assertEqual(miss.returncode, 0, miss.stderr)
                 self.assertIn('exit_status: 1', miss.stdout)
                 self.assertEqual((root/'miss.out').read_bytes(), b'')
+                # Dangling symlinks still occupy receipt names; neither the link nor its target is overwritten.
+                for occupied in ('stdout', 'stderr'):
+                    link = root/f'dangling-{occupied}'
+                    target = root/f'absent-{occupied}'
+                    link.symlink_to(target)
+                    raw_out = link if occupied == 'stdout' else root/'fresh.out'
+                    raw_err = link if occupied == 'stderr' else root/'fresh.err'
+                    blocked = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='UPS', MATCH_MODE='word',
+                                       RAW_OUT=str(raw_out), RAW_ERR=str(raw_err))
+                    self.assertEqual(blocked.returncode, 2)
+                    self.assertIn('ERROR: receipt path already exists', blocked.stderr)
+                    self.assertTrue(link.is_symlink())
+                    self.assertFalse(target.exists())
 
     def test_collapse_counts_leaf_items_and_excludes_closeout_sessions(self):
         for source in GOODNIGHTS:
