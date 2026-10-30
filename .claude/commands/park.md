@@ -217,7 +217,7 @@ For each expected linked hub/membership record, emit `expected record present in
 
 **Distinctive needles:** use canonical subject phrases, heading/link forms or `word` mode for short names/common substrings; pair numeric values with their unit/subject. A phrase search does not prove a bare alias absent: retain a word-boundary alias search where that form can be live. Include straight/curly apostrophe variants when applicable. Do not narrow whole-live-text coverage to `--type md` to reduce output. Preserve full receipts while displaying bounded contexts.
 
-**Literal search command (pre-log, seat and delta use the same boundary):** select `NEEDLE`, `MATCH_MODE` (`fixed` or `word`), and new absolute `RAW_OUT`/`RAW_ERR` paths outside the vault before running. Preserve the complete raw bytes, including long/base64/CR-bearing lines; never cap a loop or overwrite a prior receipt. Display a bounded status/context view and raw path/digest, then triage the retained complete hit set. Full raw receipts, not pasted megabytes, establish coverage.
+**Literal search command (pre-log, seat and delta use the same boundary):** select `NEEDLE`, `MATCH_MODE` (`fixed`, `phrase` or `word`), and new absolute `RAW_OUT`/`RAW_ERR` paths outside the vault before running. Preserve the complete raw bytes, including long/base64/CR-bearing lines; never cap a loop or overwrite a prior receipt. Display a bounded status/context view and raw path/digest, then triage the retained complete hit set. Full raw receipts, not pasted megabytes, establish coverage.
 
 <!-- BEGIN LIVE SEARCH -->
 ```bash
@@ -226,14 +226,14 @@ EXCL=(-g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -g '!**/.git/**'
       -g '!**/node_modules/**' -g '!**/__pycache__/**' -g '!**/.cache/**'
       -g '!*.lock' -g '!*.csv' -g '!*.tsv' -g '!*.jsonl' -g '!*.ndjson' -g '!*.xmp')
 CMD=(rg --hidden --no-ignore -n -F -i "${EXCL[@]}" --max-filesize 2M)
-case "$MATCH_MODE" in fixed) ;; word) CMD+=(-w) ;; *) echo 'ERROR: invalid match mode' >&2; exit 2 ;; esac
+case "$MATCH_MODE" in fixed|phrase) ;; word) CMD+=(-w) ;; *) echo 'ERROR: invalid match mode' >&2; exit 2 ;; esac
 cd "$VAULT" || exit 2
 [ ! -e "$RAW_OUT" ] && [ ! -e "$RAW_ERR" ] || { echo 'ERROR: receipt path already exists' >&2; exit 2; }
 printf 'argv:'; printf ' %q' "${CMD[@]}" -- "$NEEDLE" .; printf '\ncwd: %s\n' "$PWD"
 RC=0
 "${CMD[@]}" -- "$NEEDLE" . > "$RAW_OUT" 2> "$RAW_ERR" || RC=$?
 printf 'exit_status: %s\n' "$RC"
-sha256sum "$RAW_OUT" "$RAW_ERR"
+sha256sum "$RAW_OUT" "$RAW_ERR" || exit $?
 [ "$RC" -le 1 ] || exit "$RC"
 ```
 <!-- END LIVE SEARCH -->

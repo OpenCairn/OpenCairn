@@ -2,6 +2,7 @@
 
 Reviewer answers below are simulated protocol inputs, not an independent audit.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -58,6 +59,8 @@ class CloseoutCallerTests(unittest.TestCase):
         report.write_text('# Daily Report\n\n## Sessions\n1. Fixture close-out\n')
         body = re.sub(r'^\[.*\]$', 'Fixture close-out recorded.', body, flags=re.M)
         body = re.sub(r'^- \[Daily Report.*\]$', f'- {report_rel} - Daily report', body, flags=re.M)
+        body = body.replace('`[Daily Report path]`', f'`{report_rel}`')
+        body = re.sub(r'^- `\[complete (?:deleted )?path\]`.*$', 'None', body, flags=re.M)
         body = body.replace('YYYY-MM-DD', day)
         body = re.sub(r'^- \[.*\]$', 'None', body, flags=re.M)
         body = re.sub(r'\*\*For next session:\*\*.*', '**For next session:** Continue fixture task.', body)
@@ -103,11 +106,12 @@ class CloseoutCallerTests(unittest.TestCase):
                     manifest, result = self.verify_and_build(log, report)
                     self.assertIn('Reviewer brief:', result.stdout)
                     self.assertIn('Continue fixture task', self.week.read_text())
+                    complete = 'COMPLETE ' + hashlib.sha256(Path(manifest['brief']).read_bytes()).hexdigest()
                     attest = '\n'.join(f"ATTEST {item['sha256']} {item['path']}" for item in manifest['full_read'])
                     self.helper('record-audit', '--reviewer', 'fixture-simulated', '--from-brief',
                                 body=attest + '\nTerminal state: findings\n', expected=1)
                     accepted = self.helper('record-audit', '--reviewer', 'fixture-simulated', '--from-brief',
-                                           body=attest + '\nTerminal state: clean\n')
+                                           body=attest + '\n' + complete + '\nTerminal state: clean\n')
                     self.assertIn('Audit receipt:', accepted.stdout)
 
 

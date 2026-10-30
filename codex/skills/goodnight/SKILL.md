@@ -37,6 +37,8 @@ If error, abort. Read `~/.codex/skills/_shared-rules.md` and apply its rules thr
 
 For the nightly flow, read **Caller contract**, **Evidence** and **Inventory** in the [shared close-out protocol](../_closeout.md) before Step 2’s reads and the first content edit. Retain pre-edit reads as they occur. Catch-up C1 initialises separately per date; C2/C3 remain caller-owned reconciliation/debrief steps. If review is unavailable, preserve any work already saved, name the blocker and return incomplete; do not run export/provenance or claim completion.
 
+**Check / Missing ledger.** Collect close-out judgement calls and missing details silently. Never invent a missing value; omit it and retain its destination for the conditional completion lines. These lines do not replace the normal debrief, an unresolved user decision's task home or an incomplete-review verdict.
+
 ### 1. Check current date/time and concurrent sessions
 
 ```bash
@@ -73,7 +75,7 @@ Do not block waiting for a reply — the reconciliation machinery (Steps 2 and 1
 ### 2. Gather Today's Activity (auto)
 
 Read and compile:
-- **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) are completed, unchecked (`[ ]`) are open. This is the richest single source for what was planned vs what happened
+- **This Week.md:** Read `{VAULT}/01 Now/This Week.md` (if it exists and today falls within the date range) — find today's day section. Checked items (`[x]`) show closed state, unchecked (`[ ]`) show open state; their section location alone does not establish a completion date. This is the richest single source for what was planned vs what happened
 - **Today's sessions:** Check `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md` for today's date
 - **Project states:** Read the `03 Projects/` root docs directly (root = active; folder location is status)
 - **Session outcomes:** Note what each session accomplished (for the Sessions list)
@@ -154,7 +156,7 @@ When the user reports a loop is complete, update the SSOT files (not session doc
 3. **Update your working memory** - do NOT re-read session files (you'll get stale data)
 4. **Continue with corrected state** - don't re-display the whole report
 
-**Critical:** Once the user tells you something is done, treat it as done for the rest of this session. Do not pull from files again.
+**Critical:** Retain the user's correction as authoritative. Later required currency/coherence reads must reconcile against that correction, never revert it from an older session summary.
 
 ### 7. Additional Captures (brief, optional)
 
@@ -169,13 +171,13 @@ Ask:
 
 ### 7b. Stranded Claude-internal work product (day-scope net)
 
-`$park` Step 4 catches these per session; this step is the last net of the day, for sessions that ended without a park. Run `find ~/.claude/plans -type f -mtime -1` and Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home; leave spent execution plans.
+`$park` Step 4 catches these per session; this step is the last net of the day, for sessions that ended without a park. Run `find ~/.claude/plans -type f -mtime -1` and Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home; leave spent execution plans. If no parked session/action evidence attributes a plan, mark it `unattributed` and ask in the deferred debrief whether it was executed; do not assume either spent or still needed.
 
 Output: `✓ No stranded work product` or `🔧 Migrated N item(s): [paths]`.
 
 ### 8. Generate Daily Report
 
-Create file at `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`.
+Create file at `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md` through the canonical locked writer (§5), preserving an existing report on catch-up.
 
 **Include the goodnight session itself as the last numbered entry in the Sessions list.** The goodnight session log entry is written later (Step 14), but the Daily Report is the user-facing day index and should enumerate every session — including the goodnight close-out itself. Plan the topic/outcome line at Step 8 to match the entry you'll write at Step 14 so the two stay in sync. The reorder constraint (Step 8 before Step 14) is non-negotiable because Step 14's `### Files Created` references the Daily Report path — the Daily Report must exist on disk first.
 
@@ -203,6 +205,8 @@ N. **Goodnight: [Brief Topic Summary]** — [one-line outcome matching the Step 
 - Sessions: [[06 Archive/OpenCairn/Session Logs/YYYY-MM-DD]]
 - Previous: [[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]] (yesterday if exists)
 ```
+
+**Task origin and completion evidence:** before moving or collapsing a task block, retain its stable action text, source day and any explicit completion-day source. Consult the closing session's Next Steps/Pickup for keep-open conditions before ticking from a summary; default to carrying intact. A checked item carried as progress context is not newly completed on its destination day. For catch-up, inspect later day sections for an explicitly sourced completion belonging to the caught-up day and reconcile that action's report/copy only with that evidence; do not infer a date from a checkbox, file timestamp or section placement. Preserve uncertain context and report its date as unknown rather than shifting it into a guessed day.
 
 **`## Blockers` is carried, not re-derived.** Start from the `## Blockers` list of the newest daily report dated before this one (by the date in its filename, never mtime) and copy each line byte-identical — a reworded blocker reads as a new one and loses its history. Delete a line only when this day's session log or the user shows it closed; add only blockers this day's session log or Step 7 surfaced. With no earlier report, build the list from those sources alone.
 
@@ -244,29 +248,45 @@ After all undone items have been routed, collapse today's section — and any ea
 H='OLD HEADING TEXT'
 TW="{VAULT}/01 Now/This Week.md"
 [ "$(rg -c -F -x -- "## $H" "$TW")" = 1 ] || { echo "STOP: \"## $H\" is not exactly one line of This Week.md" >&2; exit 1; }
-rg -n -F -t md -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -- "$H" "{VAULT}"
+(cd "{VAULT}" && rg --hidden --no-ignore -n -F -g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -g '!**/.git/**' -g '!**/.obsidian*/**' -g '!**/node_modules/**' -- "$H" .)
 ```
 
-`STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
+`STOP` means the search did not run — fix `H`; it is never "nothing found". A run that worked always lists the heading line itself. `06 Archive` and `07 System/.Provenance` are excluded because both are frozen records (session logs, daily reports and attested snapshots keep the heading as it stood): never edit them. **Hits are candidates.** A locator is a line that links to this section — `[[…This Week#…]]`, or `[[#…]]` inside This Week.md only, since in any other note that form points at the note's own heading — or that names it in prose as a section of This Week. Never edit a line that merely mentions the date. After the collapse, repoint each locator with `locked-edit.sh --replace`, changing only the target (a link keeps its `|alias`): a reference to a task Step 9 carried forward targets the heading of the day that task is now under, copied from the file — which can be a future day, or one that already held a scheduled copy; first extract that destination day section and require the task's distinctive action text inside it (an existing heading alone is not proof); anything else targets the day's daily report at file level (`[[06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD]]`) — never the collapsed heading, which the rolling window deletes within days. Emit `Inbound locators: [old heading] — [N] hits, [K] locators, [R] repointed, [L] left (not locators)`, where N = K + L and K = R; if K ≠ R, stop and name the locators not repointed. Each repointed file goes in the session entry's Files Updated.
 
 **⛔ Any count in that heading is read, not estimated — run the commands and show their output before writing the line.** An eyeballed tally over a long day section of near-identical bullets is the recurring defect here, and it is a one-way one: once the section is collapsed, the heading is the only surviving claim in This Week and nothing in that file can falsify it. Fuzzing the number ("several", "many") does not fix this — it still requires a judgement at write time, and it discards the volume signal that is the only reason to state a number at all.
 
+The counting unit is a **leaf planned bullet**, at any indentation: a parent/container with child bullets is not another item, and `✓` marks closed state. Mixed blocks keep their completed children as context. These are states in the captured plan, not proof that each completion happened on that report's date; retain known origin-day evidence and never credit a carried item to a new date without evidence.
+
+<!-- BEGIN COLLAPSE COUNTS -->
 ```bash
-# Items — derive from the daily report's Today's Plan block, NOT the day section. Step 8 wrote that
-# block before Step 9 routed anything, so it is the pre-routing snapshot; by the time this step runs
-# the day section no longer holds the items that were carried forward.
-# Bound the block on `## Sessions`, NOT on a bare `^## ` — the block legitimately contains the
-# copied `## [Day] [DD] [Mon]` heading, which closes a naive bound immediately and silently yields 0.
-REPORT="{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md"
-awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- /'  "$REPORT" | wc -l   # M — total planned
-awk '/^## Today.s Plan/{f=1;next} /^## Sessions/{f=0} f&&/^- ✓/' "$REPORT" | wc -l   # N — closed
-# Sessions — the close-out entry is not appended until Step 14, so this counts the day's work
-# sessions, which is what the heading means. The daily report's Sessions list carries one more.
-rg -c '^## Session ' "{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md" || echo 0
+python3 - "$REPORT" "$SESSION_LOG" <<'PY'
+from pathlib import Path
+import re, sys
+report, log = map(Path, sys.argv[1:])
+active = False; items = []
+for line in report.read_text(encoding="utf-8").splitlines():
+    if re.match(r"^## Today.s Plan\s*$", line): active = True; continue
+    if line.startswith("## Sessions"): active = False
+    if active:
+        m = re.match(r"^([ \t]*)- (.*)$", line)
+        if m: items.append((len(m.group(1).expandtabs(4)), m.group(2)))
+leaves = [text for i, (indent, text) in enumerate(items)
+          if i+1 == len(items) or items[i+1][0] <= indent]
+closed = sum(text.startswith("✓") for text in leaves)
+heads = re.findall(r"^## Session ([0-9]+) - (.+)$", log.read_text(encoding="utf-8"), re.M) if log.exists() else []
+if len({n for n, _ in heads}) != len(heads): raise SystemExit("ERROR: duplicate session numbers")
+closeout = ("Goodnight:", "Goodnight catch-up via /morning", "Goodnight catch-up via $morning")
+sessions = sum(not topic.startswith(closeout) for _, topic in heads)
+print(f"planned_leaf_items={len(leaves)} closed_leaf_items={closed} recorded_work_sessions={sessions}")
+PY
 ```
+<!-- END COLLAPSE COUNTS -->
+
+Set `REPORT` and `SESSION_LOG` to this iteration's exact date paths. Count from the Daily Report's pre-routing Today's Plan, not the now-carried day section; its copied day heading is not the end of that block. The session count excludes the close-out entry consistently whether it already exists or not. If there are no planned leaf items, omit an `all closed` claim; otherwise state closed/total over these captured items. Re-derive these values whenever late sessions or verified completions refresh a collapsed summary.
 
 Then phrase by the result:
-- **N == M** → `All planned items closed across [S] sessions`. Drop the item total: `All` is the whole assertion, and the number adds nothing a reader acts on while still needing maintenance.
+- **M == 0** → no planned-item completion claim.
+- **N == M, M > 0** → `All planned items closed across [S] recorded work sessions`. Drop the item total: `All` is the whole assertion, and the number adds nothing a reader acts on while still needing maintenance.
 - **N < M** → `[N] of [M] closed`, naming what carried. Here the ratio *is* the signal, so both numbers stay.
 
 A count that changes because the underlying fact changed (an item confirmed done after the fact) is a correct edit, not a defect — re-derive and rewrite. The defect is a number that was never read in the first place.
@@ -274,7 +294,7 @@ A count that changes because the underlying fact changed (an item confirmed done
 **⛔ Required output — emit the derived counts before writing the heading.** Format:
 
 ```
-Collapse counts: [Day] [DD] [Mon] — items [N]/[M] (source: daily report Today's Plan) · sessions [S] (source: session log, pre-close-out) ✓
+Collapse counts: [Day] [DD] [Mon] — items [N]/[M] (source: daily report Today's Plan) · sessions [S] (source: session log, close-out entry excluded) ✓
 ```
 
 This is the load-bearing half. The instruction to count accurately has always been implicit, so what recurs is estimating without noticing — a collapse heading with no emitted count line beside it is the failure signature, and after the collapse nothing in This Week can contradict the number.
@@ -321,7 +341,7 @@ TODAY="$(date +%F)"
 SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
 SESSION_LOG="$SESSION_DIR/$TODAY.md"
 [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: session log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
-cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight: [Brief Topic Summary]" "HH:MMam/pm"
+cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number "Goodnight: [Brief Topic Summary]" "$(LC_TIME=C date +'%I:%M%p' | tr '[:upper:]' '[:lower:]')"
 ### Summary
 [2-3 sentences covering what was reviewed/decided/updated during goodnight]
 
@@ -329,13 +349,13 @@ cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-
 - [Any significant decisions made during close-out]
 
 ### Files Created
-- [Daily Report path — typically the only newly-created file. Use bare `None` if no new files.]
+- `[Daily Report path]` - report created (use bare `None` if empty).
 
 ### Files Updated
-- [One concrete path per line: path - what changed; bare None if empty]
+- `[complete path]` - what changed (one path per row; bare `None` if empty).
 
 ### Files Deleted
-- [Any vault files deleted during goodnight — path + why removed. Omit section if none.]
+- `[complete deleted path]` (deleted) - why removed (bare `None` if empty).
 
 ### Pickup Context
 **For next session:** [One sentence for tomorrow morning]
@@ -412,11 +432,13 @@ If mismatch, regenerate the prompt from the enumeration block, not from memory.
 
 **Record format:** retain `### Files Created` and `### Files Updated` with bare `None` when empty, plus `**Project:**` in Pickup Context. Use one complete concrete path per row, vault-relative inside the vault and absolute or `~`-prefixed outside. For an existing catch-up entry, reconcile these fields before verification; do not append a duplicate session.
 
-**Prepare and verify:** execute **Inventory**, **Coverage** and **Quality inspection** in the [shared close-out protocol](../_closeout.md), now including every post-log project/report edit. Run the actual identifier searches against the relevant live vault surfaces and triage every hit under §12; use the caller’s retained pre-state for task moves/collapses. Preserve the enumeration, search scope, raw results and triage as the propagation result. After any repair, recheck affected identifiers before verification. Capture this parent-performed result using `python3 "$PARK_REVIEW" capture --kind propagation --label "Goodnight propagation"`; do not invent a sub-agent report. Capture the exact Goodnight acceptance checks above as `--kind evidence --source "goodnight caller contract" --label "Goodnight acceptance checks" --provenance primary` so the generated brief carries them.
+**Prepare and verify:** execute **Inventory**, **Coverage** and **Quality inspection** in the [shared close-out protocol](../_closeout.md), now including every post-log project/report edit. Run the actual identifier searches against the relevant live vault surfaces and triage every hit under §12; use the caller’s retained pre-state for task moves/collapses. Preserve the enumeration, search scope, raw results and triage as the propagation result, then execute the shared protocol's **Propagation receipts** to capture final needle+mode and executed-search sets (including checked-empty sets) before build. After any repair, recheck affected identifiers before verification. Capture this parent-performed result using `python3 "$PARK_REVIEW" capture --kind propagation --label "Goodnight propagation"`; do not invent a sub-agent report. Capture the exact Goodnight acceptance checks above as `--kind evidence --source "goodnight caller contract" --label "Goodnight acceptance checks" --provenance primary` so the generated brief carries them.
 
 Execute **Backfill and verification**, then **Independent review**. Use the assigned log/N from Step 14 (C1.e for catch-up). Backfill is unconditional, including a clean review with no findings. Only a completed clean review permits Step 16; every parent fix round repeats propagation as needed, backfill, verification and independent review. There is no audit-skill invocation and the reviewer has no remediation authority.
 
 Display the verifier’s `RESULT:`, the reviewer’s report and the clean/incomplete verdict before proceeding. Keep all final report/session corrections before export and provenance.
+
+The shared **Late bookkeeping boundary** applies to monitor/export/provenance outputs: retain their own receipts without retroactive Files rows or recursive review of mechanical packets. Substantive user/content changes during or after Step 15 require another scoped fix/review round before completion.
 
 ### 16. Export Session Transcripts
 
@@ -462,8 +484,12 @@ If no flags exist, skip silently. See `$provenance` for flag file format and ful
 ✓ Audit: clean pass [OR "🔧 Audit: N findings fixed and re-audited clean — see [paths]"]
 ✓ Transcripts exported: N sessions → 06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md
 ✓ Provenance: N files hashed [OR "no flags"]
+Check: [close-out judgement call — file or target]
+Missing: [needed detail unavailable — where left out]
 Goodnight.
 ```
+
+**Check / Missing lines:** print only when a reasonable alternative to a close-out judgement would change the user's next action, or a needed detail was unavailable. Name the file/target; omit either heading entirely when it has no items, never write `none`. Apply the same lines to catch-up handoff and incomplete returns, without labelling an incomplete review complete. Choices fixed by the workflow are not judgement calls.
 
 The nightly run ends here. Enter the following sections only through the mode selection after Step 0.
 
@@ -471,7 +497,7 @@ The nightly run ends here. Enter the following sections only through the mode se
 
 Run Step 0 first. Use the caller’s verified current date as the destination date; if absent, read `date +%F`. Scan the recent dates in C1, reconcile their late sessions in C2, then return to the caller. Do not run the normal interactive close-out or close today’s section. C1 supplies the past-day overrides to the shared numbered steps; those steps remain authoritative for report format, carry-forward, collapse, audit, export and provenance.
 
-Return the caught-up dates with their report paths, any incomplete audit/provenance work, and the dates awaiting C3’s debrief. Keep this handoff in the calling session; completion evidence stays with the shared review artefacts, with no extra task tracker. The caller resumes its landscape before invoking C3. C2 also checks days whose close-out already existed.
+Return the caught-up dates with their report paths, any incomplete audit/provenance work, and the dates awaiting C3’s debrief. Include conditional `Check:` / `Missing:` lines under the same completion rule. Keep this handoff in the calling session; completion evidence stays with the shared review artefacts, with no extra task tracker. The caller resumes its landscape before invoking C3. C2 also checks days whose close-out already existed.
 
 ### C1. Catch up missed close-outs
 
@@ -482,7 +508,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
 1. Check if a daily report exists: `{VAULT}/06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md`
 2. Check if a session log exists: `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`
 3. If no session log or no sessions → skip silently (nothing to close out).
-4. **Check completion, not just artefact presence.** Match the close-out entry by `^## Session [0-9]+ - Goodnight:` or either `Goodnight catch-up via /morning` / `Goodnight catch-up via $morning`. Skip C1 only when the report and entry exist **and** the shared protocol’s **Completion evidence** establishes an accepted clean review for this exact log/N. Pending provenance still goes through C1.h. A report plus entry with missing/incomplete review evidence resumes at step 5; retain its N. Never infer completion from the heading alone.
+4. **Check completion, not just artefact presence.** Match the close-out entry by `^## Session [0-9]+ - Goodnight:` or either `Goodnight catch-up via /morning` / `Goodnight catch-up via $morning`. Skip C1 only when the report and entry exist **and** the shared protocol’s **Completion lookup** and **Completion evidence** establish an accepted clean review for this exact log/N. Pending provenance still goes through C1.h. A report plus entry with missing/incomplete review evidence resumes at step 5; retain its N. Never infer completion from the heading alone. Exception for a log date verified to predate the vault's documented evidence-retention rule: when report and entry exist, disclose `historical record — completion gate unverified` and continue to C2 without manufacturing a clean receipt or re-auditing solely for absent old evidence. New consequential evidence still gets its normal scoped follow-up.
 5. Otherwise → **/goodnight was missed, or a previous catch-up did not finish.** Run a lightweight catch-up, skipping any sub-step whose artefact is already present and complete (do not duplicate an existing daily report — verify and extend it instead):
 
    a. Read **Caller contract**, **Evidence** and **Inventory** in the [shared close-out protocol](../_closeout.md) before C1.a for this date. Keep its generation through C1.g, including all retries. Read the day's session log and its day section in This Week.md. **Also sweep for stranded Claude-internal work product from that day** — `$park` Step 4's third check, day-scoped, since a day reaching catch-up is by definition a day no park or goodnight closed out. Bound the window with two explicit dates (`+1 day` inside `-newermt` is not portable; derive the upper bound with `date -d "<day> +1 day" +%F`):
@@ -491,7 +517,7 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       find ~/.claude/plans -maxdepth 1 -type f -newermt "<day>" ! -newermt "<next day>"
       ```
 
-      Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans.
+      Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home and list what you migrated in C1.e's Files Created; leave spent execution plans. If no parked session/action evidence attributes a plan, mark it `unattributed` and ask in the deferred debrief whether it was executed; do not assume either spent or still needed.
    b. **Execute Step 8** for the caught-up date, using that date’s pre-routing day section and session log. Verify and extend an existing report instead of overwriting it. Use `Goodnight catch-up via $morning` as the close-out topic, matching C1.e. Step 8's Blockers carry rule holds here: the source is the report before the caught-up date and the evidence is that day's session log, never what is known today; an existing report's `## Blockers` is checked against that rule and corrected only where it departs from it. **Omit `## Outside-Agent` until C3 supplies the deferred debrief.**
    c. **Execute Step 9** with source = this caught-up day’s section and destination = today’s section in This Week.md. Read and execute that step; do not reproduce its routing logic here.
    d. **Collapse the day section** to a one-liner + daily report link — execute Step 10, **including its inbound-locator capture and repoint and its count-derivation rule**: any item or session count in the heading is read off the commands that step gives, never estimated, and the derived values are shown. Only collapse this iteration’s day, after C1.c has preserved its open tasks. Other days are handled by their own iteration; do not apply Step 10’s nightly default to uncaught days.
@@ -503,15 +529,15 @@ Scan backwards from yesterday up to 3 days (to catch multi-day gaps from travel/
       SESSION_DIR="{VAULT}/06 Archive/OpenCairn/Session Logs"
       SESSION_LOG="$SESSION_DIR/$CATCHUP_DAY.md"
       [ "$(dirname "$SESSION_LOG")" = "$SESSION_DIR" ] || { echo "ERROR: catch-up log escaped current-log directory: $SESSION_LOG" >&2; exit 1; }
-      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number 'Goodnight catch-up via $morning' "HH:MMam/pm"
+      cat << 'EOF' | "{VAULT}/.claude/scripts/write-session.sh" "$SESSION_LOG" --auto-number 'Goodnight catch-up via $morning' "$(LC_TIME=C date +'%I:%M%p' | tr '[:upper:]' '[:lower:]')"
       ### Summary
       [Brief summary of what was generated/routed]
 
       ### Files Created
-      - 06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md
+      - `06 Archive/OpenCairn/Daily Reports/YYYY-MM-DD.md` - report created
 
       ### Files Updated
-      - [Items routed by C1.c/d; files repointed by Step 10's inbound-locator rule]
+      - `[complete path]` - item routing or inbound-locator repair (one path per row; bare `None` if empty)
 
       ### Pickup Context
       **For next session:** [pickup pointer for today]
@@ -552,7 +578,7 @@ For each date in C1’s lookback window that now has a daily report (whether fro
    - **`## Blockers`: delete a line that a late session demonstrably closes** — from this report and from any later report already carrying it — with `locked-edit.sh --replace`. Never reword a line; without that evidence leave the list alone. The next close-out carries from this list, so a closed blocker left here is carried indefinitely.
    - Do NOT modify `## Today's Plan` or `## Outside-Agent` — they were set deliberately at close-out and remain valid.
    - Add a note at the end of the Sessions section naming only the sessions this pass appended: `*Sessions N–M added by $morning (ran after close-out)*`. If an earlier pass already left such a note, extend its range rather than adding a second one.
-   - **Refresh the collapsed day's one-liner in This Week.md.** $goodnight Step 10 collapsed the day to `## [emoji] [Day] [Date] — [Theme] ✅` + one sentence + report link. If the late sessions change what the day amounted to, extend that sentence to mention them; otherwise leave it alone. (The collapse format carries no session count — do not invent or parse one.)
+   - **Refresh the collapsed day's one-liner in This Week.md.** Re-run Step 10's counts from the current report/log if the summary carries any count; late sessions invalidate a carried tally. $goodnight Step 10 collapsed the day to `## [emoji] [Day] [Date] — [Theme] ✅` + one sentence + report link. If the late sessions change what the day amounted to, extend that sentence to mention them; otherwise leave it alone. (Do not invent a new count where the summary has none.)
    - Display:
      ```
      ✓ Reconciled: [N] post-goodnight session(s) added to [Day DD Mon]'s daily report
@@ -591,7 +617,7 @@ Wait for the answer. If an answer names no day and several caught-up dates are p
 4. Handle mid-flow corrections (Step 6) - update working memory AND files
 5. Generate daily report from working memory (Step 8)
 
-**Session files are write-only after initial read.** When the user marks something done you update the SSOT files (This Week.md, Tickler, project files — see Step 4) so future runs see correct state; session logs stay as the historical record, and you don't re-read them within this session.
+**Do not re-import stale session conclusions after a user correction.** When the user marks something done you update the SSOT files (This Week.md, Tickler, project files — see Step 4) so future runs see correct state; session logs stay as the historical record, and the narrow currency/coherence reads required by the shared review retain the correction.
 
 ## Triggers
 

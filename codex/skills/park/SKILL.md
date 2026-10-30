@@ -223,7 +223,7 @@ For each expected linked hub/membership record, emit `expected record present in
 
 **Distinctive needles:** use canonical subject phrases, heading/link forms or `word` mode for short names/common substrings; pair numeric values with their unit/subject. A phrase search does not prove a bare alias absent: retain a word-boundary alias search where that form can be live. Include straight/curly apostrophe variants when applicable. Do not narrow whole-live-text coverage to `--type md` to reduce output. Preserve full receipts while displaying bounded contexts.
 
-**Literal search command (pre-log, seat and delta use the same boundary):** select `NEEDLE`, `MATCH_MODE` (`fixed` or `word`), and new absolute `RAW_OUT`/`RAW_ERR` paths outside the vault before running. Preserve the complete raw bytes, including long/base64/CR-bearing lines; never cap a loop or overwrite a prior receipt. Display a bounded status/context view and raw path/digest, then triage the retained complete hit set. Full raw receipts, not pasted megabytes, establish coverage.
+**Literal search command (pre-log, seat and delta use the same boundary):** select `NEEDLE`, `MATCH_MODE` (`fixed`, `phrase` or `word`), and new absolute `RAW_OUT`/`RAW_ERR` paths outside the vault before running. Preserve the complete raw bytes, including long/base64/CR-bearing lines; never cap a loop or overwrite a prior receipt. Display a bounded status/context view and raw path/digest, then triage the retained complete hit set. Full raw receipts, not pasted megabytes, establish coverage.
 
 <!-- BEGIN LIVE SEARCH -->
 ```bash
@@ -232,14 +232,14 @@ EXCL=(-g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -g '!**/.git/**'
       -g '!**/node_modules/**' -g '!**/__pycache__/**' -g '!**/.cache/**'
       -g '!*.lock' -g '!*.csv' -g '!*.tsv' -g '!*.jsonl' -g '!*.ndjson' -g '!*.xmp')
 CMD=(rg --hidden --no-ignore -n -F -i "${EXCL[@]}" --max-filesize 2M)
-case "$MATCH_MODE" in fixed) ;; word) CMD+=(-w) ;; *) echo 'ERROR: invalid match mode' >&2; exit 2 ;; esac
+case "$MATCH_MODE" in fixed|phrase) ;; word) CMD+=(-w) ;; *) echo 'ERROR: invalid match mode' >&2; exit 2 ;; esac
 cd "$VAULT" || exit 2
 [ ! -e "$RAW_OUT" ] && [ ! -e "$RAW_ERR" ] || { echo 'ERROR: receipt path already exists' >&2; exit 2; }
 printf 'argv:'; printf ' %q' "${CMD[@]}" -- "$NEEDLE" .; printf '\ncwd: %s\n' "$PWD"
 RC=0
 "${CMD[@]}" -- "$NEEDLE" . > "$RAW_OUT" 2> "$RAW_ERR" || RC=$?
 printf 'exit_status: %s\n' "$RC"
-sha256sum "$RAW_OUT" "$RAW_ERR"
+sha256sum "$RAW_OUT" "$RAW_ERR" || exit $?
 [ "$RC" -le 1 ] || exit "$RC"
 ```
 <!-- END LIVE SEARCH -->
@@ -289,13 +289,7 @@ For either branch with a seat, collect its report with `collaboration.wait_agent
 
 When a seat reported, check that its `identifiers received` count equals the despatched enumeration and that each H = U + L matches its hit-list before relaying any figure, then inspect the report for unresolved or gated consequences before backfill. Route each through Step 7. If that routing changes the final enumeration, send one delta-only `collaboration.followup_task` to the same propagation seat and collect its consolidated addendum before capture; a report that surfaces a new open loop invalidates any earlier "none" result. Apply the same consequence/delta check to each addendum; further identifier changes from propagation or later Park edits require rechecking Step 8 before completion.
 
-Immediately capture the returned report and any consolidated addendum verbatim, or, only in the no-seat checked-empty branch, the primary session's explicit checked-nil receipt and category-check results. Never fabricate an agent report or supply empty input. Step 9 consumes this receipt mechanically and still despatches its independent reviewer:
-
-```bash
-python3 "$PARK_REVIEW" capture --kind propagation --label "Step 6 propagation" <<'EOF'
-<agent report and addendum verbatim OR primary session's explicit checked-nil receipt and category-check results>
-EOF
-```
+Immediately retain the actual consolidated report and addendum, or the checked-nil category result, then execute **Propagation receipts** in the [shared close-out protocol](../_closeout.md): capture the final needle+mode enumeration and executed-search JSON separately. The report string remains verbatim; raw stdout/stderr files are immutable inputs. Even a checked-nil run records `needles: []` and `searches: []`; no fabricated agent report or empty report string. Step 9 validates these receipts mechanically and still dispatches its independent reviewer.
 
 Add every propagation-touched file to the attribution list. Classify new locator-only files through the locked-edit receipts; apply Step 2(b)'s proportional semantic/reference inspection to every other new artefact. This closes the overlap without repeating mechanical checks or promoting imported references into full reads.
 
