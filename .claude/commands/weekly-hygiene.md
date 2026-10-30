@@ -37,21 +37,52 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
      ```bash
      W=<resolved window>; today=$(date +%F)
-     for f in "{VAULT}/03 Projects/"*.md; do
-       d=$(rg -m1 -oP '^last_reviewed:\s*\K\d{4}-\d{2}-\d{2}' "$f" || true); n=$(basename "$f" .md)
-       if [ -z "$d" ]; then echo "$n: last_reviewed absent — FLAG"
-       else age=$(( ( $(date -d "$today" +%s) - $(date -d "$d" +%s) ) / 86400 ))
-            [ "$age" -gt "$W" ] && v=FLAG || v=ok; echo "$n: last_reviewed $d, $age days ago — $v"; fi
-     done
+     python3 - "$W" "$today" "{VAULT}/03 Projects" <<'PY_HUB_AGE'
+import datetime, pathlib, re, sys
+window, today, directory = int(sys.argv[1]), datetime.date.fromisoformat(sys.argv[2]), pathlib.Path(sys.argv[3])
+if not directory.is_dir():
+    raise SystemExit('Hub review age: CHECK FAILED — projects directory unavailable')
+errors = 0
+files = sorted(directory.glob('*.md'))
+for path in files:
+    try:
+        lines = path.read_text(encoding='utf-8').splitlines()
+        front = []
+        if lines and lines[0] == '---':
+            end = lines.index('---', 1)
+            front = lines[1:end]
+        keys = [line for line in front if re.match(r'^last_reviewed:', line)]
+        if not keys:
+            print(f'{path.stem}: last_reviewed absent — FLAG')
+            continue
+        if len(keys) != 1:
+            raise ValueError('duplicate last_reviewed key')
+        value = keys[0].split(':', 1)[1].strip()
+        parsed = re.fullmatch(r"(['\"]?)([0-9]{4}-[0-9]{2}-[0-9]{2})\1(?:[ \t]+#.*)?", value)
+        if not parsed:
+            raise ValueError('last_reviewed must be an ISO date')
+        value = parsed[2]
+        stamp = datetime.date.fromisoformat(value)
+        age = (today - stamp).days
+        if age < 0:
+            raise ValueError('last_reviewed is in the future')
+        verdict = 'FLAG' if age > window else 'ok'
+        print(f'{path.stem}: last_reviewed {value}, {age} days ago — {verdict}')
+    except (OSError, UnicodeError, ValueError) as error:
+        errors += 1
+        print(f'{path.stem}: review-age CHECK FAILED — {error}')
+print(f'Hub review age: {len(files)} docs checked; {errors} check failures')
+raise SystemExit(2 if errors else 0)
+PY_HUB_AGE
      ```
 
-     Pass is a line per root doc; a doc with no `FLAG` is current. The date comes from the key, never from mtime (`_shared-rules.md` §22). The check never writes the key — a stale hub is a prompt to re-read it; stamping it would record a review that did not happen.
+     Pass is a line per root doc plus the enumeration count, with no `CHECK FAILED`; exit 2 is a failed check, never an absent stamp or a current doc. Only the opening YAML frontmatter is read for this key. The date comes from the key, never from mtime (`_shared-rules.md` §22). The check never writes the key — a stale hub is a prompt to re-read it; stamping it would record a review that did not happen.
 
    **Confirm with user:**
    - Structure violations: fix a missing `bucket:` frontmatter key in-session via `locked-edit.sh`, with the user's confirmation
    - Route priority-based choices to `/weekly-review` / `/quarterly-review`; confirmed completion filing may use `/complete-project`.
 
-   **If not resolved in-session:** route each finding per the disengage-routing rule to its reviewed task home or capture fallback.
+   **If not resolved in-session:** route each finding per the disengage-routing rule to its reviewed task home or capture fallback. Absent/overdue hub-review flags are findings: upsert one linked hub-review task in the configured review task home, listing the affected hubs, rather than leaving them only in this report.
 
 2. **Projects Folder Audit**
 
@@ -157,7 +188,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    **Auto-fix:**
    - Read `{VAULT}/01 Now/This Week.md`
-   - Purge completed items: delete all `- [x]` lines from **past** day sections in This Week.md (date < today). **Do not purge today's day section** — completed items there are at-a-glance context until `/goodnight` archives them to the daily report. Future day sections shouldn't have `[x]` items, but if they do, leave them. `- [ ]` items are always untouched.
+   - Purge completed items only from **past** day sections whose closeout is evidenced by a collapse or a read daily report carrying those completions. A past day without that evidence still needs its `[x]` items for catch-up: leave them intact. Never purge today or future sections, and never alter unchecked tasks in this sweep.
 
    **Confirm with user:**
    - Audit trailing sections for staleness: scan sections after the last day section. Flag sections where >75% of content is resolved or done (`- [x]`). Recommend deletion. Strikethrough does not count toward that share — see the Tickler step's rule; struck text is content the user kept.
@@ -187,7 +218,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      - **A line cap of ~200 lines**, past which entries are silently dropped from the system prompt with no warning.
    - Flag for action at **≥150 lines or ≥17 KB**. Do not use a KB threshold looser than the harness's compaction target: a 22 KB flag passes an index the harness is already warning about, which is exactly how a bloated index survives a sweep that reports it healthy. (Undocumented internals — re-verify after a Claude Code update, and prefer an observed warning over these figures.)
    - **When the index is over budget, compaction is a whole-file rewrite, not a few edits.** Shedding several KB across 100+ entries means every over-long hook, not the worst three. Rewrite the index in one pass, then verify: entry count unchanged, and every `](file.md)` link still resolves.
-   - Flag any index **hook** (the text after ` — `) longer than ~120 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.) Don't set this threshold so high that the flagged set can't close the gap to the size budget: an index needing several KB shed has dozens of over-long hooks, not three.
+   - Flag any index **hook** (the text after the link-closing `) — `, not the first ` — ` in a title) longer than ~120 chars: that's a hook that has bloated into a duplicate of its topic-file body. **The remedy is to trim the hook in place** — compress it to a one-line pointer; the detail already lives in the topic file. This is *not* a reason to migrate the entry. (A whole *line* over ~200 chars is usually just a long title/filename — that's fine; measure the hook, not the line.) Don't set this threshold so high that the flagged set can't close the gap to the size budget: an index needing several KB shed has dozens of over-long hooks, not three.
    - **Orphan check — topic files missing from the index.** Every `.md` in the memory directory except `MEMORY.md` must have an index line; a topic file with none is invisible to relevance matching and can never fire, however good the rule is. Nothing warns about this, and it survives every sweep that only reads the index.
      ```bash
      DIRS=(); while IFS= read -r d; do DIRS+=("$d"); done < <("{VAULT}/.claude/scripts/resolve-claude-project-dir.sh" "{VAULT}")   # re-resolve: shell state doesn't persist between calls
@@ -352,12 +383,14 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
 
    For totals, the CLI doesn't support exclude filters natively. Pipe through `wc -l` after filtering to get accurate counts:
    ```bash
-   obsidian tasks todo total 2>/dev/null      # open tasks vault-wide (no exclude needed)
-   obsidian tags counts sort=count 2>/dev/null | head -10  # top tags
+   obsidian tasks todo total path="01 Now/This Week.md" 2>/dev/null  # this named task surface only
+   obsidian tags counts path="01 Now/This Week.md" sort=count 2>/dev/null  # tags on that surface only
    obsidian orphans 2>/dev/null | filter | wc -l           # filtered orphan count
    obsidian unresolved 2>/dev/null | filter | wc -l        # filtered broken link count
    obsidian deadends 2>/dev/null | filter | wc -l          # filtered dead-end count
    ```
+
+   These task/tag values are scoped to `This Week.md`, never labelled vault-wide. Omit them if that surface is absent. `unresolved counts` gives targets/counts, not source membership: do not infer “sources outside Archive” from it; omit that breakdown unless a separately verified source-listing route was actually read.
 
    **⛔ Empty-output guard (`orphans` / `deadends` / `tags`):** on some setups these subcommands return zero rows even when the vault plainly has matches, and their `total` forms can return an implausible number or an empty string. An empty result piped through `wc -l` prints `0` — an absence of evidence the report would then record as evidence of absence. Before writing a 0 for any of these metrics, cross-check the row form against the `total` form (`obsidian orphans total`, `obsidian deadends total`; for tags, non-empty `obsidian tags` output). Record 0 only when both forms agree. If rows are empty but the total is non-zero, empty, or implausible (a sanity ceiling: it can't exceed the vault's file count), the CLI is unreliable for that metric on this setup → record it as **"unavailable (CLI returned no rows)"**, never 0. This applies equally to the orphan/dead-end listing checks above.
 
@@ -389,10 +422,12 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
      while read -r s; do
        n=$((n+1))
        [ -f "$CMDS/$s.md" ] || { echo "  STALE pointer: $s (no $CMDS/$s.md)"; bad=$((bad+1)); }
-     done < <(awk '/^## Patterns/{f=1;next} f' "$PF" | rg -o -P '.*→ \K[^→]*$' | rg -o -P '`[^`]+`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u)
+     done < <(awk '/^## Patterns/{f=1;next} f' "$PF" | rg -o -P '.*→ \K[^→]*$' | rg -o -P '`[A-Za-z0-9_][A-Za-z0-9_.-]*(?: §[0-9]+)?`' | tr -d '`' | sed 's/ §[0-9]*$//; s/\.md$//' | sort -u)
      echo "Pointer check [$CMDS]: $n pointers, $bad stale"
    done
    ```
+
+   Only filename-shaped skill stems or `.md` names are extracted from backticks; slash-terminated directory prose and multiword commands are not pointers. A missing valid stem must still print `STALE`, so a clean run needs a detected valid pointer as its positive control.
 
    **⛔ Emit the tree count and the per-tree line even when clean** — the *Empty CLI output is not zero* and *Gate emits an observable* patterns applied to this check. A clean result and a scan that never ran are indistinguishable in silent output, so the count is what makes a narrowed sweep visible. A run reporting no tree count has verified nothing, however many zeroes it prints.
 
@@ -438,24 +473,26 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    ```
    Any non-space immediately before a `- [ ]`/`- [x]` is a join defect (legit nested items are space- or tab-indented, so they don't match). Split the two items onto separate lines via `locked-edit.sh` and report each fix.
 
-   **Lock sentinels** (vault clutter; auto-fix):
-   `lib-lock.sh` locks a per-file sibling `<dir>/.<basename>.lock` and leaves the empty file behind, one per file ever edited under the lock. Deleting these is a safe auto-fix: machine-generated, content-free, recreated on demand. Reap under `flock -n`, which skips any sentinel a writer currently holds, and only sentinels not modified in 7 days (the shell writers truncate on acquisition, so a recent mtime means recent use). `-name` already excludes real lockfiles such as `flake.lock`; `-empty` is a second guard so nothing with content is ever deleted. Never delete mkdir-fallback directories (`.lock.d`): `lib-lock.sh` cannot tell an abandoned one from a live owner without a race, so report them for the user. Where `flock` is absent, skip the sweep. **Residual race:** a writer that has opened a sentinel but not yet locked it keeps the old inode if the sweep unlinks it in that instant, and a second writer then locks a fresh one, so mutual exclusion splits. The 7-day gate confines this to files being acquired for the first time in a week during the sweep's microsecond window; it narrows the exposure, it does not close it.
+   **Lock sentinels** (report-only metadata):
+   Canonical `.lock` paths remain in place, even when empty or old. Unlinking a locked or about-to-be-locked inode can split mutual exclusion between waiting writers; an age gate or `flock -n` does not close that race. Do not reap them. Enumerate candidates and report mkdir-fallback directories separately; an operator must establish a fallback owner's death and follow `lib-lock.sh` recovery before removal, never infer abandonment from age alone.
    ```bash
-   if command -v flock >/dev/null 2>&1; then
-     reaped=0; held=0; errors=0
-     while IFS= read -r -d '' f; do
-       flock -n -E 75 "$f" rm -- "$f"
-       case $? in 0) reaped=$((reaped+1));; 75) held=$((held+1));; *) errors=$((errors+1)); echo "ERROR: $f";; esac
-     done < <(find "{VAULT}" -name .git -prune -o -type f -empty -name '.*.lock' ! -mtime -7 -print0)
-     echo "REAPED=$reaped HELD=$held ERRORS=$errors"
-   else
-     echo "flock unavailable; sentinel sweep skipped"
-   fi
-   echo "REMAINING=$(find "{VAULT}" -name .git -prune -o -type f -empty -name '.*.lock' -print | wc -l)"
-   # Report only, never delete:
-   find "{VAULT}" -name .git -prune -o -type d \( -name '.*.lock.d' -o -name '.lock.d' \) -print
+   python3 - "{VAULT}" <<'PY_LOCK_METADATA'
+import fnmatch, os, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+if not root.is_dir():
+    raise SystemExit('Lock metadata: CHECK FAILED — vault unavailable')
+locks, fallbacks = [], []
+for directory, children, files in os.walk(root):
+    children[:] = [name for name in children if name != '.git']
+    fallbacks.extend(str(pathlib.Path(directory) / name) for name in children
+                     if fnmatch.fnmatchcase(name, '.*.lock.d') or name == '.lock.d')
+    locks.extend(str(pathlib.Path(directory) / name) for name in files
+                 if fnmatch.fnmatchcase(name, '.*.lock'))
+for path in sorted(locks): print(path)
+print(f'CANONICAL_LOCK_FILES={len(locks)} (retained)')
+for path in sorted(fallbacks): print(f'MKDIR_FALLBACK — owner verification required: {path}')
+PY_LOCK_METADATA
    ```
-   A lock-busy exit is 75 (via `-E`); any other non-zero exit is an error (for example `rm` refused on NTFS while the handle is open) and is listed, never counted as held.
 
 12. **Context File Staleness Detection**
 
@@ -613,6 +650,8 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    **Verify OTS proofs:**
    For entries with `.ots` files, the target must hash to the logged digest: use the retained snapshot when the live file is missing or differs. Then run `ots verify -f "<resolved_target_file>" "<ots_file>"` (path 1) or `ots-cli.js verify -f "<resolved_target_file>" "<ots_file>"` (path 2). The `-f` flag is required whenever the target file lives in a different directory from the `.ots` proof — without it, verify looks for `<basename minus .ots>` alongside the proof and reports a misleading "could not open target" failure. The JS client's success line reads `Success! Bitcoin block N attests existence as of <date>` after "Lite-client verification" warnings — that is a pass. Record as CONFIRMED (note "lite" when via explorer), PENDING, FAILED, or MISSING.
 
+   Append explorer/lite verification with the writer's canonical `--status confirmed`; retain “lite” and its trust limitation in this report/evidence, not a new write-status spelling. Read-only compatibility with old `confirmed (lite)` rows is not permission to write that form.
+
    **Note:** Work product mismatches are informational, not failures — living documents evolve. Transcript mismatches can follow re-export; verify the retained snapshot before reporting an integrity failure. Session log mismatches are expected for entries created before the flag-based architecture (legacy mid-day hashes).
 
 14. **Supply-chain config tripwire** (AI-assistant hook integrity)
@@ -646,6 +685,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - **Tombstone only where a stale writer is demonstrated; otherwise delete.** `locked-edit.sh --append` creates a missing file, so deleting a path something still writes to does not stop the writes — it removes the banner and lets the next append look like a fresh log. But that reasoning only applies where a writer actually exists. Test it: does any skill, script or repo reference the old path, and has anything written there recently? If both are no, the observations belong in the canonical log and the file itself is clutter — merge and delete, leaving the content recoverable in vault git. Tombstoning an orphan nothing points at is unrequested residue.
    - Read the log. Group observations by the file the suggested edit targets — a bullet naming another file (e.g. a `_shared-rules.md` section) routes to that file, with the logging skill kept as evidence; only default to the skill's own file when no other target is named. The same gap observed across sessions is one finding with a recurrence count (recurrence = priority signal), listing the dates it covers.
    - **Escalate anything seen 3+ times.** Count the recurrences per finding and say the number. A suggestion logged three or more times is not a finding awaiting disposition — it is evidence that the log is absorbing effort a fix should be absorbing, and that "defer" has already been chosen and has already failed. Promote it to the work-queue doc that owns the skill library as an explicit fix task, and record it as promoted rather than deferring it a fourth time. Deferring a 3+ recurrence is a disposition this step does not offer. **Reconcile against the queue before counting:** search the queue doc for each grouped finding's mechanism (grep by artefact, as in the floor rule below, then confirm it is the same defect — two different defects in one script are two findings). A finding that already has a queue line is not re-promoted: add to its count only the observations dated after the line's own latest date stamp (evidence already counted, or a retried run, changes nothing), restamp it `(last seen YYYY-MM-DD)` with the newest such observation's date, lift a P3 line that has reached three to P2, then remove all its source observations; never add a second line. A new 3+ finding enters the queue as one line at **P2** carrying its count and `(promoted YYYY-MM-DD)`, inserted at its sorted position (recurrence descending among P2 escalations). P1 only where the finding names data loss, corruption or a demonstrated urgent blocker. Read the queue line back before removing the source observations (per observation — sibling bullets with another disposition stay): the queue line carries the evidence, and an observation left behind is re-counted every week as if unpromoted. Reconciliation and promotion are evidence-based and run on unattended passes too. No queue doc configured → list the finding under `Promoted` in the report and leave its observations in the log to age out; nothing is removed without a verified destination.
+   - **Reconciliation boundaries:** only a live open queue line is an existing fix task. A closed/moved historical line is evidence to inspect the current target and its fix date, not an open line to increment: pre-fix observations are already-covered; a reproduced post-fix failure may reopen a distinct residual with its own evidence. For an undated live line, recover its evidence boundary from queue history/promotion records; if unavailable, preserve the count as a floor, report `boundary unknown`, and do not invent a date or add possibly pre-counted sightings. Identified observations from this hygiene run itself wait for the next processing pass; other sessions on the same date are not excluded merely by date.
    - **A recurrence count is a floor, not a total.** Independent sessions describe the same defect in different words, so grouping by wording undercounts. Before assigning a count, grep the log for the artefact (script name, step number, file path), not for the phrasing.
    - Present grouped findings with a recommended disposition each: **apply** (show the specific edit for approval), **reject**, **defer**, or **promote** (3+ — mechanical, per the escalation rule above). Never auto-apply.
    - Approved edits go to the canonical copy: if the skill exists in a template repo (e.g. `~/repos/OpenCairn/.claude/commands/<skill>.md`), edit the template copy **and copy it over the personal `~/.claude/commands/` copy in the same pass** (a template-only edit leaves the live copy stale and next week re-logs the same gap as unresolved), then `diff` the pair; otherwise edit the personal copy only. No git commit unless asked.
@@ -810,6 +850,7 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
       Findings never go to the Whimsy sink and are never silently dropped.
     - Apply §18 to actual deadlines/user dates and list each verified dated target. Keep unresolved past-due Tickler entries in place. Read back every routed finding; ordinary report-only findings do not count as captured.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent. Re-read the report, then update that section through `locked-edit.sh --replace`; never mutate it directly.
+    - Before refreshing any existing task's report backlink, check whether the user or verified action in this run resolved that exact finding. Close the resolved scope under the normal lock, preserving any remaining clause; do not leave a resolved task open with a fresher backlink or invent its completion date.
     - **Routing is an upsert.** Key by source/finding identity and normalised action, independent of destination and report period; ignore volatile week/count metadata. Search live task homes, the capture fallback, This Week and Tickler for that identity before creating a task. A finding already captured or later triaged to an owning home is updated there, not recreated in fallback. Preserve existing user dates, original provenance and open This Week placement; refresh the report link. Resolve ambiguous matches before writing. Different findings in one report remain distinct.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers in every routing destination (project docs, Working Memory, scratchpads, Tickler) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 

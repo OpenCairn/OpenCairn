@@ -17,6 +17,7 @@ Change one project's lifecycle state through the standard link-healing move.
    - `cold` → `03 Projects/Cold/Project Name.md`
    - `backlog` → `03 Projects/Backlog/Project Name.md`
    Completion belongs to `$complete-project`.
+   For `active`, read the source's YAML frontmatter and require the vault's `bucket:` value before applying. Reuse a valid existing value; if absent, obtain the user's bucket from the documented taxonomy and add only that confirmed field through `locked-edit.sh`. Never choose a bucket from the project's name. After the move, re-read the destination frontmatter and report a missing field as incomplete rather than calling activation complete.
 3. Run the helper in dry-run mode and display its plan:
 
    ```bash
