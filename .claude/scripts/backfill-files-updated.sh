@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Backfill "### Files Updated" section in a session log entry
-# Usage: backfill-files-updated.sh <session-file> <session-num>
+# Backfill a Files section in a session log entry (Files Updated by default)
+# Usage: backfill-files-updated.sh <session-file> <session-num> [--section "Files Created|Files Updated|Files Deleted"]
+#   A missing selected Files section is inserted before Pickup Context.
+#   Existing rows keep their section and description; this never rehomes a path.
 #   File list is read from stdin, one "- path - description" per line
 #   (the leading "- " is optional; every written row carries exactly one).
 #   An indented line is a nested bullet or continuation of the row above: it is
@@ -46,6 +48,17 @@ fi
 
 SESSION_FILE="$1"
 SESSION_NUM="$2"
+SECTION_NAME="Files Updated"
+shift 2
+if [ "$#" -gt 0 ]; then
+    [ "$#" -eq 2 ] && [ "$1" = "--section" ] || { echo "Expected --section <Files section>" >&2; exit 1; }
+    SECTION_NAME="$2"
+fi
+case "$SECTION_NAME" in
+    'Files Created'|'Files Updated'|'Files Deleted') ;;
+    *) echo "Unsupported Files section: $SECTION_NAME" >&2; exit 1 ;;
+esac
+[[ "$SESSION_NUM" =~ ^[1-9][0-9]*$ ]] || { echo "Session number must be a positive integer" >&2; exit 1; }
 
 # Read before acquiring the lock, bounded against an orphaned heredoc writer.
 FILE_LIST=""
@@ -85,14 +98,22 @@ else
     END_LINE=$(awk 'END { print NR }' "$SESSION_FILE")
 fi
 
-# Find "### Files Updated" within this session block
-FILES_UPDATED_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -n "^### Files Updated" || true; } | head -1 | cut -d: -f1)
+# Find the exact selected heading within this session block. Missing Files
+# sections may be created at Pickup Context only, never in a neighbouring entry.
+FILES_UPDATED_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF "### $SECTION_NAME" || true; } | head -1 | cut -d: -f1)
+MISSING_SECTION=false
 if [ -z "$FILES_UPDATED_LINE" ]; then
-    echo "Could not find '### Files Updated' in Session ${SESSION_NUM}"
-    _unlock
-    exit 1
+    PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF '### Pickup Context' || true; } | head -1 | cut -d: -f1)
+    if [ -z "$PICKUP_LINE" ]; then
+        echo "Could not find '### ${SECTION_NAME}' or Pickup Context in Session ${SESSION_NUM}"
+        _unlock
+        exit 1
+    fi
+    MISSING_SECTION=true
+    FILES_UPDATED_ABS=$((SESSION_HEADING + PICKUP_LINE - 1))
+else
+    FILES_UPDATED_ABS=$((SESSION_HEADING + FILES_UPDATED_LINE - 1))
 fi
-FILES_UPDATED_ABS=$((SESSION_HEADING + FILES_UPDATED_LINE - 1))
 
 # Exclusive section end: next section heading within this session, or the
 # first line after the session. awk counts an unterminated final record too.
@@ -103,9 +124,12 @@ SECTION_END=$(awk -v start="$FILES_UPDATED_ABS" -v end="$END_LINE" '
 
 # Numeric predicates also make an empty section an empty range (unlike sed's
 # reversed start,end range, which can still return the start line).
-SECTION_CONTENT=$(awk -v start="$FILES_UPDATED_ABS" -v end="$SECTION_END" '
-    NR > start && NR < end
-' "$SESSION_FILE")
+SECTION_CONTENT=""
+if [ "$MISSING_SECTION" = "false" ]; then
+    SECTION_CONTENT=$(awk -v start="$FILES_UPDATED_ABS" -v end="$SECTION_END" '
+        NR > start && NR < end
+    ' "$SESSION_FILE")
+fi
 
 # --- Row normalisation -------------------------------------------------------
 # A file row is written with exactly one leading "- ", whether the caller sent
@@ -210,9 +234,10 @@ while IFS= read -r existing; do
     fi
 done <<< "$SECTION_CONTENT"
 
-# A created file remains Created after later edits; preserve that original row.
-CREATED_CONTENT=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | awk '
-    /^### Files Created$/ { inside=1; next }
+# Preserve existing Created/Updated ownership in every mode; no automatic
+# transfer from one Files section to another is implied by --section.
+CREATED_CONTENT=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | awk -v selected="### $SECTION_NAME" '
+    /^### Files (Created|Updated)$/ { inside=($0 != selected); next }
     /^### / { inside=0 }
     inside { print }
 ')
@@ -262,7 +287,11 @@ while IFS= read -r line; do
     if [ -n "$FILE_PATH" ]; then
         NORM_PATH=$(_norm_path "$FILE_PATH")
         if printf '%s' "$SEEN_PATHS" | grep -qxF -- "$NORM_PATH"; then
-            printf 'skipped (already listed in Created/Updated): %s\n' "$FILE_PATH"
+            if [ "$SECTION_NAME" = "Files Updated" ]; then
+                printf 'skipped (already listed in Created/Updated): %s\n' "$FILE_PATH"
+            else
+                printf 'skipped (already listed in a Files section): %s\n' "$FILE_PATH"
+            fi
             printf '  incoming row not written: %s\n' "$line"
             SKIPPED=$((SKIPPED + 1))
             PARENT_SKIPPED=true
@@ -302,7 +331,16 @@ FILE_LIST="$DEDUPED_LIST"
 # Preserve original file permissions
 ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
 
-if echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
+if [ "$MISSING_SECTION" = "true" ]; then
+    export _AWK_INSERT_BEFORE="$FILES_UPDATED_ABS" _AWK_HEADING="### $SECTION_NAME" _AWK_FILE_LIST="$FILE_LIST"
+    awk '
+        NR == ENVIRON["_AWK_INSERT_BEFORE"]+0 {
+            print ENVIRON["_AWK_HEADING"]; print ENVIRON["_AWK_FILE_LIST"]; print ""
+        }
+        { print }
+    ' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
+    unset _AWK_INSERT_BEFORE _AWK_HEADING _AWK_FILE_LIST
+elif echo "$SECTION_CONTENT" | grep -qE "^-?[ 	]*None($|[^- 	]|[ 	]*\()"; then
     # Find placeholder "None" line — matches: "None", "- None", "- None (explanation)", "- None."
     # Does NOT match "None - work completed" (intentional content, not a placeholder)
     # Uses [ \t] instead of \s for POSIX/macOS compatibility
@@ -349,5 +387,5 @@ _session_record_write "backfill-files-updated" "$SESSION_FILE"
 
 _unlock
 
-echo "Files Updated backfilled for Session ${SESSION_NUM}"
+echo "${SECTION_NAME} backfilled for Session ${SESSION_NUM}"
 echo "${ADDED} added, ${SKIPPED} skipped"

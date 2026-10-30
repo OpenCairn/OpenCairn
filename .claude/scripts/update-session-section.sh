@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Update a named section within a session log entry
 # Usage: update-session-section.sh <session-file> <session-num> <section-name> [--replace]
-#   Content is read from stdin
+# Usage: update-session-section.sh <session-file> --rename-heading <session-num> "<full ## Session N - ... heading>"
+#   Section content is read from stdin; --rename-heading does not read stdin.
+#   A missing Files Created/Updated/Deleted section is inserted before Pickup Context.
+#   --replace takes the complete new section body, never an OLD/separator/NEW pair.
 #   Default: append after last entry (replaces "None" lines automatically)
 #   --replace: replace entire section content
 #   Section name without "### " prefix (e.g. "Summary", "Files Created")
@@ -28,6 +31,7 @@
 #   EOF
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
+# Heading rename needs python3; section updates retain their shell/awk route.
 
 set -euo pipefail
 
@@ -41,14 +45,32 @@ if [ $# -lt 3 ]; then
 fi
 
 SESSION_FILE="$1"
-SESSION_NUM="$2"
-SECTION_NAME="$3"
 REPLACE_MODE=false
-
-if [ "${4:-}" = "--replace" ]; then
-    REPLACE_MODE=true
+RENAME_MODE=false
+if [ "$2" = "--rename-heading" ]; then
+    [ "$#" -eq 4 ] || { echo "--rename-heading requires a session number and full heading" >&2; exit 1; }
+    RENAME_MODE=true
+    SESSION_NUM="$3"
+    NEW_HEADING="$4"
+    SECTION_NAME=""
+    case "$NEW_HEADING" in
+        *$'\n'*|*$'\r'*) echo "The new heading must be one line" >&2; exit 1 ;;
+        "## Session ${SESSION_NUM} - "?*) ;;
+        *) echo "The new heading must start with '## Session ${SESSION_NUM} - '" >&2; exit 1 ;;
+    esac
+else
+    SESSION_NUM="$2"
+    SECTION_NAME="$3"
+    if [ "${4:-}" = "--replace" ]; then
+        REPLACE_MODE=true
+    elif [ "$#" -gt 3 ]; then
+        echo "Unknown section update option: $4" >&2; exit 1
+    fi
+    [ "$#" -le 4 ] || { echo "Too many section update arguments" >&2; exit 1; }
 fi
+[[ "$SESSION_NUM" =~ ^[1-9][0-9]*$ ]] || { echo "Session number must be a positive integer" >&2; exit 1; }
 
+if [ "$RENAME_MODE" = "false" ]; then
 # Read before acquiring the lock, bounded against an orphaned heredoc writer.
 CONTENT=""
 _read_stdin_content CONTENT || exit $?
@@ -105,6 +127,8 @@ case "$SECTION_NAME" in
         ;;
 esac
 
+fi  # section payload handling; heading rename has no stdin payload
+
 # Validate file exists
 if [ ! -f "$SESSION_FILE" ]; then
     echo "Session file not found: $SESSION_FILE"
@@ -126,18 +150,74 @@ if [ -z "$SESSION_HEADING" ]; then
     exit 1
 fi
 
+if [ "$RENAME_MODE" = "true" ]; then
+    # Replace exactly one complete heading while retaining every other byte,
+    # including an unterminated final record elsewhere in the file.
+    CHANGED=$(python3 - "$SESSION_FILE" "$SESSION_NUM" "$NEW_HEADING" <<'PY_RENAME'
+import os, pathlib, re, stat, sys, tempfile
+path = pathlib.Path(sys.argv[1])
+data = path.read_bytes()
+lines = data.splitlines(keepends=True)
+pattern = re.compile(rb'^## Session ' + sys.argv[2].encode() + rb' - ')
+indices = [i for i, line in enumerate(lines) if pattern.match(line)]
+if len(indices) != 1:
+    raise SystemExit('The selected session heading must occur exactly once')
+index = indices[0]
+ending = b'\r\n' if lines[index].endswith(b'\r\n') else (b'\n' if lines[index].endswith(b'\n') else b'')
+lines[index] = sys.argv[3].encode('utf-8') + ending
+updated = b''.join(lines)
+if updated != data:
+    fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '.', dir=path.parent)
+    try:
+        os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(updated)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary): os.unlink(temporary)
+    print('yes')
+PY_RENAME
+)
+    [ "$CHANGED" != "yes" ] || _session_record_write "update-session-section" "$SESSION_FILE"
+    _unlock
+    echo "Heading renamed in Session ${SESSION_NUM}"
+    exit 0
+fi
+
 # Find session block end (next session heading or EOF)
 NEXT_HEADING=$(tail -n +$((SESSION_HEADING + 1)) "$SESSION_FILE" | { grep -n "^## Session " || true; } | head -1 | cut -d: -f1)
 if [ -n "$NEXT_HEADING" ]; then
     END_LINE=$((SESSION_HEADING + NEXT_HEADING - 1))
 else
-    END_LINE=$(wc -l < "$SESSION_FILE")
+    END_LINE=$(awk 'END { print NR }' "$SESSION_FILE")
 fi
 
 # Find section heading within this session block (fixed-string match for names with slashes)
-SECTION_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nF "### ${SECTION_NAME}" || true; } | head -1 | cut -d: -f1)
+SECTION_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF "### ${SECTION_NAME}" || true; } | head -1 | cut -d: -f1)
 if [ -z "$SECTION_LINE" ]; then
-    echo "Could not find '### ${SECTION_NAME}' in Session ${SESSION_NUM}"
+    case "$SECTION_NAME" in
+        'Files Created'|'Files Updated'|'Files Deleted')
+            PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF '### Pickup Context' || true; } | head -1 | cut -d: -f1)
+            if [ -n "$PICKUP_LINE" ]; then
+                INSERT_BEFORE=$((SESSION_HEADING + PICKUP_LINE - 1))
+                ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
+                export _AWK_INSERT_BEFORE="$INSERT_BEFORE" _AWK_HEADING="### $SECTION_NAME" _AWK_CONTENT="$CONTENT"
+                awk '
+                    NR == ENVIRON["_AWK_INSERT_BEFORE"]+0 {
+                        print ENVIRON["_AWK_HEADING"]; print ENVIRON["_AWK_CONTENT"]; print ""
+                    }
+                    { print }
+                ' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
+                unset _AWK_INSERT_BEFORE _AWK_HEADING _AWK_CONTENT
+                chmod "$ORIG_PERMS" "$SESSION_FILE"
+                _session_record_write "update-session-section" "$SESSION_FILE"
+                _unlock
+                echo "Section '${SECTION_NAME}' created in Session ${SESSION_NUM}"
+                exit 0
+            fi
+            ;;
+    esac
+    echo "Could not find '### ${SECTION_NAME}' in Session ${SESSION_NUM} (missing Files sections require Pickup Context)"
     _unlock
     exit 1
 fi
@@ -146,8 +226,8 @@ SECTION_ABS=$((SESSION_HEADING + SECTION_LINE - 1))
 # Find the next section heading after this one (bounded by session block end)
 NEXT_SECTION=$(sed -n "$((SECTION_ABS + 1)),${END_LINE}p" "$SESSION_FILE" | { grep -n "^### " || true; } | head -1 | cut -d: -f1)
 if [ -n "$NEXT_SECTION" ]; then
-    # SECTION_END points to the line BEFORE the next heading (last line of this section's content)
-    SECTION_END=$((SECTION_ABS + NEXT_SECTION - 1))
+    # Exclusive boundary: the next heading itself, even without a blank separator.
+    SECTION_END=$((SECTION_ABS + NEXT_SECTION))
 else
     # Terminal section: content runs to end of session block (or file)
     # +1 so that NR < SECTION_END catches the last line
@@ -161,13 +241,9 @@ SESSION_PRE=$(mktemp "${TMPDIR:-/tmp}/opencairn-section-pre.XXXXXX")
 cp "$SESSION_FILE" "$SESSION_PRE"
 if [ "$REPLACE_MODE" = "true" ]; then
     # Replace mode: remove all content lines between heading and boundary, insert new content
-    # For terminal sections (no next ### heading), add trailing blank line since the skip range
-    # eats everything. For non-terminal sections, the blank line before the next heading is
-    # naturally preserved (it sits at SECTION_END, outside the skip range).
-    TRAILING_BLANK=""
-    if [ -z "$NEXT_SECTION" ]; then
-        TRAILING_BLANK="yes"
-    fi
+    # The exclusive skip range includes the old separator; emit one blank line
+    # after the complete new body before the next section/session or EOF.
+    TRAILING_BLANK="yes"
     export _AWK_SECTION_START="$SECTION_ABS"
     export _AWK_SECTION_END="$SECTION_END"
     export _AWK_CONTENT="$CONTENT"
@@ -184,7 +260,7 @@ if [ "$REPLACE_MODE" = "true" ]; then
     unset _AWK_SECTION_START _AWK_SECTION_END _AWK_CONTENT _AWK_TRAILING
 else
     # Append mode: check for "None" or append after last content
-    SECTION_BODY=$(sed -n "$((SECTION_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE")
+    SECTION_BODY=$(awk -v start="$SECTION_ABS" -v end="$SECTION_END" 'NR > start && NR < end' "$SESSION_FILE")
 
     # Check if section body is a single non-blank line starting with "None"
     NON_BLANK_COUNT=0
@@ -200,7 +276,7 @@ else
 
     if [ "$NON_BLANK_COUNT" -eq 1 ] && echo "$FIRST_NON_BLANK" | grep -q "^None"; then
         # Find the actual "None" line in the file
-        NONE_ABS=$(sed -n "$((SECTION_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -n "^None" || true; } | head -1 | cut -d: -f1)
+        NONE_ABS=$(printf '%s\n' "$SECTION_BODY" | { grep -n "^None" || true; } | head -1 | cut -d: -f1)
         if [ -n "$NONE_ABS" ]; then
             NONE_ABS=$((SECTION_ABS + NONE_ABS))
             export _AWK_NONE_LINE="$NONE_ABS"
@@ -213,7 +289,7 @@ else
         fi
     else
         # Find the last non-blank line in the section body and insert after it
-        LAST_CONTENT=$(sed -n "$((SECTION_ABS + 1)),$((SECTION_END - 1))p" "$SESSION_FILE" | { grep -n "." || true; } | tail -1 | cut -d: -f1)
+        LAST_CONTENT=$(printf '%s\n' "$SECTION_BODY" | { grep -n "." || true; } | tail -1 | cut -d: -f1)
         if [ -n "$LAST_CONTENT" ]; then
             INSERT_AFTER=$((SECTION_ABS + LAST_CONTENT))
         else

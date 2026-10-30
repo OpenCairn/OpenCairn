@@ -42,6 +42,57 @@ class ForwardLinkProofTests(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         return paths[0]
 
+    def test_archived_source_proof_resolves_current_log_root(self):
+        archived = self.log.parent / '2001' / self.log.name
+        archived.parent.mkdir()
+        self.log.rename(archived)
+        self.log = archived
+        receipt = self.produce()
+        found = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+                               env=self.env, capture_output=True, text=True)
+        self.assertEqual(found.returncode, 0, found.stderr)
+        proof = json.loads(found.stdout)['receipts'][0]
+        self.assertEqual(proof['target_log'], str(self.target))
+        wrong = self.log.parent / self.target.name
+        wrong.write_bytes(self.target.read_bytes())
+        data = json.loads(receipt.read_text())
+        data['target_log'] = str(wrong)
+        receipt.write_text(json.dumps(data))
+        rejected = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+                                  env=self.env, capture_output=True, text=True)
+        self.assertNotEqual(rejected.returncode, 0)
+
+    def test_archived_source_without_current_target_cannot_gain_proof(self):
+        archived = self.log.parent / '2001' / self.log.name
+        archived.parent.mkdir()
+        self.log.rename(archived)
+        self.log = archived
+        wrong = archived.parent / self.target.name
+        self.target.rename(wrong)
+        self.produce()
+        found = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+                               env=self.env, capture_output=True, text=True)
+        self.assertNotEqual(found.returncode, 0)
+
+    def test_same_file_default_remains_backward_compatible(self):
+        self.log.write_text(self.log.read_text() + '\n## Session 2 - Same day\n### Summary\nLater\n')
+        result = subprocess.run(['bash', str(SCRIPT), str(self.log), '1', '2', 'Same day'],
+                                env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Session Logs/2001-01-01]] (Session 2 - Same day)', self.log.read_text())
+        proof = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+                               env=self.env, capture_output=True, text=True)
+        self.assertEqual(proof.returncode, 0, proof.stderr)
+
+    def test_unterminated_pickup_line_has_exact_forward_proof(self):
+        self.log.write_text(self.log.read_text().rstrip('\n'))
+        before = self.log.read_bytes()
+        receipt = self.produce()
+        check = subprocess.run(['bash', str(SCRIPT), '--verify-receipt', str(receipt), str(self.log)],
+                               env=self.env, capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+        self.assertTrue(self.log.read_bytes().startswith(before + b'\n**Continued in:**'))
+
     def test_actual_producer_proof_reconstructs_only_metadata_insertion(self):
         before = self.log.read_bytes()
         receipt = self.produce()
@@ -59,6 +110,30 @@ class ForwardLinkProofTests(unittest.TestCase):
         changed = subprocess.run(['bash', str(SCRIPT), '--verify-receipt', str(receipt), str(self.log)],
                                 env=self.env, capture_output=True, text=True)
         self.assertNotEqual(changed.returncode, 0)
+
+    def test_continuations_with_same_number_on_different_dates_are_distinct(self):
+        self.produce()
+        third = self.target.with_name('2001-01-03.md')
+        third.write_text('## Session 2 - Another day\n### Summary\nLater\n')
+        result = subprocess.run(['bash', str(SCRIPT), '--continued-in', str(self.log), '1', '2',
+                                 'Another day', third.name], env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Session Logs/2001-01-03]] (Session 2 - Another day)', self.log.read_text())
+        found = subprocess.run(['bash', str(SCRIPT), '--find-proof', str(self.log), 'forward-fixture'],
+                               env=self.env, capture_output=True, text=True)
+        self.assertEqual(found.returncode, 0, found.stderr)
+        self.assertEqual(len(json.loads(found.stdout)['receipts']), 2)
+
+    def test_insertion_preserves_unterminated_foreign_session_and_file_mode(self):
+        suffix = b'\n## Session 10 - Other\n### Summary\nKeep final bytes'
+        self.log.write_bytes(self.log.read_bytes() + suffix)
+        self.log.chmod(0o640)
+        receipt = self.produce()
+        self.assertTrue(self.log.read_bytes().endswith(suffix))
+        self.assertEqual(self.log.stat().st_mode & 0o777, 0o640)
+        checked = subprocess.run(['bash', str(SCRIPT), '--verify-receipt', str(receipt), str(self.log)],
+                                 env=self.env, capture_output=True, text=True)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
 
     def test_duplicate_guard_creates_no_new_proof(self):
         receipt = self.produce()
