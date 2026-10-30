@@ -29,8 +29,8 @@
 #                says "ledger NOT WRITTEN".
 #   --archive    additionally copies <run_dir> to <vault>/06 Archive/OpenCairn/Panel Runs/<date>-<hhmmss>-<session8>-r<n>/
 #                (never merging into an existing directory), after the archive layout gate (check-archive-layout.sh
-#                --enforce); a failed gate or a missing vault writes nothing at all and exits 1. Round N>1 copies only its
-#                -rN files (*-rN.* and *-rN-*, e.g. brief-rN-<reviewer>.md) into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
+#                --enforce); a failed gate or a missing vault writes nothing at all and exits 1. Round N>1 copies every
+#                baseline* directory plus its -rN files (*-rN.* and *-rN-*, e.g. brief-rN-<reviewer>.md) into the round-1 archive named in <run_dir>/.archive-path; when that marker is lost, into the
 #                one round-1 archive of this session holding no round-N files whose round-1 fingerprint matches this run
 #                directory (sha256 of brief.md, and of synthesis.md when synthesis-rN.md exists so synthesis.md still is
 #                round 1's; a run directory without brief.md has no fingerprint and never joins) - no match archives
@@ -38,7 +38,9 @@
 #                ("ambiguous archive recovery") without archiving or writing the ledger line, so two reviews of one
 #                session are never joined; a round N>1 without synthesis-rN.md whose synthesis.md stands in (newer than
 #                every *-rN.out) has it archived as synthesis-rN.md, never over the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
-#                .md files renamed .txt: read synthesis.txt there). Directory choice and copy run under the lock
+#                .md files renamed .txt: read synthesis.txt there). Existing baseline directories are immutable: a
+#                different tree under the same name fails before any round files are copied; use a fresh round name.
+#                Directory choice and copy run under the lock
 #                <vault>/06 Archive/OpenCairn/.Panel Runs.lock (lib-lock.sh, the canonical lock path for Panel Runs).
 # Every run is indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
 # Platform: Linux, macOS, Windows (Git Bash). Needs python3.
@@ -61,6 +63,39 @@ for n in names:
     if not os.path.exists(a) or h(a) != h(os.path.join(run, n)): sys.exit(1)
 sys.exit(0)
 PY
+}
+# A round join must not replace a prior review's source bytes or permission modes.
+_baseline_matches() {
+  python3 - "$1" "$2" <<'PY_BASELINE'
+import hashlib, os, pathlib, stat, sys
+
+def tree(root):
+    result = {}
+    root = pathlib.Path(root)
+    for path in [root, *root.rglob('*')]:
+        mode = stat.S_IMODE(path.lstat().st_mode)
+        relative = str(path.relative_to(root))
+        if path.is_symlink():
+            value = ('link', mode, os.readlink(path))
+        elif path.is_dir():
+            value = ('directory', mode)
+        elif path.is_file():
+            digest = hashlib.sha256()
+            with path.open('rb') as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            value = ('file', mode, digest.hexdigest())
+        else:
+            value = ('special', path.lstat().st_mode)
+        result[relative] = value
+    return result
+
+try:
+    equal = tree(sys.argv[1]) == tree(sys.argv[2])
+except OSError:
+    equal = False
+raise SystemExit(0 if equal else 1)
+PY_BASELINE
 }
 # 0 when $1/synthesis.md exists and is newer than every round-$2 seat output $1/*-r$2.out: only then does it stand in
 # for a missing synthesis-r$2.md. Round 1's synthesis.md left untouched since the round-$2 seats returned is not round $2's.
@@ -213,6 +248,23 @@ if [[ $ARCHIVE -eq 1 ]]; then
   fi
   if [[ -n "$JOIN" ]]; then
     EVIDENCE="$JOIN"; DEST="$VAULT/$EVIDENCE"
+    # Retain all source snapshots, not merely flat round seat files. Preflight
+    # existing names first so a stale/reused baseline cannot overwrite evidence
+    # or leave a partly copied round before reporting its conflict.
+    for baseline in "$RUN_DIR"/baseline*; do
+      [[ -d "$baseline" ]] || continue
+      archived="$DEST/$(basename "$baseline")"
+      if [[ -e "$archived" || -L "$archived" ]] && ! _baseline_matches "$baseline" "$archived"; then
+        _unlock
+        echo "error: baseline archive conflict: $archived; retain it and use a fresh baseline round name" >&2
+        echo "$RECORD | evidence: $EVIDENCE"; exit 1
+      fi
+    done
+    for baseline in "$RUN_DIR"/baseline*; do
+      [[ -d "$baseline" ]] || continue
+      archived="$DEST/$(basename "$baseline")"
+      [[ -e "$archived" || -L "$archived" ]] || cp -a "$baseline" "$DEST"/
+    done
     # Round files: <seat>-rN.<ext>, and per-reviewer round files such as brief-rN-<reviewer>.md.
     find "$RUN_DIR" -maxdepth 1 \( -name "*-r$ROUND.*" -o -name "*-r$ROUND-*" \) ! -type d -exec cp -a {} "$DEST"/ \;
     [[ $STANDIN -eq 1 ]] && cp -a "$RUN_DIR/synthesis.md" "$DEST/synthesis-r$ROUND.md"

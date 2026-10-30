@@ -5,8 +5,10 @@
 # --continued-in: Insert a "Continued in:" link instead of "Next session:".
 #                 Use when a later session continues work from a non-adjacent earlier session.
 #
-# <target-date-file> is the session file where the NEW session lives (for cross-day links).
-# If omitted, assumes same file as <session-file> (same-day link).
+# <session-file> is the ORIGINAL session log receiving the forward link.
+# <target-date-file> is the date filename where the NEW session lives.
+# Pass it explicitly for every cross-day link; omission retains the same-file default.
+# Archived sources still target the current root-level Session Logs date file.
 #
 # Examples:
 #   # Same-day link:
@@ -16,7 +18,8 @@
 #   # Continued-in link (Session 3 continues work from Session 1):
 #   add-forward-link.sh --continued-in "06 Archive/OpenCairn/Session Logs/2025-03-15.md" 1 3 "API Refactor Part 2"
 #
-# Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
+# Platform: Linux, macOS, Windows (Git Bash). Needs python3 for exact insertion/proofs.
+# Uses flock where available, mkdir-based fallback otherwise.
 # Internal read-only modes: --verify-receipt <receipt> <file>, --find-proof <file> <session-id>.
 
 set -euo pipefail
@@ -30,6 +33,12 @@ if [ "${1:-}" = "--verify-receipt" ] || [ "${1:-}" = "--find-proof" ]; then
     python3 - "$@" <<'PY'
 import hashlib, json, os, pathlib, re, sys
 def sha(data): return hashlib.sha256(data).hexdigest()
+def current_log_root(path):
+    for parent in path.parents:
+        if parent.parts[-3:] == ('06 Archive', 'OpenCairn', 'Session Logs'):
+            return parent
+    return path.parent  # preserve same-directory proofs for non-vault fixtures/logs
+
 def check(condition):
     if not condition: raise ValueError("invalid forward-link proof")
 def validate(receipt, target, current=True):
@@ -57,10 +66,12 @@ def validate(receipt, target, current=True):
         pickup=[i for i in range(start,end) if lines[i].rstrip()==b'### Pickup Context']
         check(len(pickup)==1 and max(metadata)>pickup[0])
     offset = sum(map(len,lines[:max(metadata)+1 if metadata else start+3]))
-    post = pre[:offset]+line+pre[offset:]
+    prefix = pre[:offset]
+    seam = b'\n' if prefix and not prefix.endswith((b'\n', b'\r')) else b''
+    post = prefix+seam+line+pre[offset:]
     check(item['insertion_offset'] == offset and sha(post) == item['post_sha256'])
     if current: check(target.read_bytes() == post)
-    target_log = target.parent / (date+'.md')
+    target_log = current_log_root(target) / (date+'.md')
     check(str(target_log.resolve()) == item['target_log'])
     check(len(re.findall(rb'^## Session '+str(new).encode()+rb' - ',target_log.read_bytes(),re.M))==1)
     item['receipt_path'] = str(receipt.resolve())
@@ -125,6 +136,8 @@ PREV_NUM="$2"
 NEW_NUM="$3"
 NEW_TOPIC="$4"
 TARGET_DATE_FILE="${5:-}"
+[[ "$PREV_NUM" =~ ^[1-9][0-9]*$ && "$NEW_NUM" =~ ^[1-9][0-9]*$ ]] || { echo "Session numbers must be positive integers" >&2; exit 1; }
+case "$NEW_TOPIC" in *$'\n'*|*$'\r'*) echo "The session topic must be one line" >&2; exit 1 ;; esac
 
 # Validate file exists
 if [ ! -f "$SESSION_FILE" ]; then
@@ -166,18 +179,20 @@ NEXT_HEADING=$(tail -n +$((PREV_HEADING + 1)) "$SESSION_FILE" | { grep -n "^## S
 if [ -n "$NEXT_HEADING" ]; then
     END_LINE=$((PREV_HEADING + NEXT_HEADING - 1))
 else
-    END_LINE=$(wc -l < "$SESSION_FILE")
+    END_LINE=$(awk 'END { print NR }' "$SESSION_FILE")
 fi
 
 # Guard: Check if this specific link type already exists
 if [ "$LINK_TYPE" = "continued" ]; then
-    GUARD_PATTERN="^\*\*Continued in:\*\*.*Session ${NEW_NUM} - "
-    GUARD_MSG="Continued in link to Session ${NEW_NUM} already exists, skipping"
+    # Session numbers restart each date: only the same date/number is a duplicate.
+    GUARD_PATTERN="**Continued in:** [[06 Archive/OpenCairn/Session Logs/${DATE_PART}]] (Session ${NEW_NUM} - "
+    GUARD_MSG="Continued in link to Session ${NEW_NUM} on ${DATE_PART} already exists, skipping"
 else
     GUARD_PATTERN="^\*\*Next session:\*\*"
     GUARD_MSG="Session ${PREV_NUM} already has a Next session link, skipping"
 fi
-if sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -q "$GUARD_PATTERN"; then
+if { [ "$LINK_TYPE" = "continued" ] && sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -qF "$GUARD_PATTERN"; } ||
+   { [ "$LINK_TYPE" != "continued" ] && sed -n "${PREV_HEADING},${END_LINE}p" "$SESSION_FILE" | grep -q "$GUARD_PATTERN"; }; then
     echo "$GUARD_MSG"
     _unlock
     exit 0
@@ -219,15 +234,25 @@ ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION
 PROOF_PRE=$(mktemp "${TMPDIR:-/tmp}/opencairn-forward-pre.XXXXXX")
 cp "$SESSION_FILE" "$PROOF_PRE"
 
-# Insert the forward link using awk (more robust than sed append)
-# Use ENVIRON instead of -v to avoid backslash interpretation in topic names
-export _AWK_LINE="$INSERT_LINE"
-export _AWK_TEXT="$NEW_SESSION_LINK"
-awk '
-    NR == ENVIRON["_AWK_LINE"]+0 { print; print ENVIRON["_AWK_TEXT"]; next }
-    { print }
-' "$SESSION_FILE" > "${SESSION_FILE}.tmp" && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
-unset _AWK_LINE _AWK_TEXT
+# Preserve every unrelated byte, including an unterminated final line in a
+# different session. The only extra seam is LF when the insertion line had none.
+python3 - "$SESSION_FILE" "$INSERT_LINE" "$NEW_SESSION_LINK" <<'PY_INSERT'
+import os, pathlib, stat, sys, tempfile
+path = pathlib.Path(sys.argv[1])
+data = path.read_bytes()
+offset = sum(map(len, data.splitlines(keepends=True)[:int(sys.argv[2])]))
+prefix = data[:offset]
+seam = b'\n' if prefix and not prefix.endswith((b'\n', b'\r')) else b''
+updated = prefix + seam + sys.argv[3].encode('utf-8') + b'\n' + data[offset:]
+fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '.', dir=path.parent)
+try:
+    os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
+    with os.fdopen(fd, 'wb') as handle:
+        handle.write(updated)
+    os.replace(temporary, path)
+finally:
+    if os.path.exists(temporary): os.unlink(temporary)
+PY_INSERT
 
 # Restore permissions if they changed
 chmod "$ORIG_PERMS" "$SESSION_FILE"
@@ -239,6 +264,12 @@ if ! python3 - "$PROOF_PRE" "$SESSION_FILE" "$(_session_id)" \
     "$NEW_TOPIC" "$LINK_TYPE" "$DATE_PART" "$NEW_SESSION_LINK" "$INSERT_LINE" \
     "$(_session_agent_id)" "${VAULT_PATH:-}" <<'PY'
 import datetime, hashlib, json, os, pathlib, re, sys, uuid
+def current_log_root(path):
+    for parent in path.parents:
+        if parent.parts[-3:] == ('06 Archive', 'OpenCairn', 'Session Logs'):
+            return parent
+    return path.parent
+
 def check(condition):
     if not condition: raise ValueError("invalid forward-link proof")
 pre_path,target,sid,state,prev,new,topic,kind,date,line,index,agent,vault=sys.argv[1:]
@@ -256,7 +287,7 @@ record={'schema':1,'kind':'forward-link','session_id':sid,'target':str(target),
     'captured_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
     'pre_snapshot':str(snapshot),'pre_sha256':digest(pre),'post_sha256':digest(post),
     'source_session_number':int(prev),'target_session_number':int(new),
-    'topic':topic,'link_type':kind,'target_date':date,'target_log':str((target.parent/(date+'.md')).resolve()),
+    'topic':topic,'link_type':kind,'target_date':date,'target_log':str((current_log_root(target)/(date+'.md')).resolve()),
     'inserted_line':line+'\n','insertion_offset':sum(map(len,pre.splitlines(keepends=True)[:int(index)]))}
 path=directory/(uuid.uuid4().hex+'.json'); temporary=path.with_suffix('.tmp')
 temporary.write_text(json.dumps(record,indent=2)+'\n');os.replace(temporary,path)

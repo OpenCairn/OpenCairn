@@ -96,6 +96,47 @@ class PanelRunRecordTests(unittest.TestCase):
         return path
 
     # -- 1. multi-round archiving ------------------------------------------
+    def test_round_join_archives_all_baseline_directories(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n")
+        baseline = self.run / "baseline"
+        baseline.mkdir()
+        (baseline / "original.md").write_text("round one bytes\n")
+        self.full_round(1)
+        self.assertEqual(self.record(1).returncode, 0)
+        for name in ("baseline-r2", "baseline-r3", "baseline-extra"):
+            path = self.run / name / "nested"
+            path.mkdir(parents=True)
+            (path / "Note - original.md").write_text(name + " bytes\n")
+        self.full_round(2, tag="B")
+        result = self.record(2)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        archive = self.archives()[0]
+        for name in ("baseline-r2", "baseline-r3", "baseline-extra"):
+            self.assertEqual((archive / name / "nested/Note - original.md").read_text(), name + " bytes\n")
+        self.assertEqual((archive / "baseline/original.md").read_text(), "round one bytes\n")
+        self.full_round(3, tag="C")
+        result = self.record(3)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((archive / "baseline/baseline").exists())
+        self.assertEqual(len(self.archives()), 1)
+
+    def test_round_join_rejects_changed_existing_baseline_without_overwriting(self) -> None:
+        (self.run / "brief.md").write_text("brief A\n")
+        baseline = self.run / "baseline"
+        baseline.mkdir()
+        (baseline / "source.md").write_text("reviewed bytes\n")
+        self.full_round(1)
+        self.assertEqual(self.record(1).returncode, 0)
+        archive = self.archives()[0]
+        (baseline / "source.md").write_text("different later bytes\n")
+        self.full_round(2, tag="B")
+        result = self.record(2)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("baseline", result.stderr)
+        self.assertEqual((archive / "baseline/source.md").read_text(), "reviewed bytes\n")
+        self.assertFalse((archive / "codex-r2.out").exists())
+        self.assertEqual(len(self.ledger_lines()), 1)
+
     def test_round_two_without_marker_joins_round_one_archive(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")  # a run's identity for lost-marker recovery
         self.full_round(1)
