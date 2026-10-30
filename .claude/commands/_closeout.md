@@ -73,7 +73,17 @@ Across the applicable semantic coverage, fix broken syntax/links/paths, stale in
 | Locators and owning context | Resolve bare paths against the document's defined shorthand. Read a linked parent hub's constraints and each destination heading before changing a still-valid SSOT locator. Use code locators for extensionless scripts rather than unresolved wikilinks. New guides need their owning index/table row or an explicit exclusion; a cross-area move needs a route from the destination area's index/hub. |
 | Renders | A session-rendered PDF/image is semantic output, not an imported reference: inspect a representative page visually plus each outcome-critical region. Regenerate sibling PDF/HTML/site renders after the final source edit and verify the final edited content appears; timestamps/text extraction alone do not prove visual fidelity. |
 
-Run and display the count-word/ordinal/back-reference/relative-time scan over final authored spans, including replacement/deletion seams and Files descriptions. Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. For document stamps, search case-insensitively for the form the document uses (`Last updated`, `Last update`, `Current as of`, `Updated:`), not one preferred spelling.
+Run and display the count-word/ordinal/back-reference/relative-time scan over final authored spans, including replacement/deletion seams and Files descriptions. Set `SCAN_INPUT` to each retained authored span or the assigned-session block; this scan finds candidates rather than proving prose valid.
+
+<!-- BEGIN DURABILITY SCAN -->
+```bash
+SCAN_RC=0
+rg -n -i '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|second|third|former|latter|above|below|this (line|section)|tomorrow|yesterday|next (day|week))\b' "$SCAN_INPUT" || SCAN_RC=$?
+[ "$SCAN_RC" -le 1 ] || exit "$SCAN_RC"
+printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate needs triage)\n' "$SCAN_RC"
+```
+<!-- END DURABILITY SCAN -->
+ Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. For document stamps, search case-insensitively for the form the document uses (`Last updated`, `Last update`, `Current as of`, `Updated:`), not one preferred spelling.
 
 ## Backfill and verification
 
@@ -144,6 +154,8 @@ Reconcile the Files lists with a fresh `session-ledger.sh --read`, the initial i
 
 **`--touched` must be the log's own Files-list paths**, all of them — they are already enumerated by this point, so pass that list rather than a subset you retype. The verifier can only speak for the paths it was handed: a narrower list still prints `PASS backfill`, and a `REVIEW backfill` naming paths the log lists but the run never saw means the list was short, not that the log is wrong. `--ident` values must be distinctive strings — a bare number under ~4 digits matches digit runs inside phone numbers, order IDs and amounts, and a common word or a doc's name matches every item that mentions or links it, burying real hits in noise. Paths may be absolute, `~`-prefixed, or relative to `{VAULT}`.
 
+Legacy free-form `on <host>` annotations are rewritten to the canonical `(remote)` form; do not silently omit a recorded remote path from `--touched`.
+
 **Files rows the verifier parses.** A path containing ` - ` goes in backticks — `` - `03 Projects/Plan - draft.md` - what changed `` — because an unquoted one is settled by the longest left side that exists on disk, which fails once the file is gone; the backfill script backticks such paths itself, rows written by hand must too. Annotate a path not on this host's disk after the path: `(deleted)` only for a path that is gone (bulk deletion inside a surviving directory is a Files Updated row on that directory), `(remote)` for a path on another host or network share that must not be read; these print `INFO backfill: ... not compared` instead of `REVIEW backfill`/`FAIL touched`. A touched path on a network/FUSE mount, over 2 MiB or binary is checked for existence only and announced as `PASS touched: existence-only (<reason>): <path>`; `PARK_VERIFY_REMOTE_PREFIXES` (colon-separated) names mounts the filesystem probe cannot classify; a prefix covering the vault root itself does not exempt vault files from content checks, only a subtree prefix does. `PARK_VERIFY_MAX_CONTENT_BYTES` overrides the size threshold.
 
 It checks the deterministic layer: session numbering, required sections, Project line (compare its printed line against the caller’s metadata — fix the log if they differ), stranded locked-edit separator lines, list-join/blank-line lint on touched files, unchecked planning-doc items matching each ident, that each touched path exists (`FAIL touched`: mistyped or truncated), and Files-list coverage of touched paths. **A closure `PASS` is not a completion check:** it means no unchecked line matched, which an ident present only in ticked lines also produces. An ident absent from every planning file prints `N/A closure: ident '<ident>' absent from every planning file (<k> checked)` and the `RESULT` line carries the N/A count; N/A is not a pass — usually a misspelt or never-tracked ident — and a run whose every ident is N/A has verified nothing about closures. An ident is the stable identifier the planning line itself carries — the path, booking reference or the item's own wording — never a verb, a paraphrase or a status word such as "done". Two closure classes the verifier cannot see are checked by that same identifier grep, not by the ledger: an item already ticked `[x]` before close-out that this session resolved (`grep -n -i -F -- "<ident>" <file> | grep -F '[x]'`) still gets the `→ [[log]] (Session N)` backlink appended via `locked-edit.sh --replace` when its line lacks one; and a task the user discharged by pasting content into the conversation, which writes no file and leaves no ledger row — enumerate these from the session's Summary and grep each one's identifier. A "line gone" conclusion is the identifier grep on the live file returning empty **after** the same grep matched the session's own pre-state excerpt; an empty grep for a different string or a verb is not that evidence. Judgement stays with you: each closure `REVIEW` hit is an item the caller wrote during routing (expected: ignore the hit, keep the item), an item the session genuinely completed — flip `[ ]`→`[x]` via `locked-edit.sh --replace` with a `→ [[log]] (Session N)` backlink (Tickler flips only after confirming it's the very item resolved — a false flip silently kills deferred work) — or an adjacent still-open item: surface it in Pickup Context, don't action it. Passing edited-file basenames as extra `--ident` args catches adjacent open items mechanically. Once an adjacent-open hit has been recorded in Pickup Context, the final rerun may omit only that discovery-only basename while retaining every core completion/value identifier; record the triage rather than accepting an unexplained `REVIEW` forever.
@@ -189,7 +201,7 @@ Output: `✓ Audit: clean pass` or `🔧 Audit: N findings fixed and re-audited 
 
 A report and a session entry prove that writing began, not that review completed. Retain the accepted independent report with its exact log path and assigned N so C1 can distinguish completion from interruption. Missing, incomplete or mismatched evidence does not authorise a clean verdict. Do not rewrite the session entry after acceptance just to stamp it complete; keep export/provenance after acceptance.
 
-After the final clean report, §23 acceptance, final backfill/verification and reviewed-byte check, save the reviewer’s report verbatim beside the brief under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/<actual-session-id>.closeout/`. Use a distinct brief/report pair for each log/N. Prefix the saved report with the absolute session-log path, assigned N, brief path and SHA-256, and the parent’s acceptance verdict `Close-out accepted: clean`; include the final verifier output. Never write that acceptance verdict for findings or an incomplete report. This is the retained review evidence, not a second task tracker. For C1, search these saved reports for the exact log/N, verify the referenced brief’s digest and subject, and require both the parent acceptance and the reviewer’s clean terminal verdict. Existing historical completion evidence may be used if it establishes the same subject and completed gate; a bare log heading is insufficient.
+After the final clean report, §23 acceptance, final backfill/verification and reviewed-byte check, save the reviewer’s report verbatim beside the brief under `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/<actual-session-id>.closeout/`. Use a distinct brief/report pair for each log/N. Prefix the saved report with canonical lines `Session log: <absolute path>`, `Session number: <N>`, `Brief path: <absolute path>` and `Brief SHA-256: <digest>`, and the parent’s acceptance verdict `Close-out accepted: clean`; include the final verifier output. Never write that acceptance verdict for findings or an incomplete report. This is the retained review evidence, not a second task tracker. For C1, search these saved reports for the exact log/N, verify the referenced brief’s digest and subject, and require both the parent acceptance and the reviewer’s clean terminal verdict. Existing historical completion evidence may be used if it establishes the same subject and completed gate; a bare log heading is insufficient.
 
 ### Completion lookup
 
@@ -202,21 +214,46 @@ from pathlib import Path
 import hashlib, json, sys
 state, log, number = Path(sys.argv[1]), str(Path(sys.argv[2]).expanduser().resolve()), int(sys.argv[3])
 def load(p):
-    try: return json.loads(p.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(p.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
     except (OSError, ValueError): return {}
+def snapshot(receipt_path, r, key, digest):
+    # A shared-store bundle retains byte-identical snapshots if native scratch is gone.
+    local = receipt_path.parent/"snapshots"/(str(r.get(digest))+".snapshot")
+    path = local if local.is_file() else Path(str(r.get(key, "")))
+    try: data = path.read_bytes()
+    except OSError: return None
+    return data if hashlib.sha256(data).hexdigest() == r.get(digest) else None
 receipts = list((state/".park-audit-receipts").glob("*.json")) + list(state.glob("*.closeout/**/audit-receipt.json"))
 accepted = []
-for path in [*state.glob("*.park-review/runs/*/review-brief-manifest.json"), *state.glob("*.closeout/**/review-brief-manifest.json")]:
-    m = load(path)
-    if (m.get("session_log"), m.get("session_number")) != (log, number): continue
-    for rp in receipts:
-        r = load(rp); report = r.get("report", "")
-        if (r.get("run_generation") == m.get("run_generation") and m.get("run_generation")
-            and r.get("status") == "clean" and isinstance(report, str)
-            and report.rstrip().endswith("Terminal state: clean")
-            and hashlib.sha256(report.encode()).hexdigest() == r.get("report_sha256")):
-            accepted.append((str(path), str(rp)))
-for m, r in sorted(set(accepted)): print("ACCEPTED", m, r, sep="\t")
+for rp in receipts:
+    r = load(rp); report = r.get("report", "")
+    if r.get("kind") == "source-attestation": continue
+    clean = (r.get("status") == "clean" and isinstance(report, str)
+             and report.rstrip().endswith("Terminal state: clean")
+             and hashlib.sha256(report.encode()).hexdigest() == r.get("report_sha256"))
+    if not clean: continue
+    if (r.get("schema") == 3 and r.get("kind") == "completion"
+        and r.get("completion") is True and type(r.get("completion_binding")) is int and r.get("completion_binding") == 1
+        and (r.get("session_log"), r.get("session_number")) == (log, number)
+        and report.splitlines().count("COMPLETE "+str(r.get("brief_sha256"))) == 1):
+        raw = snapshot(rp, r, "manifest_snapshot", "manifest_sha256")
+        brief = snapshot(rp, r, "brief_snapshot", "brief_sha256")
+        try: m = json.loads(raw) if raw is not None else {}
+        except ValueError: m = {}
+        if (isinstance(m, dict) and m.get("schema") == 3 and type(m.get("completion_binding")) is int and m.get("completion_binding") == 1 and brief is not None
+            and (m.get("session_log"), m.get("session_number")) == (log, number)
+            and m.get("run_generation") == r.get("run_generation") and r.get("run_generation")
+            and m.get("brief_sha256") == r.get("brief_sha256")):
+            accepted.append(str(rp))
+    elif "session_log" not in r:
+        for mp in state.glob("*.park-review/runs/*/review-brief-manifest.json"):
+            m = load(mp)
+            if ((m.get("session_log"), m.get("session_number")) == (log, number)
+                and m.get("run_generation") == r.get("run_generation") and r.get("run_generation")):
+                print("LEGACY_CANDIDATE", rp, mp, sep="\t")
+for r in sorted(set(accepted)): print("ACCEPTED", r, sep="\t")
 if not accepted: print("NO_ACCEPTED_RECEIPT")
 for p in sorted(state.glob("*.closeout/**/*.md")):
     try: text = p.read_text(encoding="utf-8")
