@@ -1287,12 +1287,13 @@ class AuthoredBinaryReviewTests(unittest.TestCase):
             "record-audit", "--reviewer", "fixture", "--from-brief",
             stdin=(f"ATTEST {'0' * 64} {chart}\n"
                    f"ATTEST {self.full_read_item(manifest, self.log)['sha256']} {self.log}\n"
+                   f"COMPLETE {manifest['brief_sha256']}\n"
                    "Terminal state: clean\n"))
         self.assertNotEqual(wrong.returncode, 0)
         self.assertIn("attests wrong SHA-256", wrong.stderr)
 
         report = "".join(f"ATTEST {entry['sha256']} {entry['path']}\n"
-                         for entry in manifest["full_read"]) + "Terminal state: clean\n"
+                         for entry in manifest["full_read"]) + f"COMPLETE {manifest['brief_sha256']}\nTerminal state: clean\n"
         audited = self.run_review("record-audit", "--reviewer", "fixture", "--from-brief",
                                   stdin=report)
         self.assertEqual(audited.returncode, 0, audited.stderr)
@@ -1319,6 +1320,12 @@ class AuthoredBinaryReviewTests(unittest.TestCase):
                 if classify_first:
                     self.assertIn("(application/x-tar;", self.classify(bundle).stdout)
                 self.classify(self.log)
+                if not classify_first:
+                    refused = self.run_review("build", "--vault", str(self.vault), "--session-log",
+                                              str(self.log), "--number", "1")
+                    self.assertNotEqual(refused.returncode, 0)
+                    self.assertIn("unclassified non-text artefact", refused.stderr)
+                    self.classify(bundle)
                 self.assert_binary_review(self.build(), bundle, tar_fixture(), "application/x-tar")
 
     def test_classified_updated_binary_takes_the_binary_review(self) -> None:
@@ -1609,12 +1616,38 @@ class IncompleteMoveReceiptTests(unittest.TestCase):
         self.assertTrue(any("MOVE_HEAL_REVIEW" in line for line in lines))
 
     def test_discontinuous_chain_fails_closed(self):
-        _, _, second = self.chained_fixture()
+        healed, _, second = self.chained_fixture()
         data = json.loads(second.read_text())
         data["affected_files"][0]["pre_sha256"] = "f" * 64
         second.write_text(json.dumps(data))
-        with self.assertRaisesRegex(SystemExit, "discontinuous"):
-            self.run_import()
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertNotIn(str(healed), self.manifest())
+        self.assertTrue(any("discontinuous" in line for line in lines))
+
+    def test_incompatible_chain_does_not_discard_independent_valid_heals(self):
+        healed, _, second = self.chained_fixture()
+        data = json.loads(second.read_text())
+        data["affected_files"][0]["pre_sha256"] = "f" * 64
+        second.write_text(json.dumps(data))
+        self.write_receipt("gamma", complete=True)
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertEqual(self.manifest()[str(self.vault / "notes/gamma-healed.md")]["mode"], "mechanical")
+        self.assertNotIn(str(healed), self.manifest())
+        self.assertTrue(any("discontinuous" in line for line in lines))
+
+    def test_deleted_destination_and_healed_file_do_not_abort_other_imports(self):
+        self.write_receipt("alpha", complete=True)
+        self.write_receipt("gamma", complete=True)
+        (self.vault / "alpha-moved.md").unlink()
+        code, lines = self.run_import()
+        self.assertEqual(code, 0)
+        self.assertIn(str(self.vault / "notes/gamma-healed.md"), self.manifest())
+        self.assertNotIn(str(self.vault / "notes/alpha-healed.md"), self.manifest())
+        self.assertTrue(any("destination missing" in line for line in lines))
+        (self.vault / "notes/alpha-healed.md").unlink()
+        self.assertEqual(self.run_import()[0], 0)
 
     def test_healed_file_moved_later_is_checked_at_its_destination(self):
         healed, _, second = self.chained_fixture()
@@ -1750,6 +1783,29 @@ class MechanicalTokenClassificationTests(unittest.TestCase):
             self.assertEqual(entry["mode"], "mechanical")
             self.assertEqual(entry["targets"], [])
             self.assertTrue(entry["no_locator_target"])
+
+    def test_intermediate_replacement_need_not_survive_final_bytes(self):
+        locked_edit = Path(__file__).parents[1] / ".claude/scripts/locked-edit.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            vault = root / "vault"
+            vault.mkdir()
+            target = vault / "note.md"
+            target.write_text("old-token\n", encoding="utf-8")
+            env = isolate_session(os.environ.copy(), root / "config", "chain-fixture")
+            env["VAULT_PATH"] = str(vault)
+            for old, new in (("old-token", "middle-token"), ("middle-token", "final-token")):
+                applied = subprocess.run([str(locked_edit), str(target), "--replace"],
+                    input=f"{old}\n========OPENCAIRN-LOCKED-EDIT-SEP========\n{new}\n",
+                    text=True, capture_output=True, env=env)
+                self.assertEqual(applied.returncode, 0, applied.stderr)
+            args = [sys.executable, str(HELPER), "--session-id", "chain-fixture", "classify",
+                    "--vault", str(vault), "--path", str(target), "--mechanical",
+                    "--replace", "old-token", "middle-token", "--replace", "middle-token", "final-token",
+                    "--no-locator-target"]
+            result = subprocess.run(args, text=True, capture_output=True, env=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("PASS mechanical", result.stdout)
 
 
 class AnnotatedFilesRowTests(unittest.TestCase):
