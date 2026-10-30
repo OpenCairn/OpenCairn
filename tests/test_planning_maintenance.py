@@ -68,11 +68,32 @@ class PlanningMaintenanceTests(unittest.TestCase):
         self.assertIn('STALE pointer: missing-skill', bad.stdout)
         self.assertIn('2 pointers, 1 stale', bad.stdout)
 
+    def test_structural_metrics_keep_explicit_task_and_tag_scopes(self):
+        binary = self.root / 'bin'
+        binary.mkdir()
+        tool = binary / 'obsidian'
+        tool.write_text('#!/usr/bin/env python3\nimport sys\n'
+                        'scope = "path=01 Now/This Week.md" in sys.argv\n'
+                        'if sys.argv[1] in ("tasks", "tags"): print("SCOPED=3" if scope else "UNSCOPED=9000")\n'
+                        'else: print("fixture")\n')
+        tool.chmod(0o755)
+        self.env['PATH'] = str(binary) + os.pathsep + os.environ['PATH']
+        for tree in TREES:
+            path = tree / ('weekly-hygiene.md' if tree.name == 'commands'
+                           else 'weekly-hygiene/SKILL.md')
+            code = 'filter() { cat; }\n' + recipe(path, '**Vault structural metrics**')
+            result = self.run_recipe(code)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.count('SCOPED=3'), 2)
+            self.assertNotIn('UNSCOPED', result.stdout)
+
     def test_lock_recipe_reports_candidates_and_preserves_canonical_inode(self):
         lock = self.vault / '.Fixture.md.lock'
         lock.touch()
         os.utime(lock, (1, 1))
         inode = lock.stat().st_ino
+        session_lock = self.vault / '.lock'
+        session_lock.touch()
         fallback = self.vault / '.Fixture.md.lock.d'
         fallback.mkdir()
         (fallback / 'owner').write_text('unverified fixture owner\n')
@@ -85,7 +106,8 @@ class PlanningMaintenanceTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertTrue(lock.exists(), result.stdout)
                 self.assertEqual(lock.stat().st_ino, inode)
-                self.assertIn('CANONICAL_LOCK_FILES=1', result.stdout)
+                self.assertIn('CANONICAL_LOCK_FILES=2', result.stdout)
+                self.assertTrue(session_lock.exists())
                 self.assertIn(str(lock), result.stdout)
                 self.assertIn(str(fallback), result.stdout)
                 self.assertTrue((fallback / 'owner').is_file())

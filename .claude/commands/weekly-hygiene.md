@@ -82,7 +82,7 @@ PY_HUB_AGE
    - Structure violations: fix a missing `bucket:` frontmatter key in-session via `locked-edit.sh`, with the user's confirmation
    - Route priority-based choices to `/weekly-review` / `/quarterly-review`; confirmed completion filing may use `/complete-project`.
 
-   **If not resolved in-session:** route each finding per the disengage-routing rule to its reviewed task home or capture fallback. Absent/overdue hub-review flags are findings: upsert one linked hub-review task in the configured review task home, listing the affected hubs, rather than leaving them only in this report.
+   **If not resolved in-session:** route each finding per the disengage-routing rule to its reviewed task home or capture fallback. Absent/overdue hub-review flags are findings: upsert one linked hub-review task in the configured review task home (else this skill's capture fallback), listing the affected hubs, rather than leaving them only in this report.
 
 2. **Projects Folder Audit**
 
@@ -392,7 +392,7 @@ PY_HUB_AGE
 
    These task/tag values are scoped to `This Week.md`, never labelled vault-wide. Omit them if that surface is absent. `unresolved counts` gives targets/counts, not source membership: do not infer “sources outside Archive” from it; omit that breakdown unless a separately verified source-listing route was actually read.
 
-   **⛔ Empty-output guard (`orphans` / `deadends` / `tags`):** on some setups these subcommands return zero rows even when the vault plainly has matches, and their `total` forms can return an implausible number or an empty string. An empty result piped through `wc -l` prints `0` — an absence of evidence the report would then record as evidence of absence. Before writing a 0 for any of these metrics, cross-check the row form against the `total` form (`obsidian orphans total`, `obsidian deadends total`; for tags, non-empty `obsidian tags` output). Record 0 only when both forms agree. If rows are empty but the total is non-zero, empty, or implausible (a sanity ceiling: it can't exceed the vault's file count), the CLI is unreliable for that metric on this setup → record it as **"unavailable (CLI returned no rows)"**, never 0. This applies equally to the orphan/dead-end listing checks above.
+   **⛔ Empty-output guard (`orphans` / `deadends` / `tags`):** on some setups these subcommands return zero rows even when the vault plainly has matches, and their `total` forms can return an implausible number or an empty string. An empty result piped through `wc -l` prints `0` — an absence of evidence the report would then record as evidence of absence. Before writing a 0 for any of these metrics, cross-check the row form against the `total` form (`obsidian orphans total`, `obsidian deadends total`; for tags, a known-positive read using the same explicit `path=`). Record 0 only when both forms agree. If rows are empty but the total is non-zero, empty, or implausible (a sanity ceiling: it can't exceed the vault's file count), the CLI is unreliable for that metric on this setup → record it as **"unavailable (CLI returned no rows)"**, never 0. This applies equally to the orphan/dead-end listing checks above.
 
    **⛔ Distinguish a crash from an empty result — then stop calling it.** The guard above prevents a bad *number*; it does not ask *why* the command produced nothing, so a subcommand that **crashes** looks identical to one that quietly returns nothing, and the skill cheerfully re-invokes it every week. That is not free: where the CLI is a thin wrapper around a running desktop application, a crashing subcommand kills a child of the user's live editor on every call, and a diagnostic loop multiplies the damage. Before re-running a subcommand that returned nothing, check the platform's crash log:
    ```bash
@@ -481,16 +481,19 @@ import fnmatch, os, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 if not root.is_dir():
     raise SystemExit('Lock metadata: CHECK FAILED — vault unavailable')
-locks, fallbacks = [], []
-for directory, children, files in os.walk(root):
+locks, fallbacks, errors = [], [], []
+for directory, children, files in os.walk(root, onerror=errors.append):
     children[:] = [name for name in children if name != '.git']
     fallbacks.extend(str(pathlib.Path(directory) / name) for name in children
                      if fnmatch.fnmatchcase(name, '.*.lock.d') or name == '.lock.d')
     locks.extend(str(pathlib.Path(directory) / name) for name in files
-                 if fnmatch.fnmatchcase(name, '.*.lock'))
+                 if fnmatch.fnmatchcase(name, '.*.lock') or name == '.lock')
 for path in sorted(locks): print(path)
 print(f'CANONICAL_LOCK_FILES={len(locks)} (retained)')
+print(f'MKDIR_FALLBACK_DIRS={len(fallbacks)}')
 for path in sorted(fallbacks): print(f'MKDIR_FALLBACK — owner verification required: {path}')
+for error in errors: print(f'Lock metadata: CHECK FAILED — {error}')
+raise SystemExit(2 if errors else 0)
 PY_LOCK_METADATA
    ```
 
@@ -551,63 +554,17 @@ PY_LOCK_METADATA
 
    **13b. Verify existing provenance entries:**
 
-   Read `{VAULT}/07 System/AI Provenance Log.md`. Report malformed digest cells (not exactly 16 lowercase hex) as invalid; never silently pad, truncate or rewrite them. Relationship rows are annotations; process attestations using the latest status annotation for each tag/file/digest. For each attestation:
-
-   **Resolve file path** from the File column:
-   - `*-transcript.md` → `{VAULT}/06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`
-   - `YYYY-MM-DD.md` → `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`; if absent there, try `{VAULT}/06 Archive/OpenCairn/Session Logs/YYYY/YYYY-MM-DD.md` (logs older than ~90 days are rolled into year subfolders by `/quarterly-hygiene` — the `YYYY` is the date's year)
-   - Paths containing `/` → `{VAULT}/relative/path`. **Self-heal on move:** if that literal path is absent (the file was moved/renamed since logging — e.g. a folder dot-prefixed), fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -type f -print -quit` (note: do NOT exclude `06 Archive/` here — relocated transcripts live there) and accept the hit **only if** its content hash matches the logged hash. A hash match confirms it's the same file at a new location → use it for verification and append a locator annotation through `provenance-write.py append` with the original digest and matching snapshot/proof; never rewrite the old row. No hit, or a hit whose hash differs → record MISSING (never repoint to a non-matching file), **then run the snapshot fallback below before reporting the row** — MISSING is precisely the case where the live file is unresolvable *and* the attested bytes may still be sitting in `.Provenance`. This keeps the verify pass robust to moves without depending on `/park` having caught every path reference.
-   - Other (legacy bare filename) → try Session Logs, then vault root, then fall back to `find "{VAULT}" -name "<basename>" -not -path "*/.stversions/*" -not -path "*/06 Archive/*" -type f -print -quit`. Bare filenames in the log predate path-prefixing; the file may live in any project/area folder, so the fallback search is required.
-
-   **Re-hash and compare:**
+   Run the read-only resolution ladder once and retain its JSON outside the vault:
    ```bash
-   # cut, not awk '{print ...}' — the slash-command loader substitutes bare $0-$9 as argument placeholders
-   CURRENT_HASH=$(sha256sum "$RESOLVED_FILE" | cut -d' ' -f1)
-   CURRENT_SHORT="${CURRENT_HASH:0:16}"
+   python3 "{VAULT}/.claude/scripts/provenance-verify.py" --vault "{VAULT}"
    ```
-   Compare against logged hash. Record as MATCH, MISMATCH, or MISSING.
+   Exit 0 means the inspected content/evidence-identity checks recovered every reported row; exit 1 means rows need triage, not proof of tampering; exit 2 means the inspection failed. Do not fold any status into “no entries”. The output carries complete per-row results and recomputed `counts`; use those values in this report rather than hand counting.
 
-   **Snapshot fallback for MISMATCH *or* MISSING — try this first.** It keys on the logged hash, not on the file's current location, so it is independent of whether the live file resolved at all. Scoping it to MISMATCH alone strands the MISSING rows permanently: a file that both moved *and* evolved fails the self-heal hash gate above, lands on MISSING, and never reaches the one check that could verify it. `/provenance` writes a preimage snapshot beside the proof at `07 System/.Provenance/<date>-<name>-<short16>.snapshot<ext>`; legacy snapshots use the first 8 characters instead of 16. A living work product edited after hashing therefore MISMATCHes the live file while its attested bytes sit on disk unread. The logged hash is the key, so no log schema change is needed to find it:
-   ```bash
-   LOGGED="<logged 16-hex short hash>"; SNAP=
-   for C in "{VAULT}/07 System/.Provenance/"*-"$LOGGED".snapshot* "{VAULT}/07 System/.Provenance/"*-"${LOGGED:0:8}".snapshot*; do
-     [ -f "$C" ] || continue
-     [ "$(sha256sum "$C" | cut -c1-16)" = "$LOGGED" ] || continue
-     SNAP=$C; echo "VERIFIED via snapshot: $SNAP"; break
-   done
-   [ -n "$SNAP" ] || echo "NO MATCH: no retained snapshot has digest $LOGGED"
-   ```
-   A hit upgrades the row to **"verified via snapshot"**. Fall through to the git-history walk only when no snapshot resolves: the snapshot is both the cheaper check and the stronger evidence, being the exact attested bytes written at hash time rather than a blob inferred from history. Reporting MISMATCH/FAILED without running this is a false negative, not an integrity signal.
+   The helper processes the latest status for each tag/file/digest and keeps relationship/evidence rows as annotations. Malformed 16-hex digest cells, table rows and unknown statuses remain explicit invalid records. It resolves transcript/date aliases, current or year-archived Session Logs, qualified paths and legacy bare filenames. A moved basename is accepted only on a unique matching content digest, never the first filename found. It reuses `provenance-write.py locate` for chosen evidence and legacy-name proof identity; a selected broken locator remains an evidence gap, never a licence to use an older proof.
 
-   **Report the two MISSING outcomes separately — do not collapse them.** A snapshot hit on a MISSING row upgrades it to **"verified via snapshot — locator stale"**, never to a bare "verified via snapshot". Untriaged MISSING conflates two states that call for opposite responses: *the attested bytes are gone and this row is now unverifiable* (a real integrity signal, escalate) versus *the bytes are intact and only the path rotted* (bookkeeping, fix the pointer). Flattening them hides the second class, and the pointer then never gets fixed because nothing reports it. This is `_shared-rules.md` §12's **Live locator** category arriving in an automated verify pass — same distinction, same remedy (repair the locator, never the attested content); reuse that vocabulary rather than coining a parallel one.
+   Missing or changed live content falls through to retained snapshots, then local Git path history and all-history basename entries. Both Git rungs use `-c core.quotePath=false`; the basename walk uses NUL-separated raw records and literal name comparison, preserving spaces, Unicode and brackets. Git miss results include the actual tested-blob count and searched boundary. Absent Git, a non-vault repository or configured partial-clone history is reported unavailable; local objects unavailable to the helper are not a successful check; no fetch, stamp, upgrade or log/flag mutation is performed. Content recovery cannot establish Bitcoin attestation: every row says `bitcoin_verification: not-run`, and proof-identity gaps are counted separately.
 
-   **Never auto-repoint a stale locator on the strength of a snapshot.** The self-heal at the top of this step is licensed by a hash match against the *live* file, which proves it is the same artefact relocated. A snapshot match proves only that the attested bytes survive somewhere — it says nothing about which live file, if any, is the row's subject. Report `verified via snapshot — locator stale` with the resolved snapshot path and leave the row alone; where the log declares itself append-only, rewriting the File column would breach that contract anyway, and the correct repair is a validated appended locator annotation after identifying the live target.
-
-   **Git-history fallback for MISMATCH, and for MISSING with no snapshot hit** (if the vault is a git repo): a mismatch usually means the file evolved after hashing — the attested bytes may still exist as a historical git blob. A MISSING row runs both rungs too, with the logged path as `REL`: history keeps a path the working tree has lost. Walk the file's history for a blob whose hash matches the logged one:
-   ```bash
-   cd "{VAULT}"
-   # REL = vault-relative path, LOGGED = logged 16-hex short hash
-   while read -r C; do
-     B=$(git rev-parse -q --verify "$C:$REL") || continue
-     H=$(git cat-file blob "$B" | sha256sum | cut -c1-16)
-     [ "$H" = "$LOGGED" ] && { echo "VERIFIED via git history: ${C:0:7} ($(git show -s --format=%ci "$C"))"; break; }
-   done < <(git log --format=%H -- "$REL")
-   ```
-   **Second rung — a path renamed after attestation.** That walk follows only the current path, so bytes committed under an earlier one are invisible to it. When it prints nothing, hash every blob history holds under the file's basename. The fence stands alone — set `REL` and `LOGGED` inside it, since nothing survives from the walk above:
-   ```bash
-   REL="<vault-relative path>"; LOGGED="<logged 16-hex short hash>"
-   git -C "{VAULT}" rev-parse --git-dir >/dev/null 2>&1 || { echo "ERROR: no git repo at {VAULT} — nothing searched"; exit 1; }
-   N=0; HIT=
-   while read -r _ _ _ B _ P; do
-     [ -n "${B//0/}" ] || continue   # empty or all-zero id (a deletion): nothing to hash
-     H=$(set -o pipefail; git -C "{VAULT}" cat-file blob "$B" 2>/dev/null | sha256sum | cut -c1-16) || continue   # never hash a failed read
-     N=$((N+1))
-     [ "$H" = "$LOGGED" ] || continue
-     HIT=1; echo "VERIFIED via git history (earlier path): $P @ $(git -C "{VAULT}" log --all --format='%h (%ci)' --find-object="$B" | tail -1)"; break
-   done < <(git -C "{VAULT}" log --all --no-renames --format= --raw --no-abbrev -- ":(glob)**/$(basename "$REL")" | sort -u -k4,4)
-   [ -n "$HIT" ] || echo "MISS: $N blobs tried under basename $(basename "$REL"), none hashes to $LOGGED"
-   ```
-   The fence always ends in one line. `VERIFIED` is a hit and prints the path the blob was committed at: the logged hash shows the attested bytes existed there, not that the path is this row's file, so carry the path into the report. `MISS` is a miss; `0 blobs tried` means history holds nothing under that basename, so check `REL` before recording it. `ERROR` means nothing was searched. A hit on either rung upgrades a MISMATCH row to **"verified via git history (commit, date)"** — the attested content demonstrably existed; the current mismatch is post-hash evolution, not tampering — and a MISSING row to **"verified via git history — locator stale"**, reported with the path and never repointed, as for a snapshot hit. No hit leaves the row as it was, but with known limits: git can't clear a state that never landed in a commit (e.g. a hash taken between auto-save commits and appended to minutes later), that predates git tracking of that path, whose basename also changed or contains `[`…`]` (the pathspec reads brackets as a character class), or that entered history only through a merge commit (the walk reads no merge diffs) — assess those against mtime and known tooling behaviour, and say which case applies.
+   **Preserve locator distinctions:** a snapshot/history hit with missing live content stays `locator_stale: true`; report that separately from an evolved but still-resolvable live file. Such a hit proves only that the logged bytes survive, not which live note is the subject. Never auto-repoint from it. Identify a unique current live target before a validated appended locator annotation; retain the original row, digest and proof history. These history rungs cannot recover bytes absent from the searched commit histories; when the exact-path rung misses, the basename rung does not search a different basename. Keep those boundaries in unresolved results. A mismatching living document alone is not evidence of tampering.
 
    **Appended annotations:** a ``supersedes `<old 16-hex hash>` `` relationship row links its File/Tag and new SHA256 to the earlier attestation; it is not itself a new proof status. Preserve and verify the old preimage/proof as historical evidence, rather than compare it to current bytes. An `evidence: {...}` row selects the actual retained snapshot/proof and is not itself a status. A later `confirmed` row for the same tag/file/digest is the current verification annotation; the earlier `pending` row remains intact. Legacy rows whose OTS column already reads `superseded` remain historical and are never rewritten.
 
@@ -788,7 +745,7 @@ PY_LOCK_METADATA
    - Shared-patterns pointers: [stale list or "all resolve"] (if _shared-patterns.md exists)
    - List-item joins fixed: N [file + line per fix, or "none"]
    - Sync conflict files: N [list paths, or "none"] (Syncthing `*.sync-conflict-*` + Obsidian "conflicted copy")
-   - Lock sentinels: N reaped, M held (skipped), E errors, R remaining, D mkdir-fallback dirs (report only) — or "skipped: flock unavailable"
+   - Lock metadata: N canonical lock files retained; D mkdir-fallback directories listed for owner verification — no canonical lock deletion
 
    ## Obsidian Sync Ghost Check
    *(omit this section if the ghost-check script is not installed)*
@@ -808,10 +765,9 @@ PY_LOCK_METADATA
    ## Provenance
    - Stale flags processed: N [OR "none"]
    - Entries verified: N
-   - Hash matches: N
-   - Verified via git history: N (mismatch or missing row cleared by a historical blob matching the logged hash; path found at, when not the logged one)
-   - Hash mismatches: N (files edited after logging; git fallback found no matching blob)
-   - Missing files: N
+   - Content states: [counts.content from provenance-verify.py: MATCH / VERIFIED_SNAPSHOT / VERIFIED_GIT / MISMATCH / MISSING / INVALID / ERROR]
+   - Locator-stale rows: N [preserve snapshot/git recovery separately from live mismatches]
+   - Retained-evidence gaps: N [missing/invalid selected snapshot or proof identity; never relabel as Bitcoin verification]
    - OTS confirmed: N
    - OTS pending: N (a calendar was reached and has not anchored the proof)
    - OTS not upgraded: N (upgrade inconclusive, several matching proofs, or a name-matched proof with another digest) [rows with reason, or "none"]
@@ -841,6 +797,8 @@ PY_LOCK_METADATA
 
 17. **Route unresolved findings**
 
+    First reconcile existing routed tasks whose findings this run resolved, even though they no longer belong in the unresolved loop. Close the exact source-backed scope under the normal lock, preserving any remaining clause, before refreshing report backlinks. Never leave a resolved task open with a fresher link or invent its completion date.
+
     For each finding not resolved during the sweep:
 
     - **Priority decisions and unresolved actions** require the reviewed task-home/capture route below. Overflow/scratchpad/terminology markers remain diagnostic annotations, not proof of action capture. Where the underlying work already lives in a reviewed task section, retain it there without adding a duplicate “triage” task solely because of a count marker; otherwise capture the needed follow-up through this step.
@@ -850,7 +808,6 @@ PY_LOCK_METADATA
       Findings never go to the Whimsy sink and are never silently dropped.
     - Apply §18 to actual deadlines/user dates and list each verified dated target. Keep unresolved past-due Tickler entries in place. Read back every routed finding; ordinary report-only findings do not count as captured.
     - Update the hygiene report's "Actions Routed" section to note where each item was sent. Re-read the report, then update that section through `locked-edit.sh --replace`; never mutate it directly.
-    - Before refreshing any existing task's report backlink, check whether the user or verified action in this run resolved that exact finding. Close the resolved scope under the normal lock, preserving any remaining clause; do not leave a resolved task open with a fresher backlink or invent its completion date.
     - **Routing is an upsert.** Key by source/finding identity and normalised action, independent of destination and report period; ignore volatile week/count metadata. Search live task homes, the capture fallback, This Week and Tickler for that identity before creating a task. A finding already captured or later triaged to an owning home is updated there, not recreated in fallback. Preserve existing user dates, original provenance and open This Week placement; refresh the report link. Resolve ambiguous matches before writing. Different findings in one report remain distinct.
     - **Cleanup lifecycle:** When a user resolves a hygiene-flagged item in any future session, strike through the marker: `~~⚠ Hygiene Wnn: ...~~`. The next `/weekly-hygiene` run removes struck markers in every routing destination (project docs, Working Memory, scratchpads, Tickler) via this step's idempotency scan: while checking for existing `⚠ Hygiene` markers, delete any struck-through ones encountered.
 
