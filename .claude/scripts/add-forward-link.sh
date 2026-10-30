@@ -18,11 +18,21 @@
 #   # Continued-in link (Session 3 continues work from Session 1):
 #   add-forward-link.sh --continued-in "06 Archive/OpenCairn/Session Logs/2025-03-15.md" 1 3 "API Refactor Part 2"
 #
-# Platform: Linux, macOS, Windows (Git Bash). Needs python3 for exact insertion/proofs.
+# Platform: Linux, macOS, Windows (Git Bash). Needs Python 3 (python3 or python) for exact insertion/proofs.
 # Uses flock where available, mkdir-based fallback otherwise.
 # Internal read-only modes: --verify-receipt <receipt> <file>, --find-proof <file> <session-id>.
 
 set -euo pipefail
+
+# Python 3 may be named only `python` in an otherwise supported shell.
+FORWARD_PYTHON_BIN=""
+for candidate in python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+        FORWARD_PYTHON_BIN="$candidate"
+        break
+    fi
+done
+[ -n "$FORWARD_PYTHON_BIN" ] || { echo "Python 3 is required (python3 or python)" >&2; exit 1; }
 
 # --- Portable file locking (shared library) ---
 source "$(dirname "$0")/lib-lock.sh"
@@ -30,7 +40,7 @@ source "$(dirname "$0")/lib-session.sh"
 
 # Shared read-only proof validation used by both Park harnesses.
 if [ "${1:-}" = "--verify-receipt" ] || [ "${1:-}" = "--find-proof" ]; then
-    python3 - "$@" <<'PY'
+    "$FORWARD_PYTHON_BIN" - "$@" <<'PY'
 import hashlib, json, os, pathlib, re, sys
 def sha(data): return hashlib.sha256(data).hexdigest()
 def current_log_root(path):
@@ -236,7 +246,7 @@ cp "$SESSION_FILE" "$PROOF_PRE"
 
 # Preserve every unrelated byte, including an unterminated final line in a
 # different session. The only extra seam is LF when the insertion line had none.
-python3 - "$SESSION_FILE" "$INSERT_LINE" "$NEW_SESSION_LINK" <<'PY_INSERT'
+"$FORWARD_PYTHON_BIN" - "$SESSION_FILE" "$INSERT_LINE" "$NEW_SESSION_LINK" <<'PY_INSERT'
 import os, pathlib, stat, sys, tempfile
 path = pathlib.Path(sys.argv[1])
 data = path.read_bytes()
@@ -259,7 +269,7 @@ chmod "$ORIG_PERMS" "$SESSION_FILE"
 
 # Capture exact producer bytes while the existing session-directory lock holds.
 # Proof/ledger failure is bookkeeping failure, never a failed landed insertion.
-if ! python3 - "$PROOF_PRE" "$SESSION_FILE" "$(_session_id)" \
+if ! "$FORWARD_PYTHON_BIN" - "$PROOF_PRE" "$SESSION_FILE" "$(_session_id)" \
     "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state" "$PREV_NUM" "$NEW_NUM" \
     "$NEW_TOPIC" "$LINK_TYPE" "$DATE_PART" "$NEW_SESSION_LINK" "$INSERT_LINE" \
     "$(_session_agent_id)" "${VAULT_PATH:-}" <<'PY'

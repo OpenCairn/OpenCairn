@@ -31,7 +31,7 @@
 #   EOF
 #
 # Platform: Linux, macOS, Windows (Git Bash). Uses flock where available, mkdir-based fallback otherwise.
-# Heading rename needs python3; section updates retain their shell/awk route.
+# Heading rename needs Python 3 (python3 or python); section updates retain their shell/awk route.
 
 set -euo pipefail
 
@@ -69,6 +69,17 @@ else
     [ "$#" -le 4 ] || { echo "Too many section update arguments" >&2; exit 1; }
 fi
 [[ "$SESSION_NUM" =~ ^[1-9][0-9]*$ ]] || { echo "Session number must be a positive integer" >&2; exit 1; }
+
+if [ "$RENAME_MODE" = "true" ]; then
+    SESSION_PYTHON_BIN=""
+    for candidate in python3 python; do
+        if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+            SESSION_PYTHON_BIN="$candidate"
+            break
+        fi
+    done
+    [ -n "$SESSION_PYTHON_BIN" ] || { echo "Heading rename requires Python 3 (python3 or python)" >&2; exit 1; }
+fi
 
 if [ "$RENAME_MODE" = "false" ]; then
 # Read before acquiring the lock, bounded against an orphaned heredoc writer.
@@ -153,7 +164,7 @@ fi
 if [ "$RENAME_MODE" = "true" ]; then
     # Replace exactly one complete heading while retaining every other byte,
     # including an unterminated final record elsewhere in the file.
-    CHANGED=$(python3 - "$SESSION_FILE" "$SESSION_NUM" "$NEW_HEADING" <<'PY_RENAME'
+    CHANGED=$("$SESSION_PYTHON_BIN" - "$SESSION_FILE" "$SESSION_NUM" "$NEW_HEADING" <<'PY_RENAME'
 import os, pathlib, re, stat, sys, tempfile
 path = pathlib.Path(sys.argv[1])
 data = path.read_bytes()
