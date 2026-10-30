@@ -403,6 +403,8 @@ for rp in receipts:
             and m.get("run_generation") == r.get("run_generation") and r.get("run_generation")
             and m.get("brief_sha256") == r.get("brief_sha256")):
             accepted.append(str(rp))
+    elif r.get("kind") == "legacy-review" and (r.get("session_log"), r.get("session_number")) == (log, number):
+        print("LEGACY_CANDIDATE", rp, sep="\t")
     elif "session_log" not in r:
         for mp in state.glob("*.park-review/runs/*/review-brief-manifest.json"):
             m = load(mp)
