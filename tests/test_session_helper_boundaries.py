@@ -1,5 +1,8 @@
 """Isolated regression controls for session helper boundaries and added modes."""
 import os
+import json
+import shutil
+import sys
 from pathlib import Path
 import subprocess
 import tempfile
@@ -154,6 +157,44 @@ class SessionHelperBoundaryTests(unittest.TestCase):
         self.assert_ok(result)
         self.assertIn("### Files Deleted\n- `Notes/Plan - old.md` - removed\n", self.log.read_text())
         self.assertNotIn("### Files Updated", self.log.read_text())
+
+    @unittest.skipIf(sys.platform == "win32", "POSIX PATH fixture uses executable symlinks")
+    def test_python_alias_only_supports_forward_proof_and_heading_rename(self):
+        bin_dir = self.root / "alias-bin"
+        bin_dir.mkdir()
+        for name in ("bash", "env", "dirname", "basename", "grep", "sed", "awk", "head",
+                     "tail", "wc", "flock", "mktemp", "cp", "mv", "chmod", "rm", "mkdir",
+                     "date", "tr", "stat", "cat", "sort", "sleep", "uname", "id", "find",
+                     "touch", "cut", "realpath", "readlink", "sha256sum"):
+            executable = shutil.which(name)
+            if executable:
+                (bin_dir / name).symlink_to(executable)
+        (bin_dir / "python").symlink_to(sys.executable)
+        vault = self.root / "alias-vault"
+        vault.mkdir()
+        environment = dict(self.env, PATH=str(bin_dir), VAULT_PATH=str(vault))
+        source = vault / "2001-01-01.md"
+        source.write_text("## Session 1 - Original\n### Summary\nSaved\n"
+                          "### Pickup Context\n**Project:** None\n")
+        target = vault / "2001-01-02.md"
+        target.write_text("## Session 2 - Later\n### Summary\nLater\n")
+        result = subprocess.run(["bash", str(SCRIPTS / "add-forward-link.sh"), "--continued-in",
+                                 str(source), "1", "2", "Later", target.name],
+                                env=environment, capture_output=True, text=True, timeout=20)
+        self.assert_ok(result)
+        self.assertIn("**Continued in:**", source.read_text())
+        receipts = [p for p in (self.root / "state").rglob("*.json")
+                    if json.loads(p.read_text()).get("kind") == "forward-link"]
+        self.assertEqual(len(receipts), 1)
+        proof = subprocess.run(["bash", str(SCRIPTS / "add-forward-link.sh"), "--verify-receipt",
+                                str(receipts[0]), str(source)], env=environment,
+                               capture_output=True, text=True, timeout=20)
+        self.assert_ok(proof)
+        renamed = subprocess.run(["bash", str(SCRIPTS / "update-session-section.sh"), str(source),
+                                  "--rename-heading", "1", "## Session 1 - Renamed"],
+                                 env=environment, capture_output=True, text=True, timeout=20)
+        self.assert_ok(renamed)
+        self.assertTrue(source.read_text().startswith("## Session 1 - Renamed\n"))
 
     def test_concurrent_section_and_backfill_writers_preserve_session_boundaries(self):
         self.log.write_text("## Session 1 - First\n### Summary\nStart\n"
