@@ -2750,7 +2750,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         "vault": str(vault),
         "session_log": str(log),
         "session_number": args.number,
-        "session_block_sha256": sha256_bytes(block.encode("utf-8")),
+        "session_block_sha256": sha256_bytes(block.rstrip("\n").encode("utf-8")),
+        "session_block_normalisation": "trailing-lf",
         "brief_sha256": sha256(out),
         "classification_sha256": sha256(manifest_path) if manifest_path.is_file() else None,
         "capture_files": [{"path": item["_path"], "sha256": sha256(Path(item["_path"]))}
@@ -2838,6 +2839,8 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
             block, _ = extract_session(Path(manifest["session_log"]), manifest["session_number"])
         except (KeyError, OSError, TypeError):
             die("review session block is missing or malformed")
+        if manifest.get("session_block_normalisation") == "trailing-lf":
+            block = block.rstrip("\n")
         if sha256_bytes(block.encode("utf-8")) != manifest["session_block_sha256"]:
             die("session block changed after review; rebuild brief")
     for item in manifest.get("attributed_paths", []):
@@ -2871,17 +2874,50 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
                     if (not isinstance(review_digest, str) or not review.is_file()
                             or sha256(review) != review_digest):
                         die(f"review copy missing or corrupt: {review}")
-            # A concurrent append in another Session N does not change this packet's
-            # session boundary. The scoped block was compared above; targeted log
-            # bytes are never made reusable full-read attestations.
+            # The declared targets may include a DIFFERENT pre-existing Session N.
+            # An unchanged subject block alone cannot prove those targets survived.
+            # Tolerate only a byte-preserving append of fresh session records.
             scoped_log = (str(path) == manifest.get("session_log")
                           and "session_block_sha256" in manifest)
             current = sha256(path)
-            if not scoped_log and current != item["sha256"]:
+            appended_session = (scoped_log and key == "targeted_review"
+                                and current != item["sha256"]
+                                and snapshot_preserved_with_new_sessions(snapshot, path))
+            if current != item["sha256"] and not appended_session:
                 die(f"completion file changed after review: {path}")
             completion_files.append({"path": str(path), "sha256": item["sha256"],
                                      "live_sha256": current, "mode": key})
     return completion_files
+
+
+def snapshot_preserved_with_new_sessions(snapshot: Path, live: Path) -> bool:
+    """Prove a log append without interpreting free-text inspection targets."""
+    heading = re.compile(rb"^## Session ([0-9]+)(?:[ \t\r\n]|$)")
+    seen: set[bytes] = set()
+    last_byte = b""
+    with snapshot.open("rb") as prior, live.open("rb") as current:
+        for line in prior:
+            if current.read(len(line)) != line:
+                return False
+            last_byte = line[-1:]
+            match = heading.match(line)
+            if match:
+                seen.add(match.group(1).lstrip(b"0") or b"0")
+        # A previously unterminated line must end before a fresh heading starts.
+        if last_byte and last_byte != b"\n" and current.readline(3) not in (b"\n", b"\r\n"):
+            return False
+        added_session = False
+        for line in current:
+            match = heading.match(line)
+            if not added_session and line.strip() and not match:
+                return False
+            if match:
+                number = match.group(1).lstrip(b"0") or b"0"
+                if number in seen:
+                    return False
+                seen.add(number)
+                added_session = True
+        return added_session
 
 
 def cmd_record_audit(args: argparse.Namespace) -> int:
