@@ -95,6 +95,65 @@ class TargetedCompletionTests(unittest.TestCase):
         self.assertIn("changed after review", result.stderr)
         self.assertEqual(self.receipts(), [])
 
+    def targeted_second_session(self) -> bytes:
+        self.log.write_bytes(self.log.read_bytes() +
+            b"\n\n## Session 2 - Earlier owned work\n\n### Summary\nOWNED wording.\n")
+        classified = self.run_review("classify", "--vault", str(self.vault), "--path", str(self.log),
+            "--semantic", "--targeted", "--inspection-target", "Session 2 Summary: OWNED wording")
+        self.assertEqual(classified.returncode, 0, classified.stderr)
+        self.build()
+        return self.log.read_bytes()
+
+    def test_targeted_work_in_another_existing_session_cannot_be_overwritten(self):
+        original = self.targeted_second_session()
+        self.log.write_bytes(original.replace(b"OWNED wording", b"OVERWRITTEN wording"))
+        rejected = self.record()
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("changed after review", rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
+    def test_targeted_existing_sessions_allow_a_fresh_session_append(self):
+        original = self.targeted_second_session()
+        writer = Path(__file__).parents[1] / ".claude/scripts/write-session.sh"
+        appended = subprocess.run(["bash", str(writer), str(self.log), "--auto-number", "Concurrent work", "09:00am"],
+            input="### Summary\nIndependent fixture work.\n", text=True, capture_output=True,
+            env={**self.env, "OPENCAIRN_SESSION_ID": "concurrent-fixture"})
+        self.assertEqual(appended.returncode, 0, appended.stderr)
+        self.assertIn("Session number assigned: 3", appended.stdout)
+        self.assertTrue(self.log.read_bytes().startswith(original))
+        accepted = self.record()
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(self.receipts()[0]["kind"], "completion")
+        self.assertEqual(self.receipts()[0]["files"], [])
+
+    def test_targeted_last_session_allows_only_a_new_session_append(self):
+        original = self.log.read_bytes()
+        writer = Path(__file__).parents[1] / ".claude/scripts/write-session.sh"
+        appended = subprocess.run(["bash", str(writer), str(self.log), "--auto-number", "Concurrent work", "09:00am"],
+            input="### Summary\nIndependent fixture work.\n", text=True, capture_output=True,
+            env={**self.env, "OPENCAIRN_SESSION_ID": "concurrent-fixture"})
+        self.assertEqual(appended.returncode, 0, appended.stderr)
+        self.assertIn("Session number assigned: 2", appended.stdout)
+        self.assertTrue(self.log.read_bytes().startswith(original))
+        accepted = self.record()
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+
+    def test_targeted_existing_session_tail_change_requires_rebuild(self):
+        original = self.targeted_second_session()
+        self.log.write_bytes(original + b"\nAn unproved addendum inside the owned Session 2.\n")
+        rejected = self.record()
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("changed after review", rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
+    def test_targeted_append_cannot_duplicate_an_existing_session_heading(self):
+        original = self.targeted_second_session()
+        self.log.write_bytes(original + b"\n\n## Session 2 - Duplicate locator\n\n### Summary\nAmbiguous.\n")
+        rejected = self.record()
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("changed after review", rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
     def test_targeted_snapshot_and_brief_tampering_are_rejected(self):
         manifest = json.loads((self.root / "review-brief-manifest.json").read_text())
         snapshot = Path(manifest["targeted_review"][0]["source_snapshot"])
