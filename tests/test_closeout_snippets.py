@@ -197,6 +197,8 @@ class CloseoutSnippetTests(unittest.TestCase):
                 self.assertTrue(any('driver.py' in line for line in hits))
                 self.assertNotIn('BACKUPS', out.read_text())
                 self.assertIn('exit_status: 0', result.stdout)
+                # H in the seat's report is this printed count of the raw stdout, not a hand count.
+                self.assertIn(f'records: {len(hits)}\n', result.stdout)
                 # A reused receipt path is an error, not silent truncation/overwrite.
                 reused = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='UPS',
                                   MATCH_MODE='word', RAW_OUT=str(out), RAW_ERR=str(err))
@@ -206,6 +208,7 @@ class CloseoutSnippetTests(unittest.TestCase):
                                 MATCH_MODE='fixed', RAW_OUT=str(root/'miss.out'), RAW_ERR=str(root/'miss.err'))
                 self.assertEqual(miss.returncode, 0, miss.stderr)
                 self.assertIn('exit_status: 1', miss.stdout)
+                self.assertIn('records: 0\n', miss.stdout)
                 self.assertEqual((root/'miss.out').read_bytes(), b'')
                 # Dangling symlinks still occupy receipt names; neither the link nor its target is overwritten.
                 for occupied in ('stdout', 'stderr'):
