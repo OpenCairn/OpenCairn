@@ -127,6 +127,25 @@ class ProvenanceVerifyTests(unittest.TestCase):
         self.assertIn('2 matching legacy proofs', row['evidence_error'])
         self.assertEqual(row['bitcoin_verification'], 'not-run')
 
+    def test_missing_ots_is_reported_as_unavailable_not_as_absent_proof(self):
+        self.env['PATH'] = os.pathsep.join(d for d in self.env['PATH'].split(os.pathsep)
+                                           if d and not (Path(d) / 'ots').exists())
+        proved = b'legacy source with a proof on disk\n'
+        short = self.row('Example.md', proved, status='pending')
+        (self.artifacts / f'legacy-{short[:8]}.snapshot.md').write_bytes(proved)
+        (self.artifacts / 'Example.md.ots').write_text(hashlib.sha256(proved).hexdigest())
+        bare = b'legacy source with no proof file\n'
+        bare_short = self.row('Bare.md', bare, status='pending')
+        (self.artifacts / f'legacy-{bare_short[:8]}.snapshot.md').write_bytes(bare)
+        result = self.run_verify()
+        proved_row, bare_row = result['rows']
+        self.assertIn('ots unavailable', proved_row['evidence_error'])
+        self.assertNotIn('matching legacy proofs', proved_row['evidence_error'])
+        # Control: with no proof file to inspect, the gap is still an absent proof.
+        self.assertIn('0 matching legacy proofs', bare_row['evidence_error'])
+        self.assertEqual(proved_row['content_state'], 'VERIFIED_SNAPSHOT')
+        self.assertTrue(result['triage_required'])
+
     def test_authoritative_broken_locator_does_not_fall_back_to_older_snapshot(self):
         content = b'attested\n'
         short = self.row('Notes/Missing.md', content)
