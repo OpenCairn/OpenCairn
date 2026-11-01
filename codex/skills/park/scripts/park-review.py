@@ -1363,6 +1363,36 @@ def tool_sources(arguments: object, output: object) -> list[str]:
     return found
 
 
+
+def web_run_opens(source: str) -> bool:
+    """True when a JS `web__run({...})` call's top-level object requests `open`/`fetch`.
+
+    Key order is irrelevant: the object literal is decoded as JSON where possible, and
+    otherwise its depth-one keys are scanned.
+    """
+    for match in re.finditer(r"web__run\s*\(\s*(?=\{)", source):
+        start = match.end()
+        try:
+            value, _ = json.JSONDecoder().raw_decode(source, start)
+        except ValueError:
+            value = None
+        if isinstance(value, dict):
+            if any(key in value for key in ("open", "fetch")):
+                return True
+            continue
+        depth = 0
+        for token in re.finditer(r'[{}\[\]]|["\']?(\w+)["\']?\s*:', source[start:]):
+            text = token.group(0)
+            if text in "{[":
+                depth += 1
+            elif text in "}]":
+                depth -= 1
+                if depth == 0:
+                    break
+            elif depth == 1 and token.group(1) in ("open", "fetch"):
+                return True
+    return False
+
 def cmd_capture_tools(args: argparse.Namespace) -> int:
     """Index actual tool returns, pairing native custom calls and async waits."""
     _, root, _, _ = state_paths(args.session_id)
@@ -1440,8 +1470,7 @@ def cmd_capture_tools(args: argparse.Namespace) -> int:
                 entry["direct_read"] = bool(
                     parent["name"].casefold() in ("read", "read_file", "webfetch")
                     or isinstance(requested, dict) and any(key in requested for key in ("open", "fetch"))
-                    or isinstance(requested, str) and re.search(
-                        r'web__run\s*\(\s*\{\s*["\']?open["\']?\s*:', origin))
+                    or isinstance(requested, str) and web_run_opens(origin))
                 records.append(entry)
                 seen.add((ident, raw_digest))
                 added += 1
