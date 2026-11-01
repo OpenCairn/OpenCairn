@@ -54,8 +54,8 @@ This is `_shared-rules-content.md` §15's slug recipe — use it verbatim (same 
    PYEOF
    ```
    With `INPUT_FILE_PATH` as above, that derived path is `/tmp/transcribe_segments_podcast_digest_$SAFE_ID.json` (the block hardcodes `/tmp`, not `$TMP`) — outside the `$TMP/podcast_digest_$SAFE_ID.*` sweep, so Step 6 removes it explicitly. On CPU with ~1hr+ audio this is slow — run it as a background Bash task (no timeout). On completion, check the exit code the background task reports; on failure read `$ERR` for diagnostics; on success Read the JSON at the printed path.
-5. **Format in-context** using `/transcribe` Phase 3 **steps 1–3 only** (parse → format with timestamps (`/transcribe`'s duration-dependent `[MM:SS]`/`[H:MM:SS]`) + any speaker labels → cleanup pass). **Do NOT run step 4 (display), or steps 5–8 (rename/save/discuss prompts).** The digest needs the transcript in context — not dumped to the user, not saved to disk.
-6. **Cleanup:** once synthesis is complete remove `$TMP/podcast_digest_$SAFE_ID.*` **and** the segments JSON the Step-4 block wrote outside that glob (`rm -f /tmp/transcribe_segments_podcast_digest_$SAFE_ID.json`) — and, if the cloud path ran, `rm -rf "$CLOUD_OUT"` too.
+5. **Format in-context** using `/transcribe` Phase 3 **steps 1–3 only** (parse → format with timestamps (`/transcribe`'s duration-dependent `[MM:SS]`/`[H:MM:SS]`) + any speaker labels → cleanup pass). **Do NOT run step 4 (display), or steps 5–8 (rename/save/discuss prompts).** The digest needs the transcript in context — not dumped to the user; its only disk copy is `$TMP/podcast_digest_$SAFE_ID.transcript.txt` (inside the cleanup sweep), for the crux-stamp search.
+6. **Cleanup:** once Phase 5's timestamp check is done, remove `$TMP/podcast_digest_$SAFE_ID.*` **and** the segments JSON the Step-4 block wrote outside that glob (`rm -f /tmp/transcribe_segments_podcast_digest_$SAFE_ID.json`) — and, if the cloud path ran, `rm -rf "$CLOUD_OUT"` too.
 
 - **Caption cross-reference** is inherited only for YouTube sources (where `yt-dlp` fetched captions for the proper-noun divergence check). For non-YouTube audio, accept the WhisperX transcript as-is. (This is the *Tier-2* role for captions — fixing WhisperX proper nouns. In **Tier 1**, captions *are* the transcript, with no second source to cross-check — see the Tier-1 proper-noun caveat.)
 
@@ -98,7 +98,7 @@ For a known non-English source, swap `en.*` for that language's code; if English
 - **No diarisation.** Captions never carry speaker labels; published transcripts only sometimes show turn-taking. Attribute speakers by inference in Phase 2. **If the user explicitly needs guaranteed speaker labels or verbatim-exact quotes, skip Tier 1** and transcribe with diarisation (Tier 2/3).
 - **Proper nouns are unverified — resolve them per `_shared-rules-content.md` §15 "Names and speakers"** (the page's human-written text outranks the transcript body on identity; split `$BODY` at the transcript heading, then compare stem tokens across the two halves — a single grep cannot tell agreement from divergence). Applies to both Tier-1 sources: 1a's transcript is often auto-generated despite being published, and 1b's captions have no second machine source to cross-check. Digest-specific: run that comparison **before** a name enters the digest, and **never invent** or silently pass a garbled name through.
 - **Timestamps:** captions always carry them; published transcripts only sometimes (handle per Phase 2).
-- **Cleanup:** a Tier-1-only run still leaves the caption VTT in `$TMP` — `rm -f "$TMP/podcast_digest_$SAFE_ID."*` after synthesis (same sweep as *Transcription core* Step 6).
+- **Cleanup:** a Tier-1-only run still leaves the caption VTT in `$TMP` — `rm -f "$TMP/podcast_digest_$SAFE_ID."*` after Phase 5 (same sweep as *Transcription core* Step 6).
 
 Harvest episode metadata for the filename + frontmatter by this **precedence:** structured page metadata (`og:`/`<meta>` tags, JSON-LD) or RSS fields (`<title>`, `<pubDate>`, `<itunes:episode>`) first; `yt-dlp --print` for YouTube; scraped body text last.
 
@@ -112,7 +112,7 @@ No usable Tier-1 transcript, and the *Engine fork* selects **local** (GPU presen
    - **direct audio** → the URL as-is.
    - **episode webpage** → find a media URL: (i) an audio enclosure / `<audio>` / `og:audio` on the page; (ii) else a linked YouTube version — *prefer this*, it also gets captions; (iii) else the show's RSS feed `<enclosure>`.
 2. **Run the Transcription core** (above) on that media URL → a cleaned, timestamped (and, where the HF token allowed, diarised) transcript in context. No caption cross-reference for non-YouTube primaries.
-3. **Discard the raw transcript** — it is never written to disk; the core removes its `$TMP/podcast_digest_$SAFE_ID.*` temp files after synthesis.
+3. **Discard the raw transcript** — it is never written outside `$TMP`; the core removes its `$TMP/podcast_digest_$SAFE_ID.*` temp files after Phase 5.
 
 #### Tier 3 — transcribe in the cloud (`/transcribecloud`)
 
@@ -129,7 +129,7 @@ From the in-context transcript, produce, in this order:
 1. **`## Cruxes` (2–4).** The non-obvious, contested, or surprising moments — disagreements, claims that update a prior, strong assertions. Each crux:
    - 1–3 sentences capturing the *substance* of the exchange (synthesis, not a quote dump);
    - **speaker attribution** — when the transcript is **diarised** (Tier 2/3 with an HF token), resolve `Speaker 1/2` to real names from the episode metadata; if you can't confidently map a label to a person, attribute by role ("the host" / "the guest"). When the transcript is **not diarised** — any Tier-1 source (captions / published transcript), or a Tier-2/3 run without a token — there are no reliable speaker labels, and **a Tier-1a transcript's own labels are not an exception** (auto-generated ones guess by voice clustering). Resolve them per `_shared-rules-content.md` §15 "Names and speakers" — scan the human-written half for lines carrying a leading timestamp, which is the segment map; the *heading* outline is usually navigational and carries no times, so a non-empty outline is not a map — then conversational cues, and omit attribution on a crux rather than guess. Say which case applies in the report, and flag mislabelling you corrected rather than presenting the transcript's labels as sound;
-   - a **jump-to timestamp** at the start of that exchange, in the transcript's own format (`[MM:SS]` under an hour, `[H:MM:SS]` above). (Available from WhisperX in Tier 2/3 and from caption VTT in Tier 1b; a Tier-1a published transcript has them only if it carried them — otherwise omit timestamps and note this once.)
+   - a **jump-to timestamp** at the start of that exchange, in the transcript's own format (`[MM:SS]` under an hour, `[H:MM:SS]` above), taken from a literal `rg -n` of a distinctive phrase from that exchange in the timestamped transcript on disk (caption VTT, extracted transcript body, the `$CLOUD_OUT` transcript, or Tier 2's `$TMP/podcast_digest_$SAFE_ID.transcript.txt`): the matched line's or cue's time, never recall. (Available from WhisperX in Tier 2/3 and from caption VTT in Tier 1b; a Tier-1a published transcript has them only if it carried them — otherwise omit timestamps and note this once.)
 2. **`## Claims & Facts`.** The "got-the-content" insurance layer — capture all *major* claims, frameworks, named entities, numbers, and recommendations as tight bullets, **grouped by theme/segment**. Omit banter, ads, repetition, and purely illustrative anecdotes unless they carry the argument. Synthesis over transcription — this is not a re-transcription. "Comprehensive" means every load-bearing point, not every sentence.
 3. **No verdict.** No rating, no star score, no "worth listening?" line. Purely descriptive — the user decides.
 
@@ -166,7 +166,8 @@ Write to the destination chosen in Phase 3.
 ### Phase 5 — Verify & report
 
 1. Confirm the file exists at the expected path.
-2. Report: the file path; **which of the three tiers acquired the transcript** (e.g. "Tier 1a — published transcript", "Tier 1b — captions (YouTube auto/manual)", "Tier 2 — local WhisperX, diarised", "Tier 3 — cloud") and why lower tiers were skipped or failed; whether timestamps are present; any gaps (e.g. "Tier-1 captions — non-diarised, speakers attributed by inference; proper nouns unverified", "couldn't resolve the Pocket Casts audio — used the user-supplied YouTube link", "published transcript had no timestamps, cruxes are untimestamped", "no diarisation — HF token absent, attributed by role").
+2. **Re-check each crux stamp:** re-run its phrase search, correct any mismatch in the saved digest before reporting, and display `Timestamp check: N cruxes traced, M corrected` (or `Timestamp check: no timestamps`). Cleanup runs after this.
+3. Report: the file path; **which of the three tiers acquired the transcript** (e.g. "Tier 1a — published transcript", "Tier 1b — captions (YouTube auto/manual)", "Tier 2 — local WhisperX, diarised", "Tier 3 — cloud") and why lower tiers were skipped or failed; whether timestamps are present; any gaps (e.g. "Tier-1 captions — non-diarised, speakers attributed by inference; proper nouns unverified", "couldn't resolve the Pocket Casts audio — used the user-supplied YouTube link", "published transcript had no timestamps, cruxes are untimestamped", "no diarisation — HF token absent, attributed by role").
 
 ## Pocket Casts (`pca.st`) audio resolution
 
