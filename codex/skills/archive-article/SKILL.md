@@ -27,6 +27,8 @@ For a URL, follow the shared §26 fetch ladder:
 
 Keep the text used for the synthesis and quotation checks reachable in scratch files or tool results. If no usable body remains, ask for pasted text or another link. Do not manufacture an article note from metadata alone.
 
+For a multi-part series or a source too long for one pass, fetch every part and synthesise from the full text; the author's own summary or key-takeaway sections are a cross-check, not the synthesis basis. A chunked or sub-agent full read is fine, but its draft goes through the Phase 7 value and attribution trace.
+
 ## Phase 2: Identify the primary source
 
 Look for a DOI, original-paper link, dataset, official document, author or original publication. Resolve a supplied DOI and verify its citation metadata. If discovery is needed, search the title and author through PubMed/publisher sources for academic work, or the original author/publisher for other material. Ask for an identifier only after the available automated routes fail.
@@ -37,7 +39,7 @@ When the primary abstract or full text is reachable, read it and use it to verif
 
 ## Phase 3: Choose a destination
 
-Honour a destination already specified by the user. Otherwise inspect relevant area folders and propose a fitting location, then obtain the user's choice before writing. A folder name alone does not establish its contents.
+Honour a destination already specified by the user. Otherwise inspect relevant area folders and propose a fitting location, then obtain the user's choice before writing. For a series, ask one note vs one per part in the same question (alone if the destination is already given). A folder name alone does not establish its contents.
 
 Classify by the article's useful insight as well as its topic. Search the relevant `04 Areas/` surface for topic, author and domain terms; read promising notes to identify an existing cluster. Prefer an established home over inventing a taxonomy. If a new subfolder is needed, include it in the destination proposal.
 
