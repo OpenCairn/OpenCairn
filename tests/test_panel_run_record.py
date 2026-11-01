@@ -132,10 +132,18 @@ class PanelRunRecordTests(unittest.TestCase):
         self.full_round(2, tag="B")
         result = self.record(2)
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("baseline", result.stderr)
+        self.assertIn("baseline-r2", result.stderr)  # the error names the remedy
         self.assertEqual((archive / "baseline/source.md").read_text(), "reviewed bytes\n")
         self.assertFalse((archive / "codex-r2.out").exists())
         self.assertEqual(len(self.ledger_lines()), 1)
+        # Following the remedy records the round: round 1's baseline restored, round 2's beside it.
+        (self.run / "baseline-r2").mkdir()
+        (self.run / "baseline-r2/source.md").write_text("different later bytes\n")
+        (baseline / "source.md").write_text("reviewed bytes\n")
+        result = self.record(2)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual((archive / "baseline-r2/source.md").read_text(), "different later bytes\n")
+        self.assertEqual(len(self.ledger_lines()), 2)
 
     def test_round_two_without_marker_joins_round_one_archive(self) -> None:
         (self.run / "brief.md").write_text("brief A\n", encoding="utf-8")  # a run's identity for lost-marker recovery
