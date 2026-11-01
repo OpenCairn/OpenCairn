@@ -118,6 +118,58 @@ class LedgerDedupTests(unittest.TestCase):
         self.assertTrue(output.endswith("TOTAL\t1 file(s)\t2 write(s)\n"))
 
 
+class AutoWindowTests(unittest.TestCase):
+    """`--read -m auto` derives the window from the session's first record."""
+
+    setUp = LedgerDedupTests.setUp
+
+    def stamp(self, minutes):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def read_auto(self):
+        result = subprocess.run([self.bash, str(SCRIPT), "--read", "-m", "auto"], env=self.env,
+                                cwd=self.vault, text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        first = result.stdout.splitlines()[0]
+        self.assertRegex(first, r"^# window: -m [0-9]+ ")
+        return int(first.split()[3]), first, result.stdout
+
+    def test_auto_window_covers_the_first_ledger_row(self):
+        old = self.stamp(310)
+        self.ledger.write_text(f"{old}\tWrite\t{self.vault / 'old.md'}\tmain\n"
+                               f"{self.stamp(1)}\tEdit\t{self.vault / 'new.md'}\tmain\n")
+        minutes, first, output = self.read_auto()
+        self.assertGreaterEqual(minutes, 340)
+        self.assertIn(f"from {old} (ledger", first)
+        self.assertIn(str(self.vault / "old.md") + "\t", output)
+        self.assertTrue(output.endswith("TOTAL\t2 file(s)\t2 write(s)\n"))
+
+    def test_auto_window_takes_an_earlier_transcript_start(self):
+        self.ledger.write_text(f"{self.stamp(10)}\tWrite\t{self.vault / 'a.md'}\tmain\n")
+        transcript = self.config / "projects/-fixture/synthetic-ledger-dedup.jsonl"
+        transcript.parent.mkdir(parents=True)
+        start = self.stamp(400)
+        transcript.write_text('{"type":"summary"}\n'
+                              f'{{"type":"user","timestamp":"{start[:-1]}.123Z"}}\n')
+        minutes, first, _ = self.read_auto()
+        self.assertGreaterEqual(minutes, 430)
+        self.assertIn(f"from {start} (transcript", first)
+
+    def test_auto_window_without_a_start_says_so_and_uses_the_default(self):
+        self.ledger.unlink(missing_ok=True)
+        minutes, first, output = self.read_auto()
+        self.assertEqual(minutes, 240)
+        self.assertIn("session start unresolved", first)
+        self.assertIn("NOTE: no ledger", output)
+
+    def test_non_numeric_window_is_rejected(self):
+        result = subprocess.run([self.bash, str(SCRIPT), "--read", "-m", "soon"], env=self.env,
+                                cwd=self.vault, text=True, capture_output=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Usage:", result.stderr)
+
+
 class SelfLedgerIdentityTests(unittest.TestCase):
     def test_move_collateral_records_actual_codex_writer_identity(self):
         try:

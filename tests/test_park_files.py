@@ -333,6 +333,26 @@ class VaultInventoryTests(unittest.TestCase):
         # The old baseline's creation falls outside the requested window.
         self.assertNotIn(f"[git-history]\t{self.vault}\tA\t04 Areas/old.md", output)
 
+    def test_auto_window_spans_the_session_ledger_and_is_printed(self) -> None:
+        state = Path(self.env["CLAUDE_CONFIG_DIR"]) / ".session-state"
+        state.mkdir(parents=True)
+        stamp = lambda minutes: (datetime.now(timezone.utc) - timedelta(minutes=minutes)
+                                 ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        start = stamp(310)
+        (state / "synthetic-inventory.tsv").write_text(f"{start}\tWrite\t{self.vault}/a.md\tmain\n")
+        (state.parent / ".sync-receipt").write_text(stamp(320) + "\tauto-window-control\tfixture\n")
+        default = self.run_args()
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertNotIn("auto-window-control", default.stdout)
+        self.assertNotIn("# window:", default.stdout)
+        result = self.run_args("-m", "auto")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertTrue(lines[0].startswith("# roots searched:"))
+        self.assertRegex(lines[1], rf"^# window: -m [0-9]+ from {start} \(ledger")
+        self.assertGreaterEqual(int(lines[1].split()[3]), 340)
+        self.assertIn("auto-window-control", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
