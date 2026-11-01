@@ -2334,6 +2334,19 @@ def cmd_build(args: argparse.Namespace) -> int:
                               re.IGNORECASE)):
             die(f"historical continuation-only file needs explicit coverage confirmation: {path}; "
                 "classify --semantic --targeted with inspection targets, or --confirm-full-read")
+        # A clean receipt for these exact bytes covers created files too.
+        prior = matching_audit_receipt(current_audits, path, digest)
+        if prior:
+            reused.append(
+                {
+                    "path": str(path),
+                    "sha256": digest,
+                    "receipt": prior["_path"],
+                    "reviewer": prior.get("reviewer", "unknown"),
+                    "captured_at": prior.get("captured_at", "unknown"),
+                }
+            )
+            continue
         if path in created:
             (
                 snapshot_digest,
@@ -2357,18 +2370,6 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "reason": "created this session",
                     "owned_locators": [review_text] if review_text else [],
                     "owned_locators_complete": True,
-                }
-            )
-            continue
-        prior = matching_audit_receipt(current_audits, path, digest)
-        if prior:
-            reused.append(
-                {
-                    "path": str(path),
-                    "sha256": digest,
-                    "receipt": prior["_path"],
-                    "reviewer": prior.get("reviewer", "unknown"),
-                    "captured_at": prior.get("captured_at", "unknown"),
                 }
             )
             continue
