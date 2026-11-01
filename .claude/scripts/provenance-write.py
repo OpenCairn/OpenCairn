@@ -50,6 +50,21 @@ def read_attestations(recorded: list[list[str]], tag: str, rel: str, value: str)
     return result
 
 
+def require_supersession(recorded: list[list[str]], tag: str, rel: str, value: str,
+                         supersedes: str | None) -> None:
+    """A new digest for an attested tag/file must name what it replaces."""
+    if supersedes or read_attestations(recorded, tag, rel, value):
+        return  # explicit supersession, or an idempotent re-run of the same bytes
+    mine = [r for r in recorded if r[1:3] == [tag, rel]]
+    replaced = {m[1] for r in mine if (m := re.fullmatch(r'supersedes `([0-9a-f]{16})`', r[4]))}
+    prior = [r[3].strip('`') for r in mine
+             if not r[4].startswith('evidence: ') and not r[4].startswith('supersedes ')]
+    if prior:
+        head = next((h for h in reversed(prior) if h not in replaced), prior[-1])
+        raise ValueError(f'{rel} already has a {tag} attestation; '
+                         f're-attestation needs --supersedes {head}')
+
+
 def short_hash(value: str) -> str:
     if not re.fullmatch(r'[0-9a-f]{16}', value):
         raise ValueError('hash must be exactly 16 lowercase hexadecimal characters')
@@ -138,6 +153,8 @@ def append(vault: Path, rel: str, tag: str, value: str, status: str,
         short_hash(supersedes)
         if supersedes == value or not read_attestations(existing, tag, rel, supersedes):
             raise ValueError('superseded attestation must exist for this tag/file and a different hash')
+    if not evidence_only:
+        require_supersession(existing, tag, rel, value, supersedes)
     timestamp = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     additions = []
     attestations = read_attestations(existing, tag, rel, value)
@@ -210,6 +227,7 @@ def attest(vault: Path, args: argparse.Namespace) -> dict:
         full_hash = digest(preimage)
         value = full_hash[:16]
         recorded = rows(vault / '07 System/AI Provenance Log.md')
+        require_supersession(recorded, args.tag, rel, value, args.supersedes)  # before staging artefacts
         if any(r[1:4] == [args.tag, rel, f'`{value}`'] and r[4].startswith('evidence: ')
                for r in recorded):
             prior = locate(vault, args.tag, rel, value)
