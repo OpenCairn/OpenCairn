@@ -67,7 +67,7 @@ Compose the complete note, including verified links, before saving. Use this spi
 
 ## Key Findings
 
-- {Concrete findings; preserve qualifications and denominators.}
+- {Concrete findings; keep each number's measure qualifier, denominator and period.}
 
 ## Details
 
@@ -114,7 +114,9 @@ Trace every quoted phrase and blockquote to the actual source text. Include stra
 
 Re-read the Source section and compare author, title, venue, date and identifier spellings with the citation metadata. Preserve source spelling in citations and quotes; the user's locale governs your own prose only. Verify written wikilink targets and URLs after saving.
 
-Report the saved file, its destination and any material source/access gaps. Include `Quote check: N quoted phrases, M block quotes, all traced` and the citation-check result only after performing those checks. Keep the note concise and descriptive; mark application inferences as inferences.
+Trace values and attributions against the retained source text — including a draft a sub-agent produced, which stays untraced until this passes. For every number, find its source line by literal search and confirm the measure qualifier matches (raw vs adjusted/excess, gross vs net, relative vs absolute, denominator, period); never join differently-qualified figures with "or"/"and" as alternatives. For every attribution to a part, chapter, speaker or section, confirm that location carries the claim.
+
+Report the saved file, its destination and any material source/access gaps. Include `Quote check: N quoted phrases, M block quotes, all traced`, `Value check: N values traced, M fixed` and the citation-check result only after performing those checks. Keep the note concise and descriptive; mark application inferences as inferences.
 
 ## Skill monitor
 

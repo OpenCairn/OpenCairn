@@ -71,7 +71,7 @@ Use this template as a spine, adapting section names to the material — the ada
 
 ## Key Findings
 
-- {3-5 bullets. Concrete numbers, outcomes, claims. No fluff.}
+- {3-5 bullets. Concrete numbers with the source's measure qualifier, outcomes, claims. No fluff.}
 
 ## Details
 
@@ -129,7 +129,8 @@ Don't over-link — once per term per note, on first meaningful use, not in the 
    - `rg -n '^ *>' <path>` — block quotes, which the first command cannot see.
    Confirm each hit against the fetched source text. If the body came from the WebFetch rung only (summarised output — no source bytes on disk), the pass condition is **zero** quoted phrases in the synthesis prose: convert any hit to unquoted paraphrase and record the fidelity gap. (An exact title in the Source section keeps its quote marks — it traces to the PubMed/publisher citation metadata, not the body.) Fix any that don't trace — drop the quote marks (or unindent the block to plain prose), or backtick the token if it's spelling-hook corruption. Display: `Quote check: N quoted phrases, M block quotes, all traced ✓` (use `0` for either count rather than omitting it).
 3. **Check the citation line for hook corruption.** A spelling hook rewrites unbackticked title/venue tokens after the write, and the quotation greps can't see them. Re-read the saved Source line and compare the title, venue, and author spellings against the fetched citation metadata; for any source-spelled token, also grep the saved file for the hook's re-localised form. Fix a mismatch by backticking the token and rewriting the line — never by accepting the altered spelling. Display: `Citation check: title/venue spellings match source ✓` or name what was fixed.
-4. Report to the user:
+4. **Trace values and attributions** against the retained source text — including a draft a sub-agent produced, which stays untraced until this passes. For every number, find its source line by literal search and confirm the measure qualifier matches (raw vs adjusted/excess, gross vs net, relative vs absolute, denominator, period); never join differently-qualified figures with "or"/"and" as alternatives. For every attribution to a part, chapter, speaker or section, confirm that location carries the claim. Display: `Value check: N values traced, M fixed`.
+5. Report to the user:
    - File path
    - Which folder it landed in (the user-confirmed destination, and why, briefly)
    - Any gaps (e.g. "DOI not available — citation is from the news report only")
