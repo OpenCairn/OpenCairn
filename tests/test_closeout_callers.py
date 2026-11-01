@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -44,6 +45,24 @@ class CloseoutCallerTests(unittest.TestCase):
     def helper(self, *args, body=None, expected=0):
         return self.run_cmd([sys.executable, REVIEW, *args], body, expected)
 
+    def capture_propagation(self, tag, needle=None):
+        """Capture through the shared Propagation receipts path: enumeration + executed-search JSON."""
+        needles, searches = [], []
+        if needle is not None:
+            argv = ['rg', '--hidden', '--no-ignore', '-n', '-F', '-i', '--', needle, '.']
+            searched = subprocess.run(argv, cwd=self.vault, capture_output=True, timeout=20)
+            self.assertIn(searched.returncode, (0, 1), searched.stderr)
+            out, err = self.root / f'{tag}.stdout', self.root / f'{tag}.stderr'
+            out.write_bytes(searched.stdout); err.write_bytes(searched.stderr)
+            needles = [{'needle': needle, 'match_mode': 'phrase'}]
+            searches = [{'needle': needle, 'match_mode': 'phrase', 'exit_status': searched.returncode,
+                         'command': shlex.join(argv), 'cwd': str(self.vault),
+                         'stdout_file': str(out), 'stderr_file': str(err)}]
+        self.helper('capture', '--kind', 'enumeration', '--label', 'Final needles',
+                    body=json.dumps({'needles': needles}))
+        self.helper('capture', '--kind', 'propagation', '--label', 'Goodnight propagation',
+                    body=json.dumps({'report': f'{tag}: triaged every hit; task retained.', 'searches': searches}))
+
     def make_record(self, lane, catchup, day):
         source = ROOT / (f'codex/skills/goodnight/SKILL.md' if lane == 'codex'
                          else '.claude/commands/goodnight.md')
@@ -78,8 +97,7 @@ class CloseoutCallerTests(unittest.TestCase):
             args += ['--touched', self.week]
         result = self.helper(*args)
         self.assertIn('RESULT: PASS', result.stdout)
-        self.helper('capture', '--kind', 'propagation', '--label', 'Goodnight propagation',
-                    body='NEW report and session entry; task retained under Tomorrow. Fixture checked.\n')
+        self.capture_propagation(f'goodnight-{log.stem}', needle='Continue fixture task')
         self.helper('capture', '--kind', 'evidence', '--source', 'goodnight caller contract',
                     '--label', 'Goodnight acceptance checks', '--provenance', 'primary',
                     body='Preserve unfinished tasks and the pre-routing plan; export only after clean review.\n')
@@ -87,6 +105,7 @@ class CloseoutCallerTests(unittest.TestCase):
         brief = Path(re.search(r'^Reviewer brief: (.+)$', result.stdout, re.M).group(1))
         manifest = json.loads((brief.parent / 'review-brief-manifest.json').read_text())
         self.assertIn('goodnight caller contract', brief.read_text())
+        self.assertIn('Executed search receipts:', brief.read_text())
         self.assertEqual(manifest['session_log'], str(log))
         self.assertEqual(manifest['session_number'], 1)
         return manifest, result
@@ -122,7 +141,7 @@ class CloseoutCallerTests(unittest.TestCase):
                              '--touched', report, '--touched', self.week, expected=1)
         self.assertIn('FAIL backfill', result.stdout)
         self.assertNotIn('RESULT: PASS', result.stdout)
-        self.helper('capture', '--kind', 'propagation', '--label', 'Fixture', body='Checked fixture.\n')
+        self.capture_propagation('checked-empty')
         self.helper('classify', '--vault', self.vault, '--path', report,
                     '--semantic', '--reason', 'fixture close-out')
         result = self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1', expected=1)
@@ -132,7 +151,7 @@ class CloseoutCallerTests(unittest.TestCase):
     def test_new_date_generation_does_not_reuse_prior_propagation(self):
         self.helper('begin-run')
         log, report = self.make_record('codex', True, '2001-03-01')
-        self.helper('capture', '--kind', 'propagation', '--label', 'Prior day', body='Prior day only.\n')
+        self.capture_propagation('prior-day', needle='Continue fixture task')
         self.helper('begin-run')
         log, report = self.make_record('codex', True, '2001-03-02')
         # Coverage precedes build under the shared protocol; classify so build reaches the propagation gate.
