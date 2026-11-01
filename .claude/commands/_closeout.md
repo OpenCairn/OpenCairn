@@ -64,6 +64,11 @@ Inspect each artefact as its Coverage class prescribes. Across that semantic cov
 
 **SOURCE check:** run `_shared-rules.md` §19 over the enumerated files; its required output line is part of this gate. For each decision-bearing command, retain its literal invocation, working directory, exit status and discriminating stdout/stderr before cleanup or brief assembly. State which observation separates pass from fail; include empty/error output when it controls a conclusion. A prose success summary, recreated command or bare exit 0 is not the evidence. Preserve the raw result in the full-path evidence/pre-state handoff, with an exact path and digest for any companion file the reviewer must inspect.
 
+**Coherence after status changes:** compare the changed span with its governing heading, table labels, adjacent conditions and parent scope/provenance statement. Check each clause before ticking a compound task. Reconcile surviving tasks with the settled decision, preserving any still-open clause. For claimed deduplication, inspect the retained counterpart as evidence even when it was not edited. For reciprocal links, verify both endpoints only when reciprocity was intended.
+
+**Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred.
+
+**Superseded queues:** before deleting or relabelling a queue, compare the captured pre-state with the retained canonical source and preserve execution-critical detail; a surviving source label does not prove the detail survived. **Status narrowing:** bind claims such as "already in place" or "complete" to the exact surface checked, with its receipt; count-only or subset evidence cannot discharge a wider status. **File-creation code:** regression-test both mode branches: a missing target receives the caller's umask-derived mode, while replacing an existing target preserves its mode.
 
 **Semantic conformance checks (use the applicable rows, not a new pass per anecdote):**
 
