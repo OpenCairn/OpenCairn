@@ -27,6 +27,8 @@ Every actionable item in a day section or planning document should link to its p
 - Area doc exists → `→ [[04 Areas/path/doc]]`
 - Standalone/generic items (no project context) → no link
 
+New prose in another living doc that refers to a task names the task (its subject, and its date when it has one), not the surface holding it — no "ticklered", "on This Week" or Tickler/This Week heading link — because §4 and §9 move tasks between surfaces; the task's own `→` link carries the route back.
+
 When moving items that already have project/area links, preserve them. Replace session log links (`→ [[06 Archive/OpenCairn/Session Logs/...]]`) with project/area links — session context is low-value once the item is in a planning doc.
 
 **Operational continuation links are an exception.** Preserve an unfinished task’s exact review/session links when they carry state needed to continue the work. Keep them through carry-forward and Tickler transfers; a project link may accompany them but must not replace them. This exception applies to every consumer of this linking convention.
