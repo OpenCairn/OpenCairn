@@ -32,7 +32,23 @@ def run_bash(script: str, root: Path, **values: str) -> subprocess.CompletedProc
     return subprocess.run(['bash', '-c', script.replace('{VAULT}', str(root/'vault'))], cwd=root, env=env, text=True, capture_output=True, timeout=20)
 
 
+SECTION_REFERENCE = re.compile(
+    r'((?:\*\*[^*]+\*\*(?:,\s*|\s+and\s+)?)+)\s+in the \[shared close-out protocol\]'
+    r"|shared protocol(?:’|')s ((?:\*\*[^*]+\*\*(?:,\s*|\s+and\s+)?)+)")
+
+
 class CloseoutSnippetTests(unittest.TestCase):
+    def test_caller_section_references_resolve_in_sibling_closeout(self):
+        for caller in (*PARKS, *GOODNIGHTS):
+            closeout = CLOSEOUTS[0] if caller.parent.name == 'commands' else CLOSEOUTS[1]
+            with self.subTest(caller=caller):
+                headings = set(re.findall(r'^#{2,3} (.+?)\s*$', closeout.read_text(encoding='utf-8'), re.M))
+                cited = set()
+                for match in SECTION_REFERENCE.finditer(caller.read_text(encoding='utf-8')):
+                    cited.update(re.findall(r'\*\*([^*]+)\*\*', match.group(1) or match.group(2)))
+                self.assertIn('Inventory', cited, 'reference pattern must still match the caller prose')
+                self.assertEqual(sorted(cited - headings), [])
+
     def test_session_extraction_stops_at_concurrent_entry_and_keeps_complete_paths(self):
         for source in CLOSEOUTS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
