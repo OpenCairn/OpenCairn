@@ -566,14 +566,23 @@ elif sys.argv[1] == 'upgrade':
         self.assertFalse(flag.exists())
         hygiene = blocks('.claude/commands/weekly-hygiene.md')
         hygiene_counterpart = blocks('codex/skills/weekly-hygiene/SKILL.md')
-        snapshots = next(b for b in hygiene if 'VERIFIED via snapshot:' in b)
+        verify = next(b for b in hygiene if 'provenance-verify.py' in b)
         proofs = next(b for b in hygiene if ' locate ' in b)
         upgrades = next(b for b in hygiene if 'UPGRADE_HASH=' in b)
-        for command in (snapshots, proofs, upgrades): self.assertIn(command, hygiene_counterpart)
-        out = shell(snapshots, {'<logged 16-hex short hash>': record['hash']}, True)
-        self.assertIn('VERIFIED via snapshot:', out.stdout)
-        out = shell(snapshots, {'<logged 16-hex short hash>': 'a' * 16}, True)
-        self.assertIn('NO MATCH:', out.stdout)
+        for command in (verify, proofs, upgrades): self.assertIn(command, hygiene_counterpart)
+        def doc_row(out):
+            rows = [r for r in json.loads(out.stdout)['rows']
+                    if r.get('file') == '03 Projects/Example.md' and r.get('hash') == record['hash']]
+            self.assertEqual(len(rows), 1, out.stdout)
+            return rows[0]
+        live = self.doc.read_bytes()
+        self.doc.write_bytes(b'evolved after attestation\n')
+        row = doc_row(shell(verify, {}, True))
+        self.assertEqual((row['content_state'], row['snapshot']), ('VERIFIED_SNAPSHOT', record['snapshot']))
+        retained = Path(record['snapshot']); hidden = self.root / 'snapshot-aside'
+        retained.rename(hidden)
+        self.assertEqual(doc_row(shell(verify, {}, False))['content_state'], 'MISMATCH')
+        hidden.rename(retained); self.doc.write_bytes(live)
         proof_bindings = {'<logged 16-hex short hash>': record['hash'],
                           '<File column>': '03 Projects/Example.md', '<row tag>': 'Example'}
         self.assertEqual(json.loads(shell(proofs, proof_bindings, True).stdout)['proof'], record['proof'])
