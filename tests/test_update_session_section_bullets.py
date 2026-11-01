@@ -101,6 +101,27 @@ class UpdateSessionSectionBulletTests(unittest.TestCase):
         self.assertEqual(after, before.replace('### Pickup Context\nNone\n',
                                                '### Pickup Context\n' + pickup + '\n'))
 
+    def test_crlf_log_headings_match_exactly(self):
+        before = HEAD + '### Files Updated\n- a.md - old\n' + TAIL
+        for section, incoming, expected in (
+                ('Summary', 'More.\n', before.replace('Done\n', 'Done\nMore.\n')),
+                ('Files Updated', 'b.md - new\n', before.replace('- a.md - old\n', '- a.md - old\n- b.md - new\n')),
+                ('Files Created', 'c.md - new\n', before.replace('### Pickup', '### Files Created\n- c.md - new\n\n### Pickup')),
+                ('Pickup Context', 'Next.\n', before.replace('Context\nNone\n', 'Context\nNext.\n'))):
+            with self.subTest(section=section):
+                self.log.write_bytes(before.replace('\n', '\r\n').encode())
+                result = subprocess.run(['bash', str(HELPER), str(self.log), '1', section],
+                                        input=incoming, text=True, capture_output=True,
+                                        env=self.env, cwd=self.root, timeout=15)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(self.log.read_bytes().replace(b'\r\n', b'\n').decode(), expected)
+        # Still exact: a longer heading is not the requested section.
+        self.log.write_bytes((HEAD.replace('### Summary', '### Summary draft') + TAIL).replace('\n', '\r\n').encode())
+        result = subprocess.run(['bash', str(HELPER), str(self.log), '1', 'Summary'], input='x\n',
+                                text=True, capture_output=True, env=self.env, cwd=self.root, timeout=15)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Could not find '### Summary'", result.stdout)
+
     def test_locked_edit_separator_payload_is_refused_before_writing(self):
         before = HEAD + '### Files Updated\n- `a.md` - old\n' + TAIL
         for separator in ('========OPENCAIRN-LOCKED-EDIT-SEP========',

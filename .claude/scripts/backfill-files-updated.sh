@@ -100,10 +100,10 @@ fi
 
 # Find the exact selected heading within this session block. Missing Files
 # sections may be created at Pickup Context only, never in a neighbouring entry.
-FILES_UPDATED_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF "### $SECTION_NAME" || true; } | head -1 | cut -d: -f1)
+FILES_UPDATED_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF -e "### $SECTION_NAME" -e "### $SECTION_NAME"$'\r' || true; } | head -1 | cut -d: -f1)
 MISSING_SECTION=false
 if [ -z "$FILES_UPDATED_LINE" ]; then
-    PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF '### Pickup Context' || true; } | head -1 | cut -d: -f1)
+    PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF -e '### Pickup Context' -e $'### Pickup Context\r' || true; } | head -1 | cut -d: -f1)
     if [ -z "$PICKUP_LINE" ]; then
         echo "Could not find '### ${SECTION_NAME}' or Pickup Context in Session ${SESSION_NUM}"
         _unlock
@@ -237,7 +237,8 @@ done <<< "$SECTION_CONTENT"
 # Preserve existing Created/Updated ownership in every mode; no automatic
 # transfer from one Files section to another is implied by --section.
 CREATED_CONTENT=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | awk -v selected="### $SECTION_NAME" '
-    /^### Files (Created|Updated)$/ { inside=($0 != selected); next }
+    { heading = $0; sub(/\r$/, "", heading) }
+    heading ~ /^### Files (Created|Updated)$/ { inside=(heading != selected); next }
     /^### / { inside=0 }
     inside { print }
 ')

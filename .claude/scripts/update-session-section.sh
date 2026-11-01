@@ -210,11 +210,11 @@ else
 fi
 
 # Find section heading within this session block (fixed-string match for names with slashes)
-SECTION_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF "### ${SECTION_NAME}" || true; } | head -1 | cut -d: -f1)
+SECTION_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF -e "### ${SECTION_NAME}" -e "### ${SECTION_NAME}"$'\r' || true; } | head -1 | cut -d: -f1)
 if [ -z "$SECTION_LINE" ]; then
     case "$SECTION_NAME" in
         'Files Created'|'Files Updated'|'Files Deleted')
-            PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF '### Pickup Context' || true; } | head -1 | cut -d: -f1)
+            PICKUP_LINE=$(sed -n "${SESSION_HEADING},${END_LINE}p" "$SESSION_FILE" | { grep -nxF -e '### Pickup Context' -e $'### Pickup Context\r' || true; } | head -1 | cut -d: -f1)
             if [ -n "$PICKUP_LINE" ]; then
                 INSERT_BEFORE=$((SESSION_HEADING + PICKUP_LINE - 1))
                 ORIG_PERMS=$(stat -c '%a' "$SESSION_FILE" 2>/dev/null || stat -f '%Lp' "$SESSION_FILE" 2>/dev/null || echo "644")
@@ -283,6 +283,7 @@ else
     NON_BLANK_COUNT=0
     FIRST_NON_BLANK=""
     while IFS= read -r line; do
+        line=${line%$'\r'}  # a CRLF log's blank line is blank
         if [ -n "$line" ]; then
             NON_BLANK_COUNT=$((NON_BLANK_COUNT + 1))
             if [ -z "$FIRST_NON_BLANK" ]; then
@@ -306,7 +307,7 @@ else
         fi
     else
         # Find the last non-blank line in the section body and insert after it
-        LAST_CONTENT=$(printf '%s\n' "$SECTION_BODY" | { grep -n "." || true; } | tail -1 | cut -d: -f1)
+        LAST_CONTENT=$(printf '%s\n' "$SECTION_BODY" | { grep -n $'[^\r]' || true; } | tail -1 | cut -d: -f1)
         if [ -n "$LAST_CONTENT" ]; then
             INSERT_AFTER=$((SECTION_ABS + LAST_CONTENT))
         else
