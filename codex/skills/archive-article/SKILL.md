@@ -93,17 +93,17 @@ For clinical material, match the closest sibling convention, such as Study Detai
 
 Shortlist useful related documents or entities, then verify each link target against the actual vault. Use the search-routing document's reliable filename/index route; if Obsidian is unavailable, enumerate filenames with `rg --files --hidden --no-ignore -g '*.md' -g '!**/.git/**' "$VAULT_PATH"` and confirm candidate paths. Tool errors are not proof a note is absent. Resolve ambiguous basenames with the full vault-relative path. Link only existing notes, at most once per meaningful term; plain text is valid when no verified target exists. Do not create speculative concept links.
 
-Stage the final Markdown outside the vault. For a new note, use a locked append after the collision check:
+Stage the final Markdown outside the vault and save it once by the §14 route. For a new note, after the collision check:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION>" --append < "<STAGED_NOTE>"
+"$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION>" --replace-whole MISSING < "<STAGED_NOTE>"
 ```
 
-For an authorised update, read the existing note first, preserve unrelated content and use the wrapper's literal `--replace` mode. On exit 2 or 3, re-read and rebuild a unique match. Do not bypass the lock. Check the exit code and read the saved result.
+Exit 2 means the path exists and nothing was written: `cmp` the staged note against it — identical bytes are a duplicate run (report and stop), different bytes are a filename collision (agree another name). For an authorised update, read the existing note, rebuild the complete note in staging with unrelated content preserved, and save with `--replace-whole <sha256 of the existing file>`; on exit 2, re-read and rebuild. Do not bypass the lock. Check the exit code.
 
 ## Phase 7: Verify and report
 
-Confirm the destination exists and the saved content matches the intended note. Check the saved bytes, not just the draft:
+Confirm `cmp "<STAGED_NOTE>" "<DESTINATION>"` exits 0. Then check the saved bytes, not just the draft, because a formatter can act after the save:
 
 ```bash
 rg -n '["“”‘]' "<DESTINATION>"
