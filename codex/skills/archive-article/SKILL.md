@@ -25,7 +25,9 @@ For a URL, follow the shared §26 fetch ladder:
 2. If needed, use an available configured page-fetch connector. A quota/credit error means move to the next route, not retry or ask for a top-up.
 3. Use Codex web tooling for discovery and available source text. If a result supplies only a summary or metadata, label that limitation; it cannot support verbatim body quotes.
 
-Keep the text used for the synthesis and quotation checks reachable in scratch files or tool results. If no usable body remains, ask for pasted text or another link. Do not manufacture an article note from metadata alone.
+For a description-only input (no URL, paste or fetched body), search the web for the primary article and fetch the best candidate by the ladder above. Put its title, venue, date and URL in the Phase 3 question so the user confirms the article and the destination together; write nothing until both are confirmed.
+
+Keep the text used for the synthesis and quotation checks reachable in scratch files or tool results. If no usable body remains (including no credible candidate for a description), ask for pasted text or another link. Do not manufacture an article note from metadata alone.
 
 For a multi-part series or a source too long for one pass, fetch every part and synthesise from the full text; the author's own summary or key-takeaway sections are a cross-check, not the synthesis basis. A chunked or sub-agent full read is fine, but its draft goes through the Phase 7 value and attribution trace.
 
@@ -39,7 +41,7 @@ When the primary abstract or full text is reachable, read it and use it to verif
 
 ## Phase 3: Choose a destination
 
-Honour a destination already specified by the user. Otherwise inspect relevant area folders and propose a fitting location, then obtain the user's choice before writing. For a series, ask one note vs one per part in the same question (alone if the destination is already given). A folder name alone does not establish its contents.
+Honour a destination already specified by the user. Otherwise inspect relevant area folders and propose a fitting location, then obtain the user's choice before writing. In the same question, confirm a description-only article's identity and, for a series, one note vs one per part (ask these alone if the destination is already given). A folder name alone does not establish its contents.
 
 Classify by the article's useful insight as well as its topic. Search the relevant `04 Areas/` surface for topic, author and domain terms; read promising notes to identify an existing cluster. Prefer an established home over inventing a taxonomy. If a new subfolder is needed, include it in the destination proposal.
 
