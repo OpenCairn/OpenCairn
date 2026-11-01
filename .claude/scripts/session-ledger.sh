@@ -10,6 +10,13 @@
 # Usage:
 #   session-ledger.sh                 # hook mode (stdin = hook JSON)
 #   session-ledger.sh --read [-m MIN] # this session's writes, deduped by path
+#   session-ledger.sh --window        # print the derived -m auto window line
+#
+# -m auto derives the window from the session's start: the earlier of its first
+# ledger row and its transcript's first timestamped record (Claude Code
+# projects/*/<id>.jsonl or Codex sessions/**/rollout-*-<id>.jsonl), plus a
+# 30-minute margin. The first output line is `# window: -m <N> from <start> ...`;
+# an unresolvable start says so on that line and uses the 240-minute default.
 #
 # Why this exists: /park Step 2a has to enumerate every file the session touched,
 # and model recall under-reports it. park-files.sh reconstructs candidates from
@@ -45,13 +52,65 @@ STATE_DIR="$CONFIG_DIR/.session-state"
 
 source "$(dirname "$0")/lib-session.sh"
 
+UTC_STAMP_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+
+# Earliest UTC timestamp among this session's transcripts, as %FT%TZ.
+transcript_start() {
+    local sid="$1" f
+    {
+        for f in "$CONFIG_DIR"/projects/*/"$sid".jsonl; do
+            if [ -f "$f" ]; then printf '%s\n' "$f"; fi
+        done
+        find "${CODEX_HOME:-$HOME/.codex}/sessions" -type f -name "rollout-*-$sid.jsonl" 2>/dev/null || true
+    } | while IFS= read -r f; do
+        grep -o -m1 '"timestamp": *"[0-9]\{4\}-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]\(\.[0-9]*\)\{0,1\}Z"' "$f" 2>/dev/null \
+            | grep -o '[0-9]\{4\}-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]' | sed 's/$/Z/' || true
+    done | sort | head -1 || true
+}
+
+# Print the -m auto window line for session $1 with ledger $2.
+window_line() {
+    local sid="$1" ledger="$2" start="" source="" t now_s start_s minutes
+    if [ -n "$sid" ] && [ -f "$ledger" ]; then
+        t=$(head -1 "$ledger" | cut -f1) || t=""
+        if [[ "$t" =~ $UTC_STAMP_RE ]]; then start="$t"; source="ledger"; fi
+    fi
+    if [ -n "$sid" ]; then
+        t=$(transcript_start "$sid") || t=""
+        if [[ "$t" =~ $UTC_STAMP_RE ]] && { [ -z "$start" ] || [[ "$t" < "$start" ]]; }; then
+            start="$t"; source="transcript"
+        fi
+    fi
+    if [ -n "$start" ]; then
+        now_s=$(date -u +%s)
+        start_s=$(date -u -d "$start" +%s 2>/dev/null \
+            || date -u -j -f %Y-%m-%dT%H:%M:%SZ "$start" +%s 2>/dev/null \
+            || python3 -c "from datetime import datetime,timezone; print(int(datetime.strptime('$start','%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()))" 2>/dev/null) \
+            || start_s=""
+    fi
+    if [ -n "$start" ] && [ -n "${start_s:-}" ]; then
+        minutes=$(( (now_s - start_s + 59) / 60 ))
+        [ "$minutes" -ge 0 ] || minutes=0
+        echo "# window: -m $((minutes + 30)) from $start ($source first record, +30 min margin)"
+    else
+        echo "# window: -m 240 (default) - session start unresolved (no ledger row or transcript); pass -m MINUTES over-covering the session"
+    fi
+}
+
+if [ "${1:-}" = "--window" ]; then
+    [ $# -eq 1 ] || { echo "Usage: $0 --window" >&2; exit 1; }
+    SID="$(_session_id)"
+    window_line "$SID" "$STATE_DIR/$SID.tsv"
+    exit 0
+fi
+
 # --- read mode ---------------------------------------------------------------
 if [ "${1:-}" = "--read" ]; then
     set -e
     shift
     MIN=""
     if [ "${1:-}" = "-m" ]; then
-        [ $# -ge 2 ] || { echo "Usage: $0 --read [-m MINUTES]" >&2; exit 1; }
+        [ $# -ge 2 ] && [[ "$2" =~ ^([0-9]+|auto)$ ]] || { echo "Usage: $0 --read [-m MINUTES|auto]" >&2; exit 1; }
         MIN="$2"; shift 2
     fi
     SID="$(_session_id)"
@@ -62,6 +121,11 @@ if [ "${1:-}" = "--read" ]; then
         exit 1
     fi
     LEDGER="$STATE_DIR/$SID.tsv"
+    if [ "$MIN" = auto ]; then
+        WINDOW=$(window_line "$SID" "$LEDGER")
+        echo "$WINDOW"
+        MIN=$(printf '%s\n' "$WINDOW" | cut -d' ' -f4)
+    fi
 
     # Ledgers other than this session's, written inside the window. These are
     # CONCURRENT SESSIONS, full stop - a sub-agent of this session ledgers under
@@ -136,7 +200,7 @@ if [ "${1:-}" = "--read" ]; then
 fi
 
 # --- hook mode ---------------------------------------------------------------
-[ -z "${1:-}" ] || { echo "Usage: $0 [--read [-m MINUTES]]" >&2; exit 1; }
+[ -z "${1:-}" ] || { echo "Usage: $0 [--read [-m MINUTES|auto] | --window]" >&2; exit 1; }
 
 INPUT=$(cat)
 command -v jq >/dev/null 2>&1 || exit 0

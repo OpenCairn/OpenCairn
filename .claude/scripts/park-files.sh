@@ -3,7 +3,9 @@
 #
 # Usage: park-files.sh <vault> [-m MINUTES] [--root DIR ...] [repo ...]
 #   Options may appear before or after repos; -- ends option parsing.
-#   MINUTES  non-negative integer lookback window (default 240)
+#   MINUTES  non-negative integer lookback window (default 240), or `auto`:
+#            derived from this session's start by `session-ledger.sh --window`
+#            and printed as the second line, `# window: -m <N> from <start> ...`
 #   DIR      extra root to sweep with the same window (repeatable): any
 #            directory the session installed into that the defaults below
 #            do not cover (~/.local/bin, ~/.config, /etc, build output, ...),
@@ -55,7 +57,7 @@
 # Platform: Linux, macOS (BSD date fallback), Windows Git Bash.
 set -euo pipefail
 
-usage() { echo "Usage: $0 <vault> [-m MINUTES] [--root DIR ...] [repo ...]" >&2; exit 1; }
+usage() { echo "Usage: $0 <vault> [-m MINUTES|auto] [--root DIR ...] [repo ...]" >&2; exit 1; }
 [ $# -ge 1 ] || usage
 VAULT="$1"; shift
 [ -d "$VAULT" ] || { echo "ERROR: vault not found: $VAULT" >&2; exit 1; }
@@ -66,7 +68,7 @@ REPOS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         -m)     [ $# -ge 2 ] || usage
-                [[ "$2" =~ ^[0-9]+$ ]] || usage
+                [[ "$2" =~ ^([0-9]+|auto)$ ]] || usage
                 MIN="$2"; shift 2 ;;
         --root) [ $# -ge 2 ] && [ -n "$2" ] || usage
                 case "$2" in -m|--root|--) usage ;; esac
@@ -89,6 +91,16 @@ DEFAULT_ROOTS=("$CONFIG_DIR/commands" "$CONFIG_DIR/scripts" "$CONFIG_DIR/*.log" 
 printf '# roots searched:'
 printf '\t%s' "${DEFAULT_ROOTS[@]}" ${EXTRA_ROOTS[@]+"${EXTRA_ROOTS[@]}"} "$@"
 printf '\n'
+if [ "$MIN" = auto ]; then
+    WINDOW=$(bash "$(dirname "$0")/session-ledger.sh" --window 2>/dev/null) || WINDOW=""
+    if [[ "$WINDOW" =~ ^"# window: -m "([0-9]+)" " ]]; then
+        MIN="${BASH_REMATCH[1]}"
+    else
+        MIN=240
+        WINDOW="# window: -m 240 (default) - session-ledger.sh --window failed; pass -m MINUTES over-covering the session"
+    fi
+    printf '%s\n' "$WINDOW"
+fi
 CUTOFF=$(date -u -d "$MIN minutes ago" +%FT%TZ 2>/dev/null \
     || date -u -v-"${MIN}"M +%FT%TZ 2>/dev/null \
     || python3 -c "from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)-timedelta(minutes=int('$MIN'))).strftime('%Y-%m-%dT%H:%M:%SZ'))")
