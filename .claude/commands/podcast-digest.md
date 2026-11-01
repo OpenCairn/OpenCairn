@@ -61,7 +61,7 @@ This is `_shared-rules-content.md` §15's slug recipe — use it verbatim (same 
 
 ## Arguments
 
-`$ARGUMENTS` — one episode URL. Optionally a second URL as a **manual media fallback** (a YouTube version or a direct audio link), used only if the primary can't be resolved. If no URL is provided, ask for one.
+`$ARGUMENTS` — one episode URL. Optionally a second URL as a **manual media fallback** (a YouTube version or a direct audio link), used only if the primary can't be resolved. A second URL is a fallback only when it is the same episode; distinct episodes are a **batch** — acquire and digest each separately. When batch episodes overlap substantially (the same talk given twice, one speaker covering the same material), one main digest holds the shared material and each sibling records only its distinctive cruxes and claims; fold that main/sibling split into the Phase 3 destination ask. If no URL is provided, ask for one.
 
 ## Workflow
 
@@ -161,7 +161,7 @@ Write to the destination chosen in Phase 3.
   ```
   Note the tag is `digest`. Body: `**Episode description:**` line (+ any source link) → `---` → `## Cruxes` → `## Claims & Facts`.
 - **Locale:** do not hardcode a spelling dialect — follow the user's CLAUDE.md locale for localisation, like the other template commands.
-- No running index — each digest is a standalone file.
+- No running index — each digest is a standalone file; a batch sibling links its main digest by exact filename.
 
 ### Phase 5 — Verify & report
 
