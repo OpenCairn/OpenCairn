@@ -187,10 +187,6 @@ Not earlier: Step 4 **moves files**, and moves are one of Step 6's identifier cl
 
 If you reach Step 5 without a seat or a recorded checked-empty result, perform Step 4b before continuing; do not catch-up spawn for a checked-empty enumeration.
 
-**Coherence after status changes:** compare the changed span with its governing heading, table labels, adjacent conditions and parent scope/provenance statement. Check each clause before ticking a compound task. Reconcile surviving tasks with the settled decision, preserving any still-open clause. For claimed deduplication, inspect the retained counterpart as evidence even when it was not edited. For reciprocal links, verify both endpoints only when reciprocity was intended.
-
-**Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred.
-
 ### 4c. Proportional quality gate
 
 Retain the Step 4b propagation handle or checked-empty receipt before the first full quality read. Execute **Quality inspection** in the [shared close-out protocol](_closeout.md), including semantic conformance and SOURCE; later status/content changes rerun the affected checks.
