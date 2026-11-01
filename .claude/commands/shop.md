@@ -20,6 +20,8 @@ Before any specs, understand the job. Ask open questions, 1-2 at a time (not a q
 
 **Fully-specified item shortcut:** if the user names an exact model ("/shop [brand] [model]"), don't run full probing — ask one sanity question ("what's the job, and what's it replacing?") to catch a wrong-category buy, plus only the missing load-bearing constraints a defensible comparison needs (budget ceiling, compatibility/ecosystem), then go straight to research/verification of that item against its nearest rivals.
 
+**Comparison-question shortcut:** when the user names two or more exact items head-to-head ("any reason not to buy X over Y?"), skip the quiz: ask one job/sanity question, then research only the named items. Mention a materially better rival in one line only if the research surfaces one.
+
 **Respect de-emphasis:** when the user signals a thread is settled ("that's fine", "not the point"), stop probing it — don't circle back from another angle.
 
 **Challenge the category if the job suggests it.** The stated product may not be the right solution for the underlying need — a different category, a repair, borrowing/renting, or not buying at all can be the honest answer. Zoom out before optimising within the stated frame. If the frame survives, proceed.
