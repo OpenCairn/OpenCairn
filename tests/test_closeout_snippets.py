@@ -119,6 +119,36 @@ class CloseoutSnippetTests(unittest.TestCase):
                     self.assertTrue(link.is_symlink())
                     self.assertFalse(target.exists())
 
+    def test_oversized_ignored_source_uses_separate_supplemental_receipt(self):
+        for source in PARKS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); vault = root/'vault'; vault.mkdir()
+                subprocess.run(['git', 'init', '-q', str(vault)], check=True, capture_output=True)
+                (vault/'.gitignore').write_text('*.py\n')
+                small, large = vault/'small.py', vault/'large.py'
+                small.write_text('subject phrase\n')
+                with large.open('wb') as handle:
+                    handle.write(b'padding\n' * (3 * 1024 * 1024 // 8))
+                    handle.write(b'subject phrase\n')
+                ignored = subprocess.run(['git', '-C', str(vault), 'check-ignore', '-q', str(large)])
+                self.assertEqual(ignored.returncode, 0)
+                self.assertGreater(large.stat().st_size, 2 * 1024 * 1024)
+                out, err = root/'primary.out', root/'primary.err'
+                primary = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='subject phrase',
+                                   MATCH_MODE='phrase', RAW_OUT=str(out), RAW_ERR=str(err))
+                self.assertEqual(primary.returncode, 0, primary.stderr)
+                self.assertEqual(out.read_text(), './small.py:1:subject phrase\n')
+                supplemental_out, supplemental_err = root/'supplemental.out', root/'supplemental.err'
+                command = ['rg', '--hidden', '--no-ignore', '-n', '-F', '-i', '--', 'subject phrase', str(large)]
+                supplemental = subprocess.run(command, cwd=vault, text=True, capture_output=True, timeout=20)
+                supplemental_out.write_text(supplemental.stdout); supplemental_err.write_text(supplemental.stderr)
+                self.assertEqual(supplemental.returncode, 0, supplemental.stderr)
+                self.assertIn('subject phrase', supplemental_out.read_text())
+                self.assertEqual(len(supplemental_out.read_text().splitlines()), 1)
+                # The additional raw streams stay separate from the required default receipt.
+                self.assertEqual(out.read_text(), './small.py:1:subject phrase\n')
+                self.assertEqual(supplemental_err.read_bytes(), b'')
+
     def test_collapse_counts_leaf_items_and_excludes_closeout_sessions(self):
         for source in GOODNIGHTS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
