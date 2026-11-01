@@ -110,7 +110,7 @@ For each:
 - **[Tool/pattern]** — [what it does, link]
   - *Fit:* [how it interacts with current workflow]
   - *Capability:* [what it unlocks that isn't being done today]
-  - *Supply-chain cooldown:* [latest version + publish date; N days old; passes / fails ≥3–7 day cooldown; recommendation: install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD]
+  - *Supply-chain cooldown:* [latest version + publish date; N days old; passes / fails ≥3–7 day cooldown; recommendation: install now / pin earlier version vX.Y.Z / defer until YYYY-MM-DD; with any hold, the engine's `Cooldown policy:` line]
 
 ## Try (hands-on trial candidate)
 Ranked by capability. For each:

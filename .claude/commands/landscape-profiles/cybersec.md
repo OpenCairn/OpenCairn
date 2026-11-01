@@ -49,7 +49,7 @@ Two passes per finding. Run both, report both, never collapse to one verdict.
 
 **Action pass — what does the user do?**
 - **Patch now** — exposed + (exploited-in-wild OR critical + reachable path). State the exact command/route (your distro's package update, e.g. `apt upgrade <pkg>`; NAS app update; router firmware update).
-- **Cooldown-then-patch** — patch exists but it's a fresh package publish; apply the engine's supply-chain cooldown (the irony: a rushed security patch can itself be a poisoned publish). Give the date.
+- **Cooldown-then-patch** — patch exists but it's a fresh package publish, and the resolved cooldown policy (engine Step 9) holds security fixes; apply the engine's supply-chain cooldown (the irony: a rushed security patch can itself be a poisoned publish). Give the date and the `Cooldown policy:` line. If the resolved policy exempts security fixes, route to Patch (routine) or Patch now by severity instead.
 - **Patch (routine)** — exposed, a stable patch exists, but it's medium severity with no in-the-wild exploitation. The commonest distro case, and it belongs in the next scheduled update rather than a same-day scramble or an indefinite watch. State the command and let it ride with the regular upgrade cycle.
 - **Monitor** — affects the stack but no patch yet, or exposure is conditional on something not currently true (e.g. an app the user might add later). State the trigger that would escalate it.
 - **Not exposed — note** — on the stack but the version/path doesn't reach them, OR adjacent-but-not-on-stack. One line, so next scan doesn't re-surface it.
@@ -78,6 +78,7 @@ For each:
 - **[id] — [product]** — [as above]
   - *Exposure:* …
   - *Action:* defer patch until YYYY-MM-DD (fresh publish + cooldown), then [command]
+  - *Cooldown policy:* [source | template default] — [release class] → [rule]
 
 ## Patch (routine — next scheduled update)
 - **[id] — [product]** — [as above]
