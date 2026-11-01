@@ -70,7 +70,7 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 
 **Initiative preflight:** when an initiative was selected, locate and read its actual hub before creating the child or writing its `**Initiative:**` link. If missing or ambiguous, show the candidates and ask for the existing hub or permission to proceed without an initiative; do not invent the hub. Record the resolved path, a unique backlink section anchor and the child's actual path. If the hub has no suitable section, confirm where to add one before writing.
 
-**Task dedup preflight:** search This Week and Tickler for both the project subject and each proposed first action. Read matching items before seeding Next Actions. Preserve an existing checkbox at its current home/date and link it from the project; do not create a second actionable copy or replace its execution-critical detail with a link alone.
+**Task dedup preflight:** search This Week and Tickler for both the project subject and each proposed first action. Read matching items before seeding Next Actions. Name a matching checkbox in the project and link it to the project; do not create a second actionable copy or replace its execution-critical detail with a link alone.
 
 ### 4. Create project file
 
@@ -131,7 +131,7 @@ bucket: [bucket from step 2]
 <!-- $park appends session links here -->
 ```
 
-If the dedup preflight found an existing first-action checkbox, replace the template's first-action placeholder with a plain pointer to that task's actual surface/day; do not seed another checkbox merely to fill Next Actions.
+If the dedup preflight found an existing first-action checkbox, replace the template's first-action placeholder with a plain line naming that task by subject (and date, if any), with no surface name or Tickler/This Week heading link (`_shared-rules-planning.md` §3). Once the project file exists, append `→ [[03 Projects/[Project Name]]]` (`Backlog/` form if `--backlog`) to that checkbox through `locked-edit.sh` (§5); do not seed another checkbox merely to fill Next Actions.
 
 Leave Session History empty apart from the comment — `$park` is the writer (it appends the session link there when it runs — see `park/SKILL.md` for the exact format, which this file must not restate and let drift). Seeding a link at creation time means fabricating the session number and topic before `$park` has assigned them: a guaranteed-dangling link in a different anchor format. The `## Session History` heading itself is load-bearing — `$park` appends only where it exists.
 
