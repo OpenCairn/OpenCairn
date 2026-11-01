@@ -39,7 +39,7 @@
 #                session are never joined; a round N>1 without synthesis-rN.md whose synthesis.md stands in (newer than
 #                every *-rN.out) has it archived as synthesis-rN.md, never over the archived round-1 copy. Files keep their names and extensions (archives written before 2026-10-15 hold
 #                .md files renamed .txt: read synthesis.txt there). Existing baseline directories are immutable: a
-#                different tree under the same name fails before any round files are copied; use a fresh round name.
+#                different tree under the same name fails before any round files are copied; round N>1 baselines go in baseline-rN/.
 #                Directory choice and copy run under the lock
 #                <vault>/06 Archive/OpenCairn/.Panel Runs.lock (lib-lock.sh, the canonical lock path for Panel Runs).
 # Every run is indexed, whatever the seat count: the line carries despatched and returned, and the coder filters.
@@ -256,7 +256,7 @@ if [[ $ARCHIVE -eq 1 ]]; then
       archived="$DEST/$(basename "$baseline")"
       if [[ -e "$archived" || -L "$archived" ]] && ! _baseline_matches "$baseline" "$archived"; then
         _unlock
-        echo "error: baseline archive conflict: $archived; retain it and use a fresh baseline round name" >&2
+        echo "error: baseline archive conflict: $archived; retain it and put round $ROUND's baseline in $RUN_DIR/baseline-r$ROUND/" >&2
         echo "$RECORD | evidence: $EVIDENCE"; exit 1
       fi
     done
