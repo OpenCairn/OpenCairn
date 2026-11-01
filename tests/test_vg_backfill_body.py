@@ -37,6 +37,29 @@ class BackfillBodyTests(unittest.TestCase):
         self.assertIn('All files already listed, nothing to backfill', result.stdout)
         self.assertTrue(result.stdout.endswith('0 added, 1 skipped\n'), result.stdout)
 
+    def run_crlf(self, before, incoming):
+        self.log.write_bytes(before.replace('\n', '\r\n').encode())
+        result = subprocess.run(['bash', str(HELPER), str(self.log), '1'],
+                                input=incoming, text=True, capture_output=True,
+                                env=self.env, cwd=self.root, timeout=15)
+        return result, self.log.read_bytes().replace(b'\r\n', b'\n').decode()
+
+    def test_crlf_log_headings_match_exactly(self):
+        before = ('## Session 1 - Fixture\n### Files Created\n- A.md - made\n\n'
+                  '### Files Updated\n- B.md - original\n\n### Pickup Context\nNone\n')
+        result, after = self.run_crlf(before, '- C.md - incoming\n')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(after, before.replace('- B.md - original\n', '- B.md - original\n- C.md - incoming\n'))
+        result, after = self.run_crlf(before, '- A.md - incoming\n')
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertEqual(after, before)
+        # Still exact: a longer heading is not the selected section.
+        draft = before.replace('### Files Updated\n', '### Files Updated draft\n')
+        result, after = self.run_crlf(draft, '- C.md - incoming\n')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(after, draft.replace('### Pickup Context',
+                                              '### Files Updated\n- C.md - incoming\n\n### Pickup Context'))
+
     def test_final_existing_row_is_deduplicated(self):
         prefix = '## Session 1 - Fixture\n### Files Updated\n- A.md - original\n- B.md - original'
         for suffix in ('', '\n', '\n### Notes\nKeep\n', '\n\n### Notes\nKeep\n'):
