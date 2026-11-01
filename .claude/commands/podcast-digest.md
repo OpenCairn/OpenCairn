@@ -142,7 +142,7 @@ The duplicate-check must grep the *actual* destination, so choose it first.
 
 ### Phase 4 — Write the digest
 
-Write to the destination chosen in Phase 3.
+Write to the destination chosen in Phase 3. Stage the complete digest outside the vault and save it once by the `_shared-rules-content.md` §14 route, which serves a destination outside the vault too: `locked-edit.sh "<DEST>" --replace-whole MISSING < "<STAGED>"`. Exit 2 means the path exists and nothing was written: `cmp` the staged digest against it — identical bytes are a duplicate run (report and stop), different bytes are a filename collision (agree another name). An approved update or overwrite rebuilds the complete digest in staging and saves with `--replace-whole <sha256 of the existing file>`; on exit 2, re-read and rebuild. Never `Write` or `Edit` the saved digest directly.
 
 - **Filename default:** `{Speaker} - {Title} ({Source}, {Year}).md`, falling back to `{Speaker} - {Title} ({YYYY-MM-DD}).md` when there's no clean show/source tag. Keep it clean: `{Speaker}` is the bare headline name with any parenthetical handle stripped (e.g. `Patrick McKenzie`, not `Patrick McKenzie (patio11)`) so it doesn't nest inside the filename's own parentheses; `{Source}` is a **short show slug** (e.g. `Complex Systems`, `a16z`), not the full `podcast` field.
 - **Frontmatter default** (user can override):
@@ -165,8 +165,8 @@ Write to the destination chosen in Phase 3.
 
 ### Phase 5 — Verify & report
 
-1. Confirm the file exists at the expected path.
-2. **Re-check each crux stamp:** re-run its phrase search, correct any mismatch in the saved digest before reporting, and display `Timestamp check: N cruxes traced, M corrected` (or `Timestamp check: no timestamps`). Cleanup runs after this.
+1. Confirm `cmp "<STAGED>" "<DEST>"` exits 0.
+2. **Re-check each crux stamp:** re-run its phrase search, correct any mismatch by rebuilding the staged digest and re-saving it by the Phase 4 update route before reporting, and display `Timestamp check: N cruxes traced, M corrected` (or `Timestamp check: no timestamps`). Cleanup runs after this.
 3. Report: the file path; **which of the three tiers acquired the transcript** (e.g. "Tier 1a — published transcript", "Tier 1b — captions (YouTube auto/manual)", "Tier 2 — local WhisperX, diarised", "Tier 3 — cloud") and why lower tiers were skipped or failed; whether timestamps are present; any gaps (e.g. "Tier-1 captions — non-diarised, speakers attributed by inference; proper nouns unverified", "couldn't resolve the Pocket Casts audio — used the user-supplied YouTube link", "published transcript had no timestamps, cruxes are untimestamped", "no diarisation — HF token absent, attributed by role").
 
 ## Pocket Casts (`pca.st`) audio resolution
