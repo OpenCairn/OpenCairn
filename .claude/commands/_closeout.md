@@ -211,7 +211,7 @@ After the final clean report, §23 acceptance, final backfill/verification and r
 
 ### Completion lookup
 
-Run this read-only lookup with exact `SESSION_LOG` and assigned `N`. It checks native manifest/receipt pairs and lists legacy saved reports for exact-subject verification; no filename or bare heading certifies completion. `ACCEPTED` is the positive observation; `NO_ACCEPTED_RECEIPT` means the structured stores did not establish completion, while `LEGACY_CANDIDATE` still needs its header, brief digest, final verifier and clean verdict read.
+Run this read-only lookup with exact `SESSION_LOG` and assigned `N`. It lists saved reports and receipt/manifest pairs for exact-subject verification; no filename or bare heading certifies completion. A report saved under **Completion evidence** prints as `LEGACY_CANDIDATE` with its `*.closeout/**/*.md` path: that is this harness's current record, not a legacy one, and it establishes completion once its header, brief digest, final verifier, parent acceptance and clean terminal verdict are read. `ACCEPTED` appears only for a receipt from a Codex close-out, so `NO_ACCEPTED_RECEIPT` beside a Claude report is expected. A `LEGACY_CANDIDATE` naming a JSON receipt or manifest is older Codex evidence and needs the same reading.
 
 <!-- BEGIN COMPLETION LOOKUP -->
 ```bash
@@ -272,4 +272,4 @@ PY
 ```
 <!-- END COMPLETION LOOKUP -->
 
-A lookup null is trusted only after a known accepted log/N in these same stores returns `ACCEPTED`; a wrong N or tampered report must not. Inspect `LEGACY_CANDIDATE` evidence manually before calling a historical close-out incomplete. For pre-retention-rule entries, record `historical completion evidence unavailable` once, preserve any verified historical disposition, and do not manufacture a clean receipt or repeatedly re-audit unchanged old work merely because that evidence was never required.
+A lookup null (no `ACCEPTED` and no `LEGACY_CANDIDATE` line) is trusted only after the same stores list a known accepted record for its own log/N (a saved report that passes that reading, or an `ACCEPTED` receipt) and list nothing for a wrong N. Read every `LEGACY_CANDIDATE` before calling a close-out incomplete. For pre-retention-rule entries, record `historical completion evidence unavailable` once, preserve any verified historical disposition, and do not manufacture a clean receipt or repeatedly re-audit unchanged old work merely because that evidence was never required.

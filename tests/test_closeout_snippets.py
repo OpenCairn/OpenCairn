@@ -107,6 +107,34 @@ class CloseoutSnippetTests(unittest.TestCase):
             self.assertNotEqual(stale.returncode, 0)
             self.assertIn('no structured executed-search set', stale.stderr)
 
+    def test_claude_saved_report_is_the_lookup_candidate_its_prose_names(self):
+        source = CLOSEOUTS[0]
+        text = source.read_text(encoding='utf-8')
+        lookup = text.split('### Completion lookup', 1)[1]
+        self.assertIn("this harness's current record, not a legacy one", lookup)
+        self.assertNotIn('lists legacy saved reports', lookup)
+        self.assertNotIn('known accepted log/N in these same stores returns `ACCEPTED`', lookup)
+        saving = re.search(r'^After the final clean report.*$', text, re.M).group(0)
+        header = re.findall(r'`([A-Z][A-Za-z0-9 -]+: <[^>]+>|Close-out accepted: clean)`', saving)
+        self.assertEqual(len(header), 5, header)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); config = root/'config'; log = root/'day.md'
+            log.write_text('## Session 1 - Fixture\n')
+            brief = config/'.session-state/fixture.closeout/day-1-brief.md'
+            brief.parent.mkdir(parents=True); brief.write_text('Reviewed brief\n')
+            values = {'Session log': str(log), 'Session number': '1', 'Brief path': str(brief),
+                      'Brief SHA-256': hashlib.sha256(brief.read_bytes()).hexdigest()}
+            lines = [line if '<' not in line else line.split(':', 1)[0] + ': ' + values[line.split(':', 1)[0]]
+                     for line in header]
+            report = brief.with_name('day-1-report.md')
+            report.write_text('\n'.join(lines) + '\nRESULT: PASS\nTerminal state: clean\n')
+            env = dict(CLAUDE_CONFIG_DIR=str(config), SESSION_LOG=str(log))
+            found = run_bash(recipe(source, 'COMPLETION LOOKUP'), root, **env, N='1')
+            self.assertEqual(found.returncode, 0, found.stderr)
+            self.assertEqual(found.stdout.splitlines(), ['NO_ACCEPTED_RECEIPT', f'LEGACY_CANDIDATE\t{report}'])
+            wrong = run_bash(recipe(source, 'COMPLETION LOOKUP'), root, **env, N='2')
+            self.assertEqual(wrong.stdout.splitlines(), ['NO_ACCEPTED_RECEIPT'])
+
     def test_session_extraction_stops_at_concurrent_entry_and_keeps_complete_paths(self):
         for source in CLOSEOUTS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
