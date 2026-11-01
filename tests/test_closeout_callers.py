@@ -131,8 +131,12 @@ class CloseoutCallerTests(unittest.TestCase):
         self.helper('capture', '--kind', 'propagation', '--label', 'Prior day', body='Prior day only.\n')
         self.helper('begin-run')
         log, report = self.make_record('codex', True, '2001-03-02')
+        # Coverage precedes build under the shared protocol; classify so build reaches the propagation gate.
+        self.helper('classify', '--vault', self.vault, '--path', report,
+                    '--semantic', '--reason', 'fixture close-out')
         self.helper('run-verifier', '--', SCRIPTS / 'park-verify.sh', self.vault, log, '1', '--touched', report)
         result = self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1', expected=1)
+        self.assertNotIn('unclassified', result.stderr.lower())
         self.assertIn('propagation', result.stderr.lower())
 
 
