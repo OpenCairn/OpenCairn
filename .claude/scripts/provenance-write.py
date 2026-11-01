@@ -103,10 +103,16 @@ def rows(log: Path) -> list[list[str]]:
     return result
 
 
+class OtsUnavailable(ValueError):
+    """An existing proof cannot be inspected because the ots binary is absent."""
+
+
 def proof_digest(proof: Path) -> str:
     """Inspect an existing proof locally; do not infer identity from its name."""
-    if not proof.is_file() or not shutil.which('ots'):
+    if not proof.is_file():
         raise ValueError('existing proof and local ots info are required')
+    if not shutil.which('ots'):
+        raise OtsUnavailable(f'ots unavailable: cannot inspect existing proof {proof}')
     info = subprocess.run(['ots', 'info', str(proof)], text=True, capture_output=True)
     found = re.search(r'File sha256 hash:\s*([0-9a-f]{64})', info.stdout, re.I)
     if info.returncode != 0 or not found:
@@ -115,8 +121,11 @@ def proof_digest(proof: Path) -> str:
 
 
 def proof_matches(proof: Path, snapshot: Path) -> bool:
+    """False for an absent or non-matching proof; a missing ots binary raises."""
     try:
         return proof_digest(proof) == digest(snapshot)
+    except OtsUnavailable:
+        raise
     except (ValueError, OSError):
         return False
 
