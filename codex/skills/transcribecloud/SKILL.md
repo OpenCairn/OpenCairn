@@ -36,7 +36,7 @@ If no arguments provided, ask the user what to transcribe and where to store res
 
 ## Prerequisites
 
-- `runpodctl` installed and configured with API key
+- `runpodctl` installed with an API key. It reads the key from its config file (`~/.runpod/config.toml`, written by `runpodctl doctor` or `runpodctl config --apiKey`) or from `RUNPOD_API_KEY`, so an empty or missing config file does not prove there is no key, and a working `runpodctl` does not prove `RUNPOD_API_KEY` is exported. The auth gate is `runpodctl pod list` exiting 0.
 - An SSH key registered with RunPod (`runpodctl ssh add-key --key-file` with its `.pub` file). `KEY` throughout is the absolute path to that key's private half, substituted like `IP` and `PORT` and kept inside the quotes shown (a quoted `~` does not expand). If the private half lives only in an agent, `KEY` is the `.pub` path.
 - RunPod account with credits loaded
 
