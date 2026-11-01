@@ -6,7 +6,9 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -14,6 +16,7 @@ ROOT = Path(__file__).parents[1]
 CLOSEOUTS = (ROOT / '.claude/commands/_closeout.md', ROOT / 'codex/skills/_closeout.md')
 PARKS = (ROOT / '.claude/commands/park.md', ROOT / 'codex/skills/park/SKILL.md')
 GOODNIGHTS = (ROOT / '.claude/commands/goodnight.md', ROOT / 'codex/skills/goodnight/SKILL.md')
+PARK_REVIEW = ROOT / 'codex/skills/park/scripts/park-review.py'
 
 
 def recipe(path: Path, marker: str) -> str:
@@ -48,6 +51,61 @@ class CloseoutSnippetTests(unittest.TestCase):
                     cited.update(re.findall(r'\*\*([^*]+)\*\*', match.group(1) or match.group(2)))
                 self.assertIn('Inventory', cited, 'reference pattern must still match the caller prose')
                 self.assertEqual(sorted(cited - headings), [])
+
+    def test_codex_goodnight_propagation_is_one_structured_capture(self):
+        step = re.search(r'^\*\*Prepare and verify:\*\*.*$', GOODNIGHTS[1].read_text(encoding='utf-8'), re.M).group(0)
+        self.assertIn("shared protocol's **Propagation receipts**", step)
+        self.assertNotIn('capture --kind propagation', step, 'a second prose capture would supersede the receipts')
+        labels = re.findall(r'--label "([^"]+)"', step)
+        propagation_label = next(label for label in labels if 'propagation' in label.lower())
+        acceptance_label = next(label for label in labels if 'acceptance' in label.lower())
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); vault = root/'vault'; vault.mkdir()
+            env = {'PATH': os.environ.get('PATH', os.defpath), 'HOME': str(root), 'VAULT_PATH': str(vault),
+                   'CLAUDE_CONFIG_DIR': str(root/'config'), 'OPENCAIRN_SESSION_ID': 'goodnight-fixture'}
+
+            def review(*args, body=None):
+                result = subprocess.run([sys.executable, str(PARK_REVIEW), *map(str, args)], env=env,
+                                        input=body, text=True, capture_output=True, timeout=60)
+                return result
+
+            def ok(*args, body=None):
+                result = review(*args, body=body)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                return result
+
+            ok('begin-run')
+            note, log = vault/'note.md', vault/'log.md'
+            note.write_text('Fixture subject retained.\n')
+            log.write_text('## Session 1 - Goodnight: Fixture\n\n### Summary\nClosed the day.\n\n'
+                           '### Files Created\nNone\n\n'
+                           f'### Files Updated\n- `{note}` - routed task\n- `{log}` - record\n\n'
+                           '### Pickup Context\n**For next session:** None.\n**Project:** None\n')
+            for path in (note, log):
+                ok('classify', '--vault', vault, '--path', path, '--semantic', '--reason', 'fixture close-out')
+            # The order the Codex Goodnight step prescribes: search, receipts, acceptance checks, verify, build.
+            argv = ['rg', '--hidden', '--no-ignore', '-n', '-F', '-i', '--', 'Fixture subject', '.']
+            searched = subprocess.run(argv, cwd=vault, capture_output=True, timeout=20)
+            self.assertEqual(searched.returncode, 0, searched.stderr)
+            out, err = root/'search.out', root/'search.err'
+            out.write_bytes(searched.stdout); err.write_bytes(searched.stderr)
+            ok('capture', '--kind', 'enumeration', '--label', 'Final needles',
+               body=json.dumps({'needles': [{'needle': 'Fixture subject', 'match_mode': 'phrase'}]}))
+            ok('capture', '--kind', 'propagation', '--label', propagation_label, body=json.dumps({
+                'report': 'Fixture subject: one live hit, current.', 'searches': [{
+                    'needle': 'Fixture subject', 'match_mode': 'phrase', 'exit_status': searched.returncode,
+                    'command': shlex.join(argv), 'cwd': str(vault),
+                    'stdout_file': str(out), 'stderr_file': str(err)}]}))
+            ok('capture', '--kind', 'evidence', '--source', 'goodnight caller contract', '--label',
+               acceptance_label, '--provenance', 'primary', body='Carry unfinished tasks intact.\n')
+            ok('run-verifier', '--', sys.executable, '-c', "print('RESULT: PASS')")
+            build = ('build', '--vault', vault, '--session-log', log, '--number', '1', '--check-dependencies')
+            self.assertIn('Reviewer brief:', ok(*build).stdout)
+            # Control: the superseded prose capture becomes the latest receipt and fails the coverage gate.
+            ok('capture', '--kind', 'propagation', '--label', propagation_label, body='Prose-only result.\n')
+            stale = review(*build)
+            self.assertNotEqual(stale.returncode, 0)
+            self.assertIn('no structured executed-search set', stale.stderr)
 
     def test_session_extraction_stops_at_concurrent_entry_and_keeps_complete_paths(self):
         for source in CLOSEOUTS:
