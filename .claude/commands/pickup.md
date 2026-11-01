@@ -17,7 +17,7 @@ You are helping the user resume previous work with full context.
    "$VAULT_PATH/.claude/scripts/check-archive-layout.sh" --enforce "$VAULT_PATH"
    ```
 
-   If error, abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
+   If error, abort. `--enforce` is read-only: it inspects the archive layout, exits nonzero when a migration is pending, and never migrates, so run it unchanged in read-only or plan-mode sessions; never substitute `--status`, which always exits 0 and removes the abort. Read `_shared-rules.md` from this skill's own commands directory (`~/.claude/commands/` or `{VAULT}/.claude/commands/`, whichever exists) and apply its rules throughout this skill. All code below uses `{VAULT}` as a placeholder — substitute the resolved vault path.
 
 2. **Check current date** using bash `date` command.
 
