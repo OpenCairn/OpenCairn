@@ -50,12 +50,19 @@ def safe_path(vault: Path, value: str) -> Path:
 
 def parse_log(path: Path, writer):
     latest, invalid, invalid_status, annotations, superseded = {}, [], {}, 0, set()
-    for number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), 1):
+    lines = path.read_text(encoding='utf-8').splitlines()
+
+    def separator(text):
+        parts = [part.strip() for part in text.strip().split('|')[1:-1]]
+        return bool(parts) and all(re.fullmatch(r'[-: ]+', c) for c in parts)
+
+    for number, line in enumerate(lines, 1):
         if not line.startswith('|') or not line.rstrip().endswith('|'):
             continue
         cells = [part.strip() for part in line.strip().split('|')[1:-1]]
-        header = len(cells) == 5 and cells[1:4] == ['Tag', 'File', 'SHA256']
-        if cells and (header or all(re.fullmatch(r'[-: ]+', c) for c in cells)):
+        # A Markdown table header is the row directly above its separator row.
+        header = number < len(lines) and separator(lines[number])
+        if cells and (header or separator(line)):
             continue
         if len(cells) != 5:
             invalid.append({'line': number, 'content_state': 'INVALID', 'error': 'expected five provenance table cells'})
