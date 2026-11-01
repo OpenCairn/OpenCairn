@@ -209,6 +209,15 @@ class ForwardLinkProofTests(unittest.TestCase):
             self.target.write_text(ordinary_log)
             self.log.write_text(self.log.read_text().replace('Old prose.', 'Later prose.'))
             self.assertIsNone(codex.forward_link_proof(self.vault, self.log, 'forward-fixture'))
+            # A broken proof falls back to normal coverage: build refuses until the file is classified.
+            with mock.patch('sys.stdout', io.StringIO()), self.assertRaises(SystemExit) as refused:
+                codex.cmd_build(build)
+            self.assertIn('unclassified file: ' + str(self.log), str(refused.exception))
+            classify = codex.build_parser().parse_args(['--session-id', 'forward-fixture', 'classify',
+                '--vault', str(self.vault), '--path', str(self.log),
+                '--semantic', '--reason', 'later prose edit'])
+            with mock.patch('sys.stdout', io.StringIO()):
+                self.assertEqual(classify.func(classify), 0)
             with mock.patch('sys.stdout', io.StringIO()):
                 codex.cmd_build(build)
             manifest = json.loads((root / 'review-brief-manifest.json').read_text())
