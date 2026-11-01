@@ -280,7 +280,14 @@ find "$SESSION_DIR" -maxdepth 2 -name "????-??-??.md" -type f 2>/dev/null | whil
         }
     }
     ' "$file"
-done | while IFS=$'\t' read -r date session_num title time project loop_count summary; do
+done | while IFS= read -r row; do
+    # Tab is IFS whitespace: read would collapse empty time/project fields.
+    # Split the fixed TSV prefix literally, leaving the summary as the tail.
+    for column in date session_num title time project loop_count; do
+        printf -v "$column" '%s' "${row%%$'\t'*}"
+        row="${row#*$'\t'}"
+    done
+    summary="$row"
     # Apply hidden filtering
     if ! is_hidden "$date" "$session_num" "$title" "$project"; then
         printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$date" "$session_num" "$title" "$time" "$project" "$loop_count" "$summary"
