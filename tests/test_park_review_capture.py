@@ -317,12 +317,33 @@ class TargetedCompletionTests(unittest.TestCase):
         self.assertEqual(captured.returncode, 0, captured.stderr)
         self.assertEqual(self.run_review(*args).returncode, 0)
 
+    def test_web_run_open_detection_ignores_key_order(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("park_review_web", HELPER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        opens = [
+            'await tools.web__run({"open":[{"ref_id":"u"}]})',
+            'await tools.web__run({"response_length":"long","open":[{"ref_id":"u"}]})',
+            "await tools.web__run({response_length: 'long', fetch: [{url: 'u'}]})",
+        ]
+        not_opens = [
+            'await tools.web__run({"search_query":[{"q":"open: now"}]})',
+            "await tools.web__run({search_query: [{q: 'x', meta: {open: 1}}]})",
+        ]
+        for source in opens:
+            with self.subTest(source=source):
+                self.assertTrue(module.web_run_opens(source))
+        for source in not_opens:
+            with self.subTest(source=source):
+                self.assertFalse(module.web_run_opens(source))
+
     def test_native_tool_families_content_blocks_and_async_wait_keep_passage_support(self):
         url = "https://example.invalid/source"
         passage = "The retained source says the limit is 12 units."
         records = [
             {"type": "response_item", "payload": {"type": "custom_tool_call", "call_id": "exec-1",
-                "name": "functions.exec", "input": f'await tools.web__run({{"open":[{{"ref_id":"{url}"}}]}})'}},
+                "name": "functions.exec", "input": f'await tools.web__run({{"response_length":"long","open":[{{"ref_id":"{url}"}}]}})'}},
             {"type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "exec-1",
                 "output": [{"type": "text", "text": "Script running with cell ID cell-1"}]}},
             {"type": "response_item", "payload": {"type": "function_call", "call_id": "wait-1",
