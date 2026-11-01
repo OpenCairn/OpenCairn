@@ -76,7 +76,7 @@ Ask about initiative linkage — **skip this question if `--initiative=Name` was
 
 Create at `{VAULT}/03 Projects/[Project Name].md` (or `Backlog/` if `--backlog`). Under `--backlog`, `mkdir -p "{VAULT}/03 Projects/Backlog"` first — the folder is a library-wide convention but is not guaranteed to exist in a fresh vault:
 
-**Write mechanism:** stage the complete document outside the vault, then create it through `locked-edit.sh "<absolute project path>" --replace-whole MISSING` (§5/§14). Exit 2 is a competing creation: read it and repeat the conflict decision; never overwrite it or fall back to `Write`. Initiative-hub mutations retain their canonical locked writer.
+**Write mechanism:** stage the complete document outside the vault, then create it through `locked-edit.sh "<absolute project path>" --replace-whole MISSING` (§5/§14). Exit 2 is a competing creation: read it and repeat the conflict decision; never overwrite it or fall back to apply_patch or a raw write. Initiative-hub mutations retain their canonical locked writer.
 
 Omit the `**Initiative:**` line entirely when there's no initiative — don't write the words "(if applicable)" into the file.
 
