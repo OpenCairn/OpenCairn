@@ -547,7 +547,17 @@ def lint_errors(text: str) -> list[str]:
 
 
 def report_terminal_state(report: str) -> str | None:
-    """Return one unambiguous terminal state from the review report."""
+    """Return one unambiguous terminal state from the review report.
+
+    The report's final line must be exactly `Terminal state: <state>`, the form
+    the brief requires and completion retention/lookup read with
+    `report.rstrip().endswith(...)`; decorated variants are detected only so a
+    second terminal-state line makes the report ambiguous.
+    """
+    final = re.fullmatch(r"Terminal state: (clean|findings|incomplete)",
+                         report.rstrip().rsplit("\n", 1)[-1])
+    if not final:
+        return None
     states: list[str] = []
     for line in report.splitlines():
         normalised = line.strip()
@@ -563,7 +573,7 @@ def report_terminal_state(report: str) -> str | None:
             states.append(match.group(1).casefold())
     if len(states) != 1:
         return None
-    return states[0]
+    return final.group(1)
 
 
 def verify_mechanical(

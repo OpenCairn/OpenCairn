@@ -88,6 +88,21 @@ class TargetedCompletionTests(unittest.TestCase):
                 self.assertIn("completion attestation", result.stderr)
         self.assertEqual(self.receipts(), [])
 
+    def test_terminal_state_must_be_the_exact_final_line_lookup_reads(self):
+        complete = self.report.splitlines()[0]
+        for tail in ("**Terminal state:** clean.", "- `Terminal state: clean`",
+                     "## Terminal state — clean", "Terminal state: clean\nTrailing note."):
+            with self.subTest(tail=tail):
+                result = self.record(f"{complete}\n{tail}\n")
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("terminal state is not clean", result.stderr)
+        self.assertEqual(self.receipts(), [])
+        result = self.record(f"{complete}\nTerminal state: clean\n\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # The completion retention/lookup predicate accepts what record-audit accepted.
+        self.assertTrue(all(r["report"].rstrip().endswith("Terminal state: clean")
+                            for r in self.receipts()))
+
     def test_targeted_source_change_rejects_old_completion(self):
         self.target.write_text("Changed after review.\n", encoding="utf-8")
         result = self.record()
