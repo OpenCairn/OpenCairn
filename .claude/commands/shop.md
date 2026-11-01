@@ -28,7 +28,7 @@ Before any specs, understand the job. Ask open questions, 1-2 at a time (not a q
 
 ## 2. Quiz — structured clarification (AskUserQuestion)
 
-Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip anything Phase 1 already answered.** If loaded context (vault notes, earlier conversation) already records a prior decision on a question, state it as the working assumption ("you previously wanted X — still true?") rather than re-asking from scratch. Options must be concrete and mutually exclusive — if you can't name the category's real forks from knowledge, do a quick web search *first* so the quiz offers named sub-types, not vague tiers.
+Once the why is clear, run the quiz. Up to 2 calls, ≤4 questions each; **skip anything Phase 1 already answered.** If loaded context (vault notes, earlier conversation) already records a prior decision on a question, state it as the working assumption ("you previously wanted X — still true?") rather than re-asking from scratch. Options must be concrete and mutually exclusive — if you can't name the category's real forks from knowledge, do a quick web search *first* so the quiz offers named sub-types, not vague tiers. Before offering an option that restricts the purchase channel (a specific retailer or marketplace), or a budget bracket in a niche category, run one availability search per offered channel at that bracket; say in the option text when a channel is thin ("few listings under <bracket>"), and don't offer a combination the searches showed to be empty.
 
 **Shape call:**
 - **Sub-type fork** — the category's genuine variants, each mapped to a use-case ("X suits A; Y suits B")
