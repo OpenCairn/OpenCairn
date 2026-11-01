@@ -100,7 +100,7 @@ Shortlist useful related documents or entities, then verify each link target aga
 Stage the final Markdown outside the vault and save it once by the §14 route. For a new note, after the collision check:
 
 ```bash
-"$VAULT_PATH/.claude/scripts/locked-edit.sh" "<DESTINATION>" --replace-whole MISSING < "<STAGED_NOTE>"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<DESTINATION>" --replace-whole MISSING < "<STAGED_NOTE>"
 ```
 
 Exit 2 means the path exists and nothing was written: `cmp` the staged note against it — identical bytes are a duplicate run (report and stop), different bytes are a filename collision (agree another name). For an authorised update, read the existing note, rebuild the complete note in staging with unrelated content preserved, and save with `--replace-whole <sha256 of the existing file>`; on exit 2, re-read and rebuild. Do not bypass the lock. Check the exit code.
