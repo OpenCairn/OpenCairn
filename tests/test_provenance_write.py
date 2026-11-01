@@ -479,6 +479,32 @@ elif sys.argv[1] == 'upgrade':
         self.assertEqual(Path(old['proof']).read_bytes(), old_proof)
         self.assertEqual(Path(old['snapshot']).read_bytes(), b'first exact bytes\n')
 
+    def test_rehash_without_supersedes_is_refused_naming_prior_hash(self):
+        first = self.attest()
+        self.doc.write_bytes(b'changed after attestation')
+        before, artefacts = self.log.read_bytes(), sorted(self.artifacts.rglob('*'))
+        result = self.run_writer('attest', '--file', str(self.doc), '--tag', 'Example',
+                                 '--date', '2026-01-02', ok=False)
+        self.assertIn(f"--supersedes {first['hash']}", result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.assertEqual(sorted(self.artifacts.rglob('*')), artefacts)  # nothing staged or stamped
+        value = hashlib.sha256(self.doc.read_bytes()).hexdigest()
+        snapshot = self.artifacts / 'manual.snapshot.md'
+        snapshot.write_bytes(self.doc.read_bytes())
+        proof = self.artifacts / 'manual.ots'
+        proof.write_text(value)
+        result = self.append(value[:16], snapshot=snapshot, proof=proof, ok=False)  # no append bypass
+        self.assertIn(f"--supersedes {first['hash']}", result.stderr)
+        self.assertEqual(self.log.read_bytes(), before)
+        self.run_writer('attest', '--file', str(self.doc), '--tag', 'Other', '--date', '2026-01-02')
+        second = self.attest(None, '--supersedes', first['hash'])
+        self.attest(None, '--supersedes', first['hash'])  # same-hash re-run stays idempotent
+        self.append(first['hash'], status='confirmed', snapshot=first['snapshot'], proof=first['proof'])
+        self.doc.write_bytes(b'third version')
+        result = self.run_writer('attest', '--file', str(self.doc), '--tag', 'Example',
+                                 '--date', '2026-01-02', ok=False)
+        self.assertIn(f"--supersedes {second['hash']}", result.stderr)  # head, not the later-confirmed old row
+
     def test_missing_superseded_row_is_rejected_before_any_log_append(self):
         before = self.log.read_bytes()
         self.run_writer('attest', '--file', str(self.doc), '--tag', 'Example', '--date', '2026-01-02',
@@ -610,7 +636,7 @@ elif sys.argv[1] == 'upgrade':
         def run():
             return subprocess.run([str(finish), str(self.vault), str(flag)], env=self.env,
                                   capture_output=True, text=True)
-        self.attest()
+        first = self.attest()
         self.assertNotEqual(run().returncode, 0)
         self.assertTrue(flag.exists())
         for rel in ('06 Archive/OpenCairn/.Session Transcripts/2026-01-02.md',
@@ -622,7 +648,7 @@ elif sys.argv[1] == 'upgrade':
         self.doc.write_text('changed after attestation')
         self.assertNotEqual(run().returncode, 0)
         self.assertTrue(flag.exists())
-        self.attest()
+        self.attest(None, '--supersedes', first['hash'])
         lock = flag.with_name('.' + flag.name + '.lock')
         with lock.open('w') as stream:
             import fcntl
