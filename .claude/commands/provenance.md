@@ -120,13 +120,15 @@ Each successful call prints a JSON receipt with `file`, `hash`, `status`, `snaps
 
 **Re-hash:** run the same `attest` command with `--supersedes "<old 16-hex hash>"`. It validates that the old attestation exists for this tag/file, appends the new attestation, and appends a relationship row whose OTS column is ``supersedes `<old hash>` ``. The old row and its earlier proof stay untouched. Without `--supersedes`, the writer refuses new bytes for a tag/file that already has an attestation and names the latest prior hash: announce the change and rerun with `--supersedes` that hash (unchanged bytes rerun as a no-op). Update the flag's entry to the returned hash/status through `locked-edit.sh`; keep the flag on any failure.
 
-**Verification annotations:** after a proof is independently verified, append a `confirmed` row using the validated writer rather than changing its earlier `pending` row. A locator repair likewise appends a row with the new relative file path, original hash, matching snapshot and the honestly observed status; never rewrite the historical locator. Use the retained snapshot and the actual selected proof, not newly hashed live bytes. After an immutable upgrade, select its new proof path; the writer durably records it without changing the earlier proof or row:
+**Verification annotations:** after a proof is independently verified, append a `confirmed` row using the validated writer rather than changing its earlier `pending` row. Use the retained snapshot and the actual selected proof, not newly hashed live bytes. After an immutable upgrade, select its new proof path; the writer durably records it without changing the earlier proof or row:
 
 ```bash
 python3 "{VAULT}/.claude/scripts/provenance-write.py" --vault "{VAULT}" append \
   --tag "<tag>" --file "<vault-relative file>" --hash "<16-hex hash>" \
   --status "confirmed" --snapshot "<absolute snapshot path>" --proof "<absolute .ots path>"
 ```
+
+**Renamed or moved work product:** the log keys attestations by tag and path; never edit an old row's path. (1) For each tag whose rows carry the old vault-relative path (`rg -F` it in the log), `locate` its latest hash for the retained snapshot, proof and status. (2) Run the `append` command above with the new vault-relative path and those values: a locator-repair row. (3) If the bytes also changed, re-hash the new path with `--supersedes` that hash. In a pending flag, update the file's paths through `locked-edit.sh` but keep its Hashed Immediately hash, so `/goodnight` still detects the change.
 
 **Legacy retention:** when an old unannotated row lacks a snapshot but its resolved source still matches the logged digest, `retain-legacy --tag <tag> --file <original File column> --hash <16hex> [--source <resolved source>] [--proof <existing proof>]` retains source-backed evidence without a new stamp or status row. It validates the existing tag/file/digest record, staged bytes and proof's full SHA256; only explicit historical no-proof status permits no proof. It appends an evidence-only locator under the canonical lock, preserving every historical row. Recovery commands and failure boundaries live in weekly-hygiene Step 13b; ordinary `attest`/`append` retain their strict new-attestation requirements.
 
