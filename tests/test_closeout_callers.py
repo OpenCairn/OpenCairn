@@ -123,7 +123,11 @@ class CloseoutCallerTests(unittest.TestCase):
         self.assertIn('FAIL backfill', result.stdout)
         self.assertNotIn('RESULT: PASS', result.stdout)
         self.helper('capture', '--kind', 'propagation', '--label', 'Fixture', body='Checked fixture.\n')
-        self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1', expected=1)
+        self.helper('classify', '--vault', self.vault, '--path', report,
+                    '--semantic', '--reason', 'fixture close-out')
+        result = self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1', expected=1)
+        self.assertNotIn('unclassified', result.stderr.lower())
+        self.assertIn('failing exit status', result.stderr)
 
     def test_new_date_generation_does_not_reuse_prior_propagation(self):
         self.helper('begin-run')
