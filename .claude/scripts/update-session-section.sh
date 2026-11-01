@@ -86,8 +86,10 @@ if [ "$RENAME_MODE" = "false" ]; then
 CONTENT=""
 _read_stdin_content CONTENT || exit $?
 
-# Reject the same line prefixes used below to delimit sections and sessions.
+# Reject the same line prefixes used below to delimit sections and sessions, and
+# a locked-edit OLD/NEW separator line (the form park-verify.sh detects).
 # Validate before locking or writing; avoid an early-exit pipeline under pipefail.
+LOCKED_EDIT_SEP_RE='^[[:space:]]*={4,}OPENCAIRN-LOCKED-EDIT-SEP={4,}[[:space:]]*$'
 while IFS= read -r line; do
     case "$line" in
         '### '*|'## Session '*)
@@ -95,6 +97,10 @@ while IFS= read -r line; do
             exit 1
             ;;
     esac
+    if [[ "$line" =~ $LOCKED_EDIT_SEP_RE ]]; then
+        echo "ERROR: stdin contains a locked-edit separator; --replace takes the complete new section body" >&2
+        exit 1
+    fi
 done <<< "$CONTENT"
 
 if [ -z "$CONTENT" ]; then

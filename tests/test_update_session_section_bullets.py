@@ -101,6 +101,24 @@ class UpdateSessionSectionBulletTests(unittest.TestCase):
         self.assertEqual(after, before.replace('### Pickup Context\nNone\n',
                                                '### Pickup Context\n' + pickup + '\n'))
 
+    def test_locked_edit_separator_payload_is_refused_before_writing(self):
+        before = HEAD + '### Files Updated\n- `a.md` - old\n' + TAIL
+        for separator in ('========OPENCAIRN-LOCKED-EDIT-SEP========',
+                          '  ====OPENCAIRN-LOCKED-EDIT-SEP======  '):
+            for flags in ((), ('--replace',)):
+                with self.subTest(separator=separator, flags=flags):
+                    self.log.write_text(before)
+                    result = subprocess.run(
+                        ['bash', str(HELPER), str(self.log), '1', 'Files Updated', *flags],
+                        input='- `a.md` - old\n' + separator + '\n- `a.md` - new\n',
+                        text=True, capture_output=True, env=self.env, cwd=self.root, timeout=15)
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn('stdin contains a locked-edit separator', result.stderr)
+                    self.assertEqual(self.log.read_text(), before)
+        # The token inside ordinary prose is not a separator line.
+        after = self.run_helper(before, 'mentions OPENCAIRN-LOCKED-EDIT-SEP inline\n', 'Summary')
+        self.assertIn('mentions OPENCAIRN-LOCKED-EDIT-SEP inline', after)
+
 
 if __name__ == '__main__':
     unittest.main()
