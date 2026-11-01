@@ -553,7 +553,7 @@ PY_LOCK_METADATA
    ```
    If any flag files exist (these are sessions where `$provenance` was invoked but `$goodnight` didn't process them — missed goodnight, crashed session, etc.):
    - Read each flag's date, tag and work product list; the date controls the transcript/session-log targets, not the recovery run's date.
-   - Follow `$provenance` Step 5's `provenance-write.py attest` mechanism for all required targets. Recompare immediate hashes and use `--supersedes` on change. Retain byte-exact snapshots for work products, exported transcripts and session logs; no direct log append or old-row rewrite.
+   - Follow `$provenance` Step 5's `provenance-write.py attest` mechanism for all required targets. Any required target already attested under this tag with changed bytes — work product, transcript or session log, including one re-exported earlier in this run — takes `--supersedes` with the prior hash the writer names; announce the change. Retain byte-exact snapshots for work products, exported transcripts and session logs; no direct log append or old-row rewrite.
    - If a transcript is missing, try the documented export route with a window covering the flag's date, then verify the actual target landed. Missing exports/logs/work products are partial processing, never grounds to clear a flag. For an older session log, also check `Session Logs/YYYY/YYYY-MM-DD.md`.
    - Run `provenance-finish.sh` only after processing. Its locked validator removes the flag only when every required target has a same-tag, current-digest row, matching retained snapshot and any required proof. A missing row, target or evidence leaves the flag pending; report the remaining targets.
 
