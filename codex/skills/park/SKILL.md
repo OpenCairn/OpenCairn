@@ -317,7 +317,7 @@ Park-owned monitor entries, transcript exports and generated review receipts fol
 python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
 ```
 
-`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count. The exporter covers Claude Code sessions and Codex rollouts alike (Codex sessions appear as `codex-<id>` sections).
+`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count. The exporter covers Claude Code sessions and Codex rollouts alike; a Codex session's heading is `### codex-<id13> (HH:MM)`, `<id13>` being the first 13 characters of its rollout filename's UUID. The printed totals do not establish this session: to confirm it landed, search that day's `06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md` for `### codex-<id13> (`, not the full UUID.
 
 ### Measurement close-out (full, quick and blocked paths)
 

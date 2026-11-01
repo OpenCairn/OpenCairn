@@ -442,7 +442,7 @@ The shared **Late bookkeeping boundary** applies to monitor/export/provenance ou
 
 ### 16. Export Session Transcripts
 
-Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after `cleanupPeriodDays` (30 by default) — this preserves them as searchable markdown. Takes <1 second. The exporter covers Claude Code sessions and Codex rollouts alike (`codex-<id>` sections).
+Export today's verbatim session transcripts to the vault. Claude Code auto-deletes JSONL session files after `cleanupPeriodDays` (30 by default) — this preserves them as searchable markdown. Takes <1 second. The exporter covers Claude Code sessions and Codex rollouts alike; a Codex session's heading is `### codex-<id13> (HH:MM)`, `<id13>` being the first 13 characters of its rollout filename's UUID.
 
 ```bash
 python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
