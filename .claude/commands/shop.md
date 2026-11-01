@@ -15,7 +15,7 @@ Before any specs, understand the job. Ask open questions, 1-2 at a time (not a q
 
 - What prompted this now? (something broke, new need, upgrade itch, saw a recommendation)
 - What job will it actually do? Concrete usage scenarios, not abstract categories.
-- What is it replacing, and what specifically is wrong with the incumbent?
+- What is it replacing, and what specifically is wrong with the incumbent? If the incumbent can be inspected (a device the session can query, a spec label or setting the user can read, an object they can measure), record its load-bearing specs (e.g. size, resolution, effective scaling, capacity) and judge candidates against that baseline in the §4 table, not against nominal category specs.
 - What does success look like — three months in, what would make this a clearly good purchase?
 
 **Fully-specified item shortcut:** if the user names an exact model ("/shop [brand] [model]"), don't run full probing — ask one sanity question ("what's the job, and what's it replacing?") to catch a wrong-category buy, plus only the missing load-bearing constraints a defensible comparison needs (budget ceiling, compatibility/ecosystem), then go straight to research/verification of that item against its nearest rivals.
