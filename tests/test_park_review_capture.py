@@ -468,6 +468,10 @@ class TargetedCompletionTests(unittest.TestCase):
         payload = b"notes/a - b.md\0" + b"1:" + b"A" * (2 * 1024 * 1024) + b"\r\nnotes/last.md\0" + b"2:tail\r"
         stdout.write_bytes(payload)
         stderr.write_bytes(b"")
+        # The hit lines exist in the vault, so the receipt is fresh at build.
+        (self.vault / "notes").mkdir()
+        (self.vault / "notes/a - b.md").write_bytes(b"A" * (2 * 1024 * 1024) + b"\r\n")
+        (self.vault / "notes/last.md").write_bytes(b"head\ntail\r")
         enum = {"needles": [{"needle": "alpha", "match_mode": "word"}]}
         captured = self.run_review("capture", "--kind", "enumeration", "--label", "final",
                                    stdin=json.dumps(enum))
@@ -493,6 +497,41 @@ class TargetedCompletionTests(unittest.TestCase):
         result = self.run_review("build", "--vault", str(self.vault), "--session-log", str(self.log), "--number", "1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing or corrupt", result.stderr)
+
+    def capture_task_search(self, stdout_bytes: bytes) -> None:
+        stdout, stderr = self.base / "task.stdout", self.base / "task.stderr"
+        stdout.write_bytes(stdout_bytes)
+        stderr.write_bytes(b"")
+        self.assertEqual(self.run_review("capture", "--kind", "enumeration", "--label", "final",
+            stdin=json.dumps({"needles": [{"needle": "task X", "match_mode": "fixed"}]})).returncode, 0)
+        row = {"needle": "task X", "match_mode": "fixed", "exit_status": 0,
+               "command": "rg --hidden --no-ignore -n -F -- 'task X' .", "cwd": str(self.vault),
+               "stdout_file": str(stdout), "stderr_file": str(stderr)}
+        captured = self.run_review("capture", "--kind", "propagation", "--label", "final search",
+                                   stdin=json.dumps({"searches": [row]}))
+        self.assertEqual(captured.returncode, 0, captured.stderr)
+
+    def test_stale_propagation_hit_line_blocks_build(self):
+        doc = self.vault / "doc.md"
+        doc.write_text("# Doc\n\n- [ ] task X\n", encoding="utf-8")
+        self.capture_task_search(b"./doc.md:3:- [ ] task X\n")
+        self.build()
+        # An unrelated edit that only shifts the hit line keeps the receipt fresh.
+        doc.write_text("# Doc\n\nIntro.\n\n- [ ] task X\n", encoding="utf-8")
+        self.build()
+        doc.write_text("# Doc\n\nIntro.\n\n- [x] task X → [[log]]\n", encoding="utf-8")
+        result = self.run_review("build", "--vault", str(self.vault), "--session-log", str(self.log),
+                                 "--number", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stale propagation receipt: 'task X' ./doc.md:3", result.stderr)
+        self.assertIn("rerun this needle", result.stderr)
+
+    def test_stale_propagation_hit_in_missing_file_blocks_build(self):
+        self.capture_task_search(b"./gone.md\x003:- [ ] task X\n")
+        result = self.run_review("build", "--vault", str(self.vault), "--session-log", str(self.log),
+                                 "--number", "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("stale propagation receipt: 'task X' ./gone.md:3", result.stderr)
 
     def test_raw_capture_preserves_non_utf8_and_carriage_returns(self):
         source = self.base / "output.bin"

@@ -1544,6 +1544,84 @@ def validate_search_command(row: dict) -> None:
         die("search command does not contain the declared pattern after -- or -e")
 
 
+RG_VALUE_SHORT = set("ABCEMdefgjmrtT")
+# Output forms whose records are not whole `path:line:text` matches.
+RG_NON_LINE_SHORT = set("NIbcloMprUv")
+RG_NON_LINE_LONG = {"--no-line-number", "--no-filename", "--count", "--count-matches",
+                    "--files-with-matches", "--files-without-match", "--files", "--json",
+                    "--only-matching", "--replace", "--max-columns", "--vimgrep", "--column",
+                    "--multiline", "--invert-match", "--passthru", "--byte-offset",
+                    "--heading", "--pretty"}
+
+
+def stale_propagation_hits(row: dict) -> list[str]:
+    """Name each hit line of a final search that no longer occurs in its file.
+
+    Only `rg -n` match records are checked: the hit's whole line must still be a
+    line of the current file (anywhere, so line shifts from unrelated edits pass).
+    Other output forms and unparseable records (binary-match notices, context
+    lines) carry no line text to compare and are skipped.
+    """
+    argv = shlex.split(row.get("command", ""))
+    start = next(i for i, value in enumerate(argv) if Path(value).name.casefold() in ("rg", "rg.exe"))
+    args = argv[start + 1:]
+    options = args[:args.index("--")] if "--" in args else args
+    numbered = False
+    index = 0
+    while index < len(options):
+        token = options[index]
+        index += 1
+        if token.startswith("--"):
+            name, _, value = token.partition("=")
+            if name in ("--color", "--colour"):
+                value = value or (options[index] if index < len(options) else "")
+                if value in ("always", "ansi"):
+                    return []
+            if name in RG_NON_LINE_LONG:
+                return []
+            numbered = numbered or name == "--line-number"
+        elif token.startswith("-") and len(token) > 1:
+            for position, letter in enumerate(token[1:], 2):
+                if letter in RG_NON_LINE_SHORT:
+                    return []
+                numbered = numbered or letter == "n"
+                if letter in RG_VALUE_SHORT:
+                    index += position == len(token)  # value is the next token
+                    break
+    if not numbered:
+        return []
+    cwd = Path(row["cwd"])
+    wanted: dict[Path, dict[bytes, tuple[str, int]]] = {}
+    with Path(row["stdout"]["path"]).open("rb") as handle:
+        for raw in handle:
+            record = raw[:-1] if raw.endswith(b"\n") else raw
+            if b"\0" in record:
+                name, tail = record.split(b"\0", 1)
+                match = re.match(rb"([0-9]+):", tail)
+                if not name or not match:
+                    continue
+                splits = [(name, int(match.group(1)), tail[match.end():])]
+            else:
+                splits = [(record[:m.start()], int(m.group(1)), record[m.end():])
+                          for m in re.finditer(rb":([0-9]+):", record) if m.start()]
+                if not splits:
+                    continue
+                # A colon-delimited name is ambiguous; prefer the split naming a file.
+                splits = [s for s in splits if (cwd / os.fsdecode(s[0])).is_file()] or splits[:1]
+            name, line, text = splits[0]
+            wanted.setdefault(cwd / os.fsdecode(name), {}).setdefault(text, (os.fsdecode(name), line))
+    stale = []
+    for path, texts in wanted.items():
+        if path.is_file():
+            with path.open("rb") as handle:
+                for raw in handle:
+                    texts.pop(raw[:-1] if raw.endswith(b"\n") else raw, None)
+                    if not texts:
+                        break
+        stale.extend(f"{name}:{line}" for name, line in texts.values())
+    return stale
+
+
 def validate_propagation_coverage(captures: list[dict], propagation: dict) -> dict | None:
     enumerations = [item for item in captures if item.get("kind") == "enumeration"]
     if not enumerations:
@@ -1576,6 +1654,10 @@ def validate_propagation_coverage(captures: list[dict], propagation: dict) -> di
               "failed": sorted(failed)}
     if result["missing"] or result["unexpected"] or result["failed"]:
         die("Propagation coverage: " + json.dumps(result, ensure_ascii=False))
+    stale = [f"stale propagation receipt: {row['needle']!r} {hit} changed after search; rerun this needle"
+             for row in searches for hit in stale_propagation_hits(row)]
+    if stale:
+        die("; ".join(stale))
     return result
 
 
