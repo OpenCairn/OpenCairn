@@ -58,15 +58,20 @@ class PlanningMaintenanceTests(unittest.TestCase):
         commands.mkdir(parents=True)
         (commands / 'park.md').write_text('fixture\n')
         index = commands / '_shared-patterns.md'
-        index.write_text('## Patterns\n- Valid → `park` plus `Cold/` and `command -v`\n')
-        code = recipe(TREES[0] / 'weekly-hygiene.md', 'Scan every commands tree present')
-        result = self.run_recipe(code)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('1 pointers, 0 stale', result.stdout)
-        index.write_text(index.read_text() + '- Missing → `missing-skill`\n')
-        bad = self.run_recipe(code)
-        self.assertIn('STALE pointer: missing-skill', bad.stdout)
-        self.assertIn('2 pointers, 1 stale', bad.stdout)
+        codes = [recipe(tree / ('weekly-hygiene.md' if tree.name == 'commands'
+                                else 'weekly-hygiene/SKILL.md'), 'Scan every commands tree present')
+                 for tree in TREES]
+        self.assertEqual(codes[0], codes[1], 'pointer recipe diverges between trees')
+        for tree, code in zip(TREES, codes):
+            with self.subTest(tree=tree):
+                index.write_text('## Patterns\n- Valid → `park` plus `Cold/` and `command -v`\n')
+                result = self.run_recipe(code)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('1 pointers, 0 stale', result.stdout)
+                index.write_text(index.read_text() + '- Missing → `missing-skill`\n')
+                bad = self.run_recipe(code)
+                self.assertIn('STALE pointer: missing-skill', bad.stdout)
+                self.assertIn('2 pointers, 1 stale', bad.stdout)
 
     def test_structural_metrics_keep_explicit_task_and_tag_scopes(self):
         binary = self.root / 'bin'
