@@ -104,6 +104,14 @@ if args and args[0] == "move":
     if behaviour == "complete-altered":
         with destination.open("a", encoding="utf-8") as handle:
             handle.write("unexpected trailing edit\n")
+    # Like Obsidian, never rewrite a path inside a fenced block or code span.
+    code = re.compile(r"^```[^\n]*\n[\s\S]*?^```[ \t]*$|`[^`\n]+`", re.M)
+    def outside_code(text, rewrite):
+        pieces, cursor = [], 0
+        for span in code.finditer(text):
+            pieces += [rewrite(text[cursor:span.start()]), span.group(0)]
+            cursor = span.end()
+        return "".join(pieces + [rewrite(text[cursor:])])
     for note in vault.rglob("*.md"):
         note_rel = note.relative_to(vault).as_posix()
         if note_rel == os.environ.get("MOCK_SKIP_HEAL"):
@@ -120,7 +128,7 @@ if args and args[0] == "move":
                 return match.group(0)
             suffix = (anchor_mark + anchor if anchor_mark else "") + (marker + alias if marker else "")
             return "[[" + new_no_ext + suffix + "]]"
-        updated = re.sub(r"\[\[([^\]]+)\]\]", wiki, text)
+        updated = outside_code(text, lambda part: re.sub(r"\[\[([^\]]+)\]\]", wiki, part))
         def markdown(match):
             raw = match.group(1)
             token = re.match(r"(\S+)(.*)", raw, re.DOTALL)
@@ -140,7 +148,7 @@ if args and args[0] == "move":
             if parsed.fragment:
                 replacement += "#" + parsed.fragment
             return "](" + replacement + suffix + ")"
-        updated = re.sub(r"\]\(([^)]+)\)", markdown, updated)
+        updated = outside_code(updated, lambda part: re.sub(r"\]\(([^)]+)\)", markdown, part))
         if updated != text:
             note.write_text(updated, encoding="utf-8")
     raise SystemExit(0)
@@ -508,6 +516,53 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertIn("\tlocked-move-source\t", ledger)
         self.assertIn("\tlocked-move-destination\t", ledger)
         self.assertIn("\tobsidian-link-heal\t%s\t" % healed.resolve(), ledger)
+
+    def test_code_mention_of_old_path_is_reported_not_counted_as_a_link(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        log = self.vault / "Log.md"
+        log.write_text(
+            "moved from `[[Old/Incident]]` last year\n"
+            "```\n[[Old/Incident]]\n[case](Old/Incident.md)\n```\n",
+            encoding="utf-8",
+        )
+        before = log.read_bytes()
+
+        result = self.run_move(source, destination, MOCK_SKIP_HEAL="Log.md")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Old path-qualified links remain", result.stderr)
+        self.assertIn("Old path in code (not links):\nLog.md:1\n", result.stderr)
+        self.assertEqual(log.read_bytes(), before)
+        receipts = self.move_receipts()
+        self.assertEqual(len(receipts), 1)
+        self.assertIs(receipts[0]["complete"], True)
+        self.assertNotIn("postcheck", receipts[0])
+        self.assertEqual(receipts[0]["code_mentions"], ["Log.md:1", "Log.md:3", "Log.md:4"])
+        self.assertEqual(receipts[0]["affected_files"], [])
+        self.assertEqual(receipts[0]["unverified_files"], [])
+
+    def test_live_link_beside_a_code_mention_heals_verifiably(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        destination = self.vault / "New" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        log = self.vault / "Log.md"
+        log.write_text("see [[Old/Incident]]\nformerly `[[Old/Incident]]`\n", encoding="utf-8")
+
+        result = self.run_move(source, destination)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            log.read_text(encoding="utf-8"),
+            "see [[New/Incident]]\nformerly `[[Old/Incident]]`\n",
+        )
+        receipt = self.move_receipts()[0]
+        self.assertIs(receipt["complete"], True)
+        self.assertEqual(receipt["code_mentions"], ["Log.md:2"])
+        self.assertEqual(receipt["unverified_files"], [])
+        self.assertEqual([item["healed_links"] for item in receipt["affected_files"]], [1])
+        self.assert_heal_verifiable(receipt, log)
 
     def test_altered_destination_keeps_a_partial_receipt_for_healed_links(self) -> None:
         source = self.vault / "Old" / "Incident.md"
