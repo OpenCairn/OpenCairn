@@ -265,10 +265,10 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
    - Preserve the speaker's actual words and meaning — don't rewrite, paraphrase, or "improve"
    - Preserve timestamps exactly
    - Preserve speaker labels exactly
-   - Do NOT fix the speaker's actual speech patterns (um, uh, repeated words, broken sentences) — these are features, not bugs
+   - Do NOT fix the speaker's actual speech patterns (um, uh, repeated words, broken sentences) — these are features, not bugs. A model hallucination loop (a short token or phrase repeated many times, unlike the surrounding speech) is not speech: use the caption reading for that span (cross-reference below), else mark it `[inaudible]`
 
    **YouTube caption cross-reference** (if YouTube auto-captions were downloaded in Phase 1 step 4c):
-   Before starting the cleanup pass, extract a focused comparison from the SRT captions. Parse the SRT to plain text, then identify words/phrases where the WhisperX and YouTube outputs diverge — especially proper nouns (names, institutions, products, technical terms). Build a short divergence list (e.g. "WhisperX: 'Mercore' / YouTube: 'Mercor'") and use it as a reference during cleanup. Do not load the entire SRT into context — the useful signal is in the divergences, not the full text.
+   Before starting the cleanup pass, extract a focused comparison from the SRT captions. Parse the SRT to plain text, then identify words/phrases where the WhisperX and YouTube outputs diverge — especially proper nouns (names, institutions, products, technical terms), and hallucination loops, where the WhisperX output repeats a short token many times but the captions carry different content. Build a short divergence list (e.g. "WhisperX: 'Mercore' / YouTube: 'Mercor'") and use it as a reference during cleanup. Do not load the entire SRT into context — the useful signal is in the divergences, not the full text.
 
    Neither source is authoritative — both are machine-generated and make different errors. Where one system produces a recognisable proper noun and the other produces a garbled version, prefer the recognisable one. Where both agree on a spelling that looks wrong (e.g. both say "Tyler Cowan" when context suggests "Tyler Cowen"), apply your own judgement. Where they disagree and neither is clearly right, flag with `[?]` or choose the more plausible option based on context.
 
