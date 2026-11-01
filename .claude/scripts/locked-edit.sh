@@ -84,6 +84,8 @@
 # hash must match. It holds both canonical file locks while asking the live
 # Obsidian CLI to perform the move, then verifies the resulting paths, content
 # hash, and path-qualified links. It never falls back to a raw filesystem move.
+# A path inside fenced or inline code is not a link: it is listed separately
+# ("Old path in code"; receipt "code_mentions") and never fails the postcheck.
 # If the note did move but that verification fails (old links remain, or the
 # moved content differs), it still exits 1, and with a session id it keeps a
 # move receipt marked "complete": false with a "postcheck" reason, so the link
@@ -188,6 +190,7 @@ if [ "$MODE" = "--move" ]; then
 
     MOVE_META="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move.XXXXXX")"
     MOVE_REFS="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-refs.XXXXXX")"
+    MOVE_CODE_REFS="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-code-refs.XXXXXX")"
     MOVE_SNAPSHOT="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-snapshot.XXXXXX")"
     MOVE_SOURCE_COPY="$(mktemp "${TMPDIR:-/tmp}/locked-edit-move-source.XXXXXX")"
     _MOVE_LOCK_MODE=""
@@ -207,7 +210,7 @@ if [ "$MODE" = "--move" ]; then
 
     _move_cleanup() {
         _move_unlock_pair
-        rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_SNAPSHOT" "$MOVE_SOURCE_COPY"
+        rm -f "$MOVE_META" "$MOVE_REFS" "$MOVE_CODE_REFS" "$MOVE_SNAPSHOT" "$MOVE_SOURCE_COPY"
     }
     trap '_move_cleanup' EXIT
 
@@ -217,6 +220,42 @@ if [ "$MODE" = "--move" ]; then
     export _LE_MOVE_EXPECTED="$EXPECTED_SNAPSHOT"
     export _LE_MOVE_META="$MOVE_META"
     export _LE_MOVE_SOURCE_COPY="$MOVE_SOURCE_COPY"
+    export _LE_MOVE_CODE_REFS="$MOVE_CODE_REFS"
+    # One Markdown code mask for the referrer census, the postcheck and the
+    # receipt. Obsidian neither tracks nor rewrites a path inside a fenced block
+    # or an inline code span, so link regexes run on the masked text. Masking
+    # keeps length and newlines, so offsets and line numbers still match.
+    _LE_MOVE_CODE_MASK="$(cat <<'PY'
+def mask_code(text):
+    import re
+    chars = list(text)
+    def blank(start, end):
+        for index in range(start, end):
+            if chars[index] != "\n":
+                chars[index] = " "
+    fence = None
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        marker = re.match(r"[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|\d+[.)])[ \t]+)?(`{3,}|~{3,})(.*)", line)
+        if fence is None:
+            if marker and not (marker.group(1)[0] == "`" and "`" in marker.group(2)):
+                fence = marker.group(1)
+        elif (marker and marker.group(1)[0] == fence[0]
+              and len(marker.group(1)) >= len(fence) and not marker.group(2).strip()):
+            blank(offset, offset + len(line))
+            fence = None
+            offset += len(line)
+            continue
+        if fence is not None:
+            blank(offset, offset + len(line))
+        offset += len(line)
+    partial = "".join(chars)
+    for span in re.finditer(r"(?<!`)(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])+?(?<!`)\1(?!`)", partial):
+        blank(span.start(), span.end())
+    return "".join(chars)
+PY
+)"
+    export _LE_MOVE_CODE_MASK
 
     "$PYTHON_BIN" - <<'PY'
 import hashlib, os, pathlib, re, sys
@@ -426,6 +465,7 @@ PY
 import base64, json, os, pathlib, posixpath, re
 from urllib.parse import unquote, urlsplit
 
+exec(os.environ["_LE_MOVE_CODE_MASK"])
 vault = pathlib.Path(os.environ["_LE_MOVE_VAULT"]).resolve(strict=True)
 source_rel = os.environ["_LE_MOVE_SOURCE_REL"]
 source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
@@ -436,6 +476,8 @@ def normalise_wiki(target):
 
 def normalise_markdown(target, note_rel):
     target = target.strip()
+    if not target:
+        return None
     if target.startswith("<") and ">" in target:
         target = target[1:target.index(">")]
     else:
@@ -458,15 +500,16 @@ for note in vault.rglob("*.md"):
         text = raw.decode("utf-8")
     except (OSError, UnicodeError):
         continue
+    masked = mask_code(text)
     found = any(
         "/" in normalise_wiki(match.group(1))
         and normalise_wiki(match.group(1)) == source_no_ext
-        for match in re.finditer(r"\[\[([^\]]+)\]\]", text)
+        for match in re.finditer(r"\[\[([^\]]+)\]\]", masked)
     )
     if not found:
         found = any(
             normalise_markdown(match.group(1), note_rel) in (source_rel, source_no_ext)
-            for match in re.finditer(r"\]\(([^)]+)\)", text)
+            for match in re.finditer(r"\]\(([^)]+)\)", masked)
         )
     if found:
         items.append({"path": note_rel, "bytes": base64.b64encode(raw).decode("ascii")})
@@ -518,6 +561,7 @@ source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else sourc
 destination = pathlib.Path(os.environ["_LE_MOVE_DESTINATION_ABS"])
 expected = os.environ["_LE_MOVE_EXPECTED"]
 refs_file = os.environ["_LE_MOVE_REFS"]
+exec(os.environ["_LE_MOVE_CODE_MASK"])
 
 destination_bytes = destination.read_bytes()
 if hashlib.sha256(destination_bytes).hexdigest() != expected:
@@ -546,6 +590,8 @@ def normalise_wiki(target):
 
 def normalise_markdown(target, note_rel):
     target = target.strip()
+    if not target:
+        return None
     if target.startswith("<") and ">" in target:
         target = target[1:target.index(">")]
     else:
@@ -561,6 +607,7 @@ def normalise_markdown(target, note_rel):
     return resolved
 
 hits = []
+code_hits = []
 for note in vault.rglob("*.md"):
     try:
         note_rel = note.relative_to(vault).as_posix()
@@ -572,18 +619,29 @@ for note in vault.rglob("*.md"):
         text = note.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
         continue
-    for match in re.finditer(r"\[\[([^\]]+)\]\]", text):
+    masked = mask_code(text)
+    for match in re.finditer(r"\[\[([^\]]+)\]\]|\]\(([^)]+)\)", text):
+        if match.group(1) is not None:
+            target = normalise_wiki(match.group(1))
+            wanted = "/" in target and target == source_no_ext
+        else:
+            wanted = normalise_markdown(match.group(2), note_rel) in (source_rel, source_no_ext)
+        # A raw-text match that starts inside masked code is a mention, not a link.
+        if wanted and masked[match.start()] != text[match.start()]:
+            code_hits.append((note_rel, text.count("\n", 0, match.start()) + 1))
+    for match in re.finditer(r"\[\[([^\]]+)\]\]", masked):
         target = normalise_wiki(match.group(1))
         if "/" in target and target == source_no_ext:
-            hits.append((note_rel, text.count("\n", 0, match.start()) + 1))
-    for match in re.finditer(r"\]\(([^)]+)\)", text):
+            hits.append((note_rel, masked.count("\n", 0, match.start()) + 1))
+    for match in re.finditer(r"\]\(([^)]+)\)", masked):
         target = normalise_markdown(match.group(1), note_rel)
         if target in (source_rel, source_no_ext):
-            hits.append((note_rel, text.count("\n", 0, match.start()) + 1))
+            hits.append((note_rel, masked.count("\n", 0, match.start()) + 1))
 
-with open(refs_file, "w", encoding="utf-8") as handle:
-    for path, line in hits:
-        handle.write("%s:%d\n" % (path, line))
+for path_name, rows in ((refs_file, hits), (os.environ["_LE_MOVE_CODE_REFS"], code_hits)):
+    with open(path_name, "w", encoding="utf-8") as handle:
+        for path, line in rows:
+            handle.write("%s:%d\n" % (path, line))
 raise SystemExit(4 if hits else 0)
 PY
             MOVE_VERIFY_RC=$?
@@ -600,6 +658,10 @@ PY
         sleep 1
     done
 
+    if [ -s "$MOVE_CODE_REFS" ]; then
+        echo "Old path in code (not links):" >&2
+        sed -n '1,20p' "$MOVE_CODE_REFS" >&2
+    fi
     if [ "$MOVE_COMPLETE" != true ]; then
         echo "Obsidian move did not reach a verified complete state" >&2
         [ -e "$MOVE_SOURCE_ABS" ] && echo "Source still exists: $MOVE_SOURCE_ABS" >&2
@@ -651,6 +713,7 @@ source_rel = os.environ["_LE_MOVE_SOURCE_REL"]
 destination_rel = os.environ["_LE_MOVE_DESTINATION_REL"]
 source_no_ext = source_rel[:-3] if source_rel.lower().endswith(".md") else source_rel
 destination_no_ext = destination_rel[:-3] if destination_rel.lower().endswith(".md") else destination_rel
+exec(os.environ["_LE_MOVE_CODE_MASK"])
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -687,10 +750,13 @@ def skeleton(text, note_rel, wanted):
     pieces = []
     cursor = 0
     healed = 0
-    for match in LINK_RE.finditer(text):
+    for match in LINK_RE.finditer(mask_code(text)):
+        # Match on the masked text; rebuild from the original characters.
+        def group(index, match=match):
+            return None if match.start(index) < 0 else text[match.start(index):match.end(index)]
         pieces.append(text[cursor:match.start()])
-        if match.group(1) is not None:
-            inner = match.group(1)
+        if group(1) is not None:
+            inner = group(1)
             locator, marker, alias = inner.partition("|")
             path, anchor_mark, anchor = locator.partition("#")
             if normalise_wiki(path) == wanted:
@@ -701,7 +767,7 @@ def skeleton(text, note_rel, wanted):
                 rebuilt += marker + alias
             pieces.append("[[" + rebuilt + "]]" )
         else:
-            raw = match.group(3)
+            raw = group(3)
             if raw.startswith("<") and ">" in raw:
                 end = raw.index(">")
                 target, prefix, suffix = raw[1:end], "<", raw[end:]
@@ -716,7 +782,7 @@ def skeleton(text, note_rel, wanted):
                 if parsed.fragment:
                     target += "#" + parsed.fragment
                 healed += 1
-            pieces.append(match.group(2) + prefix + target + suffix + match.group(4))
+            pieces.append(group(2) + prefix + target + suffix + group(4))
         cursor = match.end()
     pieces.append(text[cursor:])
     return "".join(pieces), healed
@@ -776,6 +842,12 @@ payload = {
     "unverified_files": unverified,
     "complete": not os.environ["_LE_MOVE_POSTCHECK"],
 }
+try:
+    code_mentions = pathlib.Path(os.environ["_LE_MOVE_CODE_REFS"]).read_text(encoding="utf-8").splitlines()
+except OSError:
+    code_mentions = []
+if code_mentions:
+    payload["code_mentions"] = code_mentions
 if not payload["complete"]:
     reason = os.environ["_LE_MOVE_POSTCHECK"]
     remaining = []
