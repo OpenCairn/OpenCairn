@@ -62,6 +62,25 @@ class ProvenanceVerifyTests(unittest.TestCase):
         self.git('add', '--', rel)
         self.git('commit', '-qm', message, '--only', '--', rel)
 
+    def test_real_log_headers_are_not_records(self):
+        template = (SCRIPT.parents[2] / '07 System/AI Provenance Log.md').read_text(encoding='utf-8')
+        headers = [line for line in template.splitlines() if line.startswith('| ')][:1]
+        self.assertEqual(len(headers), 1, 'template log lost its table header')
+        for header in (headers[0], '| Timestamp | Project | File | Hash | OTS |'):
+            with self.subTest(header=header):
+                self.log.write_text(header + '\n|---|---|---|---|---|\n')
+                result = subprocess.run([sys.executable, str(SCRIPT), '--vault', str(self.vault)],
+                                        env=self.env, capture_output=True, text=True, timeout=20)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(json.loads(result.stdout)['counts']['records'], 0)
+                # Negative control: a body row with a malformed digest is still INVALID.
+                self.log.write_text(header + '\n|---|---|---|---|---|\n'
+                                    '| 2026-01-02 | fixture | a.md | `abc` | none |\n')
+                result = subprocess.run([sys.executable, str(SCRIPT), '--vault', str(self.vault)],
+                                        env=self.env, capture_output=True, text=True, timeout=20)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(json.loads(result.stdout)['counts']['content'], {'INVALID': 1})
+
     def test_live_snapshot_missing_and_invalid_counts_are_discriminating(self):
         content = b'known source\n'
         source = self.vault / 'Notes/Current.md'
