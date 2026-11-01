@@ -505,6 +505,25 @@ elif sys.argv[1] == 'upgrade':
                                  '--date', '2026-01-02', ok=False)
         self.assertIn(f"--supersedes {second['hash']}", result.stderr)  # head, not the later-confirmed old row
 
+    def test_renamed_work_product_takes_locator_row_then_supersedes(self):
+        first = self.attest()
+        moved = self.vault / '04 Areas/Renamed.md'
+        moved.parent.mkdir()
+        self.doc.rename(moved)
+        moved.write_bytes(b'edited after the move')
+        self.run_writer('attest', '--file', str(moved), '--tag', 'Example', '--date', '2026-01-02',
+                        '--supersedes', first['hash'], ok=False)  # old path's row is not this file's
+        before = self.log.read_bytes()
+        found = json.loads(self.run_writer('locate', '--tag', 'Example', '--file', '03 Projects/Example.md',
+                                           '--hash', first['hash']).stdout)
+        self.run_writer('append', '--file', '04 Areas/Renamed.md', '--tag', 'Example', '--hash', first['hash'],
+                        '--status', found['status'], '--snapshot', found['snapshot'], '--proof', found['proof'])
+        self.assertTrue(self.log.read_bytes().startswith(before))  # old path column untouched
+        new = json.loads(self.run_writer('attest', '--file', str(moved), '--tag', 'Example',
+                                         '--date', '2026-01-02', '--supersedes', first['hash']).stdout)
+        self.assertIn(f"| 04 Areas/Renamed.md | `{new['hash']}` | supersedes `{first['hash']}` |",
+                      self.log.read_text())
+
     def test_missing_superseded_row_is_rejected_before_any_log_append(self):
         before = self.log.read_bytes()
         self.run_writer('attest', '--file', str(self.doc), '--tag', 'Example', '--date', '2026-01-02',
