@@ -107,14 +107,14 @@ Exit 2 means the path exists and nothing was written: `cmp` the staged note agai
 
 ## Phase 7: Verify and report
 
-Confirm `cmp "<STAGED_NOTE>" "<DESTINATION>"` exits 0. Then check the saved bytes, not just the draft, because a formatter can act after the save:
+Confirm `cmp "<STAGED_NOTE>" "<DESTINATION>"` exits 0; a fix anywhere in this phase rebuilds the staged note, re-saves it with `--replace-whole <sha256 of the saved file>` (exit 2: re-read and rebuild) and repeats this `cmp` and the checks. Then check the saved bytes, not just the draft, because a formatter can act after the save:
 
 ```bash
 rg -n '["“”‘]' "<DESTINATION>"
 rg -n '^ *>' "<DESTINATION>"
 ```
 
-Trace every quoted phrase and blockquote to the actual source text. Include straight-single-quoted phrases in the manual review too; the pattern omits apostrophes deliberately. Strip inline code markup when comparing. If only a summary was available, use unquoted paraphrase; an exact citation title may still trace to verified metadata. A paraphrase is not a quotation. If a formatting hook changed a source-spelled token, restore the original spelling through the locked wrapper and protect it per §14; do not reinterpret corruption as permission to paraphrase a quote.
+Trace every quoted phrase and blockquote to the actual source text. Include straight-single-quoted phrases in the manual review too; the pattern omits apostrophes deliberately. Strip inline code markup when comparing. If only a summary was available, use unquoted paraphrase; an exact citation title may still trace to verified metadata. A paraphrase is not a quotation. If a formatting hook changed a source-spelled token, restore the original spelling in the staged note and protect it per §14; do not reinterpret corruption as permission to paraphrase a quote.
 
 Re-read the Source section and compare author, title, venue, date and identifier spellings with the citation metadata. Preserve source spelling in citations and quotes; the user's locale governs your own prose only. Verify written wikilink targets and URLs after saving.
 
