@@ -1879,5 +1879,49 @@ class AnnotatedFilesRowTests(unittest.TestCase):
             self.assertNotIn(str(share), [item["path"] for item in manifest[group]])
 
 
+class CreatedFileReceiptReuseTests(unittest.TestCase):
+    """A clean audit receipt for a created file's exact bytes is reused, not reread."""
+
+    setUp = AuthoredBinaryReviewTests.setUp
+    run_review = AuthoredBinaryReviewTests.run_review
+    write_log = AuthoredBinaryReviewTests.write_log
+    classify = AuthoredBinaryReviewTests.classify
+    build = AuthoredBinaryReviewTests.build
+
+    def receipt(self, path: Path) -> Path:
+        audits = self.config / ".session-state/.park-audit-receipts"
+        audits.mkdir(parents=True, exist_ok=True)
+        receipt = audits / "audit-imported.json"
+        park_review.atomic_json(receipt, {
+            "status": "clean", "captured_at": "2026-11-01T00:00:00+00:00",
+            "reviewer": "fixture", "files": [{"path": str(path), "sha256": park_review.sha256(path)}]})
+        return receipt
+
+    def test_created_file_reuse_of_matching_clean_receipt(self) -> None:
+        note = self.vault / "note.md"
+        note.write_text("audited earlier\n", encoding="utf-8")
+        receipt = self.receipt(note)
+        self.write_log([note], [])
+        self.classify(note)
+        self.classify(self.log)
+        manifest = self.build()
+        self.assertEqual([(item["path"], item["receipt"]) for item in manifest["reused"]],
+                         [(str(note), str(receipt))])
+        self.assertNotIn(str(note), [item["path"] for item in manifest["full_read"]])
+
+    def test_created_file_reuse_refused_after_a_byte_changes(self) -> None:
+        note = self.vault / "note.md"
+        note.write_text("audited earlier\n", encoding="utf-8")
+        self.receipt(note)
+        note.write_text("audited earlier!\n", encoding="utf-8")
+        self.write_log([note], [])
+        self.classify(note)
+        self.classify(self.log)
+        manifest = self.build()
+        self.assertEqual(manifest["reused"], [])
+        item = next(item for item in manifest["full_read"] if item["path"] == str(note))
+        self.assertEqual(item["reason"], "created this session")
+
+
 if __name__ == "__main__":
     unittest.main()
