@@ -85,6 +85,17 @@ Read and present:
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `{VAULT}/06 Archive/OpenCairn/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Items goodnight routed to today:** Last night's /goodnight routed undone and queued items into today's day section in This Week.md — they're already covered by the This Week.md and Tickler bullets above. Daily reports carry no "Tomorrow's Queue" section; don't go looking for one.
+- **Unrecorded unattended runs:** If you launch unattended runs, each gets a run directory (contract, ledger) under a run root. The roots are `$OPENCAIRN_RUN_DIRS` (space-separated), default `~/.claude/runs` and `~/.codex/runs`. List each run id that no vault note names, in one bounded pass:
+  ```bash
+  ids=$(for r in ${OPENCAIRN_RUN_DIRS:-$HOME/.claude/runs $HOME/.codex/runs}; do for d in "$r"/*/; do [ -d "$d" ] && basename "$d"; done; done | LC_ALL=C sort -u)
+  if [ -z "$ids" ]; then echo "Run records: no run directories found"
+  else
+    found=$(printf '%s\n' "$ids" | timeout 60 rg --no-config -o -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?
+    if [ "$rc" -gt 1 ]; then echo "Run records: not checked (rg exit $rc)"
+    else printf '%s\n' "$ids" | while read -r id; do printf '%s\n' "$found" | grep -qxF -- "$id" || echo "UNRECORDED $id"; done; fi
+  fi
+  ```
+  Show each `UNRECORDED` id in the landscape. A run still in progress also appears, so read its ledger first; for a finished one, offer a retrospective record from its run directory (resume note, ledger). `no run directories found` (no unattended runs, or the roots are not configured) or no `UNRECORDED` line: skip silently. Report `not checked` as such, never as "all recorded".
 - **Disciplines reminder:** Read `{VAULT}/07 System/Context - Direction.md` (skip if file doesn't exist). If a Disciplines section exists with active items, include a one-line reminder in the landscape output. Light touch — just surface the list, don't track or nag.
 - **Time-sensitive items:** Scan dated entries in the root docs' existing task/action sections and recent sessions for deadlines and urgencies
 - **Working Memory status:** Check `{VAULT}/01 Now/Working memory.md` (skip if file doesn't exist). Count unchecked items (`- [ ]`) and total lines. If unchecked count > 30 or total lines > 300, flag in landscape output:
@@ -139,6 +150,7 @@ Here's your landscape:
 
 **⚠️ Weekly review overdue** — last run [date] ([N] days ago)
 **⚠️ Quarterly review overdue** — last run [date] ([N] days ago)
+**⚠️ Unrecorded runs:** [run id], [run id] — run directory, no vault record
 ```
 
 If a section is empty, skip it. Keep it scannable.
