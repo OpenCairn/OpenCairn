@@ -117,7 +117,7 @@ Quick parked.
 [Short session summary.]
 ```
 
-(b) Execute **Coverage** in the [shared close-out protocol](../_closeout.md). Classify now; perform its quality read at Step 4c after the propagation despatch.
+(b) Execute **Coverage** in the [shared close-out protocol](../_closeout.md). Classify now; perform its quality read at Step 4c after the propagation handle, checked-empty receipt or discharged-at-2(d) record exists.
 
 **Authored-check gate:** apply the shared protocol's semantic conformance checks and §19 to how-tos, any runnable command written into a living doc (restore, re-enable and undo lines included), routed setup/integration actions, Next Steps and Pickup Context, including linked pre-existing procedures. Name the subject/component measured (pinning any scope the tool would otherwise auto-detect), exact command/inspection, pass, fail and where applicable `not yet`; show how observations differ under the competing hypotheses in the current state. For liveness, name the field that advances (not merely a recent timestamp); for logs, bind the interval and replay a real pass output. A README pointer or a success label alone is not a check. Retain positive/negative controls; unresolved criteria remain explicit rather than invented, and a deferred check ("pending", "to be confirmed") gets its command and pass/fail observation or becomes a stated limitation.
 
