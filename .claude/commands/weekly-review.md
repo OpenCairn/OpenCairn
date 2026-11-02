@@ -258,7 +258,7 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
 - etc.
 ```
 
-6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
+6. **Populate Vault Maintenance section from hygiene report.** If a hygiene report was found (from step 2), include its findings in the review output's Vault Maintenance section. Before step 5 installs the review, reconcile that section against the hygiene decisions the user made in this run: mark each decided item as decided or applied with its outcome, keep only undecided items open, and never copy the report's open wording for an item already decided. If no report exists, note "No hygiene report available — run `/weekly-hygiene` for vault maintenance" in that section.
 
 7. **Persist confirmed review routes and update project docs** (if needed):
    - Persist user-confirmed routes and non-task classifications in the located review map via `locked-edit.sh`, then read back the changed entries to verify. Update its cadence-completion records only for passes actually completed, using the actual review date and a report link; partial or skipped passes stay due. Save monthly/quarterly partial progress in the map’s progress field without marking the cadence complete; weekly unread scopes live in the report’s Task-surface coverage. The next run resumes from those records. The report links to that map. If its location is still unsettled, report the decision as unresolved rather than implying it was saved.
