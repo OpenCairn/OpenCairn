@@ -83,7 +83,7 @@ Per `_shared-rules-content.md` §14:
 2. **Verify the body landed intact** — shell only, no context bloat:
    ```bash
    wc -w "<BODY_FILE>" "<DESTINATION_NOTE>"   # destination should exceed body
-   tail -n 5 "<DESTINATION_NOTE>"             # confirm it ends in transcript, intact
+   tail -c 400 "<DESTINATION_NOTE>"           # bytes, not lines: transcript lines can run to tens of KB
    cmp <(tail -c "$(wc -c < "<BODY_FILE>")" "<DESTINATION_NOTE>") "<BODY_FILE>" \
      && echo "body byte-identical"            # catches an in-place rewrite that wc/tail both pass
    ```
