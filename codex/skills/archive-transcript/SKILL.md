@@ -17,7 +17,7 @@ Stop on failure; never guess the vault path. Read [../_shared-rules.md](../_shar
 
 Run §15's prerequisites (`curl`, `pandoc`, `python3` with `bs4`/`lxml`) before fetching. Missing tooling needs a specific prerequisite report; an audio transcription fallback requires an available transcription skill and the user's choice, including paid-cloud authorisation where relevant.
 
-Establish any active formatting hook's actual matcher before relying on a write route. Do not assume Claude's `Write`/`Edit` hooks describe Codex's hooks. Where hooks exist, §14's control test must show whether shell/locked writes preserve source bytes. If the chosen route rewrites the body, use an authorised path exclusion or stop; do not silently change global hooks. A later edit from another harness can still rewrite a verbatim note, so stage and verify the complete note before saving it.
+Establish any active formatting hook's actual matcher before relying on a write route. Do not assume Claude's `Write`/`Edit` hooks describe Codex's hooks. Where hooks exist, §14's control test must show whether shell/locked writes preserve source bytes. Reuse a result recorded in the vault's reference doc; otherwise run the control and record its result there. If the chosen route rewrites the body, use an authorised path exclusion or stop; do not silently change global hooks. A later edit from another harness can still rewrite a verbatim note, so stage and verify the complete note before saving it.
 
 ## Phase 1: Resolve sources
 
@@ -25,7 +25,7 @@ Use URLs the user supplied. If asked to find appearances of a person or show, se
 
 ## Phase 2: Fetch into files
 
-Use the shared §15 published-transcript extractor once per episode. Retain its printed `BODY=` path and the exact source URL; its per-URL path can be reconstructed across exec calls. Shell variables from an earlier call do not persist.
+Use the shared §15 published-transcript extractor once per episode. Retain its printed `BODY=` path and the exact source URL; the path can be re-derived only from that exact URL string. Shell variables from an earlier call do not persist.
 
 The extractor owns HTML cleanup, Markdown conversion, word/leak checks and metadata extraction. Validate the result as sustained episode-specific speech, not show notes, a summary or a paywalled excerpt. Probe structure, word counts and bounded head/tail snippets through the shell; do not print the full body into context.
 
@@ -63,7 +63,7 @@ If a static extractor fails on a rendered page, try the available §26 fetch rou
    cmp "<STAGED_NOTE>" "<DESTINATION_NOTE>"
    ```
 
-   Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report success only after that byte comparison passes. Wrapper exit 2 means the destination already existed and nothing was written: run the same `cmp`. Identical bytes mean this transcript is already saved; report that and do not write again. Differing bytes are a filename collision to resolve with the user unless the request already specifies replacement. Never append to the existing note and never `mv` over it. For an authorised replacement, hash the existing destination with `sha256sum` and repeat the call with that hash in place of `MISSING`, re-reading and rebuilding on a further exit 2. Exit 1 with a lock message means another writer holds the lock; report it and stop rather than bypassing the lock. An error never permits a lockless fallback. Avoid whole-note editor rewrites after the body lands; corrections rebuild the staged note and repeat the locked replacement and byte check.
+   Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report success only after that byte comparison passes. A hook that runs after the shell call is invisible to this in-call `cmp`; Phase 4's separate-call `cmp` catches it. Wrapper exit 2 means nothing was written: the same `cmp` decides per §14's exit-2 rule (duplicate run or filename collision); never append to the existing note or `mv` over it. For an authorised replacement, hash the existing destination with `sha256sum` and repeat the call with that hash in place of `MISSING`, re-reading and rebuilding on a further exit 2. Any other exit (a held lock or an invalid hash both exit 1) means report the message and stop rather than bypassing the lock. An error never permits a lockless fallback. Avoid whole-note editor rewrites after the body lands; corrections rebuild the staged note and repeat the locked replacement and byte check.
 
 ## Phase 4: Integrate, verify and report
 
@@ -73,11 +73,10 @@ Verify the saved result through the shell:
 
 ```bash
 wc -w "<BODY_FILE>" "<DESTINATION_NOTE>"
-tail -c 400 "<DESTINATION_NOTE>"
 cmp <(tail -c "$(wc -c < "<BODY_FILE>")" "<DESTINATION_NOTE>") "<BODY_FILE>"
 ```
 
-Require a non-empty validated body first. `cmp` exit 0 proves that the saved body is byte-identical; word counts or a plausible tail alone do not. Also compare the saved header with the staged header. On a mismatch, identify the write/hook problem before rebuilding; report failure until the comparison passes.
+Require a non-empty validated body first. `cmp` exit 0 proves that the saved body is byte-identical; word counts (kept for the report) cannot. Also compare the saved header with the staged header. On a mismatch, identify the write/hook problem before rebuilding; report failure until the comparison passes.
 
 Report file links, final word counts, any transcription fallbacks and material fidelity or attribution caveats. The header follows the user's locale; the body retains its source wording, grammar and spelling.
 
