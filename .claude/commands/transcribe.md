@@ -335,8 +335,8 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
 
    - **assemble=refused** → the body file is missing or empty; nothing was written. Find the body (re-derive §15's `BODY=` path from the URL, or rerun the step that writes it) before retrying.
    - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
-   - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
-   - **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
+   - **exit=2** → the path already exists and **nothing was written**; §14's exit-2 rule applies. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
+   - **Any other exit** (exit 1 covers a held lock and an invalid SHA alike) → report the message and stop; don't bypass the lock.
 
    The header's transcription date comes from `date +%F` for this run; a published transcript's acquisition date is not its original transcription date.
 
