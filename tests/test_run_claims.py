@@ -66,6 +66,9 @@ class RunClaimsTests(unittest.TestCase):
                            "ends_at": "2026-11-03T10:00:00+10:00"}],
             "sibling-prefix": [{"run_id": "r", "claims": [str(self.queue) + ".bak"],
                                 "ends_at": "2026-11-03T10:00:00+10:00"}],
+            # The claim is a name prefix of the target: only the separator guard frees it.
+            "name-prefix": [{"run_id": "r", "claims": [str(self.queue.parent / "Work")],
+                             "ends_at": "2026-11-03T10:00:00+10:00"}],
         }
         for name, rows in cases.items():
             with self.subTest(case=name):
@@ -74,6 +77,15 @@ class RunClaimsTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.write_rows({"run_id": "me", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
         self.assertEqual(self.check("--self", "me").returncode, 0)
+
+    def test_self_ignores_only_its_own_claim(self) -> None:
+        live = "2026-11-03T10:00:00+10:00"
+        self.write_rows({"run_id": "me", "claims": [str(self.queue)], "ends_at": live},
+                        {"run_id": "other", "owner": "s2", "claims": [str(self.queue)], "ends_at": live})
+        result = self.check("--self", "me")
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        self.assertIn("claimed by other (owner s2", result.stdout)
+        self.assertNotIn("claimed by me", result.stdout)
 
     def test_directory_target_is_claimed_by_a_claim_beneath_it(self) -> None:
         self.write_rows({"run_id": "r", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
