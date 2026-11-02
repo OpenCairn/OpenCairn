@@ -311,6 +311,17 @@ def get_session_slug(jsonl_path):
     return jsonl_path.stem[:8]
 
 
+def utc_hhmm(ts):
+    """HH:MM in UTC for a session header; "unknown" when ts does not parse."""
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return "unknown"
+    if dt.tzinfo is None:  # harness timestamps are UTC
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%H:%M")
+
+
 def format_session(messages, slug, session_start):
     """Format a parsed session into markdown."""
     if not messages:
@@ -566,11 +577,7 @@ def main():
 
         # Get session start time
         first_ts = messages[0][2] if messages else ""
-        try:
-            dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-            start_time = dt.strftime("%H:%M")
-        except (ValueError, AttributeError):
-            start_time = "unknown"
+        start_time = utc_hhmm(first_ts)
 
         formatted = format_session(messages, slug, start_time)
         if formatted:
@@ -605,11 +612,7 @@ def main():
         # apart (a parent and its spawned sub-agent) share the first 8 chars.
         slug = f"codex-{jsonl_path.stem[-36:][:13]}"
         first_ts = messages[0][2]
-        try:
-            dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-            start_time = dt.strftime("%H:%M")
-        except (ValueError, AttributeError):
-            start_time = "unknown"
+        start_time = utc_hhmm(first_ts)
 
         formatted = format_session(messages, slug, start_time)
         if formatted:
