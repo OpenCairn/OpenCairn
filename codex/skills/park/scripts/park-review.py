@@ -3076,8 +3076,8 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
     dedup: dict[str, dict] = {item["path"]: item for item in files}
     files = list(dedup.values())
     if not files and not args.from_brief:
-        print("No full-read files; no audit receipt written")
-        return 0
+        # Exit zero must always name a saved receipt.
+        die("no audited files; use --file or a current --from-brief review")
     validate_report_attestations(report, files)
     state_root = receipt_root.parent
     reusable: list[dict] = []
@@ -3320,7 +3320,7 @@ def build_parser() -> argparse.ArgumentParser:
     build.set_defaults(func=cmd_build)
 
     audit = subparsers.add_parser(
-        "record-audit", help="cache a clean full-read audit against exact hashes"
+        "record-audit", help="record a clean review and cache eligible full-file audits"
     )
     audit.add_argument("--reviewer", required=True)
     audit.add_argument("--vault")

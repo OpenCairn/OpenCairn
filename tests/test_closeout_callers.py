@@ -148,6 +148,54 @@ class CloseoutCallerTests(unittest.TestCase):
         self.assertNotIn('unclassified', result.stderr.lower())
         self.assertIn('failing exit status', result.stderr)
 
+    def test_log_only_review_records_completion_without_full_file_cache(self):
+        self.helper('begin-run')
+        log, report = self.make_record('codex', True, '2001-02-02')
+        # The session entry is embedded in the brief; it need not list itself.
+        rel = re.escape(str(report.relative_to(self.vault)))
+        log.write_text(re.sub(rf'^- `?{rel}`? - .*$', 'None', log.read_text(), flags=re.M))
+        self.helper('run-verifier', '--', SCRIPTS / 'park-verify.sh', self.vault, log, '1')
+        self.capture_propagation('log-only')
+        built = self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1')
+        brief = Path(re.search(r'^Reviewer brief: (.+)$', built.stdout, re.M).group(1))
+        manifest = json.loads((brief.parent / 'review-brief-manifest.json').read_text())
+        self.assertEqual(manifest['full_read'], [])
+        digest = hashlib.sha256(brief.read_bytes()).hexdigest()
+        review = f'COMPLETE {digest}\nTerminal state: clean\n'
+        accepted = self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                               '--from-brief', body=review)
+        receipt_path = Path(re.search(r'^Audit receipt: (.+?) \(', accepted.stdout, re.M).group(1))
+        receipt = json.loads(receipt_path.read_text())
+        self.assertEqual(receipt['status'], 'clean')
+        self.assertTrue(receipt['completion'])
+        self.assertEqual(receipt['run_generation'], manifest['run_generation'])
+        self.assertEqual(receipt['files'], [])
+        self.assertEqual(receipt['reviewed_files'], [])
+        self.assertEqual(receipt['brief_sha256'], digest)
+
+        for bad_review in ('Terminal state: clean\n',
+                           'COMPLETE ' + '0' * 64 + '\nTerminal state: clean\n'):
+            self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                        '--from-brief', body=bad_review, expected=1)
+        reviewed_log = log.read_text()
+        log.write_text(reviewed_log + '\n## Session 2 - Unrelated session (10:00am)\n\nOther work.\n')
+        self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                    '--from-brief', body=review)
+        log.write_text(log.read_text().replace('Fixture close-out recorded.', 'Changed conclusion.'))
+        self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                    '--from-brief', body=review, expected=1)
+        log.write_text(reviewed_log)
+        brief.write_text(brief.read_text() + '\nChanged after review.\n')
+        self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                    '--from-brief', body=review, expected=1)
+
+    def test_empty_file_audit_without_brief_is_an_error(self):
+        self.helper('begin-run')
+        result = self.helper('record-audit', '--reviewer', 'fixture-simulated',
+                             body='Terminal state: clean\n', expected=1)
+        self.assertNotIn('Audit receipt:', result.stdout)
+        self.assertFalse(list(self.config.glob('.session-state/.park-audit-receipts/*.json')))
+
     def test_new_date_generation_does_not_reuse_prior_propagation(self):
         self.helper('begin-run')
         log, report = self.make_record('codex', True, '2001-03-01')
