@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Live-run registry: which unattended run owns which repo, queue or log.
+"""Advisory live-run registry: which unattended runs claim which repo, queue or log.
 
 Concurrent sessions and unattended runs share files (a work queue, a session
 log, a repo). A skill with disposition authority over such a file checks the
 registry first and skips its write when another live run claims the file.
+register does not refuse a claim that overlaps another live run's, so a claim
+records intent; it does not grant exclusive ownership.
 
 Registry: JSON Lines at $OPENCAIRN_RUN_REGISTRY, default
 ~/.local/state/runs/registry.jsonl. One object per line:
