@@ -134,6 +134,16 @@ class RunClaimsTests(unittest.TestCase):
             "--ends-at", "tomorrow", "--claim", str(self.queue))
         self.assertEqual(bad.returncode, 2)
 
+    def test_register_rejects_empty_claim(self) -> None:
+        for claims in (("",), (str(self.queue), "")):
+            with self.subTest(claims=claims):
+                args = [a for c in claims for a in ("--claim", c)]
+                result = self.run_claims("register", "--run-id", "r1", "--owner", "s1",
+                    "--ends-at", "2099-01-01T00:00:00+10:00", *args)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("empty", result.stderr)
+                self.assertFalse(self.registry.exists())
+
     def test_check_works_without_fcntl_and_writes_fail_closed(self) -> None:
         self.write_rows({"run_id": "r", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
         before = self.registry.read_text(encoding="utf-8")

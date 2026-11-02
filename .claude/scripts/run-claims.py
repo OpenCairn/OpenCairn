@@ -146,6 +146,8 @@ def stamp() -> str:
 
 def cmd_register(args) -> int:
     parse_time(args.ends_at, "--ends-at")
+    if any(not c.strip() for c in args.claim):
+        raise ValueError("--claim: empty path (it would claim the current directory)")
     append({
         "run_id": args.run_id,
         "owner": args.owner,
