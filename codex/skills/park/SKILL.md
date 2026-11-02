@@ -178,7 +178,7 @@ The script handles locking, file/header creation, and atomic numbering — paral
 
 **Continuation link** (only if continuing previous work): run `"{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<original session's log file>" <orig-N> <new-N> "<topic>" "<today's YYYY-MM-DD>.md"`. The first file is the **original** log gaining `Continued in:`, never today's file; explicitly pass today's target-date filename on cross-day continuations, including archived originals. Links remain file-level (§13). A failure is reported as a warning, not silently treated as inserted.
 
-Use `"{VAULT}/.claude/scripts/update-session-section.sh" "<log>" --rename-heading N "<complete ## Session N - ... heading>"` for a needed heading correction; read and retain its existing time suffix and avoid unstable counts in topics. Every non-scratch deletion description quotes its authorising user words or says it was the session's decision; a summary request alone does not authorise deletion. A user decision left open belongs in Next Steps and its task home, not only `Check:`.
+Use `"{VAULT}/.claude/scripts/update-session-section.sh" "<log>" --rename-heading N "<complete ## Session N - ... heading>"` for a needed heading correction; read and retain its existing time suffix and avoid unstable counts in topics. Every non-scratch deletion description quotes its authorising user words or says it was the session's decision; a summary request alone does not authorise deletion. A user decision left open belongs in Next Steps and its task home, not only `Check:`. For each in-session recommendation the user acted on, confirm the chosen option from the user's words or a tool result; an unconfirmed choice that gates a consequence (a follow-up, coding, filing or booking that depends on which option was taken) becomes a conditional open loop plus a `Missing:` line, never `None — work completed`.
 
 ### 4. At-risk work product
 
@@ -279,7 +279,7 @@ Route every open loop to exactly one canonical target — no per-item prompting.
 
 A deduplicated item must carry the surviving action and trigger itself, not just a session link; an undated item can cover an undated trigger when it preserves the exact action/condition. Do not invent a date to force deduplication. Name the map row checked (or `absent from table`) before using its fallback.
 
-Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. A zero-routing claim cites an observable (the dedup grep hit, or the session log's "None — work completed").
+Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. A zero-routing claim cites an observable (the dedup grep hit, or the session log's "None — work completed") and holds only when Step 3's acted-on-recommendation check left no conditional loop.
 
 ### 8. Backfill + mechanical verification
 
