@@ -31,6 +31,15 @@ The two trees are deliberately asymmetric: `.claude/` is a **live load path** â€
 2. **Run** `/sync-template` to copy changes to `~/.claude/commands/` and `~/.codex/skills/` for testing; review generic `codex/AGENTS.md` changes manually
 3. `/sync-template` handles the personal info check, commit, and push
 
+### Check a behaviour change on behaviour
+
+`tests/` covers scripts, not what an agent does with a skill. Before acknowledging a prose change meant to alter behaviour (a new rule, step or gate):
+
+1. Pick one real task the change should affect and one it should not. Write each prompt as a user would, without mentioning the change or a test, and use ordinary directory names: agents that can tell they are being tested behave differently.
+2. Run the old and the new skill on the same prompts in fresh sessions against fixture or scratch state, never inheriting the live session's id (`tests/session_isolation.py` shows which variables to clear).
+3. Judge from the transcript and the files written, not the agent's summary: which files it opened, which commands it ran, where it stopped. When the result is a judgement call, have a reviewer from a different model family compare the outputs without knowing which is new.
+4. Record the prompts, both transcript paths and the observation that differed. If old and new behave the same, the change has no observed effect yet; say so in the commit message instead of claiming one.
+
 ### Personal-Only Commands
 
 Some commands are personal and not part of the template (e.g. `ralph.md`, `sync-template.md`). These live only in `~/.claude/commands/` and `/sync-template` skips them.
