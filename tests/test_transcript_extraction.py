@@ -138,6 +138,28 @@ class TranscriptExtractionTests(unittest.TestCase):
                     body.write_text(text, encoding='utf-8')
                     self.assertIn('SPLIT FAILED', self.split(rules, body))
 
+    def test_label_first_chapter_list_is_not_a_speaker_turn(self):
+        chapters = 'Show notes: Jane Doe on tides.\n\nIntro (0:00)\n\n**Tides (5:12)**\n\nThe moon [(10:30)](#moon)\n\n'
+        cases = {
+            'no transcript follows': (chapters + 'Thanks for listening.\n', None),
+            'labelled turns follow': (chapters + 'Jane Doe (0:00) Tides follow the moon.\n\nHost (0:15) Mostly?\n', 9),
+        }
+        for rules in RULES:
+            for name, (text, bound) in cases.items():
+                with self.subTest(rules=rules, case=name):
+                    body = self.root / 'body.md'
+                    body.write_text(text, encoding='utf-8')
+                    out = self.split(rules, body)
+                    if bound is None:
+                        self.assertIn('SPLIT FAILED', out)
+                    else:
+                        self.assertIn(f'boundary line: {bound}\n', out)
+
+    def test_labels_check_requires_bound(self):
+        for rules in RULES:
+            with self.subTest(rules=rules):
+                self.assertIn('"${BOUND:?', recipe(rules, 'rg -o "${TURN:?'))
+
     def test_ghost_page_output_and_boundary_unchanged(self):
         page = self.root / 'ghost.html'
         page.write_text(GHOST, encoding='utf-8')
