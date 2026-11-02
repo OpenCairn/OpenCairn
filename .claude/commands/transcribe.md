@@ -283,7 +283,7 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
    - **exit=2** → a chunk failed a check and nothing was written. Read only that chunk's entry in `clean-report.json` and rerun once; if it fails again, keep `$STAGE/body.md` with `Cleanup: no (checks failed: <check>)`.
    - **Any other exit** (1 the model call failed, 3 the `claude` CLI is not on PATH, or the script could not start) → clean in-session instead: read `$STAGE/body.md`, apply the rules above in a single pass (above ~50KB of text, work in ~20KB chunks with 2-paragraph overlap at boundaries), and write the result to `$STAGE/clean.md` through a shell heredoc with an improbable quoted delimiter, never the editor tool; header `Cleanup: yes`.
 
-   A caller that needs the text in context (`/podcast-digest`) reads `$STAGE/clean.md` once this step is done.
+   A caller that needs the text in context (`/podcast-digest`) reads this step's body once it is done: `$STAGE/clean.md` when cleanup succeeded (exit 0, or the in-session fallback), otherwise `$STAGE/body.md` (`--raw`, or checks failed on the rerun). That caller also removes `$STAGE` when finished with it.
 
 4. **Deliver** the formatted transcript as requested. For a long transcript requested as a file, save it and link the file rather than duplicating the full body in chat.
 
