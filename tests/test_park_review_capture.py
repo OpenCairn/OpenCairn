@@ -188,14 +188,39 @@ class TargetedCompletionTests(unittest.TestCase):
 
     def test_targeted_log_refuses_edits_to_the_assigned_entry_or_preamble(self):
         original = self.assigned_beside_other_entry("Session 1 Summary and Files rows")
-        for old, new in ((b"Retained a source.", b"Retained a different source."),
-                         (b"### Pickup Context", b"### Pickup Context\nUnreviewed addendum."),
-                         (b"# Day log", b"# Day log, edited")):
-            with self.subTest(edit=new):
+        # Text edits to the assigned entry trip the session-block hash first. A
+        # line-ending change inside it survives that text-level hash, so only the
+        # byte comparison of the assigned entry can refuse it; the preamble is
+        # outside the block, so it also reaches the entry-level comparison.
+        session_block = "session block changed after review"
+        entry_level = "completion file changed after review"
+        assigned = original.split(b"\n## Session 2", 1)[0].split(b"# Day log\n\n", 1)[1]
+        for old, new, message in (
+                (b"Retained a source.", b"Retained a different source.", session_block),
+                (b"### Pickup Context", b"### Pickup Context\nUnreviewed addendum.", session_block),
+                (assigned, assigned.replace(b"\n", b"\r\n"), entry_level),
+                (b"# Day log", b"# Day log, edited", entry_level)):
+            with self.subTest(edit=new[:40], message=message):
                 self.log.write_bytes(original.replace(old, new, 1).replace(b"OTHER wording", b"OTHER revised"))
                 rejected = self.record()
                 self.assertNotEqual(rejected.returncode, 0)
-                self.assertIn("changed after review", rejected.stderr)
+                self.assertIn(message, rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
+    def test_targeted_log_without_inspection_targets_fails_closed(self):
+        self.log.write_bytes(b"# Day log\n\n" + self.log.read_bytes() +
+            b"\n## Session 2 - Other writer\n\n### Summary\nOTHER wording.\n")
+        classified = self.run_review("classify", "--vault", str(self.vault), "--path", str(self.log),
+                                     "--reference", "--reason", "fixture log")
+        self.assertEqual(classified.returncode, 0, classified.stderr)
+        self.build()
+        manifest = json.loads((self.root / "review-brief-manifest.json").read_text())
+        entry = next(item for item in manifest["targeted_review"] if item["path"] == str(self.log))
+        self.assertEqual(entry["inspection_targets"], [])
+        self.log.write_bytes(self.log.read_bytes().replace(b"OTHER wording.", b"OTHER revised."))
+        rejected = self.record()
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("completion file changed after review", rejected.stderr)
         self.assertEqual(self.receipts(), [])
 
     def test_targeted_log_other_entry_edit_needs_targets_scoped_to_the_assigned_entry(self):
