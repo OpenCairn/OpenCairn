@@ -75,6 +75,18 @@ class RunClaimsTests(unittest.TestCase):
         self.write_rows({"run_id": "me", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
         self.assertEqual(self.check("--self", "me").returncode, 0)
 
+    def test_directory_target_is_claimed_by_a_claim_beneath_it(self) -> None:
+        self.write_rows({"run_id": "r", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
+        for target in (self.queue.parent, self.root / "vault"):
+            with self.subTest(target=target):
+                result = self.run_claims("check", "--now", NOW, str(target))
+                self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+                self.assertIn("claimed by r", result.stdout)
+        # A sibling directory that only shares a name prefix stays free.
+        sibling = self.root / "vault/03 Proj"
+        sibling.mkdir()
+        self.assertEqual(self.run_claims("check", "--now", NOW, str(sibling)).returncode, 0)
+
     def test_claim_without_end_time_stays_live(self) -> None:
         self.write_rows({"run_id": "r", "claims": [str(self.queue)]})
         result = self.check()

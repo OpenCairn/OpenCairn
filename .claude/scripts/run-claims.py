@@ -14,7 +14,8 @@ Registry: JSON Lines at $OPENCAIRN_RUN_REGISTRY, default
 The latest line for a run_id wins. A claim is live until it is released or
 its ends_at passes; a row without ends_at stays live (an unbounded claim is
 the run's defect to fix, not the reader's to assume away). A claim on a
-directory covers everything beneath it.
+directory covers everything beneath it, and a directory is claimed when
+anything beneath it is.
 
 Usage:
     run-claims.py check [--self RUN_ID] PATH...
@@ -88,8 +89,13 @@ def load(path: Path) -> dict[str, dict]:
     return runs
 
 
+def beneath(path: str, parent: str) -> bool:
+    return path.startswith(parent.rstrip(os.sep) + os.sep)
+
+
 def covers(claim: str, target: str) -> bool:
-    return target == claim or target.startswith(claim.rstrip(os.sep) + os.sep)
+    """Same path, target inside a claimed directory, or a claim inside the target directory."""
+    return target == claim or beneath(target, claim) or beneath(claim, target)
 
 
 def cmd_check(args) -> int:
