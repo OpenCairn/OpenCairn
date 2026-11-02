@@ -675,8 +675,8 @@ cat > "$STAGE/body.md" <<'TRANSCRIPT_BODY_EOF'
 {formatted transcript text}
 TRANSCRIPT_BODY_EOF
 { cat "$STAGE/header.md"; printf '\n'; cat "$STAGE/body.md"; } > "$STAGE/note.md"
-"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<note>.md" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
-cmp "$STAGE/note.md" "<note>.md"; echo "cmp=$?"
+"${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<absolute note path>" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
+cmp "$STAGE/note.md" "<absolute note path>"; echo "cmp=$?"
 ```
 
 Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves an output directory outside the vault (`--replace-whole` does not require the target to lie inside the vault; only `--move` does).
