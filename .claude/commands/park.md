@@ -109,6 +109,8 @@ Quick parked.
 
 **Authored-check gate:** apply the shared protocol's semantic conformance checks and §19 to how-tos, any runnable command written into a living doc (restore, re-enable and undo lines included), routed setup/integration actions, Next Steps and Pickup Context, including linked pre-existing procedures. Name the subject/component measured (pinning any scope the tool would otherwise auto-detect), exact command/inspection, pass, fail and where applicable `not yet`; show how observations differ under the competing hypotheses in the current state. For liveness, name the field that advances (not merely a recent timestamp); for logs, bind the interval and replay a real pass output. A README pointer or a success label alone is not a check. Retain positive/negative controls; unresolved criteria remain explicit rather than invented, and a deferred check ("pending", "to be confirmed") gets its command and pass/fail observation or becomes a stated limitation.
 
+Enumerate the checks mechanically, never from memory: run ``rg --no-config -n -i -e '^\s*(`{3,}|~{3,})' -e '\b(confirm|check|verify|test)' -- "<doc>"`` on every created or updated doc and keep the hits inside session-authored spans (one fenced block counts once). Disposition every hit, and each check drafted for Next Steps or Pickup Context, as one printed line before the gated text is saved (before Step 3 for the docs inventoried here): `check: <subject> | cmd: <command/inspection> | pass: <observation> | fail: <observation> | not-yet: <observation or n/a> | control: <same-run positive control>`, or `not a check: <locator>`. The control field is required: it names what the same run shows about the instrument seeing its subject (the item held, mounted, present or reachable when the check expects refusal or absence). A check whose pass observation would also appear under the competing hypothesis, or that has no control, is saved as a stated limitation, not a check. Print `Authored checks: C enumerated; P discriminating with control; L limitations`.
+
 (c) Retain raw command evidence per that section.
 
 (d) **Hot-capture nudge:** emitted once by the shared protocol's **Quality inspection** at Step 4c; do not emit it here.
@@ -119,7 +121,7 @@ Display declared classifications/coverage here; the quality verdict follows the 
 
 ### 3. Write the session log
 
-Apply Step 2(b)’s authored-check gate to Next Steps and Pickup Context, including merge-continuation edits.
+Apply Step 2(b)’s authored-check gate to Next Steps and Pickup Context, including merge-continuation edits. Do not write the log until the gate has printed a line for every enumerated item and its `Authored checks:` total.
 
 **Metadata:** topic (descriptive weeks later — "Wezterm config fix", not "Terminal stuff"); project link per §2 (shipped one-shot work → area hub) and §3. Display: `Session: [Topic] | Project: [[03 Projects/Name]] (or "None")`.
 
