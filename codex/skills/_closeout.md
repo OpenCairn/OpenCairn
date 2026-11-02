@@ -209,6 +209,10 @@ for line in block.splitlines():
         if not match: raise SystemExit("ERROR: malformed backticked Files row")
         path, annotation = match.group(1), match.group(2)
     else:
+        # An empty-list placeholder is not a path: the verifier skips `None` and `None - ...`
+        # (any case); the backfill writer also treats `None.` and `None (...)` as placeholders.
+        if re.fullmatch(r"none(?:\.|\s*\(.*\))?", row.split(" - ", 1)[0].strip(), re.I):
+            continue
         path = re.split(r"\s+\((?:deleted|remote)\)(?:\s+-|$)| - ", row, maxsplit=1)[0]
         annotation = "remote" if " (remote)" in row else "deleted" if " (deleted)" in row else None
         # Canonical rows use backticks; do not guess a legacy separator-containing path.
