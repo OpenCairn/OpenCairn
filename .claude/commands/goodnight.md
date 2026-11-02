@@ -171,7 +171,7 @@ Ask:
 
 ### 7b. Stranded Claude-internal work product (day-scope net)
 
-`/park` Step 4 catches these per session; this step is the last net of the day, for sessions that ended without a park. Run `find ~/.claude/plans -type f -mtime -1` and Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home; leave spent execution plans. If no parked session/action evidence attributes a plan, mark it `unattributed` and ask in the deferred debrief whether it was executed; do not assume either spent or still needed.
+`/park` Step 4 catches these per session; this step is the last net of the day, for sessions that ended without a park. Run `find ~/.claude/plans -type f -mtime -1` and Read each hit that hasn't already been migrated — a sub-agent's output (`*-agent-*.md`) is a separate document from its parent plan and gets its own verdict, per that step. Migrate standalone reference material to its semantic vault home; leave spent execution plans. If no parked session/action evidence attributes a plan, mark it `unattributed` and ask whether it was executed: in interactive mode ask now; in catch-up mode ask in the deferred debrief. Do not assume either spent or still needed.
 
 Output: `✓ No stranded work product` or `🔧 Migrated N item(s): [paths]`.
 
