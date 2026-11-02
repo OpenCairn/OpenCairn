@@ -15,7 +15,7 @@ Two principles drive this skill:
 ## Phase 0 — Preflight
 
 1. Run the `_shared-rules-content.md` §15 prereq check (`curl`, `pandoc`, `python3` + `bs4`/`lxml`) before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe. If anything is missing, tell the user and stop (or use the §15 transcription fallback — transcribe the audio/video — after confirming with the user).
-2. **Establish the formatting-hook state** (§14): is a `PostToolUse` hook configured on `.md` writes, what does its matcher cover, and does it read a path-exclude list? Reuse the result recorded in the vault's reference doc; if none is recorded, run §14's control write instead of inferring it from hook scripts, and record the result there. Three outcomes drive the later phases:
+2. **Establish the formatting-hook state** (§14): is a `PostToolUse` hook configured on `.md` writes, what does its matcher cover, and does it read a path-exclude list? Reuse the result recorded in the vault's formatting-hook reference doc (the note documenting the hook; find it by searching the vault for the hook script's name); if none is recorded, or the hook configuration changed since the recorded result, run §14's control write instead of inferring it from hook scripts, and record the result there. Three outcomes drive the later phases:
    - **No hook** → verbatim is safe by any write method; the no-edit invariant below doesn't apply.
    - **Hook matching `Write`/`Edit` only** → the locked shell write holds; treat the note as no-edit after saving unless the destination folder is on the exclude list.
    - **Hook that also matches `Bash`/shell writes** → the shell write corrupts silently with no error. Path-exclude the destination folder (§14 defence 2) before writing anything, or stop.
@@ -41,16 +41,17 @@ Use the **`_shared-rules-content.md` §15 published-transcript extractor** (the 
 
 Per `_shared-rules-content.md` §14:
 
-1. **Choose the destination first (no hardwired path)** — the dedupe grep needs a real operand. Propose a transcript folder: detect an existing transcript/podcast folder in the vault (never create or assume one); if there's no obvious folder, **ask** rather than guessing. Bind the operands once here and reuse them verbatim through Phase 4:
+1. **Choose the destination first (no hardwired path)** — the convention probes and the write need a real operand. Propose a transcript folder: detect an existing transcript/podcast folder in the vault (never create or assume one); if there's no obvious folder, **ask** rather than guessing. Bind the operands once here and reuse them verbatim through Phase 4:
    - `<TRANSCRIPT_FOLDER>` — the chosen folder (user-overridable).
    - `<DESTINATION_NOTE>` — `<TRANSCRIPT_FOLDER>/<filename>.md`, filename per step 3.
    - `<BODY_FILE>` — §15's printed `BODY=` path, as recorded in Phase 2.
    - `<HEADER_FILE>`, `<STAGED_NOTE>` — scratch paths outside the vault, distinct per episode/run.
 
-2. **Dedupe**, keyed on the canonical source URL (catches retitled/renamed notes that a filename check misses), then title/date:
+2. **Dedupe**, keyed on the canonical source URL across the vault's Markdown notes (catches retitled, renamed or misfiled notes that a filename check misses), then title/date:
    ```bash
-   rg -l --hidden --no-ignore --fixed-strings "<canonical_url>" "<TRANSCRIPT_FOLDER>" || echo "no existing note"
+   rg -l --hidden --no-ignore --fixed-strings -g '*.md' -g '!**/.git/**' -- "<canonical_url>" "${VAULT_PATH:?VAULT_PATH not set}"; echo "exit=$?"
    ```
+   Exit 1 is no match; any other non-zero is a failed search, not "no existing note". A URL mention in a hub is not an archived transcript — check a candidate's bounded header before treating it as one.
    If it exists, report it and ask whether to update or skip — don't write a duplicate. **Update means rebuild, not edit:** stage header + body again per step 5 and replace the note with step 5's authorised-replacement call (the existing file's `sha256sum` in place of `MISSING`). Never `Edit` a note that already carries a body, never `--append` to it, never `mv` over it.
 
 3. **Match existing conventions.** Probe the folder from the **shell, not `Read`** — a finished transcript note is 10–20k words, and reading one defeats Principle 1:
