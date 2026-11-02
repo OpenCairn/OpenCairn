@@ -44,7 +44,7 @@ class WeeklyReviewUsageAnalysisTests(unittest.TestCase):
                 block = match.group(1)
                 self.assertIn("**Usage analysis** ([[<note basename>]])", block)
                 self.assertIn('"<title>"', block)
-                self.assertIn("up to three", block)
+                self.assertIn("up to three in note order", block)
                 self.assertIn("otherwise omit this line", block)
 
     @unittest.skipIf(shutil.which("rg") is None, "rg not installed")
@@ -63,6 +63,7 @@ class WeeklyReviewUsageAnalysisTests(unittest.TestCase):
             self.assertIn("rg=0", out)
             self.assertTrue(out.strip().endswith("b/Usage analysis - 2026-W45.md"), out)
             self.assertIn("rg=1", run("Nothing here*.md"))
+        self.assertIn('rm -r -- "$D"', cmd)
 
     @unittest.skipIf(shutil.which("rg") is None, "rg not installed")
     def test_template_key_is_off_by_default(self) -> None:
