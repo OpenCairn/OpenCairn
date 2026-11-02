@@ -90,7 +90,8 @@ Read and present:
   ids=$(for r in ${OPENCAIRN_RUN_DIRS:-$HOME/.claude/runs $HOME/.codex/runs $HOME/.local/state/opencairn-runs}; do for d in "$r"/*/; do [ -d "$d" ] && basename "$d"; done; done | LC_ALL=C sort -u)
   if [ -z "$ids" ]; then echo "Run records: no run directories found"
   else
-    found=$(printf '%s\n' "$ids" | timeout 60 rg --no-config -o -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?
+    bounded() { if command -v timeout >/dev/null 2>&1; then timeout 60 "$@"; else "$@"; fi; }   # stock macOS has no GNU timeout
+    found=$(printf '%s\n' "$ids" | bounded rg --no-config -o -w -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?
     if [ "$rc" -gt 1 ]; then echo "Run records: not checked (rg exit $rc)"
     else printf '%s\n' "$ids" | while read -r id; do printf '%s\n' "$found" | grep -qxF -- "$id" || echo "UNRECORDED $id"; done; fi
   fi
