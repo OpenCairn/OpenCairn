@@ -33,6 +33,8 @@ Flags (parsed from arguments):
 - `--no-timestamps` — omit timestamps from output
 - `--no-published` — skip the published-transcript check (Phase 0); use the selected local engine
 
+Honour output, speaker names and save/discuss choices already supplied by the user. Ask only for missing decisions; optional speaker renaming need not block an explicitly requested save with generic labels.
+
 ## Workflow
 
 ### Phase 0: Check for a published transcript
@@ -49,8 +51,9 @@ A published transcript (podcast show site, Substack, official transcript page) i
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
    2. **Run local transcription** — the selected engine with timestamps and optional diarisation; follow engine selection below.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). **First confirm where to save** — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` in place of `$STAGE/body.md` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<note>.md" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** use step 7's `{formatted transcript text}` heredoc — that is for the in-context WhisperX output; here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` in place of `$STAGE/body.md` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<note>.md" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** use step 7's `{formatted transcript text}` heredoc — that is for the in-context WhisperX output; here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
+   - **Date acquired:** use this run's acquisition date instead of **Date transcribed**.
    - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is saved verbatim (`_shared-rules-content.md` §14); never clean it.
    - **Names and speaker labels** in the header, filename or report follow §15 "Names and speakers" — already in context from step 4.
    - Drop the **Diarisation** and **Cleanup** lines (or mark `n/a`); keep **Duration** only if known.
@@ -267,7 +270,7 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
 
    Process the full transcript in a single pass. If the transcript exceeds ~50KB of text, split into ~20KB chunks with 2-paragraph overlap to preserve context at boundaries.
 
-4. **Display** the formatted transcript to the user.
+4. **Deliver** the formatted transcript as requested. For a long transcript requested as a file, save it and link the file rather than duplicating the full body in chat.
 
 5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames before saving.
 
@@ -276,7 +279,7 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
    2. Discuss the transcript — e.g. summarise it, extract key points, ask questions about the content, pull out action items.
    3. Both — save first, then discuss.
 
-   Wait for the user's response before proceeding.
+   If the request already specifies save/discuss and destination, proceed with that choice. Otherwise wait for the missing decision.
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
@@ -317,6 +320,8 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
    - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
    - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
    - **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
+
+   The header's transcription date comes from `date +%F` for this run; a published transcript's acquisition date is not its original transcription date.
 
    (Keep improbable heredoc delimiters — a line consisting of exactly the delimiter inside the transcript would terminate the heredoc early. Don't stage the header or body with the editor tool: that fires the same formatting hook the atomic save exists to dodge.)
 
