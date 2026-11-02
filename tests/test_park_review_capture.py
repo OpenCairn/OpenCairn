@@ -169,6 +169,47 @@ class TargetedCompletionTests(unittest.TestCase):
         self.assertIn("changed after review", rejected.stderr)
         self.assertEqual(self.receipts(), [])
 
+    def assigned_beside_other_entry(self, *targets: str) -> bytes:
+        self.log.write_bytes(b"# Day log\n\n" + self.log.read_bytes() +
+            b"\n## Session 2 - Other writer\n\n### Summary\nOTHER wording.\n")
+        classified = self.run_review("classify", "--vault", str(self.vault), "--path", str(self.log),
+            "--semantic", "--targeted", *[arg for target in targets for arg in ("--inspection-target", target)])
+        self.assertEqual(classified.returncode, 0, classified.stderr)
+        self.build()
+        return self.log.read_bytes()
+
+    def test_targeted_log_tolerates_edits_inside_another_existing_entry(self):
+        original = self.assigned_beside_other_entry("Session 1 Summary and Files rows")
+        self.log.write_bytes(original.replace(b"OTHER wording.", b"OTHER wording, revised by its own writer.") +
+            b"\n## Session 3 - Later writer\n\n### Summary\nAppended.\n")
+        accepted = self.record()
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(self.receipts()[0]["kind"], "completion")
+
+    def test_targeted_log_refuses_edits_to_the_assigned_entry_or_preamble(self):
+        original = self.assigned_beside_other_entry("Session 1 Summary and Files rows")
+        for old, new in ((b"Retained a source.", b"Retained a different source."),
+                         (b"### Pickup Context", b"### Pickup Context\nUnreviewed addendum."),
+                         (b"# Day log", b"# Day log, edited")):
+            with self.subTest(edit=new):
+                self.log.write_bytes(original.replace(old, new, 1).replace(b"OTHER wording", b"OTHER revised"))
+                rejected = self.record()
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn("changed after review", rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
+    def test_targeted_log_other_entry_edit_needs_targets_scoped_to_the_assigned_entry(self):
+        base = self.log.read_bytes()
+        for targets in (("session delta",), ("Session 1 Summary", "Session 2 Summary: OTHER wording")):
+            with self.subTest(targets=targets):
+                self.log.write_bytes(base)
+                original = self.assigned_beside_other_entry(*targets)
+                self.log.write_bytes(original.replace(b"OTHER wording.", b"OTHER revised."))
+                rejected = self.record()
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn("changed after review", rejected.stderr)
+        self.assertEqual(self.receipts(), [])
+
     def test_targeted_snapshot_and_brief_tampering_are_rejected(self):
         manifest = json.loads((self.root / "review-brief-manifest.json").read_text())
         snapshot = Path(manifest["targeted_review"][0]["source_snapshot"])

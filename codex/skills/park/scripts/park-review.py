@@ -3035,13 +3035,17 @@ def validate_completion_manifest(manifest: dict, root: Path, report: str) -> lis
                         die(f"review copy missing or corrupt: {review}")
             # The declared targets may include a DIFFERENT pre-existing Session N.
             # An unchanged subject block alone cannot prove those targets survived.
-            # Tolerate only a byte-preserving append of fresh session records.
+            # Tolerate a byte-preserving append of fresh session records, or edits
+            # confined to other entries when every target is scoped to this one.
             scoped_log = (str(path) == manifest.get("session_log")
                           and "session_block_sha256" in manifest)
             current = sha256(path)
             appended_session = (scoped_log and key == "targeted_review"
                                 and current != item["sha256"]
-                                and snapshot_preserved_with_new_sessions(snapshot, path))
+                                and (snapshot_preserved_with_new_sessions(snapshot, path)
+                                     or other_session_entries_changed_only(
+                                         snapshot, path, manifest.get("session_number"),
+                                         item.get("inspection_targets"))))
             if current != item["sha256"] and not appended_session:
                 die(f"completion file changed after review: {path}")
             completion_files.append({"path": str(path), "sha256": item["sha256"],
@@ -3077,6 +3081,64 @@ def snapshot_preserved_with_new_sessions(snapshot: Path, live: Path) -> bool:
                 seen.add(number)
                 added_session = True
         return added_session
+
+
+def session_entries(data: bytes) -> tuple[bytes, list[tuple[bytes, bytes]]] | None:
+    """Split a log into its preamble and numbered `## Session` entries, byte-exact."""
+    heading = re.compile(rb"^## Session ([0-9]+)(?:[ \t\r\n]|$)")
+    preamble = b""
+    entries: list[tuple[bytes, bytes]] = []
+    for line in data.splitlines(keepends=True):
+        if line.startswith(b"## Session "):
+            match = heading.match(line)
+            if not match:
+                return None
+            number = match.group(1).lstrip(b"0") or b"0"
+            if any(number == seen for seen, _ in entries):
+                return None
+            entries.append((number, line))
+        elif entries:
+            entries[-1] = (entries[-1][0], entries[-1][1] + line)
+        else:
+            preamble += line
+    return preamble, entries
+
+
+def other_session_entries_changed_only(
+    snapshot: Path, live: Path, number: object, targets: object
+) -> bool:
+    """Accept changes confined to other existing entries or appended new ones.
+
+    The assigned entry and the preamble must be byte-identical, existing entries
+    keep their numbers and order, and every inspection target must name the
+    assigned session and no changed entry, so no reviewed passage can move."""
+    if not isinstance(number, int) or isinstance(number, bool) or not isinstance(targets, list):
+        return False
+    prior, current = session_entries(snapshot.read_bytes()), session_entries(live.read_bytes())
+    if prior is None or current is None or prior[0] != current[0]:
+        return False
+    prior_entries, current_entries = prior[1], current[1]
+    if [n for n, _ in current_entries[:len(prior_entries)]] != [n for n, _ in prior_entries]:
+        return False
+    assigned = str(number).encode()
+    changed: set[int] = set()
+    found = False
+    for (entry_number, before), (_, after) in zip(prior_entries, current_entries):
+        if entry_number == assigned:
+            found = True
+            if before.rstrip(b"\r\n") != after.rstrip(b"\r\n"):
+                return False
+        elif before != after:
+            changed.add(int(entry_number))
+    if not found:
+        return False
+    names_assigned = re.compile(rf"\bsession\s*#?\s*0*{number}(?![0-9])", re.IGNORECASE)
+    for target in targets:
+        if not isinstance(target, str) or not names_assigned.search(target):
+            return False
+        if any(int(token) in changed for token in re.findall(r"[0-9]+", target)):
+            return False
+    return True
 
 
 def cmd_record_audit(args: argparse.Namespace) -> int:
