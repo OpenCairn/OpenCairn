@@ -2,8 +2,10 @@
 """Export Claude Code and Codex CLI session JSONL files to readable markdown transcripts.
 
 Extracts user messages and assistant text/tool-input content from JSONL session
-files. Skips tool results (file contents, grep output, web scrapes) which are
-bulk noise. Produces one markdown file per day in the vault archive.
+files, including user messages queued while a turn was running (Claude Code
+`queued_command` attachments, labelled "User, queued mid-turn"). Message times
+are UTC and say so; session header times are UTC too. Skips tool results
+(file contents, grep output, web scrapes) which are bulk noise. Produces one markdown file per day in the vault archive.
 
 Sources: ~/.claude/projects/**/*.jsonl (Claude Code) and, when present,
 ~/.codex/sessions/**/*.jsonl (Codex CLI rollouts). Codex sessions are slugged
@@ -27,7 +29,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import defaultdict
 
@@ -227,8 +229,27 @@ def parse_codex_session(jsonl_path):
     return messages
 
 
+def queued_user_prompt(data):
+    """Text of a human message queued mid-turn, or None.
+
+    Claude Code records a message typed while a turn is running as an
+    `attachment` of type `queued_command`, not as a `user` record. Only
+    human-origin prompts are user turns: task notifications, peer-session
+    messages and coordinator messages to subagents share the attachment type.
+    """
+    if data.get("type") != "attachment":
+        return None
+    att = data.get("attachment") or {}
+    if att.get("type") != "queued_command" or att.get("commandMode") != "prompt":
+        return None
+    if (att.get("origin") or {}).get("kind", "human") != "human":
+        return None
+    text = extract_text_from_content(att.get("prompt", ""))
+    return text.strip() or None
+
+
 def parse_session(jsonl_path):
-    """Parse a JSONL session file into a list of (role, text) tuples."""
+    """Parse a JSONL session file into a list of (role, text, timestamp) tuples."""
     messages = []
     try:
         with open(jsonl_path) as f:
@@ -242,6 +263,11 @@ def parse_session(jsonl_path):
                     continue
 
                 msg_type = data.get("type")
+                queued = queued_user_prompt(data)
+                if queued:
+                    ts = data.get("timestamp") or (data.get("attachment") or {}).get("timestamp", "")
+                    messages.append(("user_queued", queued, ts))
+                    continue
                 if msg_type not in ("user", "assistant"):
                     continue
 
@@ -296,11 +322,17 @@ def format_session(messages, slug, session_start):
         if ts:
             try:
                 dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                time_str = f" ({dt.strftime('%H:%M')})"
+                if dt.tzinfo is None:  # harness timestamps are UTC
+                    dt = dt.replace(tzinfo=timezone.utc)
+                time_str = f" ({dt.astimezone(timezone.utc).strftime('%H:%M')} UTC)"
             except (ValueError, AttributeError):
                 pass
 
-        label = {"user": "User", "codex": "Codex"}.get(role, "Claude")
+        label = {
+            "user": "User",
+            "user_queued": "User, queued mid-turn",
+            "codex": "Codex",
+        }.get(role, "Claude")
         lines.append(f"**{label}{time_str}:**\n{text}\n")
 
     return "\n".join(lines)
@@ -370,7 +402,7 @@ def read_exported_snapshot(md_path):
 def render_day_file(date_str, merged):
     """Render one canonical day file from a merged session mapping."""
     content = f"# Session Transcripts — {date_str}\n\n"
-    content += "Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files.\n\n---\n\n"
+    content += "Auto-exported from `~/.claude/projects/` and `~/.codex/sessions/` JSONL files. Times are UTC.\n\n---\n\n"
     for (slug, start_time), body in sorted(merged.items(), key=lambda kv: (kv[0][1], kv[0][0])):
         content += f"### {slug} ({start_time})\n{body}\n---\n\n"
     return content

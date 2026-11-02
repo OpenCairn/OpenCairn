@@ -369,5 +369,39 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
             self.assertFalse((vault / "07 System/Migration Record.md").exists())
 
 
+    def test_queued_human_prompt_is_a_user_turn_with_utc_time(self) -> None:
+        # A message typed mid-turn is a queued_command attachment, not a user
+        # record. Only human-origin prompts are user turns.
+        def queued(text, mode="prompt", kind="human"):
+            return {"type": "attachment", "timestamp": "2026-11-01T13:33:27.194Z",
+                "attachment": {"type": "queued_command", "prompt": text,
+                    "commandMode": mode, "origin": {"kind": kind}}}
+        records = [
+            {"type": "user", "timestamp": "2026-11-01T13:28:00Z",
+                "message": {"role": "user", "content": "start the audit"}},
+            queued("you can go to 8 am"),
+            queued([{"type": "text", "text": "list-form prompt"}]),
+            queued("<task-notification>done</task-notification>", "task-notification", "task-notification"),
+            queued("peer session note", kind="peer"),
+            {"type": "assistant", "timestamp": "2026-11-01T13:34:00Z",
+                "message": {"role": "assistant", "content": [{"type": "text", "text": "noted"}]}},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "s.jsonl"
+            path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+            messages = exporter.parse_session(path)
+        self.assertEqual(
+            [(role, text) for role, text, _ts in messages],
+            [("user", "start the audit"), ("user_queued", "you can go to 8 am"),
+             ("user_queued", "list-form prompt"), ("assistant", "noted")],
+        )
+        rendered = exporter.format_session(messages, "slug", "13:28")
+        self.assertIn("**User, queued mid-turn (13:33 UTC):**\nyou can go to 8 am\n", rendered)
+        self.assertIn("**User (13:28 UTC):**\nstart the audit\n", rendered)
+        self.assertNotIn("peer session note", rendered)
+        self.assertNotIn("task-notification", rendered)
+        # A header re-parses unchanged, so day-file merge keys are stable.
+        self.assertIn(("slug", "13:28"), exporter.parse_exported_text(rendered + exporter.SEPARATOR))
+
 if __name__ == "__main__":
     unittest.main()
