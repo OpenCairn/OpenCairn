@@ -162,6 +162,51 @@ class CloseoutSnippetTests(unittest.TestCase):
                 self.assertIn('Foreign work', Path(final['BLOCK']).read_text())
                 self.assertNotIn('Own work', Path(final['BLOCK']).read_text())
 
+    def test_session_extraction_skips_none_placeholder_rows(self):
+        suffix = '\nprintf "PATHS=%s\\n" "$SESSION_PATHS"; printf "ARG=%s\\n" "${TOUCHED[@]}"'
+        for source in CLOSEOUTS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); vault = root/'vault'; vault.mkdir(); log = vault/'day.md'
+                (vault/'a.md').write_text('edited\n')
+                # Placeholder forms the verifier or backfill writer reads as an empty list.
+                log.write_text('## Session 1 - Fixture\n### Summary\nx\n### Files Created\n- None\n'
+                               '### Files Updated\n- `a.md` - edit\n- none\n- None.\n'
+                               '- None (nothing else)\n### Files Deleted\n- None - nothing removed\n'
+                               '### Pickup Context\n**Project:** None\n', encoding='utf-8')
+                result = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='1')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                paths = [l.split('=', 1)[1] for l in result.stdout.splitlines() if l.startswith('PATHS=')]
+                self.assertEqual(Path(paths[0]).read_text().splitlines(), ['a.md'])
+                # Negative controls: real paths that merely begin with the word stay rows.
+                log.write_text('## Session 1 - Fixture\n### Files Created\n- None (draft).md - real\n'
+                               '- Nonesuch.md - real\n- `None` - explicit backticked path\n', encoding='utf-8')
+                kept = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='1')
+                self.assertEqual(kept.returncode, 0, kept.stderr)
+                paths = [l.split('=', 1)[1] for l in kept.stdout.splitlines() if l.startswith('PATHS=')]
+                self.assertEqual(Path(paths[0]).read_text().splitlines(),
+                                 ['None (draft).md', 'Nonesuch.md', 'None'])
+
+    def test_extracted_touched_list_passes_verifier_with_none_files_section(self):
+        # End to end with the real verifier: `- None` must not become `--touched None`.
+        suffix = '\nprintf "ARG=%s\\n" "${TOUCHED[@]}"'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); vault = root/'vault'; vault.mkdir(); log = vault/'day.md'
+            (vault/'a.md').write_text('edited\n')
+            log.write_text('## Session 1 - Fixture\n### Summary\nx\n### Key Insights\nx\n'
+                           '### Files Created\n- None\n### Files Updated\n- `a.md` - edit\n'
+                           '### Pickup Context\n**Project:** None\n', encoding='utf-8')
+            for source in CLOSEOUTS:
+                with self.subTest(source=source):
+                    result = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='1')
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    args = [l.split('=', 1)[1] for l in result.stdout.splitlines() if l.startswith('ARG=')]
+                    self.assertEqual(args, ['--touched', 'a.md'])
+                    verify = subprocess.run([str(ROOT/'.claude/scripts/park-verify.sh'), str(vault), str(log), '1', *args],
+                                            env=dict(os.environ, HOME=str(root)), stdin=subprocess.DEVNULL,
+                                            text=True, capture_output=True, timeout=60)
+                    self.assertNotIn('FAIL', verify.stdout)
+                    self.assertIn('RESULT: PASS', verify.stdout)
+
     def test_session_extraction_refuses_absent_duplicate_and_malformed_rows(self):
         for source in CLOSEOUTS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
