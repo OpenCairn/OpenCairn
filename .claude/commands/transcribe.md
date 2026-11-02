@@ -51,7 +51,7 @@ A published transcript (podcast show site, Substack, official transcript page) i
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
    2. **Run local transcription** — the selected engine with timestamps and optional diarisation; follow engine selection below.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` as `$BODY` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<absolute note path>" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** stage the body through a heredoc — here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Phase 3 step 2 never runs on this path, so create the header's staging directory here — `STAGE=$(mktemp -d)`, then `echo "$STAGE"` and carry the literal path. Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) into `$STAGE/header.md` and assemble it with `BODY="<BODY_FILE>"` (the §15 path, not `$STAGE/clean.md`) in step 7's **atomic locked save** — step 7's block as written (it refuses a missing or empty body), then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** stage the body through a heredoc — here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
    - **Date acquired:** use this run's acquisition date instead of **Date transcribed**.
    - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is saved verbatim (`_shared-rules-content.md` §14); never clean it.
@@ -315,20 +315,25 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
    ---
    ```
 
-   **Stage header and body, assemble, and create the note atomically.** The body is a file from step 3: `$STAGE/clean.md` after cleanup, `$STAGE/body.md` under `--raw` or after failed checks. `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
+   **Stage header and body, assemble, and create the note atomically.** On a WhisperX run the body is a file from step 3: `$STAGE/clean.md` after cleanup, `$STAGE/body.md` under `--raw` or after failed checks. On the published-transcript route `BODY` is Phase 0's §15 `<BODY_FILE>` and `STAGE` is the directory Phase 0 step 6 created. The assembly refuses a missing or empty body, so a header-only note is never installed. `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
 
    ```bash
-   STAGE=<literal path from step 2>; BODY="$STAGE/clean.md"   # or "$STAGE/body.md"
+   STAGE=<literal staging path>
+   BODY=<literal body path>   # WhisperX run: "$STAGE/clean.md", or "$STAGE/body.md"; published transcript: the §15 <BODY_FILE>
    cat > "$STAGE/header.md" <<'TRANSCRIPT_HEADER_EOF'
    {header block above}
    TRANSCRIPT_HEADER_EOF
-   { cat "$STAGE/header.md"; printf '\n'; cat "$BODY"; } > "$STAGE/note.md"
-   "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<absolute note path>" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
-   cmp "$STAGE/note.md" "<absolute note path>"; echo "cmp=$?"
+   if [ -s "$BODY" ] && { cat "$STAGE/header.md"; printf '\n'; cat "$BODY"; } > "$STAGE/note.md"; then
+     "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<absolute note path>" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
+     cmp "$STAGE/note.md" "<absolute note path>"; echo "cmp=$?"
+   else
+     echo "assemble=refused: body missing or empty; nothing installed"
+   fi
    ```
 
    Shell state does not persist between Bash calls — run the block as one call, or substitute the literal staging path. The same recipe serves a destination outside the vault (`--replace-whole` does not require the target to lie inside the vault; only `--move` does).
 
+   - **assemble=refused** → the body file is missing or empty; nothing was written. Find the body (re-derive §15's `BODY=` path from the URL, or rerun the step that writes it) before retrying.
    - **exit=0** → `cmp=0` is the only success: report the save then. A `cmp` difference means something intercepted the write — don't patch the note; path-exclude the folder (§14) and rebuild.
    - **exit=2** → the path already exists and **nothing was written**. Run the same `cmp`: `cmp=0` means an identical transcript already landed (a duplicate run) — report that and stop. Otherwise it is a filename collision: tell the user and agree another filename (e.g. a ` (2)` suffix), then retry with the new path (still `MISSING`); for an explicitly authorised replacement, retry with the existing file's `sha256sum` in place of `MISSING`. Never `--append` to it, never `mv` over it.
    - **exit=1** with a lock message → another writer holds the lock; report and stop, don't bypass.
