@@ -243,7 +243,7 @@ Read both printed files. Each shell tool call starts a fresh shell, so no variab
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the initial inventory (including its non-ledger backstop), and the collected propagation/close-out edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
-**Verify:** run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean. The block rebuilds `TOUCHED` from the extracted path list inside its own call:
+**Verify:** after the last backfill or Files-section rewrite, rerun **Assigned-session extraction** before the verifier block: an earlier extraction misses rows added since and hands the verifier a short `--touched` list. Run the verifier through the receipt wrapper and resolve every FAIL, re-running until clean. The block rebuilds `TOUCHED` from the extracted path list inside its own call:
 
 <!-- BEGIN VERIFY -->
 ```bash
