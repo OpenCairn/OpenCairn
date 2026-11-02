@@ -95,10 +95,10 @@ Calendar assistance is available only when explicitly requested. Handle that req
    - Record the user's dispositions by stable proposal ID, with concise reasons, through the vault lock. Return only feedback allowed by the service's content policy. Accepted changes must be reconciled against the live files and use the vault's normal locked edit/move workflow; do not blindly apply a stale patch or turn unaccepted proposals into tasks.
 
    **Usage analysis (optional):**
-   - Off by default. A usage-analysis tool may write a weekly note of candidate improvements drawn from the user's AI-session history. Resolve its filename glob: `rg --no-config -F '**Usage analysis notes:**' "{VAULT}/07 System/Vault Organisation Principles.md"` and take the first backticked value on the matched line. Exit 1, a missing file or no backticked value means the input is not configured: skip it silently.
-   - Find the latest match: `rg --no-config --files "{VAULT}" -g '<glob>' | awk -F/ '{print $NF "\t" $0}' | LC_ALL=C sort -r | head -1 | cut -f2`. Use it only if its `YYYY-Wnn` is no earlier than the ISO week of `PERIOD_START`; an older note was covered by an earlier review.
+   - Off by default. A usage-analysis tool may write a weekly note of candidate improvements drawn from the user's AI-session history. Resolve its filename glob: `rg --no-config -F '**Usage analysis notes:**' "{VAULT}/07 System/Vault Organisation Principles.md"` and take the first backticked value on the matched line. Exit 1, a missing file or no backticked value means the input is not configured: skip it silently. Any other non-zero exit is a tool error: report it once and continue without this input.
+   - Find the latest match: in one call, `D=$(mktemp -d); rg --no-config --files "{VAULT}" -g '<glob>' > "$D/m"; echo "rg=$?"; awk -F/ '{print $NF "\t" $0}' "$D/m" | rg --no-config '^[^\t]*[0-9]{4}-W[0-9]{2}' | LC_ALL=C sort -r | head -1 | cut -f2`. `rg=1` means no match; `rg` above 1 is a tool error, reported as above. Only names carrying a `YYYY-Wnn` key are candidates. Skip the note if the previous weekly review found in step 1 already links `[[<note basename>]]`: a note an earlier review quoted is not repeated. Week arithmetic is not used, because a tool may name a note after the week it analyses and write it after that week's review.
    - Read its `## Top candidates` section. Each bullet is ``- **<kind>** — <title> (`<id>`)``. Keep up to three bullets whose kind is `repeated-work` or `delegation`, in the order listed; quote titles exactly and never draft candidates from the note's other prose.
-   - No note, no current note, no section or no matching bullet: skip this input silently. The candidates are unverified proposals, not measured effort or tasks: surface them for the user's Stop/Delegate choice, and create no task from them unless the user confirms one.
+   - Glob set but no unquoted note, no section or no matching bullet: report one line (`usage analysis configured; no unquoted note matched <glob>`, or the note and what was missing) and continue. The candidates are unverified proposals, not measured effort or tasks: surface them for the user's Stop/Delegate choice, and create no task from them unless the user confirms one.
 
    **Personal planning configuration:**
    - Locate the vault’s navigation/Autopilot document and follow its explicitly labelled **Planning system** pointer when configured. Read that specification and its recurring schedule. A task-home map is a separate input, not the planning specification. If no pointer is configured, report that once and retain the generic review workflow; do not claim a personal system was loaded.
@@ -189,7 +189,7 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
 [Qualitative account of what absorbed attention, supported by explicit records and the user. Unknown activity stays unknown; no percentages or inferred execution score.]
 
 [Only when step 2's usage analysis found candidates; otherwise omit this line:]
-**Usage analysis** ([[<note basename>]]): repeated work — "<title>"; delegation — "<title>". Unverified candidates; effort and savings unmeasured.
+**Usage analysis** ([[<note basename>]]): <kind> — "<title>"[; <kind> — "<title>"…] (up to three, in note order). Unverified candidates; effort and savings unmeasured.
 
 ## Key Insights & Patterns
 
