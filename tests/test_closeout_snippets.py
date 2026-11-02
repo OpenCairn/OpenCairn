@@ -340,6 +340,62 @@ class CloseoutSnippetTests(unittest.TestCase):
                                  './04 Areas/note.md:1:a long line naming the subject phrase in full\n')
                 self.assertIn('records: 1\n', result.stdout)
 
+    def test_codex_startup_preflight_writes_raw_receipt_and_prints_bounded_summary(self):
+        skill = PARKS[1].read_text(encoding='utf-8')
+        command = re.search(r'`(python3 "\{VAULT\}/\.claude/scripts/park-preflight\.py" --manual[^`]*)`', skill)
+        self.assertIsNotNone(command, 'Codex startup bundle must name the preflight command')
+        self.assertIn('--receipt', command.group(1))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); vault = root/'vault'; config = root/'config'; home = root/'home'
+            (vault/'.claude/scripts').mkdir(parents=True); home.mkdir()
+            for name in ('resolve-vault.sh', 'session-ledger.sh', 'lib-session.sh'):
+                (vault/'.claude/scripts'/name).write_bytes((ROOT/'.claude/scripts'/name).read_bytes())
+            (vault/'01 Now').mkdir()
+            (vault/'01 Now/This Week.md').write_text('# Week\n' + ''.join(f'- [ ] task {i} {"x" * 40}\n' for i in range(3000)))
+            (vault/'01 Now/Tickler.md').write_text('# Tickler\n- [ ] one\n')
+            (config/'.session-state').mkdir(parents=True)
+            (config/'.session-state/root-id.tsv').write_text('2026-01-01T00:00:00Z\tWrite\t/fixture/note.md\tmain\n')
+            env = os.environ.copy()
+            for name in ('OPENCAIRN_SESSION_ID', 'CLAUDE_CODE_SESSION_ID', 'CODEX_THREAD_ID'):
+                env.pop(name, None)
+            env.update(HOME=str(home), VAULT_PATH=str(vault), CLAUDE_CONFIG_DIR=str(config))
+            receipt = root/'preflight.json'
+            argv = [sys.executable, str(ROOT/'.claude/scripts/park-preflight.py'), '--manual',
+                    '--session-id', 'root-id', '--cwd', str(root), '--timeout', '8', '--receipt', str(receipt)]
+            result = subprocess.run(argv, env=env, text=True, capture_output=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            raw = receipt.read_bytes()
+            self.assertGreater(len(raw), 100_000)
+            self.assertLess(len(result.stdout.encode()), 2048)
+            summary = json.loads(result.stdout)
+            self.assertEqual(summary['receipt_sha256'], hashlib.sha256(raw).hexdigest())
+            self.assertEqual(summary['receipt_bytes'], len(raw))
+            bundle = json.loads(raw)
+            self.assertEqual(bundle['kind'], 'park-preflight')
+            self.assertEqual(len(bundle['task_candidates'][0]['receipt']['stdout'].splitlines()), 3000)
+            self.assertEqual(summary['vault']['state'], 'checked')
+            self.assertEqual(summary['ledger']['state'], 'checked_nonempty')
+            self.assertEqual([item['records'] for item in summary['task_candidates']], [3000, 1])
+            self.assertEqual(summary['task_candidates'][0]['sha256'],
+                             hashlib.sha256((vault/'01 Now/This Week.md').read_bytes()).hexdigest())
+            self.assertNotIn('task 2999', result.stdout)
+            # The saved receipt still revalidates like a stdout bundle.
+            check = subprocess.run([sys.executable, str(ROOT/'.claude/scripts/park-preflight.py'),
+                                    '--revalidate', str(receipt)], env=env, text=True, capture_output=True, timeout=60)
+            self.assertTrue(json.loads(check.stdout)['source_hashes_match'], check.stdout)
+            # An existing receipt path, including a dangling symlink, is refused and left untouched.
+            again = subprocess.run(argv, env=env, text=True, capture_output=True, timeout=60)
+            self.assertEqual(again.returncode, 2)
+            self.assertEqual(receipt.read_bytes(), raw)
+            link = root/'dangling.json'; link.symlink_to(root/'absent.json')
+            blocked = subprocess.run(argv[:-1] + [str(link)], env=env, text=True, capture_output=True, timeout=60)
+            self.assertEqual(blocked.returncode, 2)
+            self.assertFalse((root/'absent.json').exists())
+            inside = subprocess.run(argv[:-1] + [str(vault/'preflight.json')], env=env, text=True,
+                                    capture_output=True, timeout=60)
+            self.assertEqual(inside.returncode, 2)
+            self.assertFalse((vault/'preflight.json').exists())
+
     def test_oversized_ignored_source_uses_separate_supplemental_receipt(self):
         for source in PARKS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
