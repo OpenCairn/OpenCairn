@@ -85,9 +85,9 @@ Read and present:
 - **Coming up this week:** After migration, scan This Week.md for all unchecked items on **future days** (day sections after today). Show them in the landscape output grouped by day. This gives visibility into the week ahead regardless of whether items were just migrated or were already there. This prevents the misleading "Nothing due today" pattern where upcoming items are invisible.
 - **Yesterday's sessions (context only):** Check `{VAULT}/06 Archive/OpenCairn/Session Logs/` for most recent session file — note topics and summaries for context, but do NOT extract open loops from session files. Open items come from This Week.md and Tickler only (session loops were routed to SSOT at park time)
 - **Items goodnight routed to today:** Last night's $goodnight routed undone and queued items into today's day section in This Week.md — they're already covered by the This Week.md and Tickler bullets above. Daily reports carry no "Tomorrow's Queue" section; don't go looking for one.
-- **Unrecorded unattended runs:** If you launch unattended runs, each gets a run directory (contract, ledger) under a run root. The roots are `$OPENCAIRN_RUN_DIRS` (space-separated), default `~/.claude/runs` and `~/.codex/runs`. List each run id that no vault note names, in one bounded pass:
+- **Unrecorded unattended runs:** If you launch unattended runs, each gets a run directory (contract, ledger) under a run root. The roots are `$OPENCAIRN_RUN_DIRS` (space-separated), default `~/.claude/runs`, `~/.codex/runs` and `~/.local/state/opencairn-runs` (the unattended-run state root when `$OPENCAIRN_RUN_STATE` is unset). List each run id that no vault note names, in one bounded pass:
   ```bash
-  ids=$(for r in ${OPENCAIRN_RUN_DIRS:-$HOME/.claude/runs $HOME/.codex/runs}; do for d in "$r"/*/; do [ -d "$d" ] && basename "$d"; done; done | LC_ALL=C sort -u)
+  ids=$(for r in ${OPENCAIRN_RUN_DIRS:-$HOME/.claude/runs $HOME/.codex/runs $HOME/.local/state/opencairn-runs}; do for d in "$r"/*/; do [ -d "$d" ] && basename "$d"; done; done | LC_ALL=C sort -u)
   if [ -z "$ids" ]; then echo "Run records: no run directories found"
   else
     found=$(printf '%s\n' "$ids" | timeout 60 rg --no-config -o -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?

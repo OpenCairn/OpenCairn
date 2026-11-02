@@ -42,7 +42,7 @@ The panel despatch, attribution tags, and no-vote-counting tiebreak are `$second
 
 ## Unattended runs
 
-Applies only when the caller states the audit runs inside an unattended run or names its run contract; an interactive audit ignores this section. The contract overrides the defaults below. Read the contract file the caller names (or the run directory's `contract.json` / `contract.md`) in Phase 1 and announce the limits in the panel line. `<run state dir>` is the state directory the contract or caller names, else `$OPENCAIRN_RUN_STATE/<run-id>/`, default `~/.local/state/<run-id>/`.
+Applies only when the caller states the audit runs inside an unattended run or names its run contract; an interactive audit ignores this section. The contract overrides the defaults below. Read the contract file the caller names (or the run directory's `contract.json` / `contract.md`) in Phase 1 and announce the limits in the panel line. `<run state dir>` is the state directory the contract or caller names, else `$OPENCAIRN_RUN_STATE/<run-id>/`, default `~/.local/state/opencairn-runs/<run-id>/`.
 
 - **`review_rounds`** caps panel rounds, re-audits included. At the cap the loop in Phase 4 stops whatever the findings. If fixes landed after the last reviewed round, the terminal state is **after-fixes candidate, unreviewed**; otherwise the open findings are reported as residuals. No field: cap at 1 and say so.
 - **`extra_paid_budget`** (or a paid-spend field under the contract's usage limits) gates seats billed per call, such as Grok via the xAI API. Zero or absent: skip those seats and announce `Grok skipped: paid budget 0`. Otherwise read each round's cost from the Grok seat's `.err` line and stop paid seats before the next call could pass the budget.
