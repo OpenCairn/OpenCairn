@@ -30,7 +30,13 @@ def recipe(path: Path, marker: str) -> str:
 def run_bash(script: str, root: Path, **values: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
     env.pop('VAULT', None)  # Recipes must bind the resolved vault within their own call.
+    # Session-scoped state stays inside the fixture, never the real config directory.
+    env['CLAUDE_CONFIG_DIR'] = str(root/'config'); env['OPENCAIRN_SESSION_ID'] = 'snippet-fixture'
     env.update(values)
+    lib = root/'vault/.claude/scripts/lib-session.sh'
+    if 'lib-session.sh' in script and not lib.exists():
+        lib.parent.mkdir(parents=True, exist_ok=True)
+        lib.write_bytes((ROOT/'.claude/scripts/lib-session.sh').read_bytes())
     env['TMPDIR'] = str(root)
     return subprocess.run(['bash', '-c', script.replace('{VAULT}', str(root/'vault'))], cwd=root, env=env, text=True, capture_output=True, timeout=20)
 
@@ -148,22 +154,21 @@ class CloseoutSnippetTests(unittest.TestCase):
                                '### Pickup Context\n**Project:** None\n'
                                '## Session 10 - Concurrent\n### Summary\nForeign work\n'
                                '### Files Updated\n- `04 Areas/Foreign.md` - foreign', encoding='utf-8')
-                suffix = '\nprintf "BLOCK=%s\\nPATHS=%s\\nCOUNT=%s\\n" "$SESSION_BLOCK" "$SESSION_PATHS" "${#TOUCHED[@]}"'
+                suffix = '\nprintf "BLOCK=%s\\nPATHS=%s\\n" "$SESSION_BLOCK" "$SESSION_PATHS"'
                 result = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='1')
                 self.assertEqual(result.returncode, 0, result.stderr)
-                fields = dict(line.split('=', 1) for line in result.stdout.splitlines())
+                fields = dict(line.split('=', 1) for line in result.stdout.splitlines() if not line.startswith('SESSION_'))
                 self.assertNotIn('Foreign work', Path(fields['BLOCK']).read_text())
                 self.assertEqual(Path(fields['PATHS']).read_text().splitlines(),
                                  ['04 Areas/Context - fixture.md', '/tmp/tool', '04 Areas/Old - fixture.md'])
-                self.assertEqual(fields['COUNT'], '6', 'three repeated --touched/path pairs')
                 last = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='10')
                 self.assertEqual(last.returncode, 0, last.stderr)
-                final = dict(line.split('=', 1) for line in last.stdout.splitlines())
+                final = dict(line.split('=', 1) for line in last.stdout.splitlines() if not line.startswith('SESSION_'))
                 self.assertIn('Foreign work', Path(final['BLOCK']).read_text())
                 self.assertNotIn('Own work', Path(final['BLOCK']).read_text())
 
     def test_session_extraction_skips_none_placeholder_rows(self):
-        suffix = '\nprintf "PATHS=%s\\n" "$SESSION_PATHS"; printf "ARG=%s\\n" "${TOUCHED[@]}"'
+        suffix = '\nprintf "PATHS=%s\\n" "$SESSION_PATHS"'
         for source in CLOSEOUTS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp); vault = root/'vault'; vault.mkdir(); log = vault/'day.md'
@@ -188,7 +193,7 @@ class CloseoutSnippetTests(unittest.TestCase):
 
     def test_extracted_touched_list_passes_verifier_with_none_files_section(self):
         # End to end with the real verifier: `- None` must not become `--touched None`.
-        suffix = '\nprintf "ARG=%s\\n" "${TOUCHED[@]}"'
+        suffix = '\nprintf "PATHS=%s\\n" "$SESSION_PATHS"'
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); vault = root/'vault'; vault.mkdir(); log = vault/'day.md'
             (vault/'a.md').write_text('edited\n')
@@ -199,13 +204,61 @@ class CloseoutSnippetTests(unittest.TestCase):
                 with self.subTest(source=source):
                     result = run_bash(recipe(source, 'SESSION EXTRACT') + suffix, root, SESSION_LOG=str(log), N='1')
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    args = [l.split('=', 1)[1] for l in result.stdout.splitlines() if l.startswith('ARG=')]
+                    paths = next(l[6:] for l in result.stdout.splitlines() if l.startswith('PATHS='))
+                    args = [arg for p in Path(paths).read_text().splitlines() for arg in ('--touched', p)]
                     self.assertEqual(args, ['--touched', 'a.md'])
                     verify = subprocess.run([str(ROOT/'.claude/scripts/park-verify.sh'), str(vault), str(log), '1', *args],
                                             env=dict(os.environ, HOME=str(root)), stdin=subprocess.DEVNULL,
                                             text=True, capture_output=True, timeout=60)
                     self.assertNotIn('FAIL', verify.stdout)
                     self.assertIn('RESULT: PASS', verify.stdout)
+
+    def test_session_extraction_outputs_survive_separate_shell_calls(self):
+        # Each Bash/Codex tool call is a fresh shell: producer and consumers run in separate bash -c.
+        for source in CLOSEOUTS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); vault = root/'vault'; scripts = vault/'.claude/scripts'; scripts.mkdir(parents=True)
+                (scripts/'lib-session.sh').write_bytes((ROOT/'.claude/scripts/lib-session.sh').read_bytes())
+                stub = scripts/'park-verify.sh'
+                stub.write_text('#!/usr/bin/env bash\necho STUB_RAN\nprintf "ARG=%s\\n" "$@"\n'); stub.chmod(0o755)
+                wrapper = root/'park-review.py'
+                wrapper.write_text('import subprocess, sys\nsys.exit(subprocess.call(sys.argv[sys.argv.index("--")+1:]))\n')
+                log = vault/'day.md'
+                log.write_text('## Session 1 - Fixture\n### Summary\nAll three items closed.\n'
+                               '### Files Created\n- None\n### Files Updated\n- `a.md` - edit\n- `b - c.md` - edit\n'
+                               '### Pickup Context\n**Project:** None\n', encoding='utf-8')
+                env = dict(CLAUDE_CONFIG_DIR=str(root/'config'), OPENCAIRN_SESSION_ID='split-fixture')
+                produced = run_bash(recipe(source, 'SESSION EXTRACT'), root, **env, SESSION_LOG=str(log), N='1')
+                self.assertEqual(produced.returncode, 0, produced.stderr)
+                printed = dict(l.split('=', 1) for l in produced.stdout.splitlines() if l.startswith('SESSION_'))
+                self.assertEqual(sorted(printed), ['SESSION_BLOCK', 'SESSION_PATHS'], produced.stdout)
+                state = root/'config/.session-state/split-fixture.closeout'
+                for path in printed.values():
+                    self.assertTrue(Path(path).is_file())
+                    self.assertTrue(Path(path).is_relative_to(state), path)
+                # Deterministic: a rerun after a fix rewrites the same files.
+                again = run_bash(recipe(source, 'SESSION EXTRACT'), root, **env, SESSION_LOG=str(log), N='1')
+                self.assertEqual(dict(l.split('=', 1) for l in again.stdout.splitlines() if l.startswith('SESSION_')), printed)
+                # Verifier consumer in its own call, with no variable inherited from the producer.
+                template = recipe(source, 'VERIFY')
+                placeholder = '"<SESSION_PATHS path printed by Assigned-session extraction>"'
+                self.assertIn(placeholder, template)
+                consumer = re.sub(r'^\s*--ident .*$', lambda _: '  --ident "fixture" \\', template, flags=re.M)
+                consumer = consumer.replace('"<session log>" N', f'"{log}" 1')
+                fresh = dict(CLAUDE_CONFIG_DIR=str(root/'config'), PARK_REVIEW=str(wrapper))
+                verified = run_bash(consumer.replace(placeholder, shlex.quote(printed['SESSION_PATHS'])), root, **fresh)
+                self.assertEqual(verified.returncode, 0, verified.stderr)
+                args = [l[4:] for l in verified.stdout.splitlines() if l.startswith('ARG=')]
+                self.assertEqual(args[-4:], ['--touched', 'a.md', '--touched', 'b - c.md'])
+                # Control: a missing path list stops before the verifier runs with no --touched.
+                missing = run_bash(consumer.replace(placeholder, shlex.quote(str(root/'absent.txt'))), root, **fresh)
+                self.assertNotEqual(missing.returncode, 0)
+                self.assertNotIn('STUB_RAN', missing.stdout)
+                # Final evidence check consumer: the durability scan reads the retained block in its own call.
+                scanned = run_bash(recipe(source, 'DURABILITY SCAN'), root, SCAN_INPUT=printed['SESSION_BLOCK'])
+                self.assertEqual(scanned.returncode, 0, scanned.stderr)
+                self.assertIn('All three items closed', scanned.stdout)
+                self.assertNotIn('Concurrent', Path(printed['SESSION_BLOCK']).read_text())
 
     def test_session_extraction_refuses_absent_duplicate_and_malformed_rows(self):
         for source in CLOSEOUTS:
