@@ -91,9 +91,10 @@ Read and present:
   if [ -z "$ids" ]; then echo "Run records: no run directories found"
   else
     bounded() { if command -v timeout >/dev/null 2>&1; then timeout 60 "$@"; else "$@"; fi; }   # stock macOS has no GNU timeout
-    found=$(printf '%s\n' "$ids" | bounded rg --no-config -o -w -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?
+    lines=$(printf '%s\n' "$ids" | bounded rg --no-config -F -N --no-filename -g '*.md' -f - "{VAULT}"); rc=$?
     if [ "$rc" -gt 1 ]; then echo "Run records: not checked (rg exit $rc)"
-    else printf '%s\n' "$ids" | while read -r id; do printf '%s\n' "$found" | grep -qxF -- "$id" || echo "UNRECORDED $id"; done; fi
+    else found=$(printf '%s\n' "$lines" | rg --no-config -o -N '[\w-]+(?:\.[\w-]+)*' | LC_ALL=C sort -u)   # whole id tokens, so run-1 inside run-1-retry is not a match
+      printf '%s\n' "$ids" | while read -r id; do printf '%s\n' "$found" | grep -qxF -- "$id" || echo "UNRECORDED $id"; done; fi
   fi
   ```
   Show each `UNRECORDED` id in the landscape. A run still in progress also appears, so read its ledger first; for a finished one, offer a retrospective record from its run directory (resume note, ledger). `no run directories found` (no unattended runs, or the roots are not configured) or no `UNRECORDED` line: skip silently. Report `not checked` as such, never as "all recorded".
