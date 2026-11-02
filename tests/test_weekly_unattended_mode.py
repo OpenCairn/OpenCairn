@@ -23,7 +23,7 @@ class WeeklyUnattendedModeTests(unittest.TestCase):
                 self.assertIn("contract template", section)
                 self.assertIn("only when the user explicitly asks", section)
                 self.assertIn("$OPENCAIRN_RUN_STATE/<run-id>/", section)
-                self.assertIn("default `~/.local/state/<run-id>/`", section)
+                self.assertIn("default `~/.local/state/opencairn-runs/<run-id>/`", section)
                 self.assertIn('date +"%a %d %b %H:%M %Z"', section)
                 self.assertIsNone(re.search(r"good (morning|evening|night)", text, re.I))
 

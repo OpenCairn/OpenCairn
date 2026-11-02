@@ -18,7 +18,7 @@ class AuditUnattendedTests(unittest.TestCase):
                 self.assertIn("Grok skipped: paid budget 0", section)
                 self.assertIn('TMPDIR="<run state dir>" mktemp', section)
                 self.assertIn("an interactive audit ignores this section", section)
-                self.assertIn("default `~/.local/state/<run-id>/`", section)
+                self.assertIn("default `~/.local/state/opencairn-runs/<run-id>/`", section)
                 loop = text.split("### Phase 4: Fix and Re-audit", 1)[1]
                 self.assertRegex(loop, r"unattended run the contract's `review_rounds` ends the loop")
 
