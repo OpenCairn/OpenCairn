@@ -62,7 +62,8 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    - **Is the rule coherent?** (Is it clear enough to follow, or ambiguous in this situation?)
    - **Does the rule need a better trigger?** (Rule is correct but doesn't activate in this scenario — needs a more specific cue?)
 
-   The correction entry must address the diagnosis, not just restate the existing rule. Either:
+   The correction entry must address the diagnosis, not just restate the existing rule. A rule that existed and that nothing enforces has already failed once, so another wording is the weakest fix. Either:
+   - **Encode it as a check** (preferred when the mistake is mechanically detectable). Use the highest level that works: make the wrong path impossible (a helper or script that only does the right thing), then a script check or hook whose failure message names the right action, then a regression test. Run the check once against the real past mistake, or a faithful reproduction of it, and record that it failed there and passes on the corrected case. A check never seen failing is not a fix.
    - **Refine the existing rule** with a more specific trigger or mechanism
    - **Add a new rule** that covers the gap the existing rule missed
    - **Note that the rule was absent from context** (if that's the diagnosis — the fix is ensuring it loads, not writing a duplicate rule)
@@ -73,7 +74,7 @@ The goal isn't blame or shame - it's systematic improvement. Every logged mistak
    ```
    ⚠ Rule collision: [existing rule summary]
    Diagnosis: [why it didn't fire]
-   Proposed fix: [refine trigger / add new rule / ensure context loading]
+   Proposed fix: [encode as check / refine trigger / add new rule / ensure context loading]
    ```
 
    **If no matching rule exists**, proceed normally — this is a genuinely new lesson.
