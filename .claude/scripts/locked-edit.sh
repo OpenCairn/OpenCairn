@@ -128,6 +128,13 @@ case "$TARGET" in
     /*|[A-Za-z]:[\\/]*) ;;
     *)
         echo "Target must be an absolute path (got: $TARGET). Resolve the vault path first." >&2
+        # Name the absolute candidates so the caller can retry without guessing; never pick one
+        # here: a create mode on the wrong base would write a file in the wrong place.
+        for base in "$PWD" "${VAULT_PATH:-}"; do
+            [ -n "$base" ] || continue
+            if [ -e "$base/$TARGET" ]; then state=exists; else state=absent; fi
+            printf '  candidate (%s): %s/%s\n' "$state" "$base" "$TARGET" >&2
+        done
         exit 1
         ;;
 esac
