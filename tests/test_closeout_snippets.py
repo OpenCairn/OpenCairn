@@ -359,6 +359,32 @@ class CloseoutSnippetTests(unittest.TestCase):
                                  './04 Areas/note.md:1:a long line naming the subject phrase in full\n')
                 self.assertIn('records: 1\n', result.stdout)
 
+    def test_new_entity_searches_ignore_user_ripgrep_config(self):
+        # The pre-log new-entity commands are inline prose; run them as written under a hostile config.
+        for source in PARKS:
+            text = source.read_text(encoding='utf-8')
+            commands = {
+                'name': (re.search(r"`(rg [^`]*'<distinctive name>' \.)`", text), "'<distinctive name>'", "'Subject Phrase'"),
+                'variant': (re.search(r"`(rg [^`]*'word\[-_ \]\?word')`", text), "'word[-_ ]?word'", "'subject[-_ ]?phrase'"),
+            }
+            for label, (match, placeholder, needle) in commands.items():
+                with self.subTest(source=source, command=label), tempfile.TemporaryDirectory() as tmp:
+                    self.assertIsNotNone(match, f'{source}: {label} command not found')
+                    root = Path(tmp); vault = root/'vault'
+                    note = vault/'04 Areas/note.md'; note.parent.mkdir(parents=True)
+                    note.write_text('An earlier mention of the subject phrase.\n')
+                    config = root/'ripgreprc'; config.write_text('--glob=!**/04 Areas/**\n')
+                    env = {**os.environ, 'RIPGREP_CONFIG_PATH': str(config)}
+                    argv = shlex.split(match.group(1).replace(placeholder, needle))
+                    result = subprocess.run(argv, cwd=vault, env=env, stdin=subprocess.DEVNULL,
+                                            text=True, capture_output=True, timeout=20)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn('note.md', result.stdout)
+                    # Control: the config really hides the hit from a config-reading search.
+                    plain = subprocess.run(['rg', '-i', '-F', '--', 'subject phrase'], cwd=vault, env=env,
+                                           stdin=subprocess.DEVNULL, text=True, capture_output=True, timeout=20)
+                    self.assertNotEqual(plain.returncode, 0); self.assertNotIn('note.md', plain.stdout)
+
     def test_codex_startup_preflight_writes_raw_receipt_and_prints_bounded_summary(self):
         skill = PARKS[1].read_text(encoding='utf-8')
         command = re.search(r'`(python3 "\{VAULT\}/\.claude/scripts/park-preflight\.py" --manual[^`]*)`', skill)
