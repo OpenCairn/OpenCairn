@@ -617,11 +617,13 @@ PY_LOCK_METADATA
 
    ```bash
    # User-level AI-assistant configs (fixed paths — no recursive vault walk)
-   for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.cursor/*.json ~/.gemini/settings.json; do
-     [ -e "$f" ] && rg -l -i 'SessionStart|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
+   for f in ~/.claude/settings.json ~/.claude/settings.local.json ~/.codex/config.toml ~/.cursor/*.json ~/.gemini/settings.json; do
+     [ -e "$f" ] && rg -l -i 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
    done
-   # Vault-local Claude config, if present (single file, not a tree walk)
-   ls "{VAULT}/.claude/settings.json" "{VAULT}/.claude/settings.local.json" 2>/dev/null
+   # Vault-local assistant configs, if present (fixed files, not a tree walk)
+   for f in "{VAULT}/.claude/settings.json" "{VAULT}/.claude/settings.local.json" "{VAULT}/.codex/config.toml"; do
+     [ -e "$f" ] && rg -l -i 'SessionStart|hooks?[[:space:]]*=|preinstall|postinstall|binding\.gyp' "$f" 2>/dev/null
+   done
    # Python interpreter-startup hooks (the .pth vector): files that run code on import
    python3 -c "import site,glob,os; [print(p) for d in site.getsitepackages()+[site.getusersitepackages()] for p in glob.glob(os.path.join(d,'*.pth'))]" 2>/dev/null
    ```
