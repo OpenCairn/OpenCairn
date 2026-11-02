@@ -179,6 +179,61 @@ def revalidate(path):
     return result
 
 
+def bounded(value, limit=240):
+    if value is None:
+        return None
+    text = str(value)
+    return text if len(text) <= limit else text[:limit] + '...'
+
+
+def summary(data, receipt_path, raw):
+    """Bounded status fields only; the complete receipt stays in the file."""
+    def command(receipt):
+        if not receipt:
+            return None
+        return {'status': receipt['status'], 'exit_status': receipt['exit_status'],
+                'output_bytes': receipt['output_bytes']}
+
+    def surface(entry):
+        src = entry['source']
+        return {'path': bounded(src['path']), 'state': entry['state'],
+                'source_state': src['state'], 'sha256': src['sha256'],
+                'command': command(entry.get('receipt'))}
+
+    ledger = surface(data['ledger'])
+    total = re.search(r'^TOTAL\t(\d+) file\(s\)\t(\d+) write\(s\)$',
+                      (data['ledger'].get('receipt') or {}).get('stdout', ''), re.M)
+    ledger['records'] = {'files': int(total[1]), 'writes': int(total[2])} if total else None
+    tasks = []
+    for entry in data['task_candidates']:
+        item = surface(entry)
+        item['records'] = len(entry['receipt']['stdout'].splitlines()) if entry.get('receipt') else None
+        tasks.append(item)
+    vault = data['vault']
+    return {'kind': 'park-preflight-summary', 'receipt': bounded(receipt_path),
+            'receipt_sha256': hashlib.sha256(raw).hexdigest(), 'receipt_bytes': len(raw),
+            'session': {'id': bounded(data['session']['id']), 'source': data['session']['source']},
+            'clock': bounded((data['clock']['receipt'] or {}).get('stdout', '').strip(), 80),
+            'final_dedup_complete': data['final_dedup_complete'], 'action': data['action'],
+            'vault': {'state': vault['state'], 'path': bounded(vault['path']),
+                      'resolver_sha256': vault['source']['sha256'], 'command': command(vault['receipt'])},
+            'ledger': ledger, 'task_candidates': tasks,
+            'dependencies': [{'path': bounded(item['path']), 'state': item['state'], 'sha256': item['sha256']}
+                             for item in data['dependencies']]}
+
+
+def write_receipt(path, data, vault):
+    """Write the complete bundle to a new file outside the vault; never replace one."""
+    target = path.absolute()
+    if vault and (target.parent.resolve() == Path(vault) or Path(vault) in target.parent.resolve().parents):
+        raise ValueError(f'receipt path is inside the vault: {target}')
+    raw = (json.dumps(data, ensure_ascii=True) + '\n').encode('ascii')
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, 'wb') as handle:
+        handle.write(raw)
+    return raw
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manual', action='store_true', help='explicit setup call, e.g. Codex first tool call')
@@ -186,9 +241,12 @@ def main():
     parser.add_argument('--cwd', type=Path, help='manual command working directory')
     parser.add_argument('--timeout', type=float, default=2.0, help='per command seconds, maximum 10')
     parser.add_argument('--revalidate', type=Path, help='check source hashes of a saved stdout bundle')
+    parser.add_argument('--receipt', type=Path, help='manual mode: write the raw bundle to this new path and print a bounded summary')
     args = parser.parse_args()
     if not 0 < args.timeout <= 10:
         parser.error('timeout must be greater than zero and at most 10 seconds')
+    if args.receipt and not args.manual:
+        parser.error('--receipt requires --manual')
     if args.revalidate:
         print(json.dumps(revalidate(args.revalidate), ensure_ascii=True))
         return 0
@@ -215,7 +273,14 @@ def main():
     if sid:
         env['OPENCAIRN_SESSION_ID'] = sid
     data = bundle(cwd, env, sid, provenance, args.timeout)
-    if args.manual:
+    if args.manual and args.receipt:
+        try:
+            raw = write_receipt(args.receipt, data, data['vault']['path'])
+        except (OSError, ValueError) as exc:
+            print(f'ERROR: receipt not written: {exc}', file=sys.stderr)
+            return 2
+        output = summary(data, args.receipt.absolute(), raw)
+    elif args.manual:
         output = data
     else:
         output = {'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit',
