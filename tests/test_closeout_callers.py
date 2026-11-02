@@ -208,7 +208,7 @@ class CloseoutCallerTests(unittest.TestCase):
         self.helper('run-verifier', '--', SCRIPTS / 'park-verify.sh', self.vault, log, '1', '--touched', report)
         result = self.helper('build', '--vault', self.vault, '--session-log', log, '--number', '1', expected=1)
         self.assertNotIn('unclassified', result.stderr.lower())
-        self.assertIn('propagation', result.stderr.lower())
+        self.assertIn('no propagation receipt', result.stderr)
 
 
 if __name__ == '__main__':
