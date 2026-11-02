@@ -256,6 +256,8 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
 
    Map raw labels (`SPEAKER_00`, `SPEAKER_01`, ...) to `Speaker 1`, `Speaker 2`, etc. in order of first appearance. The words array is found at `segments[].words[]`. Only `word` is guaranteed — `start`, `end`, `score` and `speaker` are all optional: alignment omits timing for tokens it can't align (numerals, symbols, out-of-vocabulary fragments), and speaker assignment skips any word without a `start`. Never index these keys directly. A word missing `start`/`end` keeps its text but contributes no timestamp and no gap: attach it to the paragraph in progress and take timing from the nearest neighbour that has it.
 
+   **Write the formatted body to a file, not into context.** Format with a script that writes `$STAGE/body.md`, creating `STAGE=$(mktemp -d)` once here; `echo "$STAGE"` and carry the literal path into steps 3–7, since shell state does not persist between calls. Under `--raw` this file is the body that gets saved.
+
 3. **LLM cleanup pass** (skip if `--raw` was passed):
 
    Review the assembled transcript text and fix transcription errors. Rules:
@@ -274,11 +276,24 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
 
    **A third source outranks both, and it is usually already to hand:** human-written page text about the episode — the video description, the show notes, a chapter list, a linked resource list. Those are typed by a person; both machine transcripts are not. So for any name in the divergence list, grep that text for a distinctive fragment (match a stem — the garbling is phonetic) and **take the spelling it gives over either transcript's**, rather than adjudicating between two guesses or flagging `[?]`.
 
-   Process the full transcript in a single pass. If the transcript exceeds ~50KB of text, split into ~20KB chunks with 2-paragraph overlap to preserve context at boundaries.
+   **Run the pass outside this session's context** with `transcript-clean.py`. It sends ~3,000-word chunks of the formatted body to a hermetic `claude -p` (no tools, MCP servers, settings, hooks or project instructions) carrying the rules above, and checks every chunk before writing anything: at least 90% of its words kept, its ending present, and its sequence of timestamps and speaker labels unchanged. The script's `RULES` mirror the bullets above; change both together. Put the divergence list and the human-written page text in a context file rather than applying them in-session:
+
+   ```bash
+   STAGE=<literal path from step 2>
+   # optional: divergence list + page text -> "$STAGE/page.txt"
+   python3 "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/transcript-clean.py" --in "$STAGE/body.md" --out "$STAGE/clean.md" --context "$STAGE/page.txt" > "$STAGE/clean-report.json"; echo "exit=$?"
+   ```
+
+   Drop `--context` when there is no page text.
+   - **exit=0** → `$STAGE/clean.md` is the body for steps 4–7; header `Cleanup: yes`.
+   - **exit=2** → a chunk failed a check and nothing was written. Read only that chunk's entry in `clean-report.json` and rerun once; if it fails again, keep `$STAGE/body.md` with `Cleanup: no (checks failed: <check>)`.
+   - **Any other exit** (1 the model call failed, 3 the `claude` CLI is not on PATH, or the script could not start) → clean in-session instead: read `$STAGE/body.md`, apply the rules above in a single pass (above ~50KB of text, work in ~20KB chunks with 2-paragraph overlap at boundaries), and write the result to `$STAGE/clean.md` through a shell heredoc with an improbable quoted delimiter, never an editor or patch tool; header `Cleanup: yes`.
+
+   A caller that needs the text in context (`$podcast-digest`) reads `$STAGE/clean.md` once this step is done.
 
 4. **Deliver** the formatted transcript as requested. For a long transcript requested as a file, save it and link the file rather than duplicating the full body in chat.
 
-5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames before saving.
+5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames to the staged body file before saving, with a scripted replace of the exact `**Speaker N:**` label rather than a rewrite through context.
 
 6. **Ask what the user wants to do next.** Present the options:
    1. Save the transcript — ask where (suggest a default: for local audio files, same directory with `.md` extension; for YouTube, suggest a logical location if one is apparent from context, otherwise ask). Also ask if the user wants a specific filename or is happy with the default (video title / audio filename).
@@ -289,7 +304,7 @@ Replace the boolean/integer placeholders with validated values. Export `TRANSCRI
 
 7. **Save** the transcript as a markdown file (if the user chose to save). Use the path and filename agreed in step 6.
 
-Stage the metadata header and transcript body in a unique scratch directory outside the vault. Preserve the body verbatim; do not run a spelling normaliser or rewrite the completed note through an editor. Read `../_shared-rules.md` §5 and `../_shared-rules-content.md` §14 before saving.
+Stage the metadata header in step 2's scratch directory, outside the vault. `<BODY_FILE>` is `$STAGE/clean.md` from step 3, or `$STAGE/body.md` under `--raw` or after failed checks. Preserve the body verbatim; do not run a spelling normaliser or rewrite the completed note through an editor. Read `../_shared-rules.md` §5 and `../_shared-rules-content.md` §14 before saving.
 
 For a new note, assemble header + blank line + body into a staging file, then create the destination with one atomic locked compare-and-swap. `MISSING` asserts that the destination does not exist yet; the wrapper checks that under the lock and installs the whole note in one rename, so no separate existence check precedes the write and nothing is ever appended to an existing file:
 
@@ -309,7 +324,7 @@ Wrapper exit 0 followed by `cmp` exit 0 is the only success condition; report su
    **Duration:** {MM:SS or H:MM:SS}
    **Model:** {actual Phase 2 model field}
    **Diarisation:** {yes (N speakers) | no}
-   **Cleanup:** {yes | no (--raw)}
+   **Cleanup:** {yes | no (--raw) | no (checks failed: <check>)}
 
    ---
    ```
