@@ -322,6 +322,24 @@ class CloseoutSnippetTests(unittest.TestCase):
                     self.assertTrue(link.is_symlink())
                     self.assertFalse(target.exists())
 
+    def test_live_search_ignores_user_ripgrep_config(self):
+        for source in PARKS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); vault = root/'vault'
+                note = vault/'04 Areas/note.md'; note.parent.mkdir(parents=True)
+                note.write_text('a long line naming the subject phrase in full\n')
+                config = root/'ripgreprc'
+                config.write_text('--max-columns=5\n--glob=!**/04 Areas/**\n')
+                out, err = root/'raw.out', root/'raw.err'
+                result = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE='subject phrase',
+                                  MATCH_MODE='phrase', RAW_OUT=str(out), RAW_ERR=str(err),
+                                  RIPGREP_CONFIG_PATH=str(config))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('exit_status: 0', result.stdout)
+                self.assertEqual(out.read_text(),
+                                 './04 Areas/note.md:1:a long line naming the subject phrase in full\n')
+                self.assertIn('records: 1\n', result.stdout)
+
     def test_oversized_ignored_source_uses_separate_supplemental_receipt(self):
         for source in PARKS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:

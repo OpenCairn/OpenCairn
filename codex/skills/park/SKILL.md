@@ -232,7 +232,7 @@ EXCL=(-g '!**/06 Archive/**' -g '!**/07 System/.Provenance/**' -g '!**/.git/**'
       -g '!**/.obsidian*/**' -g '!**/.trash/**' -g '!**/.Trash*/**' -g '!**/.stversions/**'
       -g '!**/node_modules/**' -g '!**/__pycache__/**' -g '!**/.cache/**'
       -g '!*.lock' -g '!*.csv' -g '!*.tsv' -g '!*.jsonl' -g '!*.ndjson' -g '!*.xmp')
-CMD=(rg --hidden --no-ignore -n -F -i "${EXCL[@]}" --max-filesize 2M)
+CMD=(rg --no-config --hidden --no-ignore -n -F -i "${EXCL[@]}" --max-filesize 2M)
 case "$MATCH_MODE" in fixed|phrase) ;; word) CMD+=(-w) ;; *) echo 'ERROR: invalid match mode' >&2; exit 2 ;; esac
 cd "$VAULT" || exit 2
 [ ! -e "$RAW_OUT" ] && [ ! -L "$RAW_OUT" ] && [ ! -e "$RAW_ERR" ] && [ ! -L "$RAW_ERR" ] || { echo 'ERROR: receipt path already exists' >&2; exit 2; }
