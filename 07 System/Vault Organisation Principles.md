@@ -69,6 +69,8 @@ Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonom
 
 **Hub review window: 14** — days after a root doc's `last_reviewed:` frontmatter date beyond which `/weekly-hygiene` flags the hub as due for a re-read. Tune here; skills resolve this line rather than carrying their own copy.
 
+**Usage analysis notes:** off — no glob set. To turn it on, replace "off — no glob set" with a filename glob in backticks that matches a usage-analysis tool's weekly notes; for example, notes named Usage analysis - 2026-W07.md need the glob Usage analysis - [0-9][0-9][0-9][0-9]-W[0-9][0-9].md. /weekly-review then quotes the latest note's top repeated-work and delegation candidates, read from its "## Top candidates" section (one bullet per candidate: bold kind, an em dash, the title, then the candidate ID in parentheses). Tune here; skills resolve this line rather than carrying their own copy.
+
 **Archiving convention:** Completed projects go to the `Archive/` subfolder of the Area they belong to (e.g., `04 Areas/Health/Archive/`). Cross-cutting projects pick the dominant Area's `Archive/` (`06 Archive/` holds only immutable records). This keeps related content together — when browsing an Area, you can see both active reference material and historical projects.
 
 **Archive immutability is semantic, not byte-for-byte.** Never deliberately revise archived prose, decisions, formatting or timestamps. Automatic Obsidian link-target healing after a move is allowed because it preserves navigation rather than changing the historical record. If an old path is itself evidence, write it as plain text or code rather than as a navigational link.
