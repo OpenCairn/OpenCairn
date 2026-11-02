@@ -176,10 +176,14 @@ class TranscriptCleanTests(unittest.TestCase):
 
     def test_context_cap_is_reported_when_it_truncates(self):
         context = self.dir / "page.txt"
-        context.write_text("divergence list\n" + "x" * 7000)
+        context.write_text("divergence list\n" + "x" * 7000 + "TRUNCATED-TAIL")
         r = self.run_clean("echo", "--context", str(context))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("context truncated", r.stderr)
+        # The model must see the head of the context, not the cut tail.
+        prompt = Path(str(self.log) + ".prompt").read_text(encoding="utf-8")
+        self.assertIn("Context:\ndivergence list\n", prompt)
+        self.assertNotIn("TRUNCATED-TAIL", prompt)
         short = self.dir / "short.txt"
         short.write_text("divergence list\n")
         self.out.unlink()
