@@ -113,11 +113,16 @@ rg '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 
 **Names and speakers: the page's human-written text outranks the transcript body — per field.** The body wins on prose; it does **not** win on identity. A *published* transcript is frequently the publisher's own ASR, which garbles names phonetically and assigns speaker labels by voice-clustering guess: turns come out as `Unknown`, or get handed to whoever spoke last. The show notes, chapter list, resource links and pull-quotes on that same page are typed by a person. Each check below states the command **and** the observation that separates pass from fail — without the second half every one of them returns something plausible under both hypotheses and manufactures confidence.
 
-**First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary: the first transcript heading with human-written text above it, else the first speaker-labelled turn (a name, then a bracketed timestamp). A page titled "Transcript for …" puts its show notes and chapter list *below* that heading. Everything below is scoped to one side or the other:
+**First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary: the first transcript heading with human-written text above it, else the first speaker-labelled turn (a name, then a bracketed timestamp) outside a label-first chapter list (three or more consecutive non-blank lines like `Intro (0:00)` with nothing after the timestamp). A page titled "Transcript for …" puts its show notes and chapter list *below* that heading. Everything below is scoped to one side or the other:
 ```bash
 TURN='^\**[A-Z][^\[(*:]{0,40}\**:?\** *[\[(]{1,2}[0-9]{1,2}:[0-9]{2}'   # speaker label, then a bracketed timestamp
+BARE="$TURN"'[0-9:]*[\])]*(\([^)]*\))?[\])*: ]*$'   # the same with nothing after the timestamp, like a chapter entry `Intro (0:00)`
+# A run of 3+ consecutive non-blank bare lines is a label-first chapter list, not speaker turns: skip its lines.
+SKIP=" $(rg -n '\S' "$BODY" | cut -d: -f1 | awk -v b=" $(rg -n "$BARE" "$BODY" | cut -d: -f1 | tr '\n' ' ')" \
+  'index(b, " " $1 " ") { r = r $1 " "; k++; next } { if (k > 2) s = s r; r = ""; k = 0 } END { if (k > 2) s = s r; print s }')"
+FIRST=$(rg -n "$TURN" "$BODY" | cut -d: -f1 | while read -r n; do case "$SKIP" in *" $n "*) ;; *) echo "$n"; break ;; esac; done)
 BOUND=
-for n in $(rg -n '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | cut -d: -f1) $(rg -n -m1 "$TURN" "$BODY" | cut -d: -f1); do
+for n in $(rg -n '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | cut -d: -f1) $FIRST; do
   if [ "$n" -gt 1 ] && [ "$(sed -n "1,$((n-1))p" "$BODY" | sed -E 's/<[^>]+>//g' | wc -w)" -gt 0 ]; then BOUND=$n; break; fi
 done
 if [ -z "$BOUND" ]; then echo "SPLIT FAILED"; else echo "boundary line: $BOUND"; fi
@@ -137,7 +142,7 @@ if [ -z "$BOUND" ]; then echo "SPLIT FAILED"; else echo "boundary line: $BOUND";
   Use a **stem** (whole-surname matching fails — the garbling is phonetic). The `tr` is load-bearing: `rg -oi` matches case-insensitively but prints the *original* case, so without it a name styled all-caps on one side and title-case on the other reads as divergence, and the runner "corrects" a spelling that was already right. Chapter lists and pull-quote attributions are commonly styled in caps, so this is the ordinary case, not an edge one. **Fail observation: the two lowercased token sets differ ⇒ the human-written half's spelling wins** (take its original-case form from the un-`tr`'d output). Identical sets means agreement, not that you skipped the check; an empty human-written set means the page's own text never names them — then use the speaker labels (the labels check below), else correct from your own knowledge or flag, never invent, and never report a name unresolvable that this comparison would have settled.
 - **Speaker labels are a third identity source.** A name typed before many turns names a participant. Labels rank below names in the human-written half and above a description or title that names no person (page templates can fill the guest slot with the episode title):
   ```bash
-  sed -n "$BOUND,\$p" "$BODY" | rg -o "${TURN:?set TURN as in the split block}" | sed -E 's/[*: ]*[[(]+[0-9:]+$//; s/^\*+//' | sort | uniq -c | sort -rn | head
+  sed -n "${BOUND:?set BOUND as in the split block},\$p" "$BODY" | rg -o "${TURN:?set TURN as in the split block}" | sed -E 's/[*: ]*[[(]+[0-9:]+$//; s/^\*+//' | sort | uniq -c | sort -rn | head
   ```
   **Fail observation: no label recurs, or the labels are placeholders (`Speaker 1`, `Unknown`) ⇒ the labels settle nothing.**
 - **Speakers — find the timestamped chapter list, which is usually *not* headings.** The section outline the metadata block extracts is often navigational (`Show Notes`, `Resources`, `Transcript`), naming no participant and carrying no time; a page's real segment map is frequently bold prose or a plain list. Scan the human-written half for leading timestamps:
