@@ -268,8 +268,8 @@
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
       "render": "codex/skills/weekly-review/SKILL.md",
-      "source_sha256": "18136afc7d5ae99561ed789df760f8c71ca7cb661c367084e7882413aa4b2b66",
-      "render_sha256": "43ffd759dc45e48ba6dc16e8bc4d9525fe2f2b2f73f19beac8e89ec35ee6e138"
+      "source_sha256": "a50ac2ef6deea63ca8a59645fea084d170e67f5d481ee16509ee14a6a7bb6ec9",
+      "render_sha256": "3bba69bfb5994781aaa24a97c1f0332f0856687c02bfc6c52d8eb0cff49de36c"
     },
     "_shared-rules-planning": {
       "source": ".claude/commands/_shared-rules-planning.md",
