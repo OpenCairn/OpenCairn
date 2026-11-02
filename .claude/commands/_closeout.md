@@ -94,7 +94,7 @@ rg -n -i '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|sec
 printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate needs triage)\n' "$SCAN_RC"
 ```
 <!-- END DURABILITY SCAN -->
- Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. For document stamps, search case-insensitively for the form the document uses (`Last updated`, `Last update`, `Current as of`, `Updated:`), not one preferred spelling.
+ Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. Run the stamp search on every edited doc whatever its Coverage class, mechanical and locator-only edits included: `rg -n -i 'last updated|last update|current as of|updated:' "<doc>"` (match the form the document uses, not one preferred spelling); bump a stamp the session's change leaves stale and print `Stamp: <path> <found|none> <bumped|n/a>` for each doc.
 
 **Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
 
