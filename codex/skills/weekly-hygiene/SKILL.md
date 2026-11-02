@@ -822,7 +822,7 @@ PY_LOCK_METADATA
 
     ```
     ✓ Hygiene report saved to: 06 Archive/OpenCairn/Hygiene Reports/YYYY-Wnn.md
-    ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, lock-sentinel sweep, internal file cleanup)
+    ✓ Auto-fixes applied: N (completed-item purge, list-join fixes, internal file cleanup)
     ✓ Resolved in-session: N (CRM, memory, context, tickler, scratchpad)
     ✓ Routed to SSOT: M (N to project docs, M to files, P to Tickler)
 
