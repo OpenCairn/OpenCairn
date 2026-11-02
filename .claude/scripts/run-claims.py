@@ -29,7 +29,10 @@ A missing registry means no claims (check says so and exits 0).
 from __future__ import annotations
 
 import argparse
-import fcntl
+try:
+    import fcntl
+except ImportError:  # Windows: check still works; register/release refuse below
+    fcntl = None
 import json
 import os
 import sys
@@ -118,6 +121,8 @@ def cmd_check(args) -> int:
 
 
 def append(row: dict) -> None:
+    if fcntl is None:
+        raise ValueError("register/release need file locking (fcntl), unavailable on this platform")
     path = registry_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as handle:

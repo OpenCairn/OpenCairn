@@ -9,6 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 SCRIPT = ROOT / ".claude/scripts/run-claims.py"
 NOW = "2026-11-03T02:00:00+10:00"
+NO_FCNTL = (
+    "import runpy, sys; sys.modules['fcntl'] = None; sys.argv = sys.argv[1:]; "
+    "runpy.run_path(sys.argv[0], run_name='__main__')"
+)
 
 
 class RunClaimsTests(unittest.TestCase):
@@ -23,12 +27,13 @@ class RunClaimsTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
-    def run_claims(self, *args: str) -> subprocess.CompletedProcess:
+    def run_claims(self, *args: str, no_fcntl: bool = False) -> subprocess.CompletedProcess:
         env = os.environ.copy()
         env["OPENCAIRN_RUN_REGISTRY"] = str(self.registry)
-        return subprocess.run(
-            ["python3", str(SCRIPT), *args], env=env, capture_output=True, text=True, check=False
-        )
+        command = ["python3", str(SCRIPT), *args]
+        if no_fcntl:  # simulate native Windows, which has no fcntl module
+            command = ["python3", "-c", NO_FCNTL, str(SCRIPT), *args]
+        return subprocess.run(command, env=env, capture_output=True, text=True, check=False)
 
     def write_rows(self, *rows: dict) -> None:
         self.registry.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +98,20 @@ class RunClaimsTests(unittest.TestCase):
         bad = self.run_claims("register", "--run-id", "r2", "--owner", "s",
             "--ends-at", "tomorrow", "--claim", str(self.queue))
         self.assertEqual(bad.returncode, 2)
+
+    def test_check_works_without_fcntl_and_writes_fail_closed(self) -> None:
+        self.write_rows({"run_id": "r", "claims": [str(self.queue)], "ends_at": "2026-11-03T10:00:00+10:00"})
+        before = self.registry.read_text(encoding="utf-8")
+        result = self.run_claims("check", "--now", NOW, str(self.queue), no_fcntl=True)
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        for args in (("register", "--run-id", "r2", "--owner", "s", "--ends-at",
+                      "2099-01-01T00:00:00+10:00", "--claim", str(self.queue)),
+                     ("release", "--run-id", "r")):
+            with self.subTest(command=args[0]):
+                result = self.run_claims(*args, no_fcntl=True)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("file locking", result.stderr)
+        self.assertEqual(self.registry.read_text(encoding="utf-8"), before)
 
     def test_weekly_hygiene_step_15_gates_writes_on_claims(self) -> None:
         for rel in (".claude/commands/weekly-hygiene.md", "codex/skills/weekly-hygiene/SKILL.md"):
