@@ -82,7 +82,7 @@ Inspect each artefact as its Coverage class prescribes. Across that semantic cov
 | Locators and owning context | Resolve bare paths against the document's defined shorthand. Read a linked parent hub's constraints and each destination heading before changing a still-valid SSOT locator. Use code locators for extensionless scripts rather than unresolved wikilinks. New guides need their owning index/table row or an explicit exclusion; a cross-area move needs a route from the destination area's index/hub. |
 | Renders | A session-rendered PDF/image is semantic output, not an imported reference: inspect a representative page visually plus each outcome-critical region. Regenerate sibling PDF/HTML/site renders after the final source edit and verify the final edited content appears; timestamps/text extraction alone do not prove visual fidelity. |
 
-Run and display the count-word/ordinal/back-reference/relative-time scan over final authored spans, including replacement/deletion seams and Files descriptions. Set `SCAN_INPUT` to each retained authored span or the assigned-session block; this scan finds candidates rather than proving prose valid.
+Run and display the count-word/ordinal/back-reference/relative-time scan over final authored spans, including replacement/deletion seams and Files descriptions. Set `SCAN_INPUT` in the same call as the scan, to each retained authored span or the printed `SESSION_BLOCK` path; this scan finds candidates rather than proving prose valid.
 
 <!-- BEGIN DURABILITY SCAN -->
 ```bash
@@ -102,12 +102,17 @@ Output: `✓ Quality check: B bounded semantic files full-read; T large/referenc
 
 ### Assigned-session extraction
 
-Use this same bounded extraction for Summary quoting, final checks and `--touched`. Set the exact assigned `SESSION_LOG` and `N`; write scratch output outside the vault. A missing/duplicate N fails instead of borrowing a concurrent entry.
+Use this same bounded extraction for Summary quoting, final checks and `--touched`. Set the exact assigned `SESSION_LOG` and `N`; the block writes its outputs to fixed session-scoped paths outside the vault and prints them. A missing/duplicate N fails instead of borrowing a concurrent entry.
 
 <!-- BEGIN SESSION EXTRACT -->
 ```bash
 set -e
-SESSION_BLOCK="$(mktemp)"; SESSION_PATHS="$(mktemp)"
+case "$N" in ''|*[!0-9]*) echo "ERROR: N must be the assigned session number" >&2; exit 1 ;; esac
+SID="$(. "{VAULT}/.claude/scripts/lib-session.sh"; _session_id)"
+[ -n "$SID" ] || { echo "ERROR: no session id; set OPENCAIRN_SESSION_ID" >&2; exit 1; }
+EXTRACT_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/.session-state/${SID}.closeout/$(basename "$SESSION_LOG" .md)-session-${N}/extract"
+SESSION_BLOCK="$EXTRACT_DIR/session-block.txt"; SESSION_PATHS="$EXTRACT_DIR/session-paths.txt"
+mkdir -p "$EXTRACT_DIR"; rm -f "$SESSION_BLOCK" "$SESSION_PATHS"  # a failed rerun leaves no stale output
 python3 - "$SESSION_LOG" "$N" "$SESSION_BLOCK" "$SESSION_PATHS" "{VAULT}" <<'PY'
 from pathlib import Path
 import re, sys
@@ -149,25 +154,29 @@ for line in block.splitlines():
         identities.add(identity); paths.append(path)
 Path(paths_out).write_text("".join(p+"\n" for p in paths), encoding="utf-8")
 PY
-TOUCHED=()
-while IFS= read -r path || [ -n "$path" ]; do TOUCHED+=(--touched "$path"); done < "$SESSION_PATHS"
+printf 'SESSION_BLOCK=%s\nSESSION_PATHS=%s\n' "$SESSION_BLOCK" "$SESSION_PATHS"
 ```
 <!-- END SESSION EXTRACT -->
 
-Read the extracted block and path list. Keep lexical aliases in the Files record; normalise/deduplicate the verifier's arguments by resolved identity while retaining distinct source/install paths. Every Files row written or rewritten now uses backticks around its complete path, so ` - ` in a filename is unambiguous. For a legacy ambiguous row, re-read and canonicalise its complete existing section before rerunning; never silently shorten a path.
+Read both printed files. Each shell tool call starts a fresh shell, so no variable from this block survives into a later call: every later block sets `SESSION_BLOCK` or `SESSION_PATHS` from the printed absolute path. The paths are fixed per session, log and N, so a rerun after a fix rewrites the same files, and a failed rerun removes them rather than leaving stale output. Keep lexical aliases in the Files record; normalise/deduplicate the verifier's arguments by resolved identity while retaining distinct source/install paths. Every Files row written or rewritten now uses backticks around its complete path, so ` - ` in a filename is unambiguous. For a legacy ambiguous row, re-read and canonicalise its complete existing section before rerunning; never silently shorten a path.
 
 
 **Backfill:** `--section "Files Created"`, `--section "Files Updated"` (default) or `--section "Files Deleted"` selects the destination; missing Files sections are inserted before Pickup Context within the assigned N. Dedup remains warn-and-preserve, so moving an already-listed row between sections requires rewriting both complete section bodies. Caller edits after the session entry was written (project docs, This Week, Tickler and report reconciliation) — pipe them as ``- `path` - what changed`` lines through `"{VAULT}/.claude/scripts/backfill-files-updated.sh" <log> N`. The script skips paths already in Files Created/Updated, keeps their existing descriptions, prints each incoming row it did not write, and ends with `<N> added, <M> skipped`. Exit 3 means it wrote nothing because every row was skipped: a result to read, not a failure to retry. Extend a skipped description in its existing section via `update-session-section.sh <log> N "<section>" --replace` with the **full new section body** (every retained row plus its updated description, no OLD/NEW separator payload) — after a fix round a `skipped` line for an already-listed path is the expected signal that its row needs rewriting, not a no-op; a created file stays in Files Created after later edits. If the caller has a Next Steps section, reconcile inline closures: an item that the caller closed comes out of `### Next Steps / Open Loops` (`--replace`, preserving the other lines).
 
 Reconcile the Files lists with a fresh `session-ledger.sh --read`, the initial inventory (including its non-ledger backstop), and the collected propagation/close-out edits; backfill any attributed omissions before verification. The ledger alone is not complete. Reconcile the complete path set independently from attributed commit/merge ranges and tool calls, including parent-skill, shell and connector writes; do not infer ownership from a commit time window. Include renamed/deleted paths in the Files record with their actual status. Build `--touched` from the reconciled Files-list paths and deduplicate by the same resolved path (expand `~` and resolve vault-relative spellings), passing each path once. Keep distinct installed/source paths separate even when their basenames or contents match; repeated writes to one path are not separate files.
 
-**Verify:** run the verifier and resolve every FAIL, re-running until clean:
+**Verify:** run the verifier and resolve every FAIL, re-running until clean. The block rebuilds `TOUCHED` from the extracted path list inside its own call:
 
+<!-- BEGIN VERIFY -->
 ```bash
+SESSION_PATHS="<SESSION_PATHS path printed by Assigned-session extraction>"
+[ -f "$SESSION_PATHS" ] || { echo "ERROR: no extracted path list; rerun Assigned-session extraction" >&2; exit 1; }
+TOUCHED=(); while IFS= read -r path || [ -n "$path" ]; do TOUCHED+=(--touched "$path"); done < "$SESSION_PATHS"
 "{VAULT}/.claude/scripts/park-verify.sh" "{VAULT}" "<session log>" N \
   --ident "<distinctive substring per item/identifier the session completed>" ... \
-  "${TOUCHED[@]}"  # one --touched flag per complete path from Assigned-session extraction
+  "${TOUCHED[@]}"  # one --touched flag per complete path in the extracted list
 ```
+<!-- END VERIFY -->
 
 **`--touched` must be the log's own Files-list paths**, all of them — they are already enumerated by this point, so pass that list rather than a subset you retype. The verifier can only speak for the paths it was handed: a narrower list still prints `PASS backfill`, and a `REVIEW backfill` naming paths the log lists but the run never saw means the list was short, not that the log is wrong. `--ident` values must be distinctive strings — a bare number under ~4 digits matches digit runs inside phone numbers, order IDs and amounts, and a common word or a doc's name matches every item that mentions or links it, burying real hits in noise. Paths may be absolute, `~`-prefixed, or relative to `{VAULT}`.
 
@@ -181,7 +190,7 @@ It checks the deterministic layer: session numbering, required sections, Project
 
 Output: the script's `RESULT:` line plus what you fixed.
 
-**Final evidence check:** re-read current edited regions and routed-task destinations, then extract only the assigned Session N with **Assigned-session extraction**. Run §19's behaviour-claim command on that block, trace each past-event/approval/status claim to its evidence, and print a fresh `Value check:` line. Run the count-word scan on the block and every rewritten description; reconcile all sections, including the heading and Key Insights, with surviving open items. Search retired wording separately in this session block (the live-vault sweep excludes the archive). Repeat this executed pass after every fix or later user/world-state change; a prior mental pass or a whole-day file read does not discharge it.
+**Final evidence check:** re-read current edited regions and routed-task destinations, then extract only the assigned Session N with **Assigned-session extraction**. In each later call, set `SESSION_BLOCK` to its printed path: run §19's behaviour-claim command with `"$SESSION_BLOCK"` as the file argument, trace each past-event/approval/status claim to its evidence, and print a fresh `Value check:` line. Run the count-word scan with `SCAN_INPUT` set to that path in the same call, and on every rewritten description; reconcile all sections, including the heading and Key Insights, with surviving open items. Search retired wording separately in this session block (the live-vault sweep excludes the archive). Repeat this executed pass after every fix or later user/world-state change; a prior mental pass or a whole-day file read does not discharge it.
 
 ## Independent review
 
