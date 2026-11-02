@@ -96,7 +96,7 @@ printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate need
 <!-- END DURABILITY SCAN -->
  Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. Run the stamp search on every edited doc whatever its Coverage class, mechanical and locator-only edits included: `rg -n -i 'last updated|last update|current as of|updated:' "<doc>"` (match the form the document uses, not one preferred spelling); bump a stamp the session's change leaves stale and print `Stamp: <path> <found|none> <bumped|n/a>` for each doc.
 
-**Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none.
+**Hot-capture nudge:** if substantive insights surfaced but weren't routed in the moment, name the habit gap in one line — don't cold-read the transcript to enumerate them. Omit if none. Emit it once per close-out: a later rerun of this inspection (late files, rechecks) skips it.
 
 Output: `✓ Quality check: B bounded semantic files full-read; T large/reference artefacts target-inspected; M mechanical spans checked`, `🔧 Quality check: fixed N issues — [file: fix]`, or — when the checked inventory is empty — `✓ Quality check: no attributed files (writes deferred to the later caller steps)`. The empty case is a result, not a skip: planning and research sessions can legitimately make their first writes during Park, and the later writes still pass their step contracts, shared verification and review.
 
