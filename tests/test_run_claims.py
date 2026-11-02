@@ -82,11 +82,22 @@ class RunClaimsTests(unittest.TestCase):
         self.assertIn("no end time", result.stdout)
 
     def test_malformed_registry_fails_closed(self) -> None:
-        self.registry.parent.mkdir(parents=True)
-        self.registry.write_text('{"run_id": "r", "claims": "not-a-list"}\n', encoding="utf-8")
-        result = self.check()
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("registry unreadable", result.stderr)
+        live = "2026-11-03T10:00:00+10:00"
+        cases = {
+            "claims-not-a-list": {"run_id": "r", "claims": "not-a-list"},
+            # A string "false" is truthy: read loosely it would release the claim.
+            "released-not-bool": {"run_id": "r", "claims": [str(self.queue)], "ends_at": live,
+                                  "released": "false"},
+            "relative-claim": {"run_id": "r", "claims": ["vault/03 Projects"], "ends_at": live},
+            # An empty claim would normalise to the current directory.
+            "empty-claim": {"run_id": "r", "claims": [""], "ends_at": live},
+        }
+        for name, row in cases.items():
+            with self.subTest(case=name):
+                self.write_rows(row)
+                result = self.check()
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                self.assertIn("registry unreadable", result.stderr)
 
     def test_register_then_release_round_trip(self) -> None:
         reg = self.run_claims("register", "--run-id", "r1", "--owner", "s1",
