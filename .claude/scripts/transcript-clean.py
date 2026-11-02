@@ -14,10 +14,16 @@ settings or hooks, no session persistence, neutral cwd) with /transcribe's clean
 rules. --context adds human-written page text (show notes, divergence list) that
 outranks the machine transcript on names.
 
-Every chunk must pass three checks, else nothing is written and the exit is 2:
+Every chunk must pass five checks, else nothing is written and the exit is 2:
   retention  output keeps at least 90% of the chunk's words (the rules keep fillers)
+  chars      output's non-whitespace character count is 85-115% of the chunk's
+             (catches loss in unspaced scripts such as CJK, and added commentary)
+  head       output's first line still matches the chunk's first line (no preamble)
   tail       at least half of the chunk's last six long words appear near the output end
   structure  the sequence of timestamp + speaker-label prefixes is identical
+
+--context is capped at CONTEXT_CAP characters; a note goes to stderr when it is cut,
+so callers put the divergence list first.
 
 --check-only RAW.md runs the checks on an existing cleaned file (--in) against RAW.md
 without calling a model. Output: CLEAN.md is written only when every check passes;
@@ -25,7 +31,11 @@ a JSON report goes to stdout; progress goes to stderr. Exit 0 pass, 1 usage or m
 failure, 2 a check failed, 3 the `claude` CLI is not on PATH. Callers fall back to
 their in-session cleanup on 1 or 3; 2 means the model's output was unsafe to keep.
 """
-import argparse, concurrent.futures, json, os, re, shutil, subprocess, sys, tempfile
+import argparse, concurrent.futures, difflib, json, os, re, shutil, subprocess, sys, tempfile
+
+CONTEXT_CAP = 6000
+CHARS_MIN, CHARS_MAX = 0.85, 1.15
+HEAD_CHARS, HEAD_MIN = 120, 0.6
 
 
 class Parser(argparse.ArgumentParser):
@@ -66,8 +76,21 @@ def chunk(paras, limit):
     return ["\n\n".join(c) for c in out]
 
 
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def first_line(text):
+    return " ".join(next((l for l in text.strip().splitlines() if l.strip()), "").split())
+
+
 def checks(src, got):
     sw, gw = len(src.split()), len(got.split())
+    sc, gc = len(re.sub(r"\s", "", src)), len(re.sub(r"\s", "", got))
+    chars = gc / max(sc, 1)
+    sh, gh = first_line(src)[:HEAD_CHARS], first_line(got)[:HEAD_CHARS]
+    head = difflib.SequenceMatcher(None, sh, gh, autojunk=False).ratio() if sh else 1.0
     last = re.findall(r"[a-z']{5,}", src.lower())[-6:]
     tail = got.lower()[-1500:]
     hits = sum(w in tail for w in last)
@@ -78,6 +101,9 @@ def checks(src, got):
     return {
         "words_in": sw, "words_out": gw, "retention": round(gw / max(sw, 1), 3),
         "retention_ok": gw >= 0.9 * sw,
+        "chars_in": sc, "chars_out": gc, "chars_ratio": round(chars, 3),
+        "chars_ok": CHARS_MIN <= chars <= CHARS_MAX,
+        "head_similarity": round(head, 3), "head_ok": head >= HEAD_MIN,
         "tail_hits": f"{hits}/{len(last)}", "tail_ok": not last or hits >= len(last) / 2,
         "prefixes_in": len(sp), "prefixes_out": len(gp), "structure_ok": first_diff is None,
         "first_prefix_mismatch": None if first_diff is None else
@@ -86,11 +112,16 @@ def checks(src, got):
     }
 
 
+def passed(res):
+    return all(res[k] for k in ("retention_ok", "chars_ok", "head_ok", "tail_ok", "structure_ok"))
+
+
 def claude(prompt, model, cwd):
     cmd = ["claude", "-p", "--model", model, "--tools", "", "--strict-mcp-config",
            "--setting-sources", "", "--no-session-persistence", "--output-format", "json",
            "--system-prompt", "You are a careful transcript editor."]
-    r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, cwd=cwd, timeout=900)
+    r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
+                       cwd=cwd, timeout=900)
     try:
         d = json.loads(r.stdout)
     except json.JSONDecodeError:
@@ -112,8 +143,8 @@ def main():
     a = ap.parse_args()
 
     if a.check_only:
-        res = checks(open(a.check_only).read(), open(a.inp).read())
-        ok = res["retention_ok"] and res["tail_ok"] and res["structure_ok"]
+        res = checks(read(a.check_only), read(a.inp))
+        ok = passed(res)
         print(json.dumps({"ok": ok, "whole_file": res}, indent=2))
         sys.exit(0 if ok else 2)
     if not a.out:
@@ -124,8 +155,11 @@ def main():
         log("error: `claude` CLI not on PATH; run the cleanup in-session instead")
         sys.exit(3)
 
-    chunks = chunk(paragraphs(open(a.inp).read()), a.chunk_words)
-    context = open(a.context).read()[:6000] if a.context else ""
+    chunks = chunk(paragraphs(read(a.inp)), a.chunk_words)
+    context = read(a.context) if a.context else ""
+    if len(context) > CONTEXT_CAP:
+        log(f"note: context truncated to its first {CONTEXT_CAP} of {len(context)} characters")
+        context = context[:CONTEXT_CAP]
     cwd_dir = tempfile.TemporaryDirectory(prefix="transcript-clean-")
     cwd = cwd_dir.name
     log(f"{len(chunks)} chunk(s), model {a.model}, cwd {cwd}")
@@ -137,6 +171,7 @@ def main():
         out, usage, models = claude(prompt, a.model, cwd)
         res = checks(chunks[i], out)
         log(f"chunk {i + 1}: {res['words_in']} -> {res['words_out']} words ({res['retention']:.0%}), "
+            f"chars {res['chars_ratio']:.0%}, head {res['head_similarity']:.2f}, "
             f"tail {res['tail_hits']}, prefixes {res['prefixes_in']}/{res['prefixes_out']}")
         return out, {"chunk": i + 1, **res, "usage": usage, "models": models}
 
@@ -149,9 +184,9 @@ def main():
     finally:
         cwd_dir.cleanup()
     report = [r for _, r in results]
-    ok = all(r["retention_ok"] and r["tail_ok"] and r["structure_ok"] for r in report)
+    ok = all(passed(r) for r in report)
     if ok:
-        with open(a.out, "x") as f:
+        with open(a.out, "x", encoding="utf-8") as f:
             f.write("\n\n".join(o for o, _ in results) + "\n")
     print(json.dumps({"ok": ok, "out": a.out if ok else None, "chunks": report}, indent=2))
     sys.exit(0 if ok else 2)

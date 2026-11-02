@@ -270,11 +270,11 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
 
    **A third source outranks both, and it is usually already to hand:** human-written page text about the episode — the video description, the show notes, a chapter list, a linked resource list. Those are typed by a person; both machine transcripts are not. So for any name in the divergence list, grep that text for a distinctive fragment (match a stem — the garbling is phonetic) and **take the spelling it gives over either transcript's**, rather than adjudicating between two guesses or flagging `[?]`.
 
-   **Run the pass outside this session's context** with `transcript-clean.py`. It sends ~3,000-word chunks of the formatted body to a hermetic `claude -p` (no tools, MCP servers, settings, hooks or project instructions) carrying the rules above, and checks every chunk before writing anything: at least 90% of its words kept, its ending present, and its sequence of timestamps and speaker labels unchanged. The script's `RULES` mirror the bullets above; change both together. Put the divergence list and the human-written page text in a context file rather than applying them in-session:
+   **Run the pass outside this session's context** with `transcript-clean.py`. It sends ~3,000-word chunks of the formatted body to a hermetic `claude -p` (no tools, MCP servers, settings, hooks or project instructions) carrying the rules above, and checks every chunk before writing anything: at least 90% of its words kept, its non-whitespace character count within 85–115% of the original, its first line and ending present, and its sequence of timestamps and speaker labels unchanged. The script's `RULES` mirror the bullets above; change both together. Put the divergence list and the human-written page text in a context file rather than applying them in-session, **divergence list first**: the script keeps only the context's first 6,000 characters and notes on stderr when it cuts, so page text past that point is dropped before the list would be.
 
    ```bash
    STAGE=<literal path from step 2>
-   # optional: divergence list + page text -> "$STAGE/page.txt"
+   # optional: divergence list, then page text -> "$STAGE/page.txt"
    python3 "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/transcript-clean.py" --in "$STAGE/body.md" --out "$STAGE/clean.md" --context "$STAGE/page.txt" > "$STAGE/clean-report.json"; echo "exit=$?"
    ```
 
