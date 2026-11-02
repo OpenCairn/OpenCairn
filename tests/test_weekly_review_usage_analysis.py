@@ -49,21 +49,24 @@ class WeeklyReviewUsageAnalysisTests(unittest.TestCase):
 
     @unittest.skipIf(shutil.which("rg") is None, "rg not installed")
     def test_latest_note_selection_runs(self) -> None:
-        text = (ROOT / RENDERS[0]).read_text(encoding="utf-8")
-        cmd = re.search(r"in one call, `([^`]+)`", text).group(1)
-        with tempfile.TemporaryDirectory() as vault:
-            v = Path(vault)
-            for rel in ("a/Usage analysis - 2026-W44.md", "b/Usage analysis - 2026-W45.md", "Usage analysis - setup.md"):
-                (v / rel).parent.mkdir(parents=True, exist_ok=True)
-                (v / rel).write_text("x", encoding="utf-8")
-            def run(glob: str) -> str:
-                script = cmd.replace("{VAULT}", vault).replace("<glob>", glob)
-                return subprocess.run(["bash", "-c", script], capture_output=True, text=True).stdout
-            out = run("Usage analysis*.md")
-            self.assertIn("rg=0", out)
-            self.assertTrue(out.strip().endswith("b/Usage analysis - 2026-W45.md"), out)
-            self.assertIn("rg=1", run("Nothing here*.md"))
-        self.assertIn('rm -r -- "$D"', cmd)
+        for rel in RENDERS:
+            with self.subTest(render=rel):
+                text = (ROOT / rel).read_text(encoding="utf-8")
+                cmd = re.search(r"in one call, `([^`]+)`", text).group(1)
+                with tempfile.TemporaryDirectory() as vault:
+                    v = Path(vault)
+                    for note in ("a/Usage analysis - 2026-W44.md", "b/Usage analysis - 2026-W45.md", "Usage analysis - setup.md"):
+                        (v / note).parent.mkdir(parents=True, exist_ok=True)
+                        (v / note).write_text("x", encoding="utf-8")
+                    def run(glob: str) -> str:
+                        script = cmd.replace("{VAULT}", vault).replace("<glob>", glob)
+                        return subprocess.run(["bash", "-c", script], capture_output=True, text=True,
+                                              timeout=60, stdin=subprocess.DEVNULL).stdout
+                    out = run("Usage analysis*.md")
+                    self.assertIn("rg=0", out)
+                    self.assertTrue(out.strip().endswith("b/Usage analysis - 2026-W45.md"), out)
+                    self.assertIn("rg=1", run("Nothing here*.md"))
+                self.assertIn('rm -r -- "$D"', cmd)
 
     @unittest.skipIf(shutil.which("rg") is None, "rg not installed")
     def test_template_key_is_off_by_default(self) -> None:
