@@ -39,13 +39,15 @@ You are running a vault hygiene pass. This is purely mechanical/structural maint
    - For each root doc, check for `bucket:` in the frontmatter — list violations. Do not flag missing `## Current Objective` or `## Next Actions` headings.
    - Root-doc count (excluding `Cold/` and `Backlog/`): flag if it exceeds the **active project cap** (resolve it first: `rg -F '**Active project cap:'` over `{VAULT}/07 System/Vault Organisation Principles.md` → *Project Doc Format*, and state the value found. **`-F` is required** — the needle is literal. Exit 1, or a line yielding no number, means state `cap line unreadable — using default 5` and proceed on 5, so a failed read is never mistaken for a vault that states no cap. **Any other non-zero exit is a tool error, not an absent line** — report it and stop, rather than falling through to the default, which is the failure this branch exists to prevent)
    - Staleness candidates: flag explicitly completed state or action sections with all tasks ticked. Missing conventional sections or inactivity alone do not establish a decision. Report priority-based pause/resume/abandon choices to review; only confirmed factual completion filing belongs here.
-   - Hub review age: each root doc may carry `last_reviewed: YYYY-MM-DD` in its frontmatter, written only when a person has read the hub and confirmed its current-state section. Resolve the **hub review window** the same way as the cap (`rg -F '**Hub review window:'` over the same file and section; unreadable → state `window line unreadable — using default 14` and proceed on 14). For each root doc print `<doc>: last_reviewed <date>, N days ago` or `<doc>: last_reviewed absent`; flag absent or older than the window:
+   - Hub review age: each root doc may carry `last_reviewed: YYYY-MM-DD` in its frontmatter, written only when a person has read the hub and confirmed its current-state section. Resolve the **hub review window** the same way as the cap (`rg -F '**Hub review window:'` over the same file and section; unreadable → state `window line unreadable — using default 14` and proceed on 14). For each root doc print `<doc>: last_reviewed <date>, N days ago` or `<doc>: never reviewed`; flag a stamp older than the window. Flag a never-reviewed hub only the first time a hygiene report records it: later runs find its line in an earlier report and print `never reviewed (already reported) — not re-flagged`, so an unstamped hub is not re-routed every week. Copy these lines into the report verbatim; the next run reads them:
 
      ```bash
      W=<resolved window>; today=$(date +%F)
-     python3 - "$W" "$today" "{VAULT}/03 Projects" <<'PY_HUB_AGE'
+     python3 - "$W" "$today" "{VAULT}/03 Projects" "{VAULT}/06 Archive/OpenCairn/Hygiene Reports" <<'PY_HUB_AGE'
 import datetime, pathlib, re, sys
 window, today, directory = int(sys.argv[1]), datetime.date.fromisoformat(sys.argv[2]), pathlib.Path(sys.argv[3])
+reports = pathlib.Path(sys.argv[4]) if len(sys.argv) > 4 else None
+seen = '\n'.join(p.read_text(encoding='utf-8', errors='replace') for p in sorted(reports.glob('*.md'))) if reports and reports.is_dir() else ''
 if not directory.is_dir():
     raise SystemExit('Hub review age: CHECK FAILED — projects directory unavailable')
 errors = 0
@@ -59,7 +61,10 @@ for path in files:
             front = lines[1:end]
         keys = [line for line in front if re.match(r'^last_reviewed:', line)]
         if not keys:
-            print(f'{path.stem}: last_reviewed absent — FLAG')
+            if re.search(rf'(?m)^[\s>*|-]*{re.escape(path.stem)}: never reviewed', seen):
+                print(f'{path.stem}: never reviewed (already reported) — not re-flagged')
+            else:
+                print(f'{path.stem}: never reviewed — FLAG')
             continue
         if len(keys) != 1:
             raise ValueError('duplicate last_reviewed key')
