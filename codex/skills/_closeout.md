@@ -149,7 +149,7 @@ Output: `✓ Quality check: B bounded semantic files full-read; T large/referenc
 
 **Coherence after status changes:** compare the changed span with its governing heading, table labels, adjacent conditions and parent scope/provenance statement. Check each clause before ticking a compound task. Reconcile surviving tasks with the settled decision, preserving any still-open clause. For claimed deduplication, inspect the retained counterpart as evidence even when it was not edited. For reciprocal links, verify both endpoints only when reciprocity was intended.
 
-**Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred. Flag provenance and pending/contingent clauses written into living docs (`rg -n -i '\b(pending|contingent|awaiting|depends on|regardless of)\b'` over the authored spans finds candidates): keep the volatile status only in its canonical decision or status home and link to it per §12's one-owner rule; frozen records and durable source provenance stay.
+**Before saving durable prose:** replace reader-relative dates and unstable list counts/back-references with durable wording. Run the same check on the final session record and later routed items; a completed heading does not prove a scheduled event occurred. Flag provenance and pending/contingent clauses written into living docs (`rg --no-config -n -i '\b(pending|contingent|awaiting|depends on|regardless of)\b'` over the authored spans finds candidates): keep the volatile status only in its canonical decision or status home and link to it per §12's one-owner rule; frozen records and durable source provenance stay.
 
 
 **Semantic conformance checks (use the applicable rows, not a new pass per anecdote):**
@@ -174,7 +174,7 @@ rg -n -i '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|sec
 printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate needs triage)\n' "$SCAN_RC"
 ```
 <!-- END DURABILITY SCAN -->
- Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. Run the stamp search on every edited doc whatever its Coverage class, mechanical and locator-only edits included: `rg -n -i 'last updated|last update|current as of|updated:' "<doc>"` (match the form the document uses, not one preferred spelling); bump a stamp the session's change leaves stale and print `Stamp: <path> <found|none> <bumped|n/a>` for each doc. A bump on a mechanically classified file is a further edit: rerun its classification.
+ Recompute retained counts and rewrite fragile references; repeat after every later edit or fix round. Run the stamp search on every edited doc whatever its Coverage class, mechanical and locator-only edits included: `rg --no-config -n -i 'last updated|last update|current as of|updated:' "<doc>"` (match the form the document uses, not one preferred spelling); bump a stamp the session's change leaves stale and print `Stamp: <path> <found|none> <bumped|n/a>` for each doc. A bump on a mechanically classified file is a further edit: rerun its classification.
 
 ## Backfill and verification
 
