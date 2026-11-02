@@ -369,6 +369,27 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
             self.assertFalse((vault / "07 System/Migration Record.md").exists())
 
 
+    def test_session_header_time_is_converted_to_utc(self) -> None:
+        # Header times are labelled UTC; an offset timestamp must be converted,
+        # not formatted in its own zone.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home, vault, cwd = root / "home", root / "vault", root / "project"
+            cwd.mkdir(parents=True)
+            rollout = self.make_codex_rollout(home, cwd)
+            records = [json.loads(line) for line in rollout.read_text().splitlines()]
+            records[1]["timestamp"] = "2026-08-16T10:05:01+10:00"
+            rollout.write_text("".join(json.dumps(r) + "\n" for r in records))
+            claude = home / ".claude/projects/p/abcdef12-session.jsonl"
+            claude.parent.mkdir(parents=True)
+            claude.write_text(json.dumps({"type": "user", "timestamp": "2026-08-16T10:07:00+10:00",
+                "slug": "offset-claude", "message": {"role": "user", "content": "offset prompt"}}) + "\n")
+            result = self.run_exporter(home, vault, cwd, "--all-projects")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            text = "".join(f.read_text() for f in (vault / "06 Archive/OpenCairn/.Session Transcripts").glob("*.md"))
+            self.assertIn("### codex-019c1234-5678 (00:05)", text)
+            self.assertIn("### offset-claude (00:07)", text)
+
     def test_queued_human_prompt_is_a_user_turn_with_utc_time(self) -> None:
         # A message typed mid-turn is a queued_command attachment, not a user
         # record. Only human-origin prompts are user turns.
