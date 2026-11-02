@@ -2066,7 +2066,7 @@ def matching_audit_receipt(
     return max(matches, key=lambda item: item.get("captured_at", ""), default=None)
 
 
-def validate_report_attestations(report: str, files: list[dict]) -> None:
+def report_attestations(report: str) -> dict[str, str]:
     attestations: dict[str, str] = {}
     for match in ATTEST_RE.finditer(report):
         digest, raw_path = match.groups()
@@ -2074,6 +2074,43 @@ def validate_report_attestations(report: str, files: list[dict]) -> None:
         if path in attestations:
             die(f"duplicate audit attestation for {path}")
         attestations[path] = digest.casefold()
+    return attestations
+
+
+def subset_import(
+    prior_raw: str, raw_files: list[str], audit_root: Path, vault: Path | None
+) -> tuple[str, list[dict], dict]:
+    """Select still-identical paths from an earlier clean report, retained verbatim."""
+    prior_path = canonical_path(prior_raw)
+    if prior_path.parent != canonical_path(str(audit_root)) or prior_path.suffix != ".json":
+        die(f"--subset-of must name an audit receipt in {audit_root}")
+    prior = load_json(prior_path, None)
+    if not isinstance(prior, dict) or prior.get("status") != "clean":
+        die(f"prior audit receipt is missing or not clean: {prior_path}")
+    report = prior.get("report")
+    if (not isinstance(report, str)
+            or prior.get("report_sha256") != hashlib.sha256(report.encode()).hexdigest()):
+        die(f"prior audit receipt lacks a report matching its digest: {prior_path}")
+    if not raw_files:
+        die("--subset-of requires at least one --file")
+    attestations = report_attestations(report)
+    files: list[dict] = []
+    for raw in raw_files:
+        path = canonical_path(raw, vault)
+        digest = attestations.get(str(path))
+        if digest is None:
+            die(f"subset path is not attested by the prior report: {path}")
+        if not path.is_file():
+            die(f"audited file missing: {path}")
+        if sha256(path) != digest:
+            die(f"subset path changed since the prior report attested it: {path}")
+        files.append({"path": str(path), "sha256": digest})
+    return report, files, {"receipt": str(prior_path), "report_sha256": prior["report_sha256"],
+                           "reviewer": prior.get("reviewer")}
+
+
+def validate_report_attestations(report: str, files: list[dict]) -> None:
+    attestations = report_attestations(report)
 
     expected = {str(canonical_path(item["path"])): item["sha256"].casefold() for item in files}
     missing = sorted(set(expected) - set(attestations))
@@ -3045,7 +3082,14 @@ def snapshot_preserved_with_new_sessions(snapshot: Path, live: Path) -> bool:
 def cmd_record_audit(args: argparse.Namespace) -> int:
     _, root, receipt_root, audit_root = state_paths(args.session_id)
     vault = canonical_path(args.vault) if args.vault else None
-    report = sys.stdin.read()
+    subset_of: dict | None = None
+    if getattr(args, "subset_of", None):
+        if args.from_brief:
+            die("--subset-of imports an earlier report; it cannot complete a --from-brief review")
+        # Reuse-only import: never a completion receipt, and never a widened report.
+        report, subset_files, subset_of = subset_import(args.subset_of, args.file or [], audit_root, vault)
+    else:
+        report = sys.stdin.read()
     if not report.strip():
         die("audit receipt requires the review report on stdin")
     terminal_state = report_terminal_state(report)
@@ -3068,17 +3112,20 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         if vault is None and isinstance(manifest.get("vault"), str):
             vault = canonical_path(manifest["vault"])
         completion_files = validate_completion_manifest(manifest, root, report)
-    for raw in args.file or []:
+    for raw in [] if subset_of is not None else args.file or []:
         path = canonical_path(raw, vault)
         if not path.is_file():
             die(f"audited file missing: {path}")
         files.append({"path": str(path), "sha256": sha256(path)})
+    if subset_of is not None:
+        files.extend(subset_files)
     dedup: dict[str, dict] = {item["path"]: item for item in files}
     files = list(dedup.values())
     if not files and not args.from_brief:
         # Exit zero must always name a saved receipt.
         die("no audited files; use --file or a current --from-brief review")
-    validate_report_attestations(report, files)
+    if subset_of is None:
+        validate_report_attestations(report, files)
     state_root = receipt_root.parent
     reusable: list[dict] = []
     post_review_changes: list[dict] = []
@@ -3165,6 +3212,8 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
                      else "legacy-review" if manifest is not None else "source-attestation"),
             "completion": bool(manifest is not None and manifest.get("completion_binding") == 1),
         }
+        if subset_of is not None:
+            receipt["subset_of"] = subset_of
         if manifest is not None:
             manifest_digest, manifest_snapshot = write_snapshot(
                 root, (root / "review-brief-manifest.json").read_bytes())
@@ -3326,6 +3375,8 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--vault")
     audit.add_argument("--from-brief", action="store_true")
     audit.add_argument("--file", action="append")
+    audit.add_argument("--subset-of", help="earlier clean audit receipt whose report attests every --file "
+                       "at its current SHA-256; records a reuse-only receipt retaining that report")
     audit.set_defaults(func=cmd_record_audit)
     return parser
 

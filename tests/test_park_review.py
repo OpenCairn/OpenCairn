@@ -1923,5 +1923,72 @@ class CreatedFileReceiptReuseTests(unittest.TestCase):
         self.assertEqual(item["reason"], "created this session")
 
 
+
+class SubsetAuditImportTests(unittest.TestCase):
+    """An earlier clean report can cover its unchanged subset without a fresh review."""
+
+    setUp = AuthoredBinaryReviewTests.setUp
+    run_review = AuthoredBinaryReviewTests.run_review
+    write_log = AuthoredBinaryReviewTests.write_log
+    classify = AuthoredBinaryReviewTests.classify
+    build = AuthoredBinaryReviewTests.build
+
+    def prior_receipt(self) -> tuple[list[Path], Path, str]:
+        notes = [self.vault / f"{name}.md" for name in ("first", "second", "third")]
+        for note in notes:
+            note.write_text(f"{note.stem} audited earlier\n", encoding="utf-8")
+        report = "".join(f"ATTEST {park_review.sha256(note)} {note}\n" for note in notes)
+        report += "Terminal state: clean\n"
+        recorded = self.run_review("record-audit", "--reviewer", "fixture", "--vault", str(self.vault),
+                                   *[arg for note in notes for arg in ("--file", str(note))], stdin=report)
+        self.assertEqual(recorded.returncode, 0, recorded.stderr)
+        receipt = Path(recorded.stdout.split("Audit receipt: ", 1)[1].split(" (", 1)[0])
+        notes[2].write_text("third changed later\n", encoding="utf-8")
+        return notes, receipt, report
+
+    def subset(self, receipt: Path, *paths: Path) -> subprocess.CompletedProcess:
+        return self.run_review("record-audit", "--reviewer", "importer", "--vault", str(self.vault),
+                               "--subset-of", str(receipt),
+                               *[arg for path in paths for arg in ("--file", str(path))])
+
+    def receipts(self) -> list[Path]:
+        return sorted((self.config / ".session-state/.park-audit-receipts").glob("*.json"))
+
+    def test_subset_import_retains_report_and_feeds_build_reuse(self) -> None:
+        notes, prior, report = self.prior_receipt()
+        prior_bytes = prior.read_bytes()
+        imported = self.subset(prior, notes[0], notes[1])
+        self.assertEqual(imported.returncode, 0, imported.stderr)
+        self.assertEqual(prior.read_bytes(), prior_bytes)
+        receipt_path = next(path for path in self.receipts() if path != prior)
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        self.assertEqual(receipt["status"], "clean")
+        self.assertEqual(receipt["kind"], "source-attestation")
+        self.assertFalse(receipt["completion"])
+        self.assertEqual(receipt["report"], report)
+        self.assertEqual(receipt["report_sha256"], json.loads(prior_bytes)["report_sha256"])
+        self.assertEqual(receipt["subset_of"]["receipt"], str(prior))
+        self.assertEqual([item["path"] for item in receipt["files"]], [str(notes[0]), str(notes[1])])
+
+        self.write_log([], notes)
+        for path in (*notes, self.log):
+            self.classify(path)
+        manifest = self.build()
+        self.assertEqual({item["path"]: item["receipt"] for item in manifest["reused"]},
+                         {str(notes[0]): str(receipt_path), str(notes[1]): str(receipt_path)})
+        self.assertIn(str(notes[2]), [item["path"] for item in manifest["full_read"]])
+
+    def test_subset_import_refuses_unattested_or_changed_paths(self) -> None:
+        notes, prior, _ = self.prior_receipt()
+        stranger = self.vault / "stranger.md"
+        stranger.write_text("never reviewed\n", encoding="utf-8")
+        for path, message in ((stranger, "not attested"), (notes[2], "changed since")):
+            with self.subTest(path=path.name):
+                refused = self.subset(prior, notes[0], path)
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(message, refused.stderr)
+        self.assertEqual(self.receipts(), [prior])
+
+
 if __name__ == "__main__":
     unittest.main()
