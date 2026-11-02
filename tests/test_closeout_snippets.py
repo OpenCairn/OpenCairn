@@ -274,6 +274,25 @@ class CloseoutSnippetTests(unittest.TestCase):
                     self.assertNotIn('MUST_NOT_RUN', result.stdout)
                     self.assertIn('ERROR:', result.stderr)
 
+    def test_failed_session_extraction_rerun_leaves_no_output(self):
+        # A malformed row fails after the block file is written; neither output may survive the failure.
+        for source in CLOSEOUTS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); log = root/'day.md'
+                log.write_text('## Session 1 - A\n### Files Updated\n- `a.md` - edit\n')
+                produced = run_bash(recipe(source, 'SESSION EXTRACT'), root, SESSION_LOG=str(log), N='1')
+                self.assertEqual(produced.returncode, 0, produced.stderr)
+                printed = dict(l.split('=', 1) for l in produced.stdout.splitlines() if l.startswith('SESSION_'))
+                self.assertEqual(sorted(printed), ['SESSION_BLOCK', 'SESSION_PATHS'])
+                for path in printed.values():
+                    self.assertTrue(Path(path).is_file(), path)  # control: the instrument sees produced outputs
+                log.write_text('## Session 1 - A\n### Files Updated\n- `unterminated - bad\n')
+                failed = run_bash(recipe(source, 'SESSION EXTRACT'), root, SESSION_LOG=str(log), N='1')
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn('malformed backticked Files row', failed.stderr)
+                for path in printed.values():
+                    self.assertFalse(Path(path).exists(), path)
+
     def test_live_search_reaches_ignored_hidden_text_without_short_substring_flood(self):
         for source in PARKS:
             with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
