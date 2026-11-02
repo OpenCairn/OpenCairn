@@ -64,7 +64,7 @@ This is an *index*, not a library. Drift is avoided by keeping entries trivially
 - **Window from the last run, not a fixed span** — derive the boundary from the previous run's artefact. → `_shared-rules.md §22`, `weekly-hygiene` Step 6
 - **Auto-save git is not pre-state** — commit boundaries misread prior *content*; verify per-commit. Two sides: forbid it in the reviewer's brief (→ `park` Step 9, `goodnight` Step 15(c), `goodnight` C1.g) and re-check any git-derived finding before accepting it (→ `park` Step 9, `goodnight` Step 15(e))
 - **Session-boundary attribution** — brief's file list bounds *authorship*; commit window doesn't. → `_shared-rules-reviewer.md §20`, `park` Step 9, `goodnight` Step 15(c)
-- **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 2(c), `goodnight` Step 14b, `_shared-rules-reviewer.md §16` (brief evidence: primary/secondary/unverified)
+- **Value provenance check (SOURCE)** — written values trace to user, tool, or tag. → `_shared-rules.md §19`, `park` Step 4c, `goodnight` Step 14b, `_shared-rules-reviewer.md §16` (brief evidence: primary/secondary/unverified)
 - **Clock value read before written** — `date` result in a *prior* call; same-call is an estimate. → `_shared-rules.md §19`, `park` Step 0, `morning` Step 3
 - **Deadline token forces dated surface** — deadline-bearing items route to dated target, never undated doc. → `_shared-rules-planning.md §18`, `park` Step 7, `goodnight` Step 9, `weekly-review` Step 4
 - **Gate emits an observable, not an assertion** — nil case cites its evidence. → `park` Step 2(a), `park` Step 7, `oops` Phase 1
