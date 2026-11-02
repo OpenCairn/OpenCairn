@@ -130,8 +130,8 @@
     "morning": {
       "source": ".claude/commands/morning.md",
       "render": "codex/skills/morning/SKILL.md",
-      "source_sha256": "66738b330b759d7ca28eb56b053068b5698cb0d507513f41628882242cdb1a9b",
-      "render_sha256": "5f3bef9506de112114f5088db71c4f960a583727f6b67661a6d8ec8244bae313"
+      "source_sha256": "ae96c038f105f63cfaea41a7bbfd7e2373145008f5f0dfc1b48ce5e101b0b276",
+      "render_sha256": "3b237f1c61784537725967ff0685dff5ffa5568820f6eec94ec75fedf016b771"
     },
     "ocr": {
       "source": ".claude/commands/ocr.md",
@@ -160,8 +160,8 @@
     "podcast-digest": {
       "source": ".claude/commands/podcast-digest.md",
       "render": "codex/skills/podcast-digest/SKILL.md",
-      "source_sha256": "6aea5399ceeacd941994a8f03708901da707ea8fba9b5a6fda7d88a2825b2ff9",
-      "render_sha256": "e738fbc9584bed767ffba5de0dcb938781be40cee0da52fe074e4f5faf892782"
+      "source_sha256": "7a9d8f68b83e665325ecc3e19b6e223c8c28e9d17f53a99b407dbf930bd4acc4",
+      "render_sha256": "2a50e033aed69bb9dc89aaab92d0344d3aca84b31182517dd9f4452a37bb7074"
     },
     "provenance": {
       "source": ".claude/commands/provenance.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "e341b948bc4b98cb0c5c2ca9b11fea7d7650476b5f1242d9c62d8eada0f28218",
-      "render_sha256": "e08d9c31cca617c1b2119065d7f125108a8583d4d1c15ed088d7242ccb54c1d1"
+      "source_sha256": "097102c3edffd84e9f5b3f51a698fe17391b0fe02cb06bea0ce05ac4d9c87ba4",
+      "render_sha256": "00b2b1c7517f808599a15f71b2f1646c4b160e1b3abedc23ea2b72e0eb8096fa"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
@@ -286,14 +286,14 @@
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
       "render": "codex/skills/_shared-rules-content.md",
-      "source_sha256": "5d307c05d33d935bec3d5b08670b6af6edd85e50aa24ae53f8ec9be267029303",
-      "render_sha256": "8e117aeb2011dd3f68f64c2ec3f0c23241b07990c3745a21cabd1ea26c015f58"
+      "source_sha256": "12bd30326342ddc61fde9e629fec7806401d1733504bacd8d2f99a6201a77178",
+      "render_sha256": "ff95bd9713f72b4e63686fb80cbc962cf3281e8b8d536473be2071bc09a84577"
     },
     "_closeout": {
       "source": ".claude/commands/_closeout.md",
       "render": "codex/skills/_closeout.md",
-      "source_sha256": "6d4e06581875fa579ddcb64e56372af57d38c66375c7c3e6640f503e10a3475b",
-      "render_sha256": "5d32adb5adb3e426cc0e6d71c53d4f193f1774431060e51b27d45f3aeb2abb63"
+      "source_sha256": "ca1d4f56d5f0ddfb2b707f92f4b04916fd1e2ac7b493e851e8cc053b07a436de",
+      "render_sha256": "5f0a9e29f32599650596550b674ec189219e47f5909a537aba67701d65d3b5c4"
     }
   }
 }
