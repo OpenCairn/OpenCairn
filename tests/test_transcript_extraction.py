@@ -52,6 +52,11 @@ class RecipeParityTests(unittest.TestCase):  # reads the rules files only; no to
             with self.subTest(needle=needle):
                 self.assertEqual(recipe(RULES[0], needle), recipe(RULES[1], needle))
 
+    def test_labels_check_requires_bound(self):
+        for rules in RULES:
+            with self.subTest(rules=rules):
+                self.assertIn('"${BOUND:?', recipe(rules, 'rg -o "${TURN:?'))
+
 
 @unittest.skipUnless(TOOLS, 'needs bash, pandoc, ripgrep, python bs4 + lxml')
 class TranscriptExtractionTests(unittest.TestCase):
@@ -154,11 +159,6 @@ class TranscriptExtractionTests(unittest.TestCase):
                         self.assertIn('SPLIT FAILED', out)
                     else:
                         self.assertIn(f'boundary line: {bound}\n', out)
-
-    def test_labels_check_requires_bound(self):
-        for rules in RULES:
-            with self.subTest(rules=rules):
-                self.assertIn('"${BOUND:?', recipe(rules, 'rg -o "${TURN:?'))
 
     def test_ghost_page_output_and_boundary_unchanged(self):
         page = self.root / 'ghost.html'
