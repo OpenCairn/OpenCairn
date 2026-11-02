@@ -73,7 +73,7 @@ Verify the saved result through the shell:
 
 ```bash
 wc -w "<BODY_FILE>" "<DESTINATION_NOTE>"
-tail -n 5 "<DESTINATION_NOTE>"
+tail -c 400 "<DESTINATION_NOTE>"
 cmp <(tail -c "$(wc -c < "<BODY_FILE>")" "<DESTINATION_NOTE>") "<BODY_FILE>"
 ```
 
