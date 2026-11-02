@@ -70,7 +70,7 @@ If `runpodctl` is missing, point user to: `wget -qO runpodctl https://github.com
    - L40S (~USD 0.80–1.00/hr) — expensive, only if nothing cheaper available
 
    Secure-cloud variants cost ~2× community but provision faster and more reliably. For jobs under ~1 hour of audio, the hourly difference is negligible at job total cost. Some GPUs are secure-only (`communityCloud: false`) — check that field before choosing a cloud tier.
-6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~10 min setup — the Phase 3 dependency install dominates — plus ~1 min per hour of audio on mid-tier GPU), estimated cost.
+6. **Report to user:** file count, total duration, chosen GPU + cloud tier, estimated pod time (~10 min setup — the Phase 3 dependency install dominates — plus ~1 min per hour of audio on mid-tier GPU), estimated cost. Honour an already-authorised paid run or budget; otherwise obtain the user's choice before spending. A local-to-cloud suggestion alone is not permission to rent a pod. Reconfirm if a capacity retry would exceed the authorised cost.
 7. **Confirm output location** with user if not specified via `--output`.
 
 ### Phase 1.5: Published-transcript check (single-source runs only)
