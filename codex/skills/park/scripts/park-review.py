@@ -2105,8 +2105,10 @@ def subset_import(
         if sha256(path) != digest:
             die(f"subset path changed since the prior report attested it: {path}")
         files.append({"path": str(path), "sha256": digest})
+    # A subset of a subset keeps naming the reviewer who actually read the files.
+    original = prior.get("original_reviewer") or prior.get("reviewer")
     return report, files, {"receipt": str(prior_path), "report_sha256": prior["report_sha256"],
-                           "reviewer": prior.get("reviewer")}
+                           "reviewer": original}
 
 
 def validate_report_attestations(report: str, files: list[dict]) -> None:
@@ -2471,8 +2473,10 @@ def cmd_build(args: argparse.Namespace) -> int:
                     "path": str(path),
                     "sha256": digest,
                     "receipt": prior["_path"],
-                    "reviewer": prior.get("reviewer", "unknown"),
+                    "reviewer": prior.get("original_reviewer") or prior.get("reviewer", "unknown"),
                     "captured_at": prior.get("captured_at", "unknown"),
+                    **({"imported_by": prior.get("reviewer", "unknown")}
+                       if prior.get("original_reviewer") else {}),
                 }
             )
             continue
@@ -2714,7 +2718,9 @@ def cmd_build(args: argparse.Namespace) -> int:
         for item in reused:
             lines.append(
                 f"- `{item['path']}` — current SHA-256 `{item['sha256']}` matches "
-                f"`{item['receipt']}` ({item['reviewer']}, {item['captured_at']})"
+                f"`{item['receipt']}` ({item['reviewer']}"
+                + (f", imported by {item['imported_by']}" if item.get("imported_by") else "")
+                + f", {item['captured_at']})"
             )
     else:
         lines.append("None")
@@ -3111,8 +3117,10 @@ def other_session_entries_changed_only(
 
     The assigned entry and the preamble must be byte-identical, existing entries
     keep their numbers and order, and every inspection target must name the
-    assigned session and no changed entry, so no reviewed passage can move."""
-    if not isinstance(number, int) or isinstance(number, bool) or not isinstance(targets, list):
+    assigned session and no changed entry, so no reviewed passage can move.
+    With no inspection targets there is nothing to scope, so this fails closed."""
+    if (not isinstance(number, int) or isinstance(number, bool)
+            or not isinstance(targets, list) or not targets):
         return False
     prior, current = session_entries(snapshot.read_bytes()), session_entries(live.read_bytes())
     if prior is None or current is None or prior[0] != current[0]:
@@ -3276,6 +3284,7 @@ def cmd_record_audit(args: argparse.Namespace) -> int:
         }
         if subset_of is not None:
             receipt["subset_of"] = subset_of
+            receipt["original_reviewer"] = subset_of["reviewer"]
         if manifest is not None:
             manifest_digest, manifest_snapshot = write_snapshot(
                 root, (root / "review-brief-manifest.json").read_bytes())

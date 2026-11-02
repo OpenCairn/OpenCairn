@@ -1989,6 +1989,57 @@ class SubsetAuditImportTests(unittest.TestCase):
                 self.assertIn(message, refused.stderr)
         self.assertEqual(self.receipts(), [prior])
 
+    def test_subset_import_keeps_the_original_reviewer_through_build_reuse(self) -> None:
+        notes, prior, _ = self.prior_receipt()
+        imported = self.subset(prior, notes[0], notes[1])
+        self.assertEqual(imported.returncode, 0, imported.stderr)
+        first = next(path for path in self.receipts() if path != prior)
+        receipt = json.loads(first.read_text(encoding="utf-8"))
+        self.assertEqual(receipt["reviewer"], "importer")
+        self.assertEqual(receipt["original_reviewer"], "fixture")
+        self.assertEqual(receipt["subset_of"]["reviewer"], "fixture")
+        # A subset of a subset still names the reviewer who read the files.
+        again = self.run_review("record-audit", "--reviewer", "second-importer", "--vault", str(self.vault),
+                                "--subset-of", str(first), "--file", str(notes[0]))
+        self.assertEqual(again.returncode, 0, again.stderr)
+        second = next(path for path in self.receipts() if path not in (prior, first))
+        chained = json.loads(second.read_text(encoding="utf-8"))
+        self.assertEqual((chained["reviewer"], chained["original_reviewer"]), ("second-importer", "fixture"))
+
+        self.write_log([], notes)
+        for path in (*notes, self.log):
+            self.classify(path)
+        manifest = self.build()
+        for item in manifest["reused"]:
+            self.assertEqual(item["reviewer"], "fixture")
+            self.assertIn(item["imported_by"], ("importer", "second-importer"))
+        brief = (self.root / "review-brief.md").read_text(encoding="utf-8")
+        reuse = brief.split("### Reused clean audit receipts", 1)[1].split("###", 1)[0]
+        self.assertIn("(fixture, imported by ", reuse)
+
+    def test_subset_import_refuses_an_unsafe_prior_or_mode(self) -> None:
+        notes, prior, _ = self.prior_receipt()
+        data = json.loads(prior.read_text(encoding="utf-8"))
+        audits = prior.parent
+        pending = audits / "audit-pending-prior.json"
+        park_review.atomic_json(pending, {**data, "status": "pending"})
+        tampered = audits / "audit-tampered-prior.json"
+        park_review.atomic_json(tampered, {**data, "report": data["report"] + "Appended claim.\n"})
+        outside = self.vault / "audit-outside.json"
+        outside.write_bytes(prior.read_bytes())
+        existing = self.receipts()
+        for receipt, extra, message in (
+                (pending, (), "not clean"),
+                (outside, (), "must name an audit receipt in"),
+                (tampered, (), "lacks a report matching its digest"),
+                (prior, ("--from-brief",), "cannot complete a --from-brief review")):
+            with self.subTest(message=message):
+                refused = self.run_review("record-audit", "--reviewer", "importer", "--vault", str(self.vault),
+                                          *extra, "--subset-of", str(receipt), "--file", str(notes[0]))
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertIn(message, refused.stderr)
+        self.assertEqual(self.receipts(), existing)
+
 
 if __name__ == "__main__":
     unittest.main()
