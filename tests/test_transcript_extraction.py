@@ -46,6 +46,13 @@ def recipe(path: Path, needle: str) -> str:
     return found[0]
 
 
+class RecipeParityTests(unittest.TestCase):  # reads the rules files only; no tools needed
+    def test_recipes_match_across_harnesses(self):
+        for needle in ('SLUG=', 'BOUND=', 'rg -o "${TURN:?'):
+            with self.subTest(needle=needle):
+                self.assertEqual(recipe(RULES[0], needle), recipe(RULES[1], needle))
+
+
 @unittest.skipUnless(TOOLS, 'needs bash, pandoc, ripgrep, python bs4 + lxml')
 class TranscriptExtractionTests(unittest.TestCase):
     def setUp(self):
@@ -73,11 +80,6 @@ class TranscriptExtractionTests(unittest.TestCase):
 
     def split(self, rules: Path, body: Path) -> str:
         return self.run_bash(recipe(rules, 'BOUND=') + 'echo "TURN=$TURN"\n', BODY=str(body)).stdout
-
-    def test_recipes_match_across_harnesses(self):
-        for needle in ('SLUG=', 'BOUND=', 'rg -o "${TURN:?'):
-            with self.subTest(needle=needle):
-                self.assertEqual(recipe(RULES[0], needle), recipe(RULES[1], needle))
 
     def test_header_wrapper_does_not_leak(self):
         for rules in RULES:
