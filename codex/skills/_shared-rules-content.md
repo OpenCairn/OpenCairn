@@ -26,7 +26,7 @@ Exit 0 means byte-identical; exit 1 means different; another non-zero exit is a 
 
 ## 15. Published-Transcript Extraction (fetch a verbatim body to a file)
 
-The canonical procedure for pulling an **already-published** transcript (a podcast/show page, Substack, an official transcript page) off the web as a clean verbatim markdown body **in a file, never through context**. Single source of truth: `$archive-transcript` (its core job) and the published-transcript fast-path in `$transcribe` (Phase 0), `$transcribecloud` (Phase 1.5), and `$podcast-digest` (Tier 1a) all use this — point here rather than re-describing extraction in the skill. Each caller keeps its own *whether-to-use-it* framing (the cost/fidelity choice, dedup, the header it writes); this section owns only the fetch-and-extract mechanism. (Validated against Ghost sites and the Complex Systems `c-content` template; `curl`+`bs4`+`pandoc` beats reader APIs such as jina, which manufacture phantom pagination on static pages.)
+The canonical procedure for pulling an **already-published** transcript (a podcast/show page, Substack, an official transcript page) off the web as a clean verbatim markdown body **in a file, never through context**. Single source of truth: `$archive-transcript` (its core job) and the published-transcript fast-path in `$transcribe` (Phase 0), `$transcribecloud` (Phase 1.5), and `$podcast-digest` (Tier 1a) all use this — point here rather than re-describing extraction in the skill. Each caller keeps its own *whether-to-use-it* framing (the cost/fidelity choice, dedup, the header it writes); this section owns only the fetch-and-extract mechanism. (Validated against Ghost sites, the Complex Systems `c-content` template and a WordPress transcript with one `div` per speaker turn; `curl`+`bs4`+`pandoc` beats reader APIs such as jina, which manufacture phantom pagination on static pages.)
 
 **Prereqs** — confirm before fetching, so a fresh machine fails fast with a clear message rather than mid-pipe:
 ```bash
@@ -41,7 +41,7 @@ If a tool is missing, stop and tell the user (or fall back to machine transcript
 
 **Confirm static HTML:** `curl -sL "<URL>" | wc -c` — a large byte count is necessary but not sufficient (a JS shell can be large too); the real gate is the word count below.
 
-**Extract → clean → markdown.** The intermediate paths are a **deterministic function of the `<URL>`**, so they survive across tool-call boundaries with nothing to remember: a later step re-derives the same `$BODY` from the same `<URL>`, or just reuses the `BODY=` path the block prints (`<BODY_FILE>` in callers). This is the cross-tool-call hazard from `_shared-patterns.md` (shell vars don't persist), solved by making the path *reconstructable* rather than carried — no random `mktemp` name to lose. Where no stable per-item input exists, `mktemp` once, print and record the path, and derive sibling paths from it; scratch created and removed inside one tool call is out of scope. A multi-page batch never collides because the slug is per-URL:
+**Extract → clean → markdown.** The intermediate paths are a **deterministic function of the `<URL>`**, so they survive across tool-call boundaries: record the `BODY=` path the block prints (`<BODY_FILE>` in callers) and reuse it. Re-deriving needs the byte-identical `<URL>` string: a trailing `/`, the page's canonical form or a redirect target gives a different slug. This is the cross-tool-call hazard from `_shared-patterns.md` (shell vars don't persist), solved by making the path *reconstructable* rather than carried — no random `mktemp` name to lose. Where no stable per-item input exists, `mktemp` once, print and record the path, and derive sibling paths from it; scratch created and removed inside one tool call is out of scope. A multi-page batch never collides because the slug is per-URL:
 
 ```bash
 TMP="${TMPDIR:-/tmp}"   # TMPDIR is often unset on Linux; /tmp is the reliable fallback
@@ -49,7 +49,7 @@ TMP="${TMPDIR:-/tmp}"   # TMPDIR is often unset on Linux; /tmp is the reliable f
 SLUG="$(printf '%s' "<URL>" | tr '[:upper:]' '[:lower:]' | sed -E 's#^https?://##; s#[^a-z0-9]+#-#g; s#(^-|-$)##g' | cut -c1-30)-$(printf '%s' "<URL>" | cksum | cut -d' ' -f1)"
 HTML="$TMP/transcript_$SLUG.html"
 BODY="$TMP/transcript_$SLUG.md"
-echo "BODY=$BODY"   # the body path (<BODY_FILE> in callers); reconstruct it by re-deriving TMP+SLUG from <URL> in any later tool call
+echo "BODY=$BODY"   # the body path (<BODY_FILE> in callers): record it; re-deriving needs this exact <URL> string
 curl -sL "<URL>" -o "$HTML"
 python3 - "$HTML" > "$BODY" <<'PY'
 import sys, re, subprocess
@@ -76,7 +76,11 @@ for h in node.find_all(re.compile(r'^h[1-6]$')):          # strip in-heading tim
         h.decompose()                                     # heading was nothing but a timestamp link → drop the empty heading
     else:
         h.clear(); h.append(txt)
-for t in node.find_all(['div', 'span']):                  # flatten residual wrappers pandoc would emit as raw HTML
+for t in node.find_all('div'):                           # a div holding only inline text is a paragraph (often one speaker turn): keep its break
+    if (t.get_text(strip=True) and not t.find_parent(['li', 'td', 'th', 'dd', 'dt'])
+            and not t.find(re.compile(r'^(p|div|section|header|main|article|aside|ul|ol|dl|table|blockquote|pre|h[1-6]|hr)$'))):
+        t.name = 'p'
+for t in node.find_all(['div', 'span', 'header', 'section', 'main']):   # flatten residual wrappers pandoc would emit as raw HTML
     t.unwrap()
 md = subprocess.run(['pandoc', '-f', 'html', '-t', 'gfm', '--wrap=none'],
                     input=node.decode_contents(), text=True, capture_output=True).stdout
@@ -87,9 +91,10 @@ print(md.strip())
 PY
 echo "body words: $(wc -w < "$BODY")"
 rg -c '<div|</div|<span|base64' "$BODY" || echo 0   # leak check — expect 0 (rg prints nothing and exits 1 on no match, hence the echo)
+echo "longest line: $(awk '{ if (length > m) m = length } END { print m + 0 }' "$BODY")"   # turn-merge check
 ```
 
-**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`rg -o '<(article|main|section|div)[^>]*class="[^"]*"' "$HTML" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. Spot-check `head`/`tail` of `$BODY` (a few lines) to confirm it starts/ends in transcript content.
+**Gate on the word count + leak count**, not byte count: a body far below a real transcript (say < 800 words) means the selector missed the container — inspect structure (`rg -o '<(article|main|section|div)[^>]*class="[^"]*"' "$HTML" | sort -u | head`) and add the right selector to the priority list. A non-zero leak count means raw HTML survived — widen the `decompose`/`unwrap` set. A longest line far beyond one speaker turn (tens of thousands of characters) means turn breaks were merged: inspect the per-turn element the same way. Spot-check `head -c 400`/`tail -c 400` of `$BODY` (bytes, not lines) to confirm it starts/ends in transcript content.
 
 **Metadata for the header, without reading the body** — published description (covers Ghost's `og:`/`twitter:` variants) and the section outline:
 
@@ -108,12 +113,16 @@ rg '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 
 **Names and speakers: the page's human-written text outranks the transcript body — per field.** The body wins on prose; it does **not** win on identity. A *published* transcript is frequently the publisher's own ASR, which garbles names phonetically and assigns speaker labels by voice-clustering guess: turns come out as `Unknown`, or get handed to whoever spoke last. The show notes, chapter list, resource links and pull-quotes on that same page are typed by a person. Each check below states the command **and** the observation that separates pass from fail — without the second half every one of them returns something plausible under both hypotheses and manufactures confidence.
 
-**First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary; everything below is scoped to one side or the other:
+**First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary: the first transcript heading with human-written text above it, else the first speaker-labelled turn (a name, then a bracketed timestamp). A page titled "Transcript for …" puts its show notes and chapter list *below* that heading. Everything below is scoped to one side or the other:
 ```bash
-BOUND=$(rg -n '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | head -1 | cut -d: -f1)
-if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no heading})"; else echo "boundary line: $BOUND"; fi
+TURN='^\**[A-Z][^\[(*:]{0,40}\**:?\** *[\[(]{1,2}[0-9]{1,2}:[0-9]{2}'   # speaker label, then a bracketed timestamp
+BOUND=
+for n in $(rg -n '^#{1,3} *(Transcript|Full [Tt]ranscript|Episode [Tt]ranscript)' "$BODY" | cut -d: -f1) $(rg -n -m1 "$TURN" "$BODY" | cut -d: -f1); do
+  if [ "$n" -gt 1 ] && [ "$(sed -n "1,$((n-1))p" "$BODY" | sed -E 's/<[^>]+>//g' | wc -w)" -gt 0 ]; then BOUND=$n; break; fi
+done
+if [ -z "$BOUND" ]; then echo "SPLIT FAILED"; else echo "boundary line: $BOUND"; fi
 ```
-**⛔ `SPLIT FAILED` aborts the two checks below — do not run them.** This guard is the point: with `$BOUND` empty the slice commands error, but the errors are swallowed by their pipes and each check still emits a *plausible* result — an empty name set (which the rule reads as "the page never names them") and an empty timestamp scan (read as "no usable segment map"). A broken split therefore disguises itself as a legitimate finding *about the page*, which is the same confirmatory-only defect one level up. `BOUND < 3` catches the other direction: a nav link or a heading on line 1 matched first, which leaves the "human-written half" as a single heading line — and a degenerate range like `1,0p` may be accepted silently rather than erroring (`sed` behaviour here is implementation-dependent), so the guard cannot rely on the slice itself failing loudly. On `SPLIT FAILED`, say the halves are unseparated and **flag** names rather than resolving them.
+**⛔ `SPLIT FAILED` aborts the checks below — do not run them.** This guard is the point: with `$BOUND` empty the slice commands error, but the errors are swallowed by their pipes and each check still emits a *plausible* result — an empty name set (which the rule reads as "the page never names them") and an empty timestamp scan (read as "no usable segment map"). A broken split therefore disguises itself as a legitimate finding *about the page*, which is the same confirmatory-only defect one level up. The word count catches the other direction: a candidate on line 1, or one under nothing but a leaked wrapper tag, leaves an empty "human-written half" — and a degenerate range like `1,0p` may be accepted silently rather than erroring (GNU `sed` prints line 1), so the guard cannot rely on the slice itself failing loudly. On `SPLIT FAILED`, say the halves are unseparated and **flag** names rather than resolving them.
 
 - **Provenance defaults to unverified, and only positive evidence upgrades it.** Absence of a disclaimer is not evidence of human editing — it is equally consistent with a differently-worded disclaimer, or one outside the selected container. So the header value starts at `published transcript (provenance unverified)` and moves to `(source-provided, auto-generated)` on a match, or to `(human-edited)` only where the page positively claims editing:
   ```bash
@@ -125,7 +134,12 @@ if [ -z "$BOUND" ] || [ "$BOUND" -lt 3 ]; then echo "SPLIT FAILED (${BOUND:-no h
   sed -n "1,$((BOUND-1))p" "$BODY" | rg -oi '<stem>[a-z]*' | tr 'A-Z' 'a-z' | sort -u   # human-written half
   sed -n "$BOUND,\$p"      "$BODY" | rg -oi '<stem>[a-z]*' | tr 'A-Z' 'a-z' | sort -u   # transcript half
   ```
-  Use a **stem** (whole-surname matching fails — the garbling is phonetic). The `tr` is load-bearing: `rg -oi` matches case-insensitively but prints the *original* case, so without it a name styled all-caps on one side and title-case on the other reads as divergence, and the runner "corrects" a spelling that was already right. Chapter lists and pull-quote attributions are commonly styled in caps, so this is the ordinary case, not an edge one. **Fail observation: the two lowercased token sets differ ⇒ the human-written half's spelling wins** (take its original-case form from the un-`tr`'d output). Identical sets means agreement, not that you skipped the check; an empty human-written set means the page never names them — then correct from your own knowledge or flag, never invent, and never report a name unresolvable that this comparison would have settled.
+  Use a **stem** (whole-surname matching fails — the garbling is phonetic). The `tr` is load-bearing: `rg -oi` matches case-insensitively but prints the *original* case, so without it a name styled all-caps on one side and title-case on the other reads as divergence, and the runner "corrects" a spelling that was already right. Chapter lists and pull-quote attributions are commonly styled in caps, so this is the ordinary case, not an edge one. **Fail observation: the two lowercased token sets differ ⇒ the human-written half's spelling wins** (take its original-case form from the un-`tr`'d output). Identical sets means agreement, not that you skipped the check; an empty human-written set means the page's own text never names them — then use the speaker labels (the labels check below), else correct from your own knowledge or flag, never invent, and never report a name unresolvable that this comparison would have settled.
+- **Speaker labels are a third identity source.** A name typed before many turns names a participant. Labels rank below names in the human-written half and above a description or title that names no person (page templates can fill the guest slot with the episode title):
+  ```bash
+  sed -n "$BOUND,\$p" "$BODY" | rg -o "${TURN:?set TURN as in the split block}" | sed -E 's/[*: ]*[[(]+[0-9:]+$//; s/^\*+//' | sort | uniq -c | sort -rn | head
+  ```
+  **Fail observation: no label recurs, or the labels are placeholders (`Speaker 1`, `Unknown`) ⇒ the labels settle nothing.**
 - **Speakers — find the timestamped chapter list, which is usually *not* headings.** The section outline the metadata block extracts is often navigational (`Show Notes`, `Resources`, `Transcript`), naming no participant and carrying no time; a page's real segment map is frequently bold prose or a plain list. Scan the human-written half for leading timestamps:
   ```bash
   # rg, not grep, deliberately. rg's -E is --encoding, so -n alone (extended syntax is rg's default).
