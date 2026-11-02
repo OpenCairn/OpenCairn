@@ -139,7 +139,7 @@ The corrections log entry follows this exact structure:
 ### YYYY-MM-DD - Short Descriptive Title
 **Mistake:** Specific description of what went wrong. No hedging or softening.
 **Correction:** What the right approach was. What actually fixed it.
-**Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, and the proposed fix (trigger refinement / new rule / context loading) — or the change made, if the user approved one.
+**Rule collision:** [Only if Phase 2 detected one] Existing rule, why it didn't fire, and the proposed fix (encode as check / trigger refinement / new rule / context loading) — or the change made, if the user approved one.
 **Lesson:** Transferable principle that applies beyond this specific instance.
 ```
 
