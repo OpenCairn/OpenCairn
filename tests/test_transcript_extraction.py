@@ -160,6 +160,26 @@ class TranscriptExtractionTests(unittest.TestCase):
                     else:
                         self.assertIn(f'boundary line: {bound}\n', out)
 
+    def test_speaker_label_may_carry_one_parenthetical_role(self):
+        turns = '**Jane Doe (Host):** [00:12] Tides follow the moon.\n\n**Sam Roe (Guest):** [00:20] Mostly?\n'
+        cases = {
+            'role labels only': ('Show notes: Jane Doe on tides.\n\n' + turns, 3),
+            'label-first chapters with a parenthetical': (
+                'Show notes: Jane Doe on tides.\n\nIntro (Part 1) (0:00)\nTides (Part 2) (5:12)\n'
+                'Moon (Part 3) (10:30)\n\n' + turns, 7),
+        }
+        for rules in RULES:
+            for name, (text, bound) in cases.items():
+                with self.subTest(rules=rules, case=name):
+                    body = self.root / 'body.md'
+                    body.write_text(text, encoding='utf-8')
+                    out = self.split(rules, body)
+                    self.assertIn(f'boundary line: {bound}\n', out)
+                    env = dict(BODY=str(body), BOUND=str(bound), TURN=re.search(r'^TURN=(.*)$', out, re.M).group(1))
+                    labels = self.run_bash(recipe(rules, 'rg -o "${TURN:?'), **env).stdout.split('\n')
+                    counts = {line.split(None, 1)[1]: int(line.split()[0]) for line in labels if line.strip()}
+                    self.assertEqual(counts, {'Jane Doe (Host)': 1, 'Sam Roe (Guest)': 1})
+
     def test_ghost_page_output_and_boundary_unchanged(self):
         page = self.root / 'ghost.html'
         page.write_text(GHOST, encoding='utf-8')

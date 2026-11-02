@@ -115,7 +115,7 @@ rg '^#{2,3} ' "$BODY"      # section outline, for the cruxes
 
 **First, split `$BODY` into its two halves.** The extractor concatenates the human-written page text and the transcript body into one file, so "prefer A over B" is unusable until you know where A ends. Locate the boundary: the first transcript heading with human-written text above it, else the first speaker-labelled turn (a name, then a bracketed timestamp) outside a label-first chapter list (three or more consecutive non-blank lines like `Intro (0:00)` with nothing after the timestamp). A page titled "Transcript for …" puts its show notes and chapter list *below* that heading. Everything below is scoped to one side or the other:
 ```bash
-TURN='^\**[A-Z][^\[(*:]{0,40}\**:?\** *[\[(]{1,2}[0-9]{1,2}:[0-9]{2}'   # speaker label, then a bracketed timestamp
+TURN='^\**[A-Z][^\[(*:]{0,40}(\([^()\[*:]{1,30}\) *)?\**:?\** *[\[(]{1,2}[0-9]{1,2}:[0-9]{2}'   # speaker label (optionally one parenthetical role), then a bracketed timestamp
 BARE="$TURN"'[0-9:]*[\])]*(\([^)]*\))?[\])*: ]*$'   # the same with nothing after the timestamp, like a chapter entry `Intro (0:00)`
 # A run of 3+ consecutive non-blank bare lines is a label-first chapter list, not speaker turns: skip its lines.
 SKIP=" $(rg -n '\S' "$BODY" | cut -d: -f1 | awk -v b=" $(rg -n "$BARE" "$BODY" | cut -d: -f1 | tr '\n' ' ')" \
