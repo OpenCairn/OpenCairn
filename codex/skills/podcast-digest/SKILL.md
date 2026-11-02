@@ -112,7 +112,7 @@ No usable Tier-1 transcript, and the *Engine fork* selects **local** (GPU presen
    - **direct audio** → the URL as-is.
    - **episode webpage** → find a media URL: (i) an audio enclosure / `<audio>` / `og:audio` on the page; (ii) else a linked YouTube version — *prefer this*, it also gets captions; (iii) else the show's RSS feed `<enclosure>`.
 2. **Run the Transcription core** (above) on that media URL → a cleaned, timestamped (and, where the HF token allowed, diarised) transcript in context. No caption cross-reference for non-YouTube primaries.
-3. **Discard the raw transcript** — it is never written outside `$TMP`; the core removes its `$TMP/podcast_digest_$SAFE_ID.*` temp files after Phase 5.
+3. **Discard the raw transcript** — it is never saved to the vault or the destination; after Phase 5, *Transcription core* Step 6 removes every temporary copy, and its cleanup list is authoritative.
 
 #### Tier 3 — transcribe in the cloud (`$transcribecloud`)
 
