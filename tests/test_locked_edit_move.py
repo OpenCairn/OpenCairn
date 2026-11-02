@@ -564,6 +564,51 @@ class LockedEditMoveTests(unittest.TestCase):
         self.assertEqual([item["healed_links"] for item in receipt["affected_files"]], [1])
         self.assert_heal_verifiable(receipt, log)
 
+    def test_code_mask_runs_only_on_notes_that_can_carry_the_source_stem(self) -> None:
+        # Trace every mask_code call in the script's Python helpers, without
+        # touching the script, via a sitecustomize profile hook.
+        hook = self.root / "hook"
+        hook.mkdir()
+        trace = self.root / "mask-trace.jsonl"
+        (hook / "sitecustomize.py").write_text(
+            textwrap.dedent(
+                """
+                import json, os, sys
+                _trace = os.environ.get("MASK_TRACE")
+                def _profile(frame, event, arg):
+                    if event == "call" and frame.f_code.co_name == "mask_code":
+                        with open(_trace, "a", encoding="utf-8") as handle:
+                            handle.write(json.dumps(frame.f_locals.get("text")) + "\\n")
+                if _trace:
+                    sys.setprofile(_profile)
+                """
+            ),
+            encoding="utf-8",
+        )
+        source = self.vault / "Old" / "My Incident.md"
+        destination = self.vault / "New" / "My Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        encoded = self.vault / "Encoded.md"
+        encoded.write_text("[[Old/My%20Incident]]\n", encoding="utf-8")
+        unrelated = self.vault / "Unrelated.md"
+        unrelated.write_text("[[Old/Other]]\n[other](Old/Other.md)\n", encoding="utf-8")
+
+        result = self.run_move(
+            source,
+            destination,
+            MASK_TRACE=str(trace),
+            PYTHONPATH=str(hook),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(encoded.read_text(encoding="utf-8"), "[[New/My Incident]]\n")
+        masked = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+        self.assertIn("[[Old/My%20Incident]]\n", masked)
+        self.assertNotIn(unrelated.read_text(encoding="utf-8"), masked)
+        receipt = self.move_receipts()[0]
+        self.assertIs(receipt["complete"], True)
+        self.assertEqual([item["path"] for item in receipt["affected_files"]], ["Encoded.md"])
+
     def test_altered_destination_keeps_a_partial_receipt_for_healed_links(self) -> None:
         source = self.vault / "Old" / "Incident.md"
         destination = self.vault / "New" / "Incident.md"

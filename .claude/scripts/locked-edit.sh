@@ -225,7 +225,18 @@ if [ "$MODE" = "--move" ]; then
     # receipt. Obsidian neither tracks nor rewrites a path inside a fenced block
     # or an inline code span, so link regexes run on the masked text. Masking
     # keeps length and newlines, so offsets and line numbers still match.
+    # may_link is the cheap pre-filter: a link that resolves to the source
+    # carries the source's file stem in the note's raw text, its %-decoded
+    # form, or (a relative "../" link) the note's own path; any other note
+    # cannot match, so it skips the mask and the link scan.
     _LE_MOVE_CODE_MASK="$(cat <<'PY'
+def may_link(text, note_rel, source_rel):
+    from urllib.parse import unquote
+    stem = source_rel.rsplit("/", 1)[-1]
+    if stem.lower().endswith(".md"):
+        stem = stem[:-3]
+    return stem in text or stem in note_rel or ("%" in text and stem in unquote(text))
+
 def mask_code(text):
     import re
     chars = list(text)
@@ -500,6 +511,8 @@ for note in vault.rglob("*.md"):
         text = raw.decode("utf-8")
     except (OSError, UnicodeError):
         continue
+    if not may_link(text, note_rel, source_rel):
+        continue
     masked = mask_code(text)
     found = any(
         "/" in normalise_wiki(match.group(1))
@@ -618,6 +631,8 @@ for note in vault.rglob("*.md"):
     try:
         text = note.read_text(encoding="utf-8")
     except (OSError, UnicodeError):
+        continue
+    if not may_link(text, note_rel, source_rel):
         continue
     masked = mask_code(text)
     for match in re.finditer(r"\[\[([^\]]+)\]\]|\]\(([^)]+)\)", text):
