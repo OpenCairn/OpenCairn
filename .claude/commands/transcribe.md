@@ -51,7 +51,7 @@ A published transcript (podcast show site, Substack, official transcript page) i
 5. **Present the choice** (numbered list) and wait — don't auto-pick:
    1. **Use the published transcript** — higher text fidelity; but typically **no timestamps**, and speaker turns only where the source marks them (no diarisation). May be lightly cleaned of filler. **Don't assume human editing** — check for the auto-generated disclaimer (§15 "Names and speakers") and say which kind it is when presenting the choice: an auto-generated one carries WhisperX-grade name-garbling and speaker-mislabelling.
    2. **Run local transcription** — the selected engine with timestamps and optional diarisation; follow engine selection below.
-6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` in place of `$STAGE/body.md` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<absolute note path>" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** use step 7's `{formatted transcript text}` heredoc — that is for the in-context WhisperX output; here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
+6. **If the user picks the published transcript:** the body is already at `<BODY_FILE>` from step 4 (§15's printed `BODY=` path, reconstructable from the URL). Skip Phases 1–2 and the WhisperX-specific parts of Phase 3 (no download, no WhisperX, no diarisation, and **no** LLM cleanup pass — the body is saved verbatim per §14, whoever produced it). Use the agreed destination, or ask where to save if missing — Phase 3 step 6's save-location/filename ask still applies (the episode title is a sensible default filename). Then stage **only the metadata header** via a shell heredoc (Phase 3 step 7's header block) and assemble it with `<BODY_FILE>` as `$BODY` in step 7's **atomic locked save** — `{ cat header; printf '\n'; cat "<BODY_FILE>"; } > staged`, then `locked-edit.sh "<absolute note path>" --replace-whole MISSING < staged`, then `cmp`, with step 7's exit-code handling (`_shared-rules-content.md` §14). Do **not** stage the body through a heredoc — here the body is already a file and must never enter context. Don't `Edit` the note afterward. Adjust the header:
    - **Source:** the transcript URL; put the original audio / YouTube URL on a second `**Original media:**` line.
    - **Date acquired:** use this run's acquisition date instead of **Date transcribed**.
    - **Model:** default `published transcript (provenance unverified)`; upgrade to `(source-provided, auto-generated)` on a disclaimer match, or to `(human-edited)` only where the page positively claims editing (§15's three-value ladder — the unverified value is the default precisely so a null cannot select the stronger claim). Either way the body is saved verbatim (`_shared-rules-content.md` §14); never clean it.
@@ -250,6 +250,8 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
 
    Map raw labels (`SPEAKER_00`, `SPEAKER_01`, ...) to `Speaker 1`, `Speaker 2`, etc. in order of first appearance. The words array is found at `segments[].words[]`. Only `word` is guaranteed — `start`, `end`, `score` and `speaker` are all optional: alignment omits timing for tokens it can't align (numerals, symbols, out-of-vocabulary fragments), and speaker assignment skips any word without a `start`. Never index these keys directly. A word missing `start`/`end` keeps its text but contributes no timestamp and no gap: attach it to the paragraph in progress and take timing from the nearest neighbour that has it.
 
+   **Write the formatted body to a file, not into context.** Format with a script that writes `$STAGE/body.md`, creating `STAGE=$(mktemp -d)` once here; `echo "$STAGE"` and carry the literal path into steps 3–7, since shell state does not persist between calls. Under `--raw` this file is the body that gets saved.
+
 3. **LLM cleanup pass** (skip if `--raw` was passed):
 
    Review the assembled transcript text and fix transcription errors. Rules:
@@ -268,11 +270,24 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
 
    **A third source outranks both, and it is usually already to hand:** human-written page text about the episode — the video description, the show notes, a chapter list, a linked resource list. Those are typed by a person; both machine transcripts are not. So for any name in the divergence list, grep that text for a distinctive fragment (match a stem — the garbling is phonetic) and **take the spelling it gives over either transcript's**, rather than adjudicating between two guesses or flagging `[?]`.
 
-   Process the full transcript in a single pass. If the transcript exceeds ~50KB of text, split into ~20KB chunks with 2-paragraph overlap to preserve context at boundaries.
+   **Run the pass outside this session's context** with `transcript-clean.py`. It sends ~3,000-word chunks of the formatted body to a hermetic `claude -p` (no tools, MCP servers, settings, hooks or project instructions) carrying the rules above, and checks every chunk before writing anything: at least 90% of its words kept, its ending present, and its sequence of timestamps and speaker labels unchanged. The script's `RULES` mirror the bullets above; change both together. Put the divergence list and the human-written page text in a context file rather than applying them in-session:
+
+   ```bash
+   STAGE=<literal path from step 2>
+   # optional: divergence list + page text -> "$STAGE/page.txt"
+   python3 "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/transcript-clean.py" --in "$STAGE/body.md" --out "$STAGE/clean.md" --context "$STAGE/page.txt" > "$STAGE/clean-report.json"; echo "exit=$?"
+   ```
+
+   Drop `--context` when there is no page text.
+   - **exit=0** → `$STAGE/clean.md` is the body for steps 4–7; header `Cleanup: yes`.
+   - **exit=2** → a chunk failed a check and nothing was written. Read only that chunk's entry in `clean-report.json` and rerun once; if it fails again, keep `$STAGE/body.md` with `Cleanup: no (checks failed: <check>)`.
+   - **Any other exit** (1 the model call failed, 3 the `claude` CLI is not on PATH, or the script could not start) → clean in-session instead: read `$STAGE/body.md`, apply the rules above in a single pass (above ~50KB of text, work in ~20KB chunks with 2-paragraph overlap at boundaries), and write the result to `$STAGE/clean.md` through a shell heredoc with an improbable quoted delimiter, never the editor tool; header `Cleanup: yes`.
+
+   A caller that needs the text in context (`/podcast-digest`) reads `$STAGE/clean.md` once this step is done.
 
 4. **Deliver** the formatted transcript as requested. For a long transcript requested as a file, save it and link the file rather than duplicating the full body in chat.
 
-5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames before saving.
+5. **If diarisation was used**, ask the user if they want to rename any speakers (e.g. "Speaker 1 is actually Dr Smith"). Apply renames to the staged body file before saving, with a scripted replace of the exact `**Speaker N:**` label rather than a rewrite through context.
 
 6. **Ask what the user wants to do next.** Present the options:
    1. Save the transcript — ask where (suggest a default: for local audio files, same directory with `.md` extension; for YouTube, suggest a logical location if one is apparent from context, otherwise ask). Also ask if the user wants a specific filename or is happy with the default (video title / audio filename).
@@ -295,22 +310,19 @@ Replace the boolean/integer placeholders with validated values. Export paths usi
    **Duration:** {MM:SS or H:MM:SS}
    **Model:** {actual Phase 2 model field}
    **Diarisation:** {yes (N speakers) | no}
-   **Cleanup:** {yes | no (--raw)}
+   **Cleanup:** {yes | no (--raw) | no (checks failed: <check>)}
 
    ---
    ```
 
-   **Stage header and body, assemble, and create the note atomically.** The formatted text is in your context after the cleanup pass. `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
+   **Stage header and body, assemble, and create the note atomically.** The body is a file from step 3: `$STAGE/clean.md` after cleanup, `$STAGE/body.md` under `--raw` or after failed checks. `--replace-whole MISSING` takes the lock, requires that the path not exist yet, and installs header + body in one rename — there is no window between "checked absent" and "written" for another writer to claim the path, and nothing is ever appended to a file that already exists:
 
    ```bash
-   STAGE=$(mktemp -d)
+   STAGE=<literal path from step 2>; BODY="$STAGE/clean.md"   # or "$STAGE/body.md"
    cat > "$STAGE/header.md" <<'TRANSCRIPT_HEADER_EOF'
    {header block above}
    TRANSCRIPT_HEADER_EOF
-   cat > "$STAGE/body.md" <<'TRANSCRIPT_BODY_EOF'
-   {formatted transcript text}
-   TRANSCRIPT_BODY_EOF
-   { cat "$STAGE/header.md"; printf '\n'; cat "$STAGE/body.md"; } > "$STAGE/note.md"
+   { cat "$STAGE/header.md"; printf '\n'; cat "$BODY"; } > "$STAGE/note.md"
    "${VAULT_PATH:?VAULT_PATH not set}/.claude/scripts/locked-edit.sh" "<absolute note path>" --replace-whole MISSING < "$STAGE/note.md"; echo "exit=$?"
    cmp "$STAGE/note.md" "<absolute note path>"; echo "cmp=$?"
    ```
