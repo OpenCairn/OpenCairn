@@ -78,8 +78,10 @@ def load(path: Path) -> dict[str, dict]:
         if not isinstance(row, dict) or not isinstance(row.get("run_id"), str):
             raise ValueError(f"{path}:{number}: row needs a string run_id")
         claims = row.get("claims", [])
-        if not isinstance(claims, list) or not all(isinstance(c, str) for c in claims):
-            raise ValueError(f"{path}:{number}: claims must be a list of paths")
+        if not isinstance(claims, list) or not all(isinstance(c, str) and os.path.isabs(c) for c in claims):
+            raise ValueError(f"{path}:{number}: claims must be a list of absolute paths")
+        if not isinstance(row.get("released", False), bool):
+            raise ValueError(f"{path}:{number}: released must be true or false")
         if row.get("ends_at") is not None:
             parse_time(row["ends_at"], f"{path}:{number}")
         runs[row["run_id"]] = row
