@@ -48,6 +48,7 @@ Use the canonical updater stored in the OpenCairn checkout. This Codex skill is 
    - never restore accepted files automatically from a historical `HEAD`; interrupted updates resume from a fresh target diff;
    - for the live `${CODEX_HOME:-$HOME/.codex}/skills/` copy, diff every accepted counterpart and ask before overwriting a differing file, even under `--force`;
    - reject symlinks/unexpected types and recheck live-copy missing/type/mode/hash preimages immediately before copying;
+   - copy into the live root only after the canonical install-source gate passes (exit 27 on any uncommitted or untracked change under `codex/`, with no flag bypass), then record the canonical install manifest;
    - preserve local-only skills and never copy `codex/AGENTS.md` over `~/.codex/AGENTS.md`;
    - report repository and live-install results separately.
 

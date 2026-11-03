@@ -250,8 +250,8 @@
     "update": {
       "source": ".claude/commands/update.md",
       "render": "codex/skills/update/SKILL.md",
-      "source_sha256": "7021a9589b793e00681dc441b38425b23194b61b1a78961177dfcd17a9523c17",
-      "render_sha256": "41c6dce61223a3077846266d7c5164b6973b48f45ca9b1fb7af3693251f9552c"
+      "source_sha256": "b7ed48a918536751eddebf0e134342fb4362d8a483d02f51862d6e66088d877f",
+      "render_sha256": "a13ae17f55bf44d9973cc1ae38bf39ffaf33233b7353a232a0fecd82e47b475a"
     },
     "verify-provenance": {
       "source": ".claude/commands/verify-provenance.md",
@@ -262,8 +262,8 @@
     "weekly-hygiene": {
       "source": ".claude/commands/weekly-hygiene.md",
       "render": "codex/skills/weekly-hygiene/SKILL.md",
-      "source_sha256": "097102c3edffd84e9f5b3f51a698fe17391b0fe02cb06bea0ce05ac4d9c87ba4",
-      "render_sha256": "00b2b1c7517f808599a15f71b2f1646c4b160e1b3abedc23ea2b72e0eb8096fa"
+      "source_sha256": "64142c5c4433d7937081435aabdcc2fce4d68424bf62f2e1b55130ce82c25101",
+      "render_sha256": "d03161cb880d78da08ae3c45e32d62f4cb02f1c01c0e6dd0220e776b93b4e9a9"
     },
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
