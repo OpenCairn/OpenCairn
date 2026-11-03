@@ -513,6 +513,21 @@ raise SystemExit(2 if errors else 0)
 PY_LOCK_METADATA
    ```
 
+   **Correction-recurrence checks** (report-only: never edit, route or auto-fix from these). Three mechanical tripwires for mistakes that tend to recur after a rule has been written against them. Each script prints a final count line; a hit is a lead for the user to triage, not a verdict. The window is the last seven local days, both ends inclusive. Set `HYGIENE_TZ` (an IANA zone) when the machine's zone can differ from the user's home zone, so a day means the same thing every run. The first two checks read the vault's git history; without one they print `unavailable` and exit 2. Record that as unavailable, never as 0.
+   ```bash
+   if [ -n "${HYGIENE_TZ:-}" ]; then export TZ="$HYGIENE_TZ"; fi
+   SINCE=$(date -d '6 days ago' +%F); UNTIL=$(date +%F)
+   export VAULT_PATH="{VAULT}"; S="{VAULT}/.claude/scripts"
+   "$S/resurrected-routed-lines.sh" "$SINCE" "$UNTIL"
+   "$S/locator-rotguns.sh" "$SINCE" "$UNTIL"
+   DIRS=$("$S/resolve-claude-project-dir.sh" "{VAULT}" 2>/dev/null)
+   [ -n "$DIRS" ] || echo "SESSIONS-WITH-HOSTED-DOC-CALLS: unavailable (no project dir)"
+   printf '%s\n' "$DIRS" | while IFS= read -r d; do [ -n "$d" ] && "$S/hosted-doc-calls.sh" "$SINCE" "$UNTIL" "$d"; done
+   ```
+   - **Routed-then-resurrected planning lines** (`ROUTED-THEN-RESURRECTED`): a line that left `01 Now/This Week.md` in the same commit that added it to another note (a routing move), then returned to `This Week.md` in a later commit. The usual cause is a write based on a stale read of the file. For each `HIT`, read both commits and the destination note and report what happened; do not move the line. Blind spot: a move and a re-add inside one commit.
+   - **Line-number locators** (`LOCATOR-ROTGUNS`): lines added in the window to `01 Now`, `03 Projects` or session logs that cite `line N` or `lines N–M` and still exist. A line number goes stale silently when its target gains a line above it; a heading, ID or quoted phrase does not. Report each row. Where the target is frozen (a verbatim transcript, an archived record), the user may add a pattern to `{VAULT}/.claude/hygiene-locator-ignore`: one `grep -E` pattern per line, matched against the `file | locator` row, `#` comments allowed. The script applies the file only when it carries at least one pattern, and prints how many rows it ignored.
+   - **Hosted-document calls** (`SESSIONS-WITH-HOSTED-DOC-CALLS`): Claude Code sessions whose transcript calls a hosted artifact or document tool. Documents and mock-ups default to local or vault files, so every row ends `-> check whether the user asked`. Find the request in that session's transcript; a hosted document the user asked for is not a finding. This check reads Claude Code transcripts only; Codex sessions are not scanned.
+
 12. **Context File Staleness Detection**
 
    Context files (`{VAULT}/07 System/Context - *.md`) shape every session's priors. They are event-driven, not time-driven — some are valid for years without edits, others contain temporal claims that expire. This step scans for temporal content that may have gone stale, rather than naively flagging files by modification date.
@@ -770,6 +785,7 @@ PY_LOCK_METADATA
    - List-item joins fixed: N [file + line per fix, or "none"]
    - Sync conflict files: N [list paths, or "none"] (Syncthing `*.sync-conflict-*` + Obsidian "conflicted copy")
    - Lock metadata: N canonical lock files retained; D mkdir-fallback directories listed for owner verification — no canonical lock deletion
+   - Correction-recurrence checks (report-only): routed-then-resurrected N [HIT rows, or "none"]; line-number locators N [rows, or "none"; ignored by pattern: N]; hosted-document sessions N [session + whether the user asked, or "none"]; "unavailable" where a check printed it
 
    ## Obsidian Sync Ghost Check
    *(omit this section if the ghost-check script is not installed)*
