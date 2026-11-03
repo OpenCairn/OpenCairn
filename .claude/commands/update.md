@@ -34,6 +34,74 @@ Each Bash call runs in a fresh shell, so a variable assigned in one fenced block
 
 Where a block assigns a variable and consumes it, keep the assignment and its consumers in that **same** block. Where a value is needed in a later step, write the resolved literal (e.g. `origin/main`, `refs/tags/v1.2.3`) into the command you run.
 
+## Live Installs Come Only From a Commit
+
+Every copy into the live Codex root (Step 3d adapters, Step 6b) installs bytes from this checkout's working tree, which no commit may contain. Immediately before the first live copy of a run, run the install-source gate:
+
+```bash
+# opencairn: install-source-gate
+DIRTY=$(git status --porcelain --untracked-files=all -- codex/)
+if [ -n "$DIRTY" ]; then
+  echo "✗ Refusing to install: this checkout has uncommitted changes under codex/:"
+  printf '%s\n' "$DIRTY" | sed 's/^/    /'
+  echo "  Live files are installed only from a commit; these bytes match none."
+  echo "  To install your changes, commit them, then re-run /update:"
+  echo "    git add -- <paths>"
+  echo "    git commit -- <paths>"
+  echo "  To install the committed versions instead, set the changes aside, then re-run /update:"
+  echo "    git stash push --include-untracked -- codex/"
+  exit 27
+fi
+echo "INSTALL_SOURCE_CLEAN $(git rev-parse HEAD)"
+```
+
+Exit 27 stops all live copying for this run. Neither `--force` nor any other flag bypasses it; only the user's own commit or stash clears it. Untracked files count as dirty: an untracked file under `codex/` is exactly the uncommitted content this gate exists to keep out of the live install. Paths outside `codex/` are not install sources and never trip it.
+
+After the copies, record every candidate whose live copy is now identical (copied this run or already identical), as paths relative to `codex/skills/`, with the immutable target commit from Step 3c substituted:
+
+```bash
+# opencairn: install-manifest
+TEMPLATE_COMMIT="<the immutable target commit>"
+python3 - "${CODEX_HOME:-$HOME/.codex}" "$TEMPLATE_COMMIT" <installed-file-1> <installed-file-2> ... <<'PY'
+import datetime, hashlib, json, os, subprocess, sys, tempfile
+root, template, files = sys.argv[1], sys.argv[2], sys.argv[3:]
+def git(*args):
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout.strip()
+head = git("rev-parse", "--verify", "HEAD^{commit}")
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+entries, bad = {}, []
+for rel in files:
+    repo_path, live = "codex/skills/" + rel, os.path.join(root, "skills", rel)
+    tree = git("ls-tree", "HEAD", "--", repo_path).split()
+    if len(tree) < 3 or tree[1] != "blob" or os.path.islink(live) or not os.path.isfile(live) \
+            or git("hash-object", "--path=" + repo_path, "--", live) != tree[2]:
+        bad.append(rel)
+        continue
+    with open(live, "rb") as fh:
+        digest = hashlib.sha256(fh.read()).hexdigest()
+    entries[rel] = {"sha256": digest, "git_blob": tree[2], "source_commit": head,
+                    "template_commit": template, "installed_at": now}
+if bad:
+    print("✗ Live copy does not match HEAD; manifest not written:", *bad, sep="\n    ")
+    sys.exit(28)
+path = os.path.join(root, "opencairn-install-manifest.json")
+data = {"schema_version": 1, "files": {}}
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+data["files"].update(entries)
+data["updated_at"] = now
+fd, tmp = tempfile.mkstemp(dir=root, prefix=".opencairn-install-manifest.")
+with os.fdopen(fd, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+os.replace(tmp, path)
+print(f"✓ Recorded {len(entries)} live file(s) from {head} in {path}")
+PY
+```
+
+The manifest (`opencairn-install-manifest.json` in the Codex root, outside `skills/`) keeps one entry per live file: its SHA-256, Git blob, the checkout commit it was installed from (`source_commit`) and the template target (`template_commit`). Entries for files not named in this run are kept. Exit 28 means a live copy no longer matches the committed source (a concurrent edit between gate and copy); report the listed paths and stop rather than recording them.
+
 ## Instructions
 
 ### Step 0: Bind the update to the resolved vault checkout
@@ -347,7 +415,7 @@ python3 .claude/scripts/archive-namespace-migration.py gate --status "$VAULT_PAT
 
 Require exactly the three documented `ARCHIVE_LAYOUT`, `ACTIONABLE_LEGACY_FILES`, and `MIGRATION_JOURNAL_PHASE` lines. A missing command, non-zero status, malformed output, symlinked archive-core member, or helper that does not produce this contract is an archive-core compatibility failure—not a vault-layout result. Stop with `archive-core-mismatch`; never enter migration through a mismatched core.
 
-Before the vault gate, recover the live Codex adapters when a Codex install exists. Resolve the live root as `${CODEX_HOME:-$HOME/.codex}`. For each of `update/SKILL.md` and `migrate/SKILL.md`, compare the repository file with the live counterpart and show a unified diff when missing or different. Under `--dry-run`, report the required copies but do not write them. Otherwise ask before copying; `--force` does not bypass this outward-copy review. If the user declines `migrate/SKILL.md`, the gate may still block and must report that exact missing live recovery path rather than telling them to invoke an unavailable `$migrate`.
+Before the vault gate, recover the live Codex adapters when a Codex install exists. Resolve the live root as `${CODEX_HOME:-$HOME/.codex}`. For each of `update/SKILL.md` and `migrate/SKILL.md`, compare the repository file with the live counterpart and show a unified diff when missing or different. Under `--dry-run`, report the required copies but do not write them. Otherwise run the install-source gate (*Live Installs Come Only From a Commit*), then ask before copying and record the manifest afterwards; `--force` does not bypass this outward-copy review. If the user declines `migrate/SKILL.md`, the gate may still block and must report that exact missing live recovery path rather than telling them to invoke an unavailable `$migrate`.
 
 If Step 1c set `PRE_REVAMP_HANDOFF`, read the verified/recovered `.claude/commands/migrate.md` in full and execute it now. The migrator performs the legacy task-system migration first and, once its live re-check passes, continues directly into the archive namespace migration. When it completes, re-run the archive gate below and resume this update. If the user defers a blocking component or migration verification fails, stop without entering ordinary update apply.
 
@@ -399,7 +467,7 @@ If no differences:
 ✓ Already up to date. Commands and scripts match the latest template.
 ```
 
-If the live Codex install marker exists (`[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`), do **not** stop: skip repository apply/commit and continue to Step 6b with every file under `codex/skills/` as the live-sync candidate set. This is the bootstrap and drift-recovery path for a Codex user whose checkout is current but the live skills are stale. Otherwise stop here.
+If the live Codex install marker exists (`[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`), do **not** stop: skip repository apply/commit and continue to Step 6b with every file committed at `HEAD` under `codex/skills/` as the live-sync candidate set. This is the bootstrap and drift-recovery path for a Codex user whose checkout is current but the live skills are stale. Otherwise stop here.
 
 ### Step 5: Preview Changes
 
@@ -539,7 +607,9 @@ If the commit fails (nothing to commit), that's fine — files are already updat
 The repo's `codex/` tree is a distribution copy — Codex CLI reads `${CODEX_HOME:-$HOME/.codex}/skills/`, not the repo — so an in-repo update alone leaves the live install stale. Run this step when the live marker exists and either candidate condition holds:
 
 1. This run accepted or auto-applied at least one `codex/skills/` file in Step 6. Candidate set = those accepted/new skill files.
-2. Step 4 found the repository already current and continued for live drift recovery. Candidate set = every file under `codex/skills/`.
+2. Step 4 found the repository already current and continued for live drift recovery. Candidate set = every file committed at `HEAD` under `codex/skills/` (`git ls-tree -r --name-only HEAD -- codex/skills/`), never a filesystem listing.
+
+Run the install-source gate (*Live Installs Come Only From a Commit*) before the first copy; exit 27 ends Step 6b with the repository results still reported. After the copies, run the manifest block over every candidate whose live copy now matches.
 
 The marker is `[ -f "${CODEX_HOME:-$HOME/.codex}/skills/_shared-rules.md" ]`; its absence means the user has not installed the Codex rendering, so skip silently.
 
