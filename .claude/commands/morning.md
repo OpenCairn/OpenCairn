@@ -47,6 +47,8 @@ For each day Catch-up mode collapsed, the `Inbound locators:` line from /goodnig
 
 ### 3. Surface the Landscape (auto, ~1 min)
 
+**Pre-morning hook:** If `$OPENCAIRN_PRE_MORNING` is set, run it first, bounded to 120 seconds, and show its output at the top of the landscape. A non-zero exit or a timeout is reported plainly, and the rest of the morning continues.
+
 **Maintain the window before reading the landscape.** If This Week.md exists, run `_shared-rules-planning.md` Section 9 now, before the Tickler migration or upcoming-day scan. This creates and populates the today+6 section so the landscape's stated forward window is the surface it actually reads. Preserve project/area links, replace session-log-only links, and link bare items per Section 3.
 
 **Weather forecast:** Fetch the 7-day forecast from the Open-Meteo API (free, no key). Determine the user's current city from CLAUDE.md context (TZ field, travel status, or This Week.md location banner), resolve its coordinates — if not already known, use Open-Meteo's geocoding endpoint (`curl -sf "https://geocoding-api.open-meteo.com/v1/search?name=CITY&count=1"`, take `latitude`/`longitude` from the first result; do not guess coordinates) — and run:

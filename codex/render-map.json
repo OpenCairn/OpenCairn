@@ -130,8 +130,8 @@
     "morning": {
       "source": ".claude/commands/morning.md",
       "render": "codex/skills/morning/SKILL.md",
-      "source_sha256": "ae96c038f105f63cfaea41a7bbfd7e2373145008f5f0dfc1b48ce5e101b0b276",
-      "render_sha256": "3b237f1c61784537725967ff0685dff5ffa5568820f6eec94ec75fedf016b771"
+      "source_sha256": "269615e829b61b5aa2c9fac569989795e37292e62988445beb04d6d1760f8ba8",
+      "render_sha256": "5fa2aaea916eb4d65db7397926b670f3fb29774735f1a2ac010aff8ae1020c15"
     },
     "ocr": {
       "source": ".claude/commands/ocr.md",
