@@ -350,44 +350,25 @@ PY_HUB_AGE
    fi
    ```
 
-   **Path listings must be vault-relative before `filter`.** Absolute paths can all match an exclusion such as `^/`, hiding real findings. The filtered `find` path listings below emit relative paths; prefix them with `{VAULT}/` when opening or diffing a reported file.
+   **Path listings must be vault-relative before `filter`.** Absolute paths can all match an exclusion such as `^/`, hiding real findings. The fallback helper emits relative paths; prefix them with `{VAULT}/` when opening or diffing a reported file.
 
    **Unresolved (broken) links:**
    ```bash
    # CLI (preferred): queries Obsidian's index directly
    obsidian unresolved counts format=tsv 2>/dev/null | filter
    ```
-   If CLI unavailable, fall back to a basename-index comparison (also apply `filter` here). The `find` predicates do the path exclusion — don't pass `-not -path` to grep (not a grep option), and keep the link pattern non-greedy (`[^]]*`) so multiple links on one line extract separately. Wikilink targets may be bare note names or full paths, so both sides reduce to a basename before the comparison; the note index spans the whole vault (a live link into `06 Archive/` still resolves):
+   If CLI unavailable, run the read-only fallback **once for both unresolved links and orphans**:
    ```bash
-   # define `filter` in this same shell call first, per the excludes block above
-   NOTES=$(mktemp); LINKS=$(mktemp)
-   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
-     | xargs -0 -n1 basename | sed 's/\.md$//' | sort -u > "$NOTES"
-   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -not -path '*/06 Archive/*' -print0 \
-     | xargs -0 rg -o --no-filename '\[\[[^]]*\]\]' 2>/dev/null \
-     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
-     | rg -v '^$' | sort -u > "$LINKS"
-   comm -23 "$LINKS" "$NOTES" | filter    # link targets with no matching note = unresolved
-   rm -f "$NOTES" "$LINKS"
+   python3 "{VAULT}/.claude/scripts/hygiene-links.py" "{VAULT}"
    ```
+   Use its JSON `unresolved_targets` and vault-relative `orphan_paths`; exclusions are already applied with the same grep patterns, so do not pipe JSON through `filter`. Only exit 0 with `status: "ok"` establishes complete findings (including an empty vault). A nonzero exit, `unavailable`, missing helper or malformed output means unavailable/incomplete, never zero; retain the diagnostic. This approximation compares basenames, strips aliases/anchors/path prefixes/trailing whitespace, and extracts multiple links per line. Notes resolve across the whole vault; unresolved source links exclude `06 Archive/`, incoming links include Archive, and `.stversions` is excluded. Duplicate basenames share matching semantics; do not infer exact paths or source counts. Findings inform judgement and reporting, never automatic note edits.
 
    **Orphaned files** (no incoming links):
    ```bash
    # CLI (preferred)
    obsidian orphans 2>/dev/null | filter | rg "^(03 Projects|04 Areas)/"
    ```
-   If CLI unavailable, fall back to the same basename index — a note whose basename appears in no wikilink anywhere in the vault is an orphan:
-   ```bash
-   # define `filter` in this same shell call first, per the excludes block above
-   LINKED=$(mktemp)
-   find "{VAULT}" -name '*.md' -not -path '*/.stversions/*' -print0 \
-     | xargs -0 rg -o --no-filename '\[\[[^]]*\]\]' 2>/dev/null \
-     | sed 's/\[\[//;s/\]\]//;s/|.*//;s/#.*//;s#.*/##;s/[[:space:]]*$//' \
-     | sort -u > "$LINKED"
-   find "{VAULT}/03 Projects" "{VAULT}/04 Areas" -name '*.md' -type f 2>/dev/null \
-     | while read -r f; do rg -q -x -F "$(basename "$f" .md)" "$LINKED" || printf '%s\n' "${f#"{VAULT}/"}"; done | filter
-   rm -f "$LINKED"
-   ```
+   If CLI unavailable, use `orphan_paths` from the same fallback invocation above; candidates are limited to `03 Projects/` and `04 Areas/`, including nested tiers.
 
    **Dead-end files** (no outgoing links — CLI only, skip if unavailable):
    ```bash
