@@ -40,8 +40,8 @@
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "b9f028ff29dc9d85583c270c56abe3cf2387a95186b1a0aa66a058701757c7af",
-      "render_sha256": "f7631a8eea66a10f6c588f6ba98dbd485503ab9e1033ebdc2c5988e1942687bc"
+      "source_sha256": "11cf5f5c447f43b15ced62c77d6012c745151deaf5792ed135579bac6ac08b55",
+      "render_sha256": "64ec38f6822cbb1505703800d90a56231e8a4aeb52d1d287ac55223510278260"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
