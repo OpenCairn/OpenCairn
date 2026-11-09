@@ -65,7 +65,7 @@ Use `$set-project-status` to move among Backlog, active and Cold. Obsidian heals
 
 Each `03 Projects/` root doc carries `bucket:` YAML frontmatter (default taxonomy: craft / constitution / community / contemplation / calm — personalise it). `## Current Objective` and `## Next Actions` are useful defaults for substantial projects, not required schema; preserve a project's existing structure when it expresses current state and actions another way. **Folder location is the status** — root = active, `Cold/` = paused, `Backlog/` = unstarted; no Status field. For the active landscape, list the root and read the docs — there is no rendered dashboard (the root listing is the view).
 
-**Active project cap: 5** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
+**Active project cap: 10** — the number of `03 Projects/` root docs above which the skills that read this value flag the overage and ask what moves to `Cold/`. Excludes `Cold/` and `Backlog/`. Tune here; skills resolve this line rather than carrying their own copy.
 
 **Hub review window: 14** — days after a root doc's `last_reviewed:` frontmatter date beyond which `/weekly-hygiene` flags the hub as due for a re-read. Tune here; skills resolve this line rather than carrying their own copy.
 
