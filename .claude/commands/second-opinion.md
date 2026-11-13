@@ -165,7 +165,7 @@ Bind `<round-path>` to exactly `<run-dir>/brief-rN.md`, never the raw scratch pa
 
    - **Gemini CLI via Bash** with `timeout: 300000`, run from the cwd recorded in step 3. The Phase 2A policy file lives in a different Bash call and its variable is gone, so **recreate the read-only policy in the same block** (per `_shared-rules-reviewer.md` §10) rather than referencing a stale one — an empty `--policy` argument is accepted silently and enforces nothing. Substitute `<round-path>` with the copied `<run-dir>/brief-rN.md` bound in step 2, `<index>` with the session index from step 3, and `<root>` with the target's root:
      ```
-     RO_POLICY=$(mktemp -t gemini-ro-policy.XXXXXX)
+     RO_POLICY="$(mktemp -d -t gemini-ro.XXXXXX)/gemini-ro-policy.toml"
      printf '[[rule]]\ntoolName = ["write_file", "replace", "run_shell_command"]\ndecision = "deny"\npriority = 100\n' > "$RO_POLICY"
      cat <round-path> | gemini -p "Continue the prior review." --resume <index> --policy "$RO_POLICY" -o text --include-directories <root> --skip-trust > <run-dir>/gemini-rN.out 2> <run-dir>/gemini-rN.err; echo $? > <run-dir>/gemini-rN.exit
      ```
