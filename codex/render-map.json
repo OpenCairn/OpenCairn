@@ -40,8 +40,8 @@
     "audit": {
       "source": ".claude/commands/audit.md",
       "render": "codex/skills/audit/SKILL.md",
-      "source_sha256": "11cf5f5c447f43b15ced62c77d6012c745151deaf5792ed135579bac6ac08b55",
-      "render_sha256": "64ec38f6822cbb1505703800d90a56231e8a4aeb52d1d287ac55223510278260"
+      "source_sha256": "9433b66d4515aabe81961c2c76d5d1041138bc3a1e38da805eacfdde7c5120c1",
+      "render_sha256": "a8ed48760c8445a1cee852985f4d7b34fcb00ef80e67655b2e995db45085c994"
     },
     "awaken": {
       "source": ".claude/commands/awaken.md",
@@ -202,8 +202,8 @@
     "second-opinion": {
       "source": ".claude/commands/second-opinion.md",
       "render": "codex/skills/second-opinion/SKILL.md",
-      "source_sha256": "5e5d87158d94671f6d8cd15d83d03aa38eb9d4da84876a0a7cec8383f0135b2f",
-      "render_sha256": "921614cba1f9d71174d6a618f42a74e75e8df81ff1c97bfafd9fbdcf0ab1fd3c"
+      "source_sha256": "b278c6cae4da62c538aad427bfad47edd53d695ad0588a2613902f30f066254a",
+      "render_sha256": "dc4d324044de5406733626d5b5696a144b02c6e5c975fcfe16d3d5aea8b5cadb"
     },
     "set-project-status": {
       "source": ".claude/commands/set-project-status.md",
@@ -280,8 +280,8 @@
     "_shared-rules-reviewer": {
       "source": ".claude/commands/_shared-rules-reviewer.md",
       "render": "codex/skills/_shared-rules-reviewer.md",
-      "source_sha256": "a7de6ce1a7f9d07cdef2af58931b7fc0395b78b1492b8a6e42a68a0eb3bd0644",
-      "render_sha256": "342ef77e88b87c860c91a44d0b0a378595b05834444827f9e32731289d0c02cd"
+      "source_sha256": "d417bbf23008240bc249180f4ef3ccc26658bcbc21ca4ca614f7f386e0e6f672",
+      "render_sha256": "31a17946f6b5a2e7d68501edf9f0581c6dc594b617bcdeda0d0ab8bd2011fa97"
     },
     "_shared-rules-content": {
       "source": ".claude/commands/_shared-rules-content.md",
