@@ -23,7 +23,7 @@ Keep count of completed independent reports, rounds of parent fixes and distinct
 | Continue the same seat | `followup_task` | `send_input` to that agent ID; `resume_agent` first only if closed |
 | Interrupt for report-only recovery | Supported interruption/continuation operation | `send_input` with `interrupt: true` |
 
-Use the exact exposed names and arguments; do not invent a missing alias or pass another interface's parameters. Preserve fresh context, the read-only reviewer contract, inherited model/reasoning effort, same-seat continuation and an authoritative completion result. Retain the returned agent handle for later calls. A missing agent-listing tool or caller-supplied task-name field does not block an interface that returns unique agent IDs. Apply this mapping to every despatch, collection and follow-up below.
+Use the exact exposed names and arguments; do not invent a missing alias or pass another interface's parameters. Preserve fresh context, the read-only reviewer contract, the model and reasoning effort policy in **Independent review**, same-seat continuation and an authoritative completion result. Retain the returned agent handle for later calls. A missing agent-listing tool or caller-supplied task-name field does not block an interface that returns unique agent IDs. Apply this mapping to every despatch, collection and follow-up below.
 
 ## Evidence
 
