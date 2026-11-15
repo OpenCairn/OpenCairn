@@ -124,20 +124,6 @@ if [ $# -lt 2 ]; then
 fi
 
 TARGET="$1"
-case "$TARGET" in
-    /*|[A-Za-z]:[\\/]*) ;;
-    *)
-        echo "Target must be an absolute path (got: $TARGET). Resolve the vault path first." >&2
-        # Name the absolute candidates so the caller can retry without guessing; never pick one
-        # here: a create mode on the wrong base would write a file in the wrong place.
-        for base in "$PWD" "${VAULT_PATH:-}"; do
-            [ -n "$base" ] || continue
-            if [ -e "$base/$TARGET" ]; then state=exists; else state=absent; fi
-            printf '  candidate (%s): %s/%s\n' "$state" "$base" "$TARGET" >&2
-        done
-        exit 1
-        ;;
-esac
 MODE="$2"
 EXPECTED_SNAPSHOT=""
 MOVE_DESTINATION=""
@@ -188,6 +174,45 @@ else
     echo "locked-edit.sh requires Python 3 (python3 or python)" >&2
     exit 1
 fi
+
+# Relative targets have one base, regardless of the caller's working directory.
+# Validate before reading stdin, creating directories or taking a lock. Keep the
+# leaf unresolved: atomic replacement edits that directory entry, and --move
+# must still see (and refuse) a symbolic-link source.
+case "$TARGET" in
+    /*|[A-Za-z]:[\\/]*) ;;
+    *)
+        TARGET="$("$PYTHON_BIN" - "$TARGET" "${VAULT_PATH:-}" <<'PY_PATH'
+import pathlib
+import sys
+
+raw, vault_raw = sys.argv[1:]
+
+def fail(message):
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+if not raw or any(c in raw + vault_raw for c in "\r\n"):
+    fail("Relative target and VAULT_PATH must be non-empty paths without newlines")
+if not vault_raw or not pathlib.Path(vault_raw).is_absolute():
+    fail("Relative targets require an absolute VAULT_PATH directory")
+try:
+    vault = pathlib.Path(vault_raw).resolve(strict=True)
+    if not vault.is_dir():
+        fail("VAULT_PATH is not a directory: %s" % vault_raw)
+    candidate = vault / raw
+    resolved = candidate.resolve(strict=False)
+    try:
+        resolved.relative_to(vault)
+    except ValueError:
+        fail("Relative target escapes VAULT_PATH: %s" % raw)
+    print((candidate.parent.resolve(strict=False) / candidate.name).as_posix())
+except (OSError, RuntimeError, ValueError) as exc:
+    fail("Cannot resolve relative target against VAULT_PATH: %s" % exc)
+PY_PATH
+)"
+        ;;
+esac
 
 if [ "$MODE" = "--move" ]; then
     if [ -z "${VAULT_PATH:-}" ]; then

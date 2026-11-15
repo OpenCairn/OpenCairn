@@ -220,6 +220,48 @@ class LockedEditMoveTests(unittest.TestCase):
             env=self.environment(**env),
         )
 
+    def test_relative_source_and_destination_resolve_from_vault(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        reference = self.vault / "Reference.md"
+        reference.write_text("[[Old/Incident]]\n", encoding="utf-8")
+        result = self.run_move(Path("Old/Incident.md"), Path("New/Incident.md"), self.digest(source))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(source.exists())
+        self.assertEqual((self.vault / "New/Incident.md").read_text(), "source\n")
+        self.assertEqual(reference.read_text(), "[[New/Incident]]\n")
+
+    def test_relative_move_source_and_destination_cannot_escape(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        outside = self.root / "outside.md"
+        outside.write_text("outside\n", encoding="utf-8")
+        for start, end, digest in (
+            (Path("../outside.md"), Path("New/Incident.md"), self.digest(outside)),
+            (Path("Old/Incident.md"), Path("../escaped.md"), self.digest(source)),
+        ):
+            with self.subTest(start=start, end=end):
+                result = self.run_move(start, end, digest)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertEqual(source.read_text(), "source\n")
+                self.assertEqual(outside.read_text(), "outside\n")
+                self.assertFalse((self.root / "escaped.md").exists())
+                self.assertFalse((self.vault / "New/Incident.md").exists())
+
+    def test_relative_symlink_source_is_still_refused(self) -> None:
+        source = self.vault / "Old" / "Incident.md"
+        source.write_text("source\n", encoding="utf-8")
+        alias = self.vault / "Alias.md"
+        try:
+            alias.symlink_to(source)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f"Symlinks unavailable: {exc}")
+        result = self.run_move(Path("Alias.md"), Path("New/Incident.md"), self.digest(source))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("must not be a symbolic link", result.stderr)
+        self.assertTrue(alias.is_symlink())
+        self.assertEqual(source.read_text(), "source\n")
+
     def test_moves_with_hash_and_heals_path_qualified_links(self) -> None:
         source = self.vault / "Old" / "Incident.md"
         destination = self.vault / "New" / "Incident.md"
