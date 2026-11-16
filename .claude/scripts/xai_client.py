@@ -5,9 +5,10 @@ Owns key loading, model choice, reasoning effort, live search, the no-tool guard
 retry/backoff, and cost/latency logging. Import from here so no Grok plumbing is
 duplicated. Stdlib only (urllib) — no pip installs, matching ~/.claude/scripts/ convention.
 
-Key: XAI_API_KEY in the process environment, falling back to
-~/.claude/settings.json env.XAI_API_KEY so Claude Code and Codex share one
-credential. The key is never logged or printed. Endpoint: POST https://api.x.ai/v1/responses
+Key: XAI_API_KEY in the process environment, then the desktop keyring
+(`secret-tool lookup service scripts key xai-api-key`, where secret-tool exists),
+then ~/.claude/settings.json env.XAI_API_KEY. The keyring and settings fallbacks
+let Claude Code and Codex share one credential. The key is never logged or printed. Endpoint: POST https://api.x.ai/v1/responses
 
 Usage:
   xai_client.py "prompt"                          smoke test (fast model)
@@ -34,6 +35,8 @@ import hashlib
 import json
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -94,6 +97,25 @@ def _resolve_key() -> tuple[str | None, str | None]:
     if key:
         return key, "process environment"
 
+    secret_tool = shutil.which("secret-tool")
+    if secret_tool:
+        # The Secret Service occasionally returns an empty miss (rc 1, no stderr);
+        # a short retry distinguishes that from a key that is genuinely absent.
+        for attempt in range(3):
+            try:
+                result = subprocess.run(
+                    [secret_tool, "lookup", "service", "scripts", "key", "xai-api-key"],
+                    capture_output=True, text=True, timeout=10, check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                result = None
+            if result is not None and result.returncode == 0:
+                key = result.stdout.strip()
+                if key:
+                    return key, "desktop keyring"
+            if attempt < 2:
+                time.sleep(0.2)
+
     settings_path = os.path.expanduser("~/.claude/settings.json")
     try:
         with open(settings_path, encoding="utf-8") as fh:
@@ -116,7 +138,8 @@ def _load_key() -> str:
     key, _ = _resolve_key()
     if not key:
         sys.exit(
-            "XAI_API_KEY unavailable. Set it in the process environment or in "
+            "XAI_API_KEY unavailable. Set it in the process environment, the "
+            "keyring (service scripts key xai-api-key) or "
             "~/.claude/settings.json under env.XAI_API_KEY."
         )
     return key
@@ -377,7 +400,9 @@ def _main(argv: list[str]) -> int:
         # emits the specific remediation, not just the diagnosis.
         print("grok seat: unavailable (XAI_API_KEY unresolved)\n"
               "  setup: create a key at console.x.ai and load credits (no free tier), then set\n"
-              "         XAI_API_KEY in the process environment or ~/.claude/settings.json env.\n"
+              "         XAI_API_KEY in the process environment, the keyring\n"
+              "         (secret-tool store --label='xAI API' service scripts key xai-api-key)\n"
+              "         or ~/.claude/settings.json env.\n"
               "  note:  xAI does not train on API data without explicit opt-in; requests are kept\n"
               "         30 days for abuse auditing. No console toggle to change.")
         return 1
