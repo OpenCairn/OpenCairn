@@ -125,6 +125,14 @@ EOF
 
 **Binary and directory ingress:** use `locked-ingress.sh <vault> <source> <destination> [--move]`, never raw `cp`/`mv` into the vault. It locks the new destination, stages in the destination directory, and installs atomically; the parent must already exist and the destination must not. `--move` accepts only a source outside the vault and removes it after the target lands, so a failed cleanup leaves a duplicate rather than data loss.
 
+**Replacing an existing binary:** record the target's SHA-256 before generating its replacement. Render to a staging file outside the vault and complete format-specific QA there, then stream the bytes through the existing compare-and-swap writer:
+
+```bash
+"{VAULT}/.claude/scripts/locked-edit.sh" "<absolute-existing-target>" --replace-whole "<recorded-sha256>" < "<staged-file>"
+```
+
+Exit 2 means the target changed or disappeared: inspect the new state and reconcile before generating/retrying; never remove the target to make ingress succeed. Exit 0 requires a byte comparison (`cmp -- "<staged-file>" "<absolute-existing-target>"`, exit 0 = identical) and the format-specific QA evidence; text separator scans do not apply to binary bytes. New binaries still use `locked-ingress.sh`.
+
 **Lock files:**
 
 | Lock file | Protects | Used by |

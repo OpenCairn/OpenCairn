@@ -1825,13 +1825,13 @@ class AnnotatedFilesRowTests(unittest.TestCase):
             "- `docs/Plan.md` - kept\n"
             "- `docs/Plan - draft.md` (deleted) - removed\n"
             "- docs/old.md (deleted) - removed\n"
-            "- /mnt/nas/photos/2026 - raw/export.tif (remote) - re-exported\n"
-            "- `/mnt/nas/export.tif` (remote)\n"
+            "- /srv/shared/photos/2026 - raw/export.tif (remote) - re-exported\n"
+            "- `/srv/shared/export.tif` (remote)\n"
         )
         self.assertEqual(
             park_review.parse_file_lines(text, self.vault, {}),
             ["docs/Plan.md", "docs/Plan - draft.md", "docs/old.md",
-             "/mnt/nas/photos/2026 - raw/export.tif", "/mnt/nas/export.tif"],
+             "/srv/shared/photos/2026 - raw/export.tif", "/srv/shared/export.tif"],
         )
         rows = park_review.parse_file_rows(text, self.vault, {})
         self.assertEqual([note for _, note in rows],

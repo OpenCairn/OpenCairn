@@ -1093,9 +1093,9 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("INFO backfill", result.stdout)
 
     def test_remote_annotation_excuses_absence_and_skips_content(self) -> None:
-        remote = "/mnt/nas/photos/2026 - raw/export.tif"
+        remote = "/srv/shared/photos/2026 - raw/export.tif"
         # Shown by its shortest candidate when the row is absent and unsplittable.
-        info = "INFO backfill: row annotated (remote) not compared: /mnt/nas/photos/2026"
+        info = "INFO backfill: row annotated (remote) not compared: /srv/shared/photos/2026"
         for row in (remote + " (remote) - re-exported", "`" + remote + "` (remote)",
                     remote + " - re-exported (remote)"):
             with self.subTest(row=row):
