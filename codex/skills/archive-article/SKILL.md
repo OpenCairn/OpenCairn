@@ -120,6 +120,8 @@ Re-read the Source section and compare author, title, venue, date and identifier
 
 Trace values and attributions against the retained source text — including a draft a sub-agent produced, which stays untraced until this passes. For every number, find its source line by literal search and confirm the measure qualifier matches (raw vs adjusted/excess, gross vs net, relative vs absolute, denominator, period); never join differently-qualified figures with "or"/"and" as alternatives. For every attribution to a part, chapter, speaker, section or linked note, confirm that location carries the claim.
 
+Apply §19's clause trace to Bottom line, H1 and Application claims, including paraphrases. Compare each with its source and the note's Limitations/tables, retaining the source's hedge, modal, frequency, timeframe and scope words. When configured and the data is eligible under [../_semantic-checks.md](../_semantic-checks.md), use its `claim` comparison and retain the receipt plus disposition. Report `Scope check: C adapted clauses traced; R revised` only after completing the clause traces.
+
 Report the saved file, its destination and any material source/access gaps. Include `Quote check: N quoted phrases, M block quotes, all traced`, `Value check: N values traced, M fixed` and the citation-check result only after performing those checks. Keep the note concise and descriptive; mark application inferences as inferences.
 
 ## Skill monitor

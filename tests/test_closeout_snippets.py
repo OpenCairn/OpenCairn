@@ -365,7 +365,7 @@ class CloseoutSnippetTests(unittest.TestCase):
             text = source.read_text(encoding='utf-8')
             commands = {
                 'name': (re.search(r"`(rg [^`]*'<distinctive name>' \.)`", text), "'<distinctive name>'", "'Subject Phrase'"),
-                'variant': (re.search(r"`(rg [^`]*'word\[-_ \]\?word')`", text), "'word[-_ ]?word'", "'subject[-_ ]?phrase'"),
+                'variant': (re.search(r"`(rg [^`]*'word\[-_ \]\?word' \.)`", text), "'word[-_ ]?word'", "'subject[-_ ]?phrase'"),
             }
             for label, (match, placeholder, needle) in commands.items():
                 with self.subTest(source=source, command=label), tempfile.TemporaryDirectory() as tmp:
