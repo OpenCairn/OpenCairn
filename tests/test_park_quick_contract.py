@@ -124,7 +124,7 @@ class ParkQuickContractTests(unittest.TestCase):
             "read-only success": "✓ Quick eligibility: PASS",
             "durable file edit": "Any attributed creation, update, or deletion fails the gate",
             "external action": "external mutations (messages sent, bookings, purchases, pushes, remote edits)",
-            "conversation-only draft": "assistant-authored drafts that exist only in the conversation",
+            "conversation-only draft": "no semantic home beyond the conversation or session log",
             "open loop": "resumable next steps or open loops",
             "merge continuation": "merge-continuation",
             "ambiguous attribution": "target or ownership is uncertain",
