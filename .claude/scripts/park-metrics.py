@@ -269,18 +269,33 @@ def sources(claude, codex):
         ('codex', p) for sub in ('sessions', 'archived_sessions') for p in sorted((codex / sub).rglob('*.jsonl'))]
 
 
+def carriable(row):
+    """A cached row the dataset and both reports can read as it stands."""
+    try:
+        epoch(row['started_at'])
+        return (all(isinstance(row[k], str) for k in ('id', 'harness', 'session_id', 'transcript', 'mode', 'status'))
+                and isinstance(row['wall_seconds'], (int, float, type(None))) and 'boundary' in row)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return False
+
+
 def carry(cache, present):
-    """Cached entries a re-parse cannot rebuild: their source is no longer on disk."""
+    """Cached entries a re-parse cannot rebuild: their source is no longer on disk.
+
+    An earlier cache is not trusted: what cannot be carried is dropped, never a failed collection.
+    """
+    files, measured = cache.get('files'), cache.get('version')
     kept = {}
-    for key, entry in cache.get('files', {}).items():
-        if key in present or not entry.get('rows'):
+    for key, entry in (files.items() if isinstance(files, dict) else ()):
+        rows = entry.get('rows') if isinstance(entry, dict) else None
+        rows = [r for r in rows if carriable(r)] if isinstance(rows, list) else []
+        if key in present or not rows:
             continue
         # Row fields are unchanged since schema 5; a bump that changes them migrates here.
-        if cache.get('version') != VERSION:
-            entry.setdefault('carried_from_schema', cache.get('version'))
-            for row in entry['rows']:
-                row.setdefault('carried_from_schema', cache.get('version'))
-        entry['fingerprint'] = None  # a source that returns is parsed afresh
+        if measured not in (None, VERSION):
+            for marked in (entry, *rows):
+                marked.setdefault('carried_from_schema', measured)
+        entry.update(rows=rows, fingerprint=None)  # a source that returns is parsed afresh
         kept[key] = entry
     return kept
 
@@ -288,6 +303,8 @@ def carry(cache, present):
 def collect(args):
     with locked(args.state):
         cache = read(args.state / 'cache.json', {})
+        if not isinstance(cache, dict):
+            cache = {}
         files = sources(args.claude_root, args.codex_root)
         current = {str(p) for _, p in files}
         if cache.get('version') != VERSION or cache.get('since') != args.since:
@@ -304,6 +321,11 @@ def collect(args):
             rows, errors = extract(path, harness, args.since)
             cache['files'][str(path)] = dict(fingerprint=fingerprint, rows=rows, errors=errors, harness=harness)
             changed += 1
+        # A moved source is measured at its new path: the rows cached for the path it left are dropped.
+        live = {(r['harness'], r['session_id']) for key in current for r in cache['files'][key]['rows']}
+        for key in set(cache['files']) - current:
+            entry = cache['files'][key]
+            entry['rows'] = [r for r in entry['rows'] if (r['harness'], r['session_id']) not in live]
         # The window check applies to carried rows: a parse already leaves out earlier requests.
         rows = [r for data in cache['files'].values() for r in data['rows']
                 if epoch(r['started_at']) >= epoch(args.since)]

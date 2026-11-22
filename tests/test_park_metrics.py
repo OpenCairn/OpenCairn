@@ -346,7 +346,7 @@ class MetricsTests(unittest.TestCase):
             (removed, present), run = self.history(root)
             _, before = run('collect')
             run('record', '--run-id', before['removed']['id'], '--review-rounds', '2')
-            body = removed.read_text()
+            body, written = removed.read_text(), removed.stat()
             removed.unlink()
             # A cache written by the previous schema; the changed count shows which rows are parsed again.
             cache = json.loads((root/'state/cache.json').read_text())
@@ -370,8 +370,15 @@ class MetricsTests(unittest.TestCase):
                     self.assertEqual(runs['present']['tool_calls'], 0)
                     self.assertNotIn('carried_from_schema', runs['present'])
             self.assertEqual(data['files_reparsed'], 0)
-            # The source comes back: its runs are parsed under the current schema.
+            # A later schema change keeps the mark of the schema that measured the run.
+            cache = json.loads((root/'state/cache.json').read_text())
+            cache['version'] = m.VERSION - 2
+            (root/'state/cache.json').write_text(json.dumps(cache))
+            _, runs = run('collect')
+            self.assertEqual(runs['removed']['carried_from_schema'], m.VERSION - 1)
+            # The source comes back unchanged, modification time included: its runs are parsed under the current schema.
             removed.write_text(body)
+            os.utime(removed, ns=(written.st_atime_ns, written.st_mtime_ns))
             data, runs = run('collect')
             self.assertEqual(len(data['runs']), 2)
             self.assertEqual(runs['removed']['id'], before['removed']['id'])
@@ -394,6 +401,81 @@ class MetricsTests(unittest.TestCase):
             self.assertEqual(data['runs'], [])
             _, runs = run('collect')
             self.assertEqual({k: r['id'] for k, r in runs.items()}, {k: r['id'] for k, r in before.items()})
+
+    def test_malformed_old_cache_carries_what_it_can(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (removed, present), run = self.history(root)
+            _, before = run('collect')
+            removed.unlink()
+            written = json.loads((root/'state/cache.json').read_text())
+            good = written['files'][str(removed)]['rows'][0]
+            gone = lambda name: str(removed.with_name(name))
+            cache = dict(written, version=m.VERSION - 1)
+            # Rows the dataset or the reports could not read sit beside the well-formed one.
+            unreadable = [dict(good, started_at=None), dict(good, started_at='not a date'), dict(good, wall_seconds='long'),
+                          dict(good, harness=None)] + [{k: v for k, v in good.items() if k != key} for key in (
+                              'started_at', 'transcript', 'session_id', 'harness', 'mode', 'status', 'wall_seconds', 'boundary')]
+            cache['files'][str(removed)]['rows'] = ['not a row', None, {k: v for k, v in good.items() if k != 'id'}] + [
+                dict(row, id=f'unreadable-{i}') for i, row in enumerate(unreadable)] + [good]
+            cache['files'].update({gone('list.jsonl'): [good], gone('null.jsonl'): None,
+                                   gone('rows-null.jsonl'): {'rows': None}, gone('rows-number.jsonl'): {'rows': 5},
+                                   gone('no-rows.jsonl'): {'fingerprint': [1, 2]}})
+            (root/'state/cache.json').write_text(json.dumps(cache))
+            for attempt in ('first collection on the new schema', 'next collection'):
+                with self.subTest(attempt):
+                    data, runs = run('collect')
+                    self.assertEqual(sorted(runs), ['present', 'removed'])
+                    self.assertEqual(len(data['runs']), 2)
+                    self.assertEqual(runs['removed']['id'], before['removed']['id'])
+                    self.assertEqual(runs['removed']['carried_from_schema'], m.VERSION - 1)
+                    run('report')
+                    run('summary')
+            # A cache with nothing to carry is replaced, never a crash; one with no version carries unmarked.
+            for name, content, kept in (('files null', {'version': 1, 'files': None}, False),
+                                        ('files a list', {'version': 1, 'files': [good]}, False),
+                                        ('cache a list', [good], False),
+                                        ('no version', {'files': written['files']}, True)):
+                with self.subTest(name):
+                    (root/'state/cache.json').write_text(json.dumps(content))
+                    _, runs = run('collect')
+                    self.assertEqual(sorted(runs), ['present', 'removed'] if kept else ['present'])
+                    self.assertNotIn('carried_from_schema', runs.get('removed', {}))
+
+    def test_moved_source_is_measured_once_at_its_new_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            active = root/'codex/sessions/2026/09/26/rollout.jsonl'
+            archived = root/'codex/archived_sessions/rollout.jsonl'
+            for path in (active, archived):
+                path.parent.mkdir(parents=True)
+            events = [self.codex('10:00:00', 'session_meta', id='abc'),
+                      self.codex('10:00:00', 'event_msg', type='task_started', turn_id='turn'),
+                      self.codex('10:00:01', 'response_item', type='message', role='user', content=[{'text': '$park'}])]
+            active.write_text(''.join(json.dumps(e)+'\n' for e in events))
+            base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
+                    '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
+            def collect():
+                subprocess.run(base+['collect', '--since', '2026-09-01T00:00:00Z'], capture_output=True, text=True, check=True)
+                return json.loads((root/'state/runs.json').read_text())['runs']
+            rid = collect()[0]['id']
+            # An earlier schema measured the run at the old path; its parser dated the start differently.
+            active.rename(archived)
+            cache = json.loads((root/'state/cache.json').read_text())
+            cache['version'] = m.VERSION - 1
+            cache['files'][str(active)]['rows'][0].update(id='0'*16, started_at='2026-09-26T10:00:00Z')
+            (root/'state/cache.json').write_text(json.dumps(cache))
+            runs = collect()
+            self.assertEqual([r['id'] for r in runs], [rid])
+            self.assertEqual(runs[0]['transcript'], str(archived))
+            self.assertNotIn('carried_from_schema', runs[0])
+            # Moved back and finished: the measurement from the path it left does not outlive it.
+            archived.rename(active)
+            with active.open('a') as out:
+                out.write(json.dumps(self.codex('10:30:01', 'event_msg', type='task_complete', turn_id='turn',
+                                                last_agent_message='Parked.'))+'\n')
+            runs = collect()
+            self.assertEqual([(r['id'], r['wall_seconds'], r['source_present']) for r in runs], [(rid, 1800, True)])
 
     def summarise(self, runs, *args, collected_at=None, since='2026-09-01T00:00:00Z'):
         with tempfile.TemporaryDirectory() as tmp:
