@@ -138,6 +138,17 @@ class ParkQuickContractTests(unittest.TestCase):
                 with self.subTest(lane=lane, scenario=scenario):
                     self.assertIn(marker, text)
 
+    def test_park_does_not_load_the_optional_semantic_pass(self) -> None:
+        for lane, path in (("claude", CLAUDE), ("codex", CODEX)):
+            with self.subTest(lane=lane):
+                text = path.read_text(encoding="utf-8")
+                for marker in ("_semantic-checks.md", "semantic-check.py", "semantic second pass", "Jev"):
+                    self.assertNotIn(marker, text)
+        # The shared protocol's own semantic conformance checks are not that optional pass.
+        for text in (self.claude, self.codex):
+            self.assertIn("**Semantic conformance checks", text)
+            self.assertIn("including semantic conformance and SOURCE", text)
+
     def test_proportional_artefact_policy_is_mirrored(self) -> None:
         for lane, text in (("claude", self.claude), ("codex", self.codex)):
             with self.subTest(lane=lane):
