@@ -11,7 +11,15 @@ python3 "$VAULT_PATH/.claude/scripts/park-metrics.py" report
 
 Choose the collection start for the trial; keep it fixed. Schedule collection every five minutes with a user timer or equivalent. The collector caches unchanged source files; file activity invalidates the cache, while **transcript event dates** determine the measurement window. State defaults to `~/.local/state/opencairn/park-metrics/`. `runs.json` is the analysis dataset; `annotations.json` holds explicit observations; `cache.json` preserves measurements if transcripts are later removed. Global `--state`, `--claude-root` and `--codex-root` options support isolated testing.
 
-The collection output reports the source-file inventory, parse errors and run count. A nonzero exit or parse errors means inspect the named source before trusting its measurements. An empty result is not a successful trial. `collected_at` must advance on a scheduled run; inspect the scheduler's last result as well as its enabled state.
+The collection output reports the source-file inventory, parse errors and run count. Every parse error is listed with its source, line and kind, and its source's runs carry `parse_incomplete` and stay out of timing summaries: inspect the named source before trusting them. `incomplete_final_line` (a transcript mid-write or cut short) and `invalid_line` (an isolated damaged line) are reported without failing the run, since rerunning cannot repair them. Collection exits nonzero only when a source is unreadable (most of its lines are invalid JSON; listed in `unreadable_sources`), a required harness has no sources, or no sources are found. An empty result is not a successful trial. `collected_at` must advance on a scheduled run; inspect the scheduler's last result as well as its enabled state.
+
+## Weekly summary
+
+```bash
+python3 "$VAULT_PATH/.claude/scripts/park-metrics.py" summary --weeks 4
+```
+
+One row per ISO week (local time), newest first, giving each harness's n, median, p90 and count at 30 min or more for full runs with an explicit parked response. Runs over 60 min include waits and are counted apart, outside those figures; the closing line counts the quick, returned or unfinished, and parse-incomplete runs left out. `--until YYYY-MM-DD` sets the last day covered. The header flags a collection more than a day old and a collection window that starts after the earliest requested week began. `/weekly-review` quotes the newest row.
 
 ## Boundaries and limitations
 
@@ -31,7 +39,7 @@ The park instructions carry this once-per-close-out operation. It can be batched
 python3 "$VAULT_PATH/.claude/scripts/park-metrics.py" record --harness codex --session-id "$CODEX_THREAD_ID" --outcome completed --review-rounds 2 --correction-rounds 1 --confirmed-findings 3
 ```
 
-The numbers are an example, **not defaults**. Use `--harness claude --session-id "$CLAUDE_CODE_SESSION_ID"` for Claude (resolve its session ID through `lib-session.sh` if necessary). The command locates the latest park request in that actual harness transcript; it must not use a reviewer or invented follow-up session ID. It prints the stable run ID. Timing is collected after the final response, not stopped by this command.
+The numbers are an example, **not defaults**. Use `--harness claude --session-id "$CLAUDE_CODE_SESSION_ID"` for Claude (resolve its session ID through `lib-session.sh` if necessary). The command locates the latest park request in that actual harness transcript; it must not use a reviewer or invented follow-up session ID. It prints the stable run ID and, when it located the run by session, `elapsed_minutes`: wall minutes from the park request to this command, which the completion message quotes with the review rounds. Timing is collected after the final response, not stopped by this command, so the collected figure is slightly higher.
 
 Definitions:
 - `review_rounds`: completed independent audit reports, including the final clean pass; exclude propagation seats and report-only recovery messages.

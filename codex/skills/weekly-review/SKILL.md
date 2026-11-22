@@ -100,6 +100,9 @@ Calendar assistance is available only when explicitly requested. Handle that req
    - Read its `## Top candidates` section. Each bullet is ``- **<kind>** — <title> (`<id>`)``. Keep up to three bullets whose kind is `repeated-work` or `delegation`, in the order listed; quote titles exactly and never draft candidates from the note's other prose.
    - Glob set but no unquoted note, no section or no matching bullet: report one line (`usage analysis configured; no unquoted note matched <glob>`, or the note and what was missing) and continue. The candidates are unverified proposals, not measured effort or tasks: surface them for the user's Stop/Delegate choice, and create no task from them unless the user confirms one.
 
+   **Park cost (when collected):**
+   - Run `python3 "{VAULT}/.claude/scripts/park-metrics.py" summary --weeks 2`. `No collection yet` means no collector is set up: skip silently; report any other error once and continue. Otherwise quote the newest week's row, plus any `STALE` or incomplete-window flag from the header, as the Park cost line: figures only, no threshold, verdict or task.
+
    **Personal planning configuration:**
    - Locate the vault’s navigation/Autopilot document and follow its explicitly labelled **Planning system** pointer when configured. Read that specification and its recurring schedule. A task-home map is a separate input, not the planning specification. If no pointer is configured, report that once and retain the generic review workflow; do not claim a personal system was loaded.
 
@@ -190,6 +193,9 @@ Draft the complete review outside the vault, then install it at `{VAULT}/06 Arch
 
 [Only when step 2's usage analysis found candidates, up to three in note order; otherwise omit this line:]
 **Usage analysis** ([[<note basename>]]): <kind> — "<title>"[; <kind> — "<title>"…]. Unverified candidates; effort and savings unmeasured.
+
+[Only when step 2's park summary printed week rows; otherwise omit this line:]
+**Park cost:** <newest week's row>[; <header flag>]
 
 ## Key Insights & Patterns
 

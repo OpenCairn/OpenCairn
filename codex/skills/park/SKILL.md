@@ -110,6 +110,7 @@ Keep this generation if a late mutation or verifier failure escalates the quick 
 ✓ Audit: skipped (--quick)
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
+⏱ Park: N min, R review rounds
 [Check: / Missing: lines per Step 12 — omitted when empty]
 
 Quick parked.
@@ -349,7 +350,7 @@ Batch this with the last existing tool call before the final response; it does n
 python3 "{VAULT}/.claude/scripts/park-metrics.py" record --harness codex --session-id "$CODEX_THREAD_ID" --outcome <completed|blocked|aborted> --review-rounds <completed reports> --correction-rounds <fix rounds> --confirmed-findings <distinct confirmed findings>
 ```
 
-Use the actual harness transcript session ID (resolve via `lib-session.sh` when needed), not a synthetic bookkeeping suffix. Count independent audit reports only, including the clean pass; exclude propagation and report-only recovery. Count each accepted finding once. Omit any unknown count flag; do not turn missing data into zero. Quick success has zero audit counts only after its checks pass. A recording error is reported but does not block parking. The scheduled collector measures through the final response. Do not ask for human review time routinely; record it only when supplied by the user. Contract and report commands → `{VAULT}/.claude/scripts/park-metrics-guide.md`.
+Use the actual harness transcript session ID (resolve via `lib-session.sh` when needed), not a synthetic bookkeeping suffix. Count independent audit reports only, including the clean pass; exclude propagation and report-only recovery. Count each accepted finding once. Omit any unknown count flag; do not turn missing data into zero. Quick success has zero audit counts only after its checks pass. A recording error is reported but does not block parking. Its `elapsed_minutes` and review rounds fill the completion `⏱` line; omit it if recording failed. Do not ask for human review time routinely; record it only when supplied by the user. Contract and report commands → `{VAULT}/.claude/scripts/park-metrics-guide.md`.
 
 ### 12. Full-path completion message
 
@@ -364,6 +365,7 @@ Use the actual harness transcript session ID (resolve via `lib-session.sh` when 
 ✓ Audit: [clean pass | N findings fixed and re-audited clean]
 ✓ Skill monitor: [no gaps | N logged]
 ✓ Transcript exported: N sessions
+⏱ Park: N min, R review rounds
 Check: [judgement call to verify — file or target]
 Missing: [detail needed but not available — where it was left out]
 

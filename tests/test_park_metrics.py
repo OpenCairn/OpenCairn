@@ -7,6 +7,7 @@ import subprocess
 import sys
 import os
 import stat
+from datetime import datetime, timezone, timedelta
 
 spec = importlib.util.spec_from_file_location('metrics', Path(__file__).resolve().parents[1]/'.claude/scripts/park-metrics.py')
 m = importlib.util.module_from_spec(spec)
@@ -83,8 +84,31 @@ class MetricsTests(unittest.TestCase):
 
     def test_corrupt_tail_is_visible_not_success(self):
         rows, errors = self.parse([self.claude('10:00:00', 'user', '/park')], raw='{"partial":')
-        self.assertTrue(errors)
+        self.assertEqual([(e['line'], e['kind']) for e in errors], [(2, 'incomplete_final_line')])
         self.assertTrue(rows[0]['parse_incomplete'])
+
+    def test_invalid_line_is_not_described_as_a_final_line(self):
+        # A damaged line in the middle, and a complete but invalid last line, are not a transcript mid-write.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'session.jsonl'
+            good = [json.dumps(self.claude(ts, 'user', text)) for ts, text in
+                    (('10:00:00', '/park'), ('10:01:00', 'next'), ('10:02:00', 'more'))]
+            path.write_text(good[0]+'\n{"cut": {"mid-k{"second": 1}\n'+good[1]+'\n'+good[2]+'\nnot json\n')
+            rows, errors = m.extract(path, 'claude', '2026-09-01T00:00:00Z')
+        self.assertEqual([(e['line'], e['kind'], e['error']) for e in errors],
+                         [(2, 'invalid_line', 'invalid JSON'), (5, 'invalid_line', 'invalid JSON')])
+        self.assertTrue(rows[0]['parse_incomplete'])
+
+    def test_unreadable_source_is_one_bounded_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'session.jsonl'
+            path.write_text('plain text\n'*40 + json.dumps({'no': 'timestamp'}) + '\n')
+            _, errors = m.extract(path, 'claude', '2026-09-01T00:00:00Z')
+            self.assertEqual(errors, [{'path': str(path), 'line': 1, 'kind': 'unreadable_source',
+                                       'error': 'unreadable source: 40 of 41 lines are invalid JSON'}])
+            # No readable event: the file's modification time decides whether it is in the window.
+            os.utime(path, (0, 0))
+            self.assertEqual(m.extract(path, 'claude', '2026-09-01T00:00:00Z'), ([], []))
 
     def test_unknown_human_time_not_inferred(self):
         rows, _ = self.parse([self.claude('10:00:00', 'user', '/park')])
@@ -209,6 +233,27 @@ class MetricsTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('run_id', result.stdout)
 
+    def test_record_prints_minutes_since_the_park_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            started = datetime.now(timezone.utc) - timedelta(minutes=10)
+            transcript = root/'claude/projects/example/live-id.jsonl'
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(json.dumps(dict(timestamp=started.isoformat().replace('+00:00', 'Z'), type='user',
+                                                  message=dict(content='/park', stop_reason=None)))+'\n')
+            base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
+                    '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
+            def run(*args):
+                return json.loads(subprocess.run(base+list(args), capture_output=True, text=True, check=True).stdout)
+            closed = run('record', '--harness', 'claude', '--session-id', 'live-id', '--outcome', 'completed', '--review-rounds', '2')
+            self.assertGreaterEqual(closed['elapsed_minutes'], 10.0)
+            self.assertLess(closed['elapsed_minutes'], 11.0)
+            self.assertEqual(closed['reported']['review_rounds'], 2)
+            # A later annotation by run ID is not a close-out reading.
+            subprocess.run(base+['collect', '--since', '2026-09-01T00:00:00Z'], capture_output=True, check=True)
+            later = run('record', '--run-id', closed['run_id'], '--human-review-minutes', '4')
+            self.assertNotIn('elapsed_minutes', later)
+
     def test_cli_collection_annotation_and_refresh(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -240,10 +285,124 @@ class MetricsTests(unittest.TestCase):
             absent = subprocess.run(base+['collect','--since','2026-09-01T00:00:00Z','--require-harness','codex'], capture_output=True)
             self.assertNotEqual(absent.returncode, 0)
             self.assertEqual(json.loads((root/'state/runs.json').read_text())['missing_required_harnesses'], ['codex'])
-            transcript.write_text(transcript.read_text() + '{"broken":')
-            bad = subprocess.run(base+['collect','--since','2026-09-01T00:00:00Z'], capture_output=True)
-            self.assertNotEqual(bad.returncode, 0)
-            self.assertTrue(json.loads((root/'state/runs.json').read_text())['errors'])
+
+    def collection(self, root, body):
+        transcript = root/'claude/projects/example/real-id.jsonl'
+        transcript.parent.mkdir(parents=True)
+        transcript.write_text(body)
+        base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
+                '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
+        result = subprocess.run(base+['collect', '--since', '2026-09-01T00:00:00Z'], capture_output=True, text=True)
+        report = subprocess.run(base+['report'], capture_output=True, text=True, check=True).stdout
+        return result, json.loads((root/'state/runs.json').read_text()), report
+
+    def test_isolated_parse_errors_are_reported_without_failing_collection(self):
+        park = json.dumps(self.claude('10:00:00', 'user', '/park'))+'\n'
+        done = json.dumps(self.claude('10:20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn'))+'\n'
+        for name, body, kind in (('mid-write tail', park+done+'{"broken":', 'incomplete_final_line'),
+                                 ('damaged line', park+'{"cut": {"mid-k{"second": 1}\n'+done, 'invalid_line')):
+            with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
+                result, data, report = self.collection(Path(tmp), body)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual([e['kind'] for e in data['errors']], [kind])
+                self.assertEqual(data['unreadable_sources'], [])
+                self.assertIn('"errors": [{', result.stdout)
+                self.assertIn(f'parse errors 1 ({kind} 1)', report)
+                # The affected run stays visible and out of the timing summary.
+                self.assertTrue(data['runs'][0]['parse_incomplete'])
+                self.assertNotIn('explicit parked responses', report)
+
+    def test_unreadable_source_fails_collection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result, data, report = self.collection(Path(tmp), 'plain text\n'*3)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(len(data['unreadable_sources']), 1)
+            self.assertEqual([e['kind'] for e in data['errors']], ['unreadable_source'])
+            self.assertIn('parse errors 1 (unreadable_source 1)', report)
+
+    def summarise(self, runs, *args, collected_at=None, since='2026-09-01T00:00:00Z'):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)/'state'
+            state.mkdir()
+            rows = [dict(id=str(i), harness=h, started_at=day+'T12:00:00Z', wall_seconds=minutes and minutes*60,
+                         mode=mode, status=status, **extra)
+                    for i, (h, day, minutes, mode, status, extra) in enumerate(runs)]
+            (state/'runs.json').write_text(json.dumps(dict(
+                schema=m.VERSION, collected_at=collected_at or m.stamp(), since=since, errors=[], runs=rows)))
+            return subprocess.run([sys.executable, str(Path(m.__file__)), '--state', str(state), 'summary', *args],
+                                  capture_output=True, text=True)
+
+    def test_summary_by_harness_and_iso_week(self):
+        full = lambda h, day, minutes, **extra: (h, day, minutes, 'full', 'parked', extra)
+        # Wednesdays at noon UTC: the same ISO week in every time zone.
+        runs = [full('claude', '2026-09-30', v) for v in (5, 10, 15, 20, 25, 30, 35, 40, 45, 60)] + [
+            full('claude', '2026-09-30', 61), full('claude', '2026-09-30', 400),
+            full('codex', '2026-09-30', 12),
+            full('codex', '2026-09-23', 90),
+            full('claude', '2026-09-16', 7),                       # before the requested weeks
+            full('claude', '2026-09-30', 9, parse_incomplete=True),
+            ('claude', '2026-09-30', 3, 'quick-requested', 'parked', {}),
+            ('claude', '2026-09-30', 8, 'full', 'response_returned', {}),
+            ('codex', '2026-09-23', None, 'full', 'no_completion_observed', {})]
+        result = self.summarise(runs, '--weeks', '2', '--until', '2026-10-04')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = result.stdout.splitlines()
+        self.assertTrue(lines[0].endswith('parse errors 0'), lines[0])
+        self.assertEqual(lines[2], '2026-W40 | claude: n 10, median 27.5, p90 45.0, >=30 min 5, over 60 min 2'
+                                   ' | codex: n 1, median 12.0, p90 12.0, >=30 min 0, over 60 min 0')
+        self.assertEqual(lines[3], '2026-W39 | codex: n 0, over 60 min 1')
+        self.assertEqual(len(lines), 5)
+        # Every run in the requested weeks is in a row or named in the exclusion line.
+        self.assertIn('Runs over 60 min include waits and are counted apart', lines[4])
+        self.assertTrue(lines[4].endswith('quick 1; returned or unfinished 2; parse-incomplete 1.'), lines[4])
+
+    def test_summary_names_empty_weeks_stale_data_and_short_windows(self):
+        result = self.summarise([], '--weeks', '3', '--until', '2026-10-04',
+                                collected_at='2026-10-01T00:00:00+00:00', since='2026-09-25T00:00:00Z')
+        lines = result.stdout.splitlines()
+        self.assertRegex(lines[0], r'; STALE: collected \d+ days ago; collection window starts after 2026-W38 began')
+        self.assertEqual(lines[2:5], ['2026-W40 | no parked full runs', '2026-W39 | no parked full runs',
+                                      '2026-W38 | no parked full runs'])
+        fresh = self.summarise([], '--weeks', '1').stdout.splitlines()
+        self.assertNotIn('STALE', fresh[0])
+        self.assertTrue(fresh[2].endswith('(to date) | no parked full runs'), fresh[2])
+        self.assertNotEqual(self.summarise([], '--weeks', '0').returncode, 0)
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = subprocess.run([sys.executable, str(Path(m.__file__)), '--state', str(Path(tmp)/'state'), 'summary'],
+                                     capture_output=True, text=True)
+        self.assertEqual(missing.returncode, 1)
+        self.assertIn('No collection yet', missing.stderr)
+
+    def test_park_completion_messages_quote_the_recorded_cost(self):
+        # Both templates carry the line, sourced from the field record prints; no extra call.
+        root = Path(__file__).resolve().parents[1]
+        for rel in ('.claude/commands/park.md', 'codex/skills/park/SKILL.md'):
+            with self.subTest(rel):
+                text = (root/rel).read_text(encoding='utf-8')
+                closeout = text[text.index('### Measurement close-out'):text.index('### 12. Full-path completion message')]
+                self.assertIn('park-metrics.py" record ', closeout)
+                self.assertIn('`elapsed_minutes`', closeout)
+                self.assertIn('omit it if recording failed', closeout)
+                self.assertEqual(text.count('park-metrics.py"'), 1)
+                for start, end in (('#### Quick success path', 'Quick parked.'),
+                                   ('### 12. Full-path completion message', 'Parked.')):
+                    block = text[text.index(start):]
+                    block = block[:block.index(end)]
+                    self.assertEqual(block.count('\n✓ Transcript exported: N sessions\n⏱ Park: N min, R review rounds\n'), 1)
+
+    def test_weekly_review_quotes_one_summary_row(self):
+        root = Path(__file__).resolve().parents[1]
+        for rel in ('.claude/commands/weekly-review.md', 'codex/skills/weekly-review/SKILL.md'):
+            with self.subTest(rel):
+                text = (root/rel).read_text(encoding='utf-8')
+                step = text[text.index('   **Park cost (when collected):**'):text.index('   **Personal planning configuration:**')]
+                self.assertIn('park-metrics.py" summary --weeks 2`', step)
+                self.assertIn('`No collection yet` means no collector is set up: skip silently', step)
+                self.assertIn('no threshold, verdict or task', step)
+                self.assertEqual(len(step.strip().splitlines()), 2)
+                friction = text[text.index('## Attention & Friction'):text.index('## Key Insights & Patterns')]
+                self.assertIn("otherwise omit this line:]\n**Park cost:** <newest week's row>", friction)
+                self.assertEqual(friction.count('**Park cost:**'), 1)
 
 
 if __name__ == '__main__':

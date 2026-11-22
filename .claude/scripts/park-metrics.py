@@ -6,7 +6,7 @@ See park-metrics-guide.md for boundaries and interpretation.
 """
 import argparse
 from contextlib import contextmanager
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 try:
     import fcntl
 except ImportError:  # Windows: no fcntl; metrics writes run unlocked there
@@ -20,7 +20,8 @@ import re
 import statistics
 import tempfile
 
-VERSION = 5
+VERSION = 6
+SLOW_MINUTES, WAIT_MINUTES = 30, 60
 
 
 def stamp():
@@ -77,6 +78,7 @@ def extract(path, harness, since):
     current_model = None
     latest_ts = None
     last_request = None  # (ts, line) of the most recent genuine user request
+    total = invalid = 0
 
     def start(ts, number, mode):
         nonlocal active, seen_calls, models
@@ -102,10 +104,16 @@ def extract(path, harness, since):
 
     with path.open() as stream:
         for number, line in enumerate(stream, 1):
+            total += 1
             try:
                 e = json.loads(line)
             except json.JSONDecodeError:
-                errors.append({'path': str(path), 'line': number, 'error': 'invalid JSON (possibly incomplete final line)'})
+                # Only the final line can lack its newline: a transcript mid-write or cut short.
+                tail = not line.endswith('\n')
+                invalid += not tail
+                errors.append({'path': str(path), 'line': number,
+                               'kind': 'incomplete_final_line' if tail else 'invalid_line',
+                               'error': 'incomplete final line (transcript mid-write or cut short)' if tail else 'invalid JSON'})
                 continue
             ts = e.get('timestamp')
             if not ts:
@@ -202,8 +210,15 @@ def extract(path, harness, since):
     close()
     for row in rows:
         row.pop('_turn', None)
-    if not rows and (latest_ts is None or epoch(latest_ts) < epoch(since)):
+    # A source with no readable event is dated by its modification time instead.
+    latest = epoch(latest_ts) if latest_ts else path.stat().st_mtime
+    if not rows and latest < epoch(since):
         errors = []  # Corruption wholly outside the requested event-date window.
+    elif invalid > total - invalid:
+        # The parser cannot read this source: one bounded entry, and the only kind that fails collection.
+        errors = [{'path': str(path), 'line': next(e['line'] for e in errors if e['kind'] == 'invalid_line'),
+                   'kind': 'unreadable_source',
+                   'error': f'unreadable source: {invalid} of {total} lines are invalid JSON'}]
     # Malformed data invalidates measurements from this file, not silently zero errors.
     if errors:
         for row in rows:
@@ -276,16 +291,22 @@ def collect(args):
             row['reported'] = annotations.get(row['id'], {})
         counts = {h: sum(kind == h for kind, _ in files) for h in ('claude', 'codex')}
         missing = [h for h in args.require_harness if not counts[h]]
+        errors = [e for key, v in cache['files'].items() if key in current for e in v['errors']]
+        unreadable = sorted({e['path'] for e in errors if e['kind'] == 'unreadable_source'})
         data = dict(schema=VERSION, collected_at=stamp(), since=args.since,
                     sources_by_harness=counts, missing_required_harnesses=missing,
                     files_detected=len(files), files_reparsed=changed,
-                    errors=[e for key, v in cache['files'].items() if key in current for e in v['errors']],
+                    errors=errors, unreadable_sources=unreadable,
                     runs=sorted(unique.values(), key=lambda r: r['started_at']))
         atomic(args.state / 'cache.json', cache)
         atomic(args.state / 'runs.json', data)
         print(json.dumps({k: v for k, v in data.items() if k != 'runs'}))
         print(f"Runs: {len(data['runs'])}; data: {args.state / 'runs.json'}")
-        return bool(data['errors'] or missing or not files)
+        # An incomplete final line or an isolated invalid line is reported above and
+        # marks its runs parse_incomplete; it cannot be repaired by rerunning, so it
+        # does not fail the run. An unreadable source means the parser is not reading
+        # that transcript at all.
+        return bool(unreadable or missing or not files)
 
 
 def annotate(args):
@@ -317,15 +338,84 @@ def annotate(args):
         entry.update(fields)
         entry['recorded_at'] = stamp()
         atomic(args.state / 'annotations.json', annotations)
-        print(json.dumps({'run_id': row['id'], 'reported': entry}))
+        out = {'run_id': row['id'], 'reported': entry}
+        if not args.run_id:
+            # Close-out reading, request to this command; the collector measures to the final response.
+            out['elapsed_minutes'] = round((datetime.now(timezone.utc).timestamp() - epoch(row['started_at'])) / 60, 1)
+        print(json.dumps(out))
 
 
-def report(args):
+def collected(args):
     data = read(args.state / 'runs.json', None)
     if data is None:
         raise ValueError('No collection yet; run collect')
+    kinds = {}
+    for e in data['errors']:
+        kind = e.get('kind', 'unclassified')
+        kinds[kind] = kinds.get(kind, 0) + 1
+    detail = ' (' + ', '.join(f'{k} {n}' for k, n in sorted(kinds.items())) + ')' if kinds else ''
+    return data, f"Collected {data['collected_at']}; window from {data['since']}; parse errors {len(data['errors'])}{detail}"
+
+
+def p90(values):
+    return sorted(values)[math.ceil(.9*len(values))-1]
+
+
+def iso_week(day):
+    year, number, _ = day.isocalendar()
+    return f'{year}-W{number:02d}'
+
+
+def summary(args):
+    if args.weeks < 1:
+        raise ValueError('--weeks must be at least 1')
+    data, header = collected(args)
+    last = args.until or date.today()
+    monday = last - timedelta(days=last.weekday())
+    weeks = [iso_week(monday - timedelta(weeks=i)) for i in range(args.weeks)]  # newest first
+    age = datetime.now(timezone.utc).timestamp() - epoch(data['collected_at'])
+    if age > 86400:
+        header += f'; STALE: collected {age/86400:.0f} days ago'
+    first = datetime.combine(monday - timedelta(weeks=args.weeks-1), datetime.min.time()).timestamp()
+    if epoch(data['since']) > first:
+        header += f'; collection window starts after {weeks[-1]} began: early weeks incomplete'
+    timed, waits = {}, {}
+    skipped = {'quick': 0, 'returned or unfinished': 0, 'parse-incomplete': 0}
+    for r in data['runs']:
+        key = (iso_week(datetime.fromtimestamp(epoch(r['started_at']))), r['harness'])
+        if key[0] not in weeks:
+            continue
+        if r['mode'] != 'full':
+            skipped['quick'] += 1
+        elif r['status'] != 'parked' or r['wall_seconds'] is None:
+            skipped['returned or unfinished'] += 1
+        elif r.get('parse_incomplete'):
+            skipped['parse-incomplete'] += 1
+        elif r['wall_seconds'] > WAIT_MINUTES * 60:
+            waits[key] = waits.get(key, 0) + 1
+        else:
+            timed.setdefault(key, []).append(r['wall_seconds']/60)
+    print(header)
+    print('Parked full runs by ISO week (local time), newest first; minutes')
+    for week in weeks:
+        cells = []
+        for harness in ('claude', 'codex'):
+            values, over = timed.get((week, harness), []), waits.get((week, harness), 0)
+            if values:
+                cells.append(f'{harness}: n {len(values)}, median {statistics.median(values):.1f}, p90 {p90(values):.1f}, '
+                             f'>={SLOW_MINUTES} min {sum(v >= SLOW_MINUTES for v in values)}, over {WAIT_MINUTES} min {over}')
+            elif over:
+                cells.append(f'{harness}: n 0, over {WAIT_MINUTES} min {over}')
+        label = week + (' (to date)' if week == iso_week(date.today()) else '')
+        print(' | '.join([label] + (cells or ['no parked full runs'])))
+    print(f'Runs over {WAIT_MINUTES} min include waits and are counted apart: n, median, p90 and >={SLOW_MINUTES} min cover '
+          f'runs of {WAIT_MINUTES} min or less. Also outside these figures: ' + '; '.join(f'{k} {n}' for k, n in skipped.items()) + '.')
+
+
+def report(args):
+    data, header = collected(args)
     annotations = read(args.state / 'annotations.json', {})
-    print(f"Collected {data['collected_at']}; window from {data['since']}; parse errors {len(data['errors'])}")
+    print(header)
     print(f"Sources: {data.get('sources_by_harness', {})}; missing required: {data.get('missing_required_harnesses', [])}")
     print('id | harness | start | wall min | boundary/status | review rounds | fixes | human min')
     for r in data['runs']:
@@ -339,7 +429,7 @@ def report(args):
             measured = sum('review_rounds' in annotations.get(r['id'], {}) for r in eligible)
             human = sum('human_review_minutes' in annotations.get(r['id'], {}) for r in eligible)
             if values:
-                print(f'{harness}/{mode}: {len(values)} explicit parked responses; median {statistics.median(values):.1f} min; p90 {sorted(values)[math.ceil(.9*len(values))-1]:.1f} min; review counts {measured}/{len(values)}; human minutes {human}/{len(values)}')
+                print(f'{harness}/{mode}: {len(values)} explicit parked responses; median {statistics.median(values):.1f} min; p90 {p90(values):.1f} min; review counts {measured}/{len(values)}; human minutes {human}/{len(values)}')
     print('Unknown (?) is not zero. Returned/unfinished and parse-incomplete runs excluded from timing summary. No causal speedup claim.')
 
 
@@ -367,6 +457,9 @@ def main():
     c.add_argument('--since', default=(datetime.now(timezone.utc)-timedelta(days=30)).date().isoformat()+'T00:00:00+00:00')
     c.add_argument('--require-harness', action='append', choices=['claude', 'codex'], default=[])
     sub.add_parser('report')
+    s = sub.add_parser('summary')
+    s.add_argument('--weeks', type=int, default=4)
+    s.add_argument('--until', type=date.fromisoformat, help='last day covered, YYYY-MM-DD (default today)')
     a = sub.add_parser('record')
     a.add_argument('--run-id')
     a.add_argument('--session-id')
@@ -377,7 +470,7 @@ def main():
     a.add_argument('--outcome', choices=['completed', 'blocked', 'aborted'])
     args = p.parse_args()
     try:
-        return {'collect': collect, 'record': annotate, 'report': report}[args.command](args) or 0
+        return {'collect': collect, 'record': annotate, 'report': report, 'summary': summary}[args.command](args) or 0
     except (ValueError, OSError) as exc:
         p.exit(1, f'ERROR: {exc}\n')
 
