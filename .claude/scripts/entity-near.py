@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
-"""Near-spelling candidates from a content-bound local Markdown token cache."""
+"""Near-spelling candidates among the places an entity home can live.
+
+Each name is compared with Markdown file and folder names, front matter,
+headings, table cells, bold list lead-ins and list entries that open with a
+wikilink. Body text is never compared: a mention is not a home, and an exact
+search already finds mentions.
+"""
 from __future__ import annotations
 import argparse
 import bisect
 import difflib
-import hashlib
 import itertools
 import json
 import operator
 import os
 from pathlib import Path
 import re
-import sqlite3
 import sys
 import unicodedata
 
-TABLES = {"entity_tokens", "entity_roots", "opencairn_entity_cache"}
 MIN_SIMILARITY = 0.8
 DEFAULT_MAX_BYTES = 32_000_000
 SCORE_MEMO_LIMIT = 250_000  # per name and per score; a full memo is emptied and refilled
+SCOPE = ("Markdown file and folder names, front matter, headings, table cells, bold list lead-ins "
+         "and list entries opening with a wikilink; body text not compared; .git excluded; "
+         "symlinks not followed")
 CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 WORD = re.compile(r"[^\W_]+")
-PAYLOAD = re.compile(r"[\w \n]*")
-
+FRONT_MATTER_LINES = 200  # a leading '---' with no closing line this soon is a rule, not front matter
+QUOTE = re.compile(r"(?:\s*>)+[ \t]?")  # \s, to agree with the lstrip() pre-check
+HEADING = re.compile(r" {0,3}#{1,6}[ \t]+(.*)")
+CELL_BREAK = re.compile(r"(?<!\\)\|")
+ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])[ \t]+(?:\[.\][ \t]+)?(?:(\*{2,3}|_{2,3})(.+?)\1|\[\[([^\]]+)\]\])")
+HOME_STARTS = frozenset("#|>-*+0123456789")
 
 COMBINING = {}  # code point -> None for every combining character, filled on first use
 
@@ -37,9 +47,38 @@ def words(text):
     return WORD.findall(unicodedata.normalize("NFKD", text.casefold()).translate(COMBINING))
 
 
-def tokenise(text):
-    """Folded words, space-joined, one payload line per source line."""
-    return "\n".join(" ".join(words(line)) for line in text.splitlines())
+def home_lines(text):
+    """Yield (line number, kind, text) for each line that can name a home.
+
+    Lines inside code fences are kept: a fence that never closes would otherwise
+    hide every later heading, and an extra candidate costs only a comparison.
+    """
+    lines = text.splitlines()
+    body = 0
+    if lines and lines[0].strip() == "---":
+        for index in range(1, min(len(lines), FRONT_MATTER_LINES + 1)):
+            if lines[index].strip() in ("---", "..."):
+                for inner in range(1, index):
+                    yield inner + 1, "front matter", lines[inner]
+                body = index + 1
+                break
+    for number, line in enumerate(lines[body:], body + 1):
+        first = line.lstrip()[:1]
+        if first not in HOME_STARTS:
+            continue
+        if first == ">":  # block quotes and callouts can hold any of the forms below
+            line = line[QUOTE.match(line).end():]
+            first = line.lstrip()[:1]
+        match = HEADING.match(line)
+        if match:
+            yield number, "heading", match.group(1)
+        elif first == "|":
+            for cell in CELL_BREAK.split(line.strip().strip("|")):
+                yield number, "table cell", cell
+        else:
+            match = ITEM.match(line)
+            if match:
+                yield number, "list link" if match.group(3) else "list lead-in", match.group(2) or match.group(3)
 
 
 class Scores(dict):
@@ -73,7 +112,9 @@ class Query:
     name, which is at most the sum of each token's own share, so
     sum(5*share(t) - 2*len(t)) >= 2*Lq.
 
-    Only windows passing both reach SequenceMatcher; its test is unchanged.
+    Only windows passing both reach SequenceMatcher. A window longer than
+    1.5*Lq fails the length test below, which is how a separator token longer
+    than that keeps windows from spanning two candidates.
     """
 
     def __init__(self, name):
@@ -88,7 +129,6 @@ class Query:
             lambda token: 5 * sum(token[i:i + 2] in pairs for i in range(len(token) - 1)) - len(token))
         self.share_scores = Scores(
             lambda token: 5 * sum(min(token.count(c), counts[c]) for c in set(token) if c in counts) - 2 * len(token))
-        self.compared = 0
 
     def matches(self, tokens):
         """Yield (start, width, similarity) in width-then-start order."""
@@ -101,7 +141,6 @@ class Query:
             floor = own - 5 * width
             sums = map(operator.sub, itertools.islice(pair, width, None), pair)
             for start in itertools.compress(range(count - width + 1), map(floor.__le__, sums)):
-                self.compared += 1
                 window = tokens[start:start + width]
                 share, total = 0, own
                 for token in window:
@@ -122,164 +161,90 @@ class Query:
                         yield start, width, similarity
 
 
-def scan(root, cache, names, max_bytes=DEFAULT_MAX_BYTES):
-    root, cache = Path(root).resolve(), Path(cache).resolve()
-    if not root.is_dir() or cache == root or root in cache.parents:
-        raise ValueError("root must be a directory and cache must be outside it")
+def scan(root, names, max_bytes=DEFAULT_MAX_BYTES):
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise ValueError("root must be a directory")
     if not names or any(not words(name) or len(words(name)) > 16 or len(name) > 256 for name in names):
         raise ValueError("names must contain 1–16 words and at most 256 characters")
-    queries = [Query(name) for name in names]
     if max_bytes < 1:
         raise ValueError("max_bytes must be positive")
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    old_umask = os.umask(0o077)
-    try:
-        connection = sqlite3.connect(cache, timeout=0.1)
-    finally:
-        os.umask(old_umask)
-    algorithm = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-    report = {"root": str(root), "algorithm_sha256": algorithm,
-              "scope": "regular Markdown files; .git excluded; symlinks not followed",
-              "complete": True, "files": {}, "errors": [], "matches": [], "cache_warnings": [],
-              "tokenised": 0, "reused_tokens": 0, "processed_tokens": 0, "compared_windows": 0}
-    writable = True
+    queries = [Query(name) for name in names]
+    separator = "\0" * (2 * max(query.length for query in queries) + 1)
+    report = {"root": str(root), "scope": SCOPE, "complete": True, "files": 0, "candidates": 0,
+              "errors": [], "matches": []}
 
-    def write(sql, params=()):
-        nonlocal writable
-        if not writable:
-            return False
-        try:
-            connection.execute(sql, params)
-            connection.commit()  # never hold a write transaction across matching
-            return True
-        except sqlite3.OperationalError as error:
-            connection.rollback()
-            if "locked" not in str(error).lower():
-                raise
-            writable = False
-            report["cache_warnings"].append("cache_busy; fresh computation continues; pruning deferred")
-            return False
+    def compare(path, candidates):
+        """Compare (line, kind, text) candidates; no window spans two of them."""
+        tokens, starts, kept = [], [], []
+        for line, kind, text in candidates:
+            found = words(text)
+            if found:
+                starts.append(len(tokens))
+                kept.append((line, kind))
+                tokens.extend(found)
+                tokens.append(separator)
+        report["candidates"] += len(kept)
+        if not tokens:
+            return
+        for query in queries:
+            for start, width, similarity in query.matches(tokens):
+                line, kind = kept[bisect.bisect_right(starts, start) - 1]
+                report["matches"].append({"name": query.name, "path": path, "line": line, "kind": kind,
+                                          "phrase": " ".join(tokens[start:start + width]),
+                                          "similarity": similarity})
 
-    try:
-        tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if tables and tables != TABLES:
-            raise ValueError("not a recognised entity cache; choose a new cache path")
-        if not tables:
-            connection.execute("BEGIN IMMEDIATE")
-            tables = {r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            if not tables:
-                connection.execute("CREATE TABLE entity_tokens (algorithm TEXT, content TEXT, payload TEXT, PRIMARY KEY(algorithm,content))")
-                connection.execute("CREATE TABLE entity_roots (root TEXT, path TEXT, algorithm TEXT, content TEXT, PRIMARY KEY(root,path))")
-                connection.execute("CREATE TABLE opencairn_entity_cache (version INTEGER)")
-                connection.execute("INSERT INTO opencairn_entity_cache VALUES (1)")
-            elif tables != TABLES:
-                raise ValueError("not a recognised entity cache")
-            connection.commit()
-        if connection.execute("SELECT version FROM opencairn_entity_cache").fetchall() != [(1,)]:
-            raise ValueError("unsupported entity cache schema")
+    def walk_error(error):
+        report["errors"].append({"path": str(error.filename), "error": "enumeration_failed"})
 
-        write("CREATE INDEX IF NOT EXISTS entity_root_content ON entity_roots (algorithm,content)")
-
-        def walk_error(error):
-            report["errors"].append({"path": str(error.filename), "error": "enumeration_failed"})
-
-        for directory, dirs, files in os.walk(root, followlinks=False, onerror=walk_error):
-            dirs[:] = sorted(d for d in dirs if d != ".git" and not (Path(directory)/d).is_symlink())
-            for filename in sorted(files):
-                path = Path(directory)/filename
-                if path.suffix.lower() != ".md" or path.is_symlink():
-                    continue
-                relative = str(path.relative_to(root))
-                try:
-                    with path.open("rb") as handle:
-                        raw = handle.read(max_bytes + 1)
-                    if len(raw) > max_bytes:
-                        report["errors"].append({"path": relative, "error": "oversized",
-                                                 "bytes": path.stat().st_size, "limit": max_bytes})
-                        continue
-                    if b"\0" in raw:
-                        raise UnicodeError("NUL in Markdown")
-                    text = raw.decode("utf-8")
-                except (OSError, UnicodeError) as error:
-                    report["errors"].append({"path": relative, "error": type(error).__name__})
-                    continue
-                sha = hashlib.sha256(raw).hexdigest()
-                report["files"][relative] = sha
-                row = connection.execute("SELECT payload FROM entity_tokens WHERE algorithm=? AND content=?", (algorithm, sha)).fetchone()
-                if row is None:
-                    payload = tokenise(text)
-                    tokens = payload.split()
-                    write("INSERT OR IGNORE INTO entity_tokens VALUES (?,?,?)", (algorithm, sha, payload))
-                    report["tokenised"] += len(tokens)
-                else:
-                    payload = row[0]
-                    if not isinstance(payload, str) or "_" in payload or not PAYLOAD.fullmatch(payload):
-                        raise ValueError("invalid cached tokens")
-                    tokens = payload.split()
-                    report["reused_tokens"] += len(tokens)
-                report["processed_tokens"] += len(tokens)
-                line_ends = None
-                for query in queries:
-                    # Adjacent token counts preserve near-spellings across internal capitals.
-                    # Windows may overlap; match counts are not entity counts.
-                    for start, width, similarity in query.matches(tokens):
-                        if line_ends is None:  # tokens up to and including each payload line
-                            line_ends = list(itertools.accumulate(len(line.split()) for line in payload.split("\n")))
-                        report["matches"].append({"name": query.name, "path": relative, "source_sha256": sha,
-                                                  "line": bisect.bisect_right(line_ends, start) + 1,
-                                                  "phrase": " ".join(tokens[start:start + width]),
-                                                  "similarity": similarity})
-                print(json.dumps({"file": relative, "processed_tokens": report["processed_tokens"],
-                                  "tokenised": report["tokenised"], "reused_tokens": report["reused_tokens"]}), file=sys.stderr)
-        report["compared_windows"] = sum(query.compared for query in queries)
-        report["complete"] = not report["errors"]
-        # Cache rows are derived: unreadable/unseen paths can be safely recomputed later.
-        if writable:
+    for directory, dirs, files in os.walk(root, followlinks=False, onerror=walk_error):
+        dirs[:] = sorted(d for d in dirs if d != ".git" and not (Path(directory) / d).is_symlink())
+        folder = Path(directory)
+        if folder != root:
+            compare(str(folder.relative_to(root)), [(0, "folder name", folder.name)])
+        for filename in sorted(files):
+            path = folder / filename
+            if path.suffix.lower() != ".md" or path.is_symlink():
+                continue
+            relative = str(path.relative_to(root))
+            report["files"] += 1
+            candidates = [(0, "file name", path.stem)]
             try:
-                connection.execute("BEGIN IMMEDIATE")
-                connection.execute("DELETE FROM entity_roots WHERE root=?", (str(root),))
-                connection.executemany("INSERT INTO entity_roots VALUES (?,?,?,?)",
-                                       [(str(root), path, algorithm, sha) for path, sha in report["files"].items()])
-                connection.execute("DELETE FROM entity_tokens WHERE NOT EXISTS (SELECT 1 FROM entity_roots r WHERE r.algorithm=entity_tokens.algorithm AND r.content=entity_tokens.content)")
-                connection.commit()
-            except sqlite3.OperationalError as error:
-                connection.rollback()
-                if "locked" not in str(error).lower():
-                    raise
-                report["cache_warnings"].append("cache_busy; pruning deferred")
-        return report
-    finally:
-        connection.close()
+                with path.open("rb") as handle:
+                    raw = handle.read(max_bytes + 1)
+                if len(raw) > max_bytes:
+                    report["errors"].append({"path": relative, "error": "oversized",
+                                             "bytes": path.stat().st_size, "limit": max_bytes})
+                elif b"\0" in raw:
+                    raise UnicodeError("NUL in Markdown")
+                else:
+                    candidates.extend(home_lines(raw.decode("utf-8-sig")))
+            except (OSError, UnicodeError) as error:
+                report["errors"].append({"path": relative, "error": type(error).__name__})
+            compare(relative, candidates)  # the file's name is compared even when its text is not
+    report["complete"] = not report["errors"]
+    return report
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True)
-    parser.add_argument("--cache", required=True)
     parser.add_argument("--name", action="append", required=True)
     parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
     args = parser.parse_args()
     try:
-        report = scan(args.root, args.cache, args.name, args.max_bytes)
-    except (ValueError, OSError, sqlite3.Error) as error:
+        report = scan(args.root, args.name, args.max_bytes)
+    except (ValueError, OSError) as error:
         known = {
-            "root must be a directory and cache must be outside it": "invalid_root_or_cache",
+            "root must be a directory": "invalid_root",
             "names must contain 1–16 words and at most 256 characters": "invalid_name",
             "max_bytes must be positive": "invalid_size_limit",
-            "not a recognised entity cache; choose a new cache path": "foreign_cache",
-            "not a recognised entity cache": "foreign_cache",
-            "unsupported entity cache schema": "unsupported_cache_schema",
-            "invalid cached tokens": "invalid_cache_payload",
         }
-        if isinstance(error, sqlite3.Error):
-            code = "cache_busy" if "locked" in str(error).lower() else "cache_error"
-        elif isinstance(error, OSError):
-            code = "io_error"
-        else:
-            code = known.get(str(error), "invalid_input_or_cache")
+        code = "io_error" if isinstance(error, OSError) else known.get(str(error), "invalid_input")
         print(json.dumps({"complete": False, "error": code}))
         return 2
-    print(json.dumps(report, ensure_ascii=False))
+    # A name with undecodable bytes is escaped rather than failing the whole report.
+    sys.stdout.buffer.write(json.dumps(report, ensure_ascii=False).encode("utf-8", "backslashreplace") + b"\n")
     return 0 if report["complete"] else 2
 
 
