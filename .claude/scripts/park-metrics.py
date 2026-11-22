@@ -102,18 +102,22 @@ def extract(path, harness, since):
             rows.append(active)
             active = None
 
-    with path.open() as stream:
+    # Undecodable bytes become replacement characters, so a line cut mid-character is a parse error, not a crash.
+    with path.open(encoding='utf-8', errors='replace') as stream:
         for number, line in enumerate(stream, 1):
             total += 1
             try:
                 e = json.loads(line)
+                bad = None if isinstance(e, dict) else 'not a JSON object'
             except json.JSONDecodeError:
+                bad = 'invalid JSON'
+            if bad:
                 # Only the final line can lack its newline: a transcript mid-write or cut short.
                 tail = not line.endswith('\n')
                 invalid += not tail
                 errors.append({'path': str(path), 'line': number,
                                'kind': 'incomplete_final_line' if tail else 'invalid_line',
-                               'error': 'incomplete final line (transcript mid-write or cut short)' if tail else 'invalid JSON'})
+                               'error': 'incomplete final line (transcript mid-write or cut short)' if tail else bad})
                 continue
             ts = e.get('timestamp')
             if not ts:

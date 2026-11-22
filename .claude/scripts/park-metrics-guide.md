@@ -19,7 +19,7 @@ The collection output reports the source-file inventory, parse errors and run co
 python3 "$VAULT_PATH/.claude/scripts/park-metrics.py" summary --weeks 4
 ```
 
-One row per ISO week (local time), newest first, giving each harness's n, median, p90 and count at 30 min or more for full runs with an explicit parked response. Runs over 60 min include waits and are counted apart, outside those figures; the closing line counts the quick, returned or unfinished, and parse-incomplete runs left out. `--until YYYY-MM-DD` sets the last day covered. The header flags a collection more than a day old and a collection window that starts after the earliest requested week began. `/weekly-review` quotes the newest row.
+One row per ISO week (local time), newest first, giving each harness's n, median, p90 and count at 30 min or more for full runs with an explicit parked response. Runs over 60 min include waits and are counted apart, outside those figures; the closing line counts the quick, returned or unfinished, and parse-incomplete runs left out. `--until YYYY-MM-DD` sets the last day covered. The header flags a collection more than a day old and a collection window that starts after the earliest requested week began. `/weekly-review` quotes both rows of `--weeks 2`.
 
 ## Boundaries and limitations
 

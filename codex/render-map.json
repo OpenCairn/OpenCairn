@@ -262,8 +262,8 @@
     "weekly-review": {
       "source": ".claude/commands/weekly-review.md",
       "render": "codex/skills/weekly-review/SKILL.md",
-      "source_sha256": "750443bcb26975ff4e2799a65f155c90d7f33153a9ad12fb6b5b79dcbe635eed",
-      "render_sha256": "f3c684ca7ecc7b493fe1741f48f53553f3285aaa4532e78542871b5f41d5fe24"
+      "source_sha256": "3c43dab25b18ff34836f3e3d484ce5917397d351bf99454ac8e69ee7f6631d90",
+      "render_sha256": "47d7b8da0530f4fe0ddcfe3af60cfbb10151037449b4ce28ac0fdb3878d250f8"
     },
     "_shared-rules-planning": {
       "source": ".claude/commands/_shared-rules-planning.md",
@@ -286,7 +286,7 @@
     "_closeout": {
       "source": ".claude/commands/_closeout.md",
       "render": "codex/skills/_closeout.md",
-      "source_sha256": "5f293fd4c4f495d97372e385be6d8deaae6442333c4dd37bf22c5471b890cdec",
+      "source_sha256": "6c48f85d8b987d37725b7593ffd65e531735153ca9e0b199cb5bc6d00cf9e2ee",
       "render_sha256": "8ed2fb1fefeec2ba0ecbbf7def252be5b39c18af9ab178505c079cf238405a6c"
     },
     "_semantic-checks": {

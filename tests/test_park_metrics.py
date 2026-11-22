@@ -289,7 +289,7 @@ class MetricsTests(unittest.TestCase):
     def collection(self, root, body):
         transcript = root/'claude/projects/example/real-id.jsonl'
         transcript.parent.mkdir(parents=True)
-        transcript.write_text(body)
+        transcript.write_bytes(body if isinstance(body, bytes) else body.encode())
         base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
                 '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
         result = subprocess.run(base+['collect', '--since', '2026-09-01T00:00:00Z'], capture_output=True, text=True)
@@ -300,7 +300,10 @@ class MetricsTests(unittest.TestCase):
         park = json.dumps(self.claude('10:00:00', 'user', '/park'))+'\n'
         done = json.dumps(self.claude('10:20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn'))+'\n'
         for name, body, kind in (('mid-write tail', park+done+'{"broken":', 'incomplete_final_line'),
-                                 ('damaged line', park+'{"cut": {"mid-k{"second": 1}\n'+done, 'invalid_line')):
+                                 # A tail cut inside a multi-byte character is not valid UTF-8.
+                                 ('tail cut mid-character', (park+done).encode()+b'{"text": "\xe2\x9c', 'incomplete_final_line'),
+                                 ('damaged line', park+'{"cut": {"mid-k{"second": 1}\n'+done, 'invalid_line'),
+                                 ('line that is not an object', park+'[1,2]\n'+done, 'invalid_line')):
             with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
                 result, data, report = self.collection(Path(tmp), body)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -390,7 +393,7 @@ class MetricsTests(unittest.TestCase):
                     block = block[:block.index(end)]
                     self.assertEqual(block.count('\n✓ Transcript exported: N sessions\n⏱ Park: N min, R review rounds\n'), 1)
 
-    def test_weekly_review_quotes_one_summary_row(self):
+    def test_weekly_review_quotes_both_summary_rows(self):
         root = Path(__file__).resolve().parents[1]
         for rel in ('.claude/commands/weekly-review.md', 'codex/skills/weekly-review/SKILL.md'):
             with self.subTest(rel):
@@ -398,10 +401,12 @@ class MetricsTests(unittest.TestCase):
                 step = text[text.index('   **Park cost (when collected):**'):text.index('   **Personal planning configuration:**')]
                 self.assertIn('park-metrics.py" summary --weeks 2`', step)
                 self.assertIn('`No collection yet` means no collector is set up: skip silently', step)
+                # The newest row is the week in progress, so the completed week is quoted with it.
+                self.assertIn('quote both week rows, newest first', step)
                 self.assertIn('no threshold, verdict or task', step)
                 self.assertEqual(len(step.strip().splitlines()), 2)
                 friction = text[text.index('## Attention & Friction'):text.index('## Key Insights & Patterns')]
-                self.assertIn("otherwise omit this line:]\n**Park cost:** <newest week's row>", friction)
+                self.assertIn("otherwise omit this line:]\n**Park cost:** <newest week's row>; <previous week's row>[; <header flag>]\n", friction)
                 self.assertEqual(friction.count('**Park cost:**'), 1)
 
 
