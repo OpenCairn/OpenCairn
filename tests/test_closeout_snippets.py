@@ -412,6 +412,46 @@ class CloseoutSnippetTests(unittest.TestCase):
                 self.assertIn('by extension in any letter case', boundary)
                 self.assertIn('PDF and unlisted extensions stay included', boundary)
 
+    def test_live_search_receipt_records_feed_the_verifier_final_search_check(self):
+        # Claude lane only: the Codex lane checks final searches through its structured captures.
+        source = PARKS[0]
+        step8 = source.read_text(encoding='utf-8').split('### 8. Backfill + mechanical verification', 1)[1].split('\n### 9.', 1)[0]
+        self.assertIn('`SEARCH_PHASE=final`', step8)
+        self.assertIn('`--search-receipts <dir>`', step8)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); vault = root/'vault'; receipts = root/'receipts'; receipts.mkdir()
+            for name, text in [('01 Now/This Week.md', '# This Week\n'), ('01 Now/Tickler.md', '# Tickler\n'),
+                               ('04 Areas/note.md', 'the old value is still written here\n')]:
+                path = vault/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(text)
+            log = root/'log.md'
+            log.write_text('## Session 1 - Fixture\n### Summary\nDone.\n### Files Created\nNone\n### Files Updated\nNone\n'
+                           '### Pickup Context\n**For next session:** None\n**Project:** None\n')
+
+            def search(tag, needle, mode, **phase):
+                result = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE=needle, MATCH_MODE=mode,
+                                  RAW_OUT=str(receipts/f'{tag}.out'), RAW_ERR=str(receipts/f'{tag}.err'), **phase)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return (receipts/f'{tag}.out.receipt').read_text()
+
+            def verifier():
+                result = subprocess.run([str(ROOT/'.claude/scripts/park-verify.sh'), str(vault), str(log), '1',
+                                         '--search-receipts', str(receipts)], text=True, capture_output=True, timeout=60)
+                return result.returncode, [line for line in result.stdout.splitlines() if ' searches: ' in line]
+
+            self.assertEqual(search('hit-1', 'old value', 'phrase'),
+                             'phase: initial\nmatch_mode: phrase\nexit_status: 0\nneedle: old value\n')
+            self.assertEqual(search('miss-1', 'absent: name', 'word'),
+                             'phase: initial\nmatch_mode: word\nexit_status: 1\nneedle: absent: name\n')
+            self.assertEqual(verifier(), (1, [
+                'FAIL searches: no final receipt with exit status 0 or 1 for needle "absent: name" [word]',
+                'FAIL searches: no final receipt with exit status 0 or 1 for needle "old value" [phrase]']))
+            self.assertEqual(search('hit-2', 'old value', 'phrase', SEARCH_PHASE='final'),
+                             'phase: final\nmatch_mode: phrase\nexit_status: 0\nneedle: old value\n')
+            self.assertEqual(verifier(), (1, [
+                'FAIL searches: no final receipt with exit status 0 or 1 for needle "absent: name" [word]']))
+            search('miss-2', 'absent: name', 'word', SEARCH_PHASE='final')
+            self.assertEqual(verifier(), (0, ['PASS searches: 2 searched needle(s) each have a final receipt']))
+
     def test_new_entity_searches_take_the_live_search_media_exclusion(self):
         # The inline new-entity commands name the block's media glob instead of repeating it.
         for source in PARKS:

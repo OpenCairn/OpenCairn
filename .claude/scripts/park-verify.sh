@@ -2,6 +2,7 @@
 # park-verify.sh - mechanical post-park verification for /park
 #
 # Usage: park-verify.sh <vault> <session-log> <N> [--ident STR]... [--touched PATH]...
+#                       [--search-receipts DIR]...
 #   --ident    a distinctive substring per item/identifier the session completed
 #              (matched fixed-string, case-insensitive, against unchecked "- [ ]" lines).
 #              Must be distinctive: a bare number under ~4 digits matches digit runs
@@ -17,6 +18,8 @@
 #              review wrapper; still checked for Files-list coverage
 #   --nonlocal PATH  explicitly classified remote/secret-bearing artefact;
 #              retain Files-list coverage but never inspect/print its contents
+#   --search-receipts DIR  directory (searched recursively, repeatable) holding
+#              only this park's LIVE SEARCH receipts; enables the searches check
 #
 # Paths (<session-log> and --touched) may be absolute, ~-prefixed, or relative to
 # <vault> - all three are normalised on entry.
@@ -77,13 +80,23 @@
 #               after the path, in any Files list) whose path is not on disk
 #               is neither a REVIEW nor a FAIL: it prints
 #               "INFO backfill: row annotated (deleted|remote) not compared: <path>"
+#   searches    only with --search-receipts: the LIVE SEARCH block writes a
+#               "<RAW_OUT>.receipt" record (phase, match_mode, exit_status,
+#               needle) beside each raw output. Every (needle, match mode)
+#               recorded under the given directories needs a receipt with
+#               phase "final", exit status 0 or 1 and its raw output still
+#               present. A needle searched before the final pass and not
+#               re-run, a missing directory, a directory without receipts and
+#               a malformed receipt are each FAIL. Needles compare
+#               case-insensitively, as the search does. The check cannot see a
+#               needle that was never searched: enumeration stays with the caller
 #
 # Output: "PASS|FAIL|REVIEW|INFO|N/A <check>: <detail>" lines, then "RESULT: PASS|REVIEW|FAIL".
 # INFO lines are informational and never affect the verdict.
 # Exit 1 if any FAIL, else 0 (REVIEW lines need caller triage but are not failures).
 set -euo pipefail
 
-usage() { echo "Usage: $0 <vault> <session-log> <N> [--ident STR]... [--touched PATH]..." >&2; exit 1; }
+usage() { echo "Usage: $0 <vault> <session-log> <N> [--ident STR]... [--touched PATH]... [--search-receipts DIR]..." >&2; exit 1; }
 [ $# -ge 3 ] || usage
 VAULT="$1"; LOG="$2"; N="$3"; shift 3
 case "$N" in ''|*[!0-9]*) usage ;; esac
@@ -114,13 +127,14 @@ norm_path() {
 LOG="$(norm_path "$LOG")"
 [ -f "$LOG" ] || { echo "ERROR: session log not found: $LOG" >&2; exit 1; }
 
-IDENTS=(); TOUCHED=(); REFERENCES=(); REFERENCE_HASHES=(); NONLOCAL=()
+IDENTS=(); TOUCHED=(); REFERENCES=(); REFERENCE_HASHES=(); NONLOCAL=(); SEARCH_DIRS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --ident)   [ $# -ge 2 ] || usage; IDENTS+=("$2"); shift 2 ;;
         --touched) [ $# -ge 2 ] || usage; TOUCHED+=("$(norm_path "$2")"); shift 2 ;;
         --reference) [ $# -ge 3 ] || usage; REFERENCES+=("$(norm_path "$2")"); REFERENCE_HASHES+=("$3"); shift 3 ;;
         --nonlocal) [ $# -ge 2 ] || usage; NONLOCAL+=("$(norm_path "$2")"); shift 2 ;;
+        --search-receipts) [ $# -ge 2 ] || usage; SEARCH_DIRS+=("$(norm_path "$2")"); shift 2 ;;
         *) usage ;;
     esac
 done
@@ -1248,6 +1262,49 @@ for line in ${COVERAGE_LINES[@]+"${COVERAGE_LINES[@]}"}; do
         REVIEW\ *) REVIEWS=$((REVIEWS+1)) ;;
     esac
 done
+
+# --- final search receipts ---------------------------------------------------
+# Opt-in. A helper that cannot run is a FAIL, never a silent pass.
+if [ "${#SEARCH_DIRS[@]}" -gt 0 ]; then
+    if SEARCH_LINES=$(python3 -c 'import json, sys
+from pathlib import Path
+SUFFIX = ".receipt"
+needles, problems = {}, []
+for arg in sys.argv[1:]:
+    root = Path(arg)
+    if not root.is_dir():
+        problems.append("receipt directory not found: " + arg)
+        continue
+    found = sorted(p for p in root.rglob("*" + SUFFIX) if p.is_file())
+    if not found:
+        problems.append("no search receipts under " + arg)
+    for path in found:
+        # The needle is the last field and runs to the end of the record.
+        head, sep, needle = path.read_bytes().decode("utf-8", "backslashreplace").partition("\nneedle: ")
+        fields = dict(line.split(": ", 1) for line in head.split("\n") if ": " in line)
+        needle = needle[:-1] if needle.endswith("\n") else needle
+        if not sep or not needle or not all(k in fields for k in ("phase", "match_mode", "exit_status")):
+            problems.append("malformed search receipt: " + str(path))
+            continue
+        usable = (fields["phase"] == "final" and fields["exit_status"] in ("0", "1")
+                  and Path(str(path)[:-len(SUFFIX)]).is_file())
+        entry = needles.setdefault((needle.casefold(), fields["match_mode"]), [needle, False])
+        entry[1] = entry[1] or usable
+lines = ["FAIL searches: " + problem for problem in problems]
+lines += ["FAIL searches: no final receipt with exit status 0 or 1 for needle %s [%s]"
+          % (json.dumps(needle, ensure_ascii=False), mode)
+          for (_, mode), (needle, usable) in sorted(needles.items()) if not usable]
+if not lines:
+    lines = ["PASS searches: %d searched needle(s) each have a final receipt" % len(needles)]
+sys.stdout.buffer.write(("\n".join(lines) + "\n").encode("utf-8", "backslashreplace"))' "${SEARCH_DIRS[@]}"); then
+        while IFS= read -r line; do
+            echo "$line"
+            case "$line" in FAIL\ *) FAILS=$((FAILS+1)) ;; esac
+        done <<< "$SEARCH_LINES"
+    else
+        fail searches "receipt check could not run"
+    fi
+fi
 
 # --- result ------------------------------------------------------------------
 # The N/A count rides on the RESULT line so an all-N/A closure run is visible.

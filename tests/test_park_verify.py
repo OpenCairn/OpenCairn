@@ -1329,5 +1329,109 @@ class TouchedContentTests(unittest.TestCase):
         self.assertNotIn("existence-only", result.stdout)
 
 
+def search_receipt(directory: Path, name: str, needle: str, phase: str, status: int,
+                   mode: str = "fixed", raw: bool = True) -> Path:
+    """Write what the LIVE SEARCH block leaves: a raw output and its receipt record."""
+    directory.mkdir(parents=True, exist_ok=True)
+    out = directory / (name + ".out")
+    if raw:
+        out.write_text("", encoding="utf-8")
+    record = directory / (name + ".out.receipt")
+    record.write_text("phase: %s\nmatch_mode: %s\nexit_status: %d\nneedle: %s\n" % (phase, mode, status, needle),
+                      encoding="utf-8")
+    return record
+
+
+class SearchReceiptTests(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+        self.vault = make_vault(self.base)
+        self.log = write_log(self.vault)
+        self.receipts = self.base / "receipts"
+
+    def run_receipts(self, *directories: Path) -> subprocess.CompletedProcess:
+        args = [arg for directory in directories or (self.receipts,) for arg in ("--search-receipts", str(directory))]
+        return verify(self.vault, self.log, *args)
+
+    def searches(self, result: subprocess.CompletedProcess) -> list:
+        return [line for line in result.stdout.splitlines() if " searches: " in line]
+
+    def test_check_is_absent_without_the_option(self) -> None:
+        search_receipt(self.receipts, "a", "old value", "initial", 0)
+        result = verify(self.vault, self.log)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), [])
+        self.assertEqual(result.stdout.splitlines()[-1], "RESULT: PASS")
+
+    def test_needle_searched_before_the_final_pass_and_not_rerun_fails(self) -> None:
+        search_receipt(self.receipts, "a-initial", "old value", "initial", 0)
+        search_receipt(self.receipts, "a-final", "old value", "final", 0)
+        search_receipt(self.receipts, "b-initial", "Old Name", "initial", 1, mode="word")
+        result = self.run_receipts()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result),
+                         ['FAIL searches: no final receipt with exit status 0 or 1 for needle "Old Name" [word]'])
+        self.assertTrue(result.stdout.splitlines()[-1].startswith("RESULT: FAIL (1 fail"), result.stdout)
+        # The re-run closes it; a checked-no-match (status 1) final receipt counts.
+        search_receipt(self.receipts, "b-final", "old name", "final", 1, mode="word")
+        result = self.run_receipts()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), ["PASS searches: 2 searched needle(s) each have a final receipt"])
+
+    def test_final_receipt_must_be_usable_and_match_the_mode(self) -> None:
+        cases = {
+            "failed status": lambda: search_receipt(self.receipts, "f", "old value", "final", 2),
+            "other match mode": lambda: search_receipt(self.receipts, "f", "old value", "final", 0, mode="word"),
+            "raw output gone": lambda: search_receipt(self.receipts, "f", "old value", "final", 0, raw=False),
+            "unknown phase": lambda: search_receipt(self.receipts, "f", "old value", "finial", 0),
+        }
+        for label, write_final in cases.items():
+            with self.subTest(case=label):
+                for stale in self.receipts.glob("*"):
+                    stale.unlink()
+                search_receipt(self.receipts, "i", "old value", "initial", 0)
+                write_final()
+                result = self.run_receipts()
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn('FAIL searches: no final receipt with exit status 0 or 1 for needle "old value" [fixed]',
+                              self.searches(result))
+
+    def test_missing_empty_or_malformed_receipts_fail_closed(self) -> None:
+        result = self.run_receipts()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), ["FAIL searches: receipt directory not found: %s" % self.receipts])
+        self.receipts.mkdir()
+        result = self.run_receipts()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), ["FAIL searches: no search receipts under %s" % self.receipts])
+        search_receipt(self.receipts, "ok", "old value", "final", 0)
+        broken = self.receipts / "broken.out.receipt"
+        broken.write_text("phase: final\nexit_status: 0\nneedle: lost mode\n", encoding="utf-8")
+        result = self.run_receipts()
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), ["FAIL searches: malformed search receipt: %s" % broken])
+        missing_value = verify(self.vault, self.log, "--search-receipts")
+        self.assertEqual(missing_value.returncode, 1)
+        self.assertIn("Usage:", missing_value.stderr)
+
+    def test_receipts_are_collected_across_nested_and_repeated_directories(self) -> None:
+        needle = "caf\u00e9: r\u00e9sum\u00e9 \u2192 x"  # non-ASCII, with the field separator inside the needle
+        search_receipt(self.receipts / "initial", "a", needle, "initial", 0, mode="phrase")
+        other = self.base / "elsewhere"
+        search_receipt(other, "b", "second value", "initial", 1)
+        result = self.run_receipts(self.receipts, other)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), [
+            'FAIL searches: no final receipt with exit status 0 or 1 for needle "%s" [phrase]' % needle,
+            'FAIL searches: no final receipt with exit status 0 or 1 for needle "second value" [fixed]'])
+        search_receipt(self.receipts / "final", "a", needle.upper(), "final", 0, mode="phrase")
+        search_receipt(other, "b-final", "second value", "final", 1)
+        result = self.run_receipts(self.receipts, other)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.searches(result), ["PASS searches: 2 searched needle(s) each have a final receipt"])
+
+
 if __name__ == "__main__":
     unittest.main()
