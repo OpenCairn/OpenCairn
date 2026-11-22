@@ -207,3 +207,142 @@ def test_character_filter_never_drops_a_threshold_match():
             possible=sum(c in set(query) for c in candidate)
             if score >= mod.MIN_SIMILARITY:
                 assert 2*possible/(len(query)+len(candidate)) >= mod.MIN_SIMILARITY
+
+
+def reference_words(text):
+    import re, unicodedata
+    text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", text)
+    folded = "".join(c for c in unicodedata.normalize("NFKD", text.casefold())
+                     if not unicodedata.combining(c))
+    return re.findall(r"[^\W_]+", folded, flags=re.UNICODE)
+
+
+def reference_matches(text, names):
+    """Every window compared, as before candidate selection existed."""
+    import difflib
+    tokens = [(word, number) for number, line in enumerate(text.splitlines(), 1) for word in reference_words(line)]
+    found = []
+    for name in names:
+        parts = reference_words(name); query = "".join(parts)
+        for width in range(max(1, len(parts)-1), len(parts)+2):
+            for start in range(len(tokens) - width + 1):
+                window = tokens[start:start+width]
+                compact = "".join(token[0] for token in window)
+                score = difflib.SequenceMatcher(None, query, compact, autojunk=False).ratio()
+                if score >= mod.MIN_SIMILARITY:
+                    found.append((name, window[0][1], " ".join(token[0] for token in window), score))
+    return found
+
+
+@pytest.mark.parametrize("alphabets,separators,longest_name", [
+    (["ab", "abc", "abcde", "abcdefgh"], ["\n"], 4),
+    (["aé", "abß", "aBcñ", "ab\u0301c"], ["\n", "\r", "\r\n", "\u2028", "\x1c", "\x0b"], 4),
+    (["ab", "abc"], ["\n"], 16),
+])
+def test_candidate_selection_returns_exactly_the_exhaustive_matches(tmp_path, alphabets, separators, longest_name):
+    import random
+    rng = random.Random(20261122)
+    def word(alphabet):
+        return "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 7)))
+    for case in range(120):
+        alphabet = rng.choice(alphabets)
+        root = tmp_path / f"case{case}"; root.mkdir()
+        lines = [" ".join(word(alphabet) for _ in range(rng.randint(0, 9))) for _ in range(rng.randint(1, 30))]
+        text = "".join(line + rng.choice(separators) for line in lines[:-1]) + lines[-1] + rng.choice(["", "\n", "\n\n"])
+        (root / "note.md").write_bytes(text.encode("utf-8"))
+        names = []
+        while len(names) < rng.randint(1, 3):
+            name = " ".join(word(alphabet) for _ in range(rng.randint(1, longest_name)))
+            if 1 <= len(reference_words(name)) <= 16:  # a lone combining mark folds to no word
+                names.append(name)
+        expected = reference_matches(text, names)
+        for attempt in ("fresh", "cached"):
+            result = mod.scan(root, tmp_path / f"cache{case}.sqlite", names)
+            got = [(m["name"], m["line"], m["phrase"], m["similarity"]) for m in result["matches"]]
+            assert got == expected, (case, attempt, names)
+
+
+def test_ascii_fast_path_matches_full_folding():
+    import random
+    rng = random.Random(7)
+    alphabet = "abzABZ019 _-.\t\r\x0b\x0c\x1c/"
+    for _ in range(3000):
+        text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 24)))
+        assert mod.words(text) == reference_words(text), repr(text)
+    for text in ["Café-Bridge", "ﬁnalStraße", "İstanbul NOTE", "naïveCamelCase"]:
+        assert mod.words(text) == reference_words(text)
+    mixed = "abZ9 _-é\u0301\u0327ñßﬁİ\u3099が→—\u05b0א\u0e31ก"
+    for _ in range(3000):
+        text = "".join(rng.choice(mixed) for _ in range(rng.randint(0, 16)))
+        assert mod.words(text) == reference_words(text), repr(text)
+
+
+def test_unrelated_text_is_not_compared_window_by_window(tmp_path):
+    root, cache = setup(tmp_path)
+    filler = "the quick brown fox jumps over that lazy dog and then it rests\n" * 4000
+    (root / "long.md").write_text(filler + "Marowfield on the ridge\n" + filler)
+    result = mod.scan(root, cache, ["Marrowfield"])
+    assert result["processed_tokens"] > 100_000
+    assert [(m["line"], m["phrase"]) for m in result["matches"]] == [
+        (4001, "marowfield"), (4001, "marowfield on")]
+    assert 0 < result["compared_windows"] < result["processed_tokens"] // 10
+
+
+def test_default_limit_covers_a_multi_megabyte_note(tmp_path):
+    root, cache = setup(tmp_path)
+    (root / "big.md").write_text("ordinary archive line\n" * 150_000 + "Cedar Link\n")
+    assert (root / "big.md").stat().st_size > 3_000_000
+    result = mod.scan(root, cache, ["Cedar Link"])
+    assert result["complete"] and not result["errors"]
+    assert [m["line"] for m in result["matches"] if m["phrase"] == "cedar link"] == [150_001]
+    limited = mod.scan(root, cache, ["Cedar Link"], max_bytes=1_000_000)
+    assert not limited["complete"] and limited["errors"][0]["error"] == "oversized"
+
+
+def test_line_numbers_survive_blank_lines_and_line_spanning_windows(tmp_path):
+    root, cache = setup(tmp_path)
+    (root / "home.md").write_text("\n\nintro\n\nCedar\nLink follows\n\nCedar Link\n")
+    for attempt in ("fresh", "cached"):
+        result = mod.scan(root, cache, ["Cedar Link"])
+        assert [(m["line"], m["phrase"]) for m in result["matches"]] == [(5, "cedar link"), (8, "cedar link")], attempt
+
+
+@pytest.mark.parametrize("payload", ['[["cedar", 1], ["link", 1]]', "cedar_link", "cedar\tlink"])
+def test_foreign_cached_payload_fails_closed(tmp_path, payload):
+    import json, sqlite3, subprocess, sys
+    root, cache = setup(tmp_path); (root / "home.md").write_text("Cedar Link")
+    mod.scan(root, cache, ["Cedar Link"])
+    with sqlite3.connect(cache) as conn:
+        conn.execute("UPDATE entity_tokens SET payload=?", (payload,))
+    with pytest.raises(ValueError, match="invalid cached tokens"):
+        mod.scan(root, cache, ["Cedar Link"])
+    result = subprocess.run([sys.executable, str(SCRIPT), "--root", str(root), "--cache", str(cache),
+                             "--name", "Cedar Link"], capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2
+    assert json.loads(result.stdout) == {"complete": False, "error": "invalid_cache_payload"}
+
+
+def test_window_bounds_never_drop_a_threshold_match():
+    import difflib, itertools
+    values = ["".join(chars) for n in range(1, 5) for chars in itertools.product("abc", repeat=n)]
+    values += ["".join(chars) for n in range(5, 8) for chars in itertools.product("ab", repeat=n)]
+    for query in values:
+        pairs = {query[i:i+2] for i in range(len(query)-1)}
+        for candidate in values:
+            if difflib.SequenceMatcher(None, query, candidate, autojunk=False).ratio() < mod.MIN_SIMILARITY:
+                continue
+            total = len(query) + len(candidate)
+            hits = sum(candidate[i:i+2] in pairs for i in range(len(candidate)-1))
+            shared = sum(min(candidate.count(c), query.count(c)) for c in set(query))
+            assert 5*hits + 5 >= total and 5*shared >= 2*total, (query, candidate)
+
+
+def test_emptying_a_full_score_memo_changes_no_result(tmp_path, monkeypatch):
+    root, cache = setup(tmp_path)
+    text = "alpha beta gamma delta\nCeder Link and Cedar Lnik\nepsilon zeta eta theta iota\ncedarlink\n"
+    (root / "home.md").write_text(text)
+    expected = reference_matches(text, ["Cedar Link"])
+    assert len(expected) > 3
+    monkeypatch.setattr(mod, "SCORE_MEMO_LIMIT", 2)
+    result = mod.scan(root, cache, ["Cedar Link"])
+    assert [(m["name"], m["line"], m["phrase"], m["similarity"]) for m in result["matches"]] == expected
