@@ -323,6 +323,78 @@ class MetricsTests(unittest.TestCase):
             self.assertEqual([e['kind'] for e in data['errors']], ['unreadable_source'])
             self.assertIn('parse errors 1 (unreadable_source 1)', report)
 
+    def history(self, root):
+        # Two sessions with one parked run each; returns their transcripts and a collect/record runner.
+        paths = [root/f'claude/projects/example/{name}.jsonl' for name in ('removed', 'present')]
+        paths[0].parent.mkdir(parents=True)
+        for path, hour in zip(paths, ('10', '12')):
+            path.write_text(''.join(json.dumps(e)+'\n' for e in [
+                self.claude(hour+':00:00', 'user', '/park'),
+                self.claude(hour+':20:00', 'assistant', [{'type':'text','text':'Parked.'}], 'end_turn')]))
+        base = [sys.executable, str(Path(m.__file__)), '--state', str(root/'state'),
+                '--claude-root', str(root/'claude'), '--codex-root', str(root/'codex')]
+        def run(*args, since='2026-09-01T00:00:00Z'):
+            subprocess.run(base+list(args)+(['--since', since] if args == ('collect',) else []),
+                           capture_output=True, text=True, check=True)
+            data = json.loads((root/'state/runs.json').read_text())
+            return data, {Path(r['transcript']).stem: r for r in data['runs']}
+        return paths, run
+
+    def test_schema_change_keeps_runs_whose_source_is_gone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (removed, present), run = self.history(root)
+            _, before = run('collect')
+            run('record', '--run-id', before['removed']['id'], '--review-rounds', '2')
+            body = removed.read_text()
+            removed.unlink()
+            # A cache written by the previous schema; the changed count shows which rows are parsed again.
+            cache = json.loads((root/'state/cache.json').read_text())
+            cache['version'] = m.VERSION - 1
+            for entry in cache['files'].values():
+                entry['rows'][0]['tool_calls'] = 99
+            (root/'state/cache.json').write_text(json.dumps(cache))
+            for attempt in ('first collection on the new schema', 'next collection'):
+                with self.subTest(attempt):
+                    data, runs = run('collect')
+                    self.assertEqual(data['schema'], m.VERSION)
+                    self.assertEqual(sorted(runs), ['present', 'removed'])
+                    kept = runs['removed']
+                    self.assertEqual(kept['id'], before['removed']['id'])
+                    self.assertEqual(kept['wall_seconds'], 1200)
+                    self.assertEqual(kept['tool_calls'], 99)
+                    self.assertFalse(kept['source_present'])
+                    self.assertEqual(kept['carried_from_schema'], m.VERSION - 1)
+                    self.assertEqual(kept['reported']['review_rounds'], 2)
+                    # A source still on disk is parsed again, not carried.
+                    self.assertEqual(runs['present']['tool_calls'], 0)
+                    self.assertNotIn('carried_from_schema', runs['present'])
+            self.assertEqual(data['files_reparsed'], 0)
+            # The source comes back: its runs are parsed under the current schema.
+            removed.write_text(body)
+            data, runs = run('collect')
+            self.assertEqual(len(data['runs']), 2)
+            self.assertEqual(runs['removed']['id'], before['removed']['id'])
+            self.assertEqual(runs['removed']['tool_calls'], 0)
+            self.assertTrue(runs['removed']['source_present'])
+            self.assertNotIn('carried_from_schema', runs['removed'])
+
+    def test_window_change_keeps_runs_whose_source_is_gone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (removed, present), run = self.history(root)
+            _, before = run('collect')
+            removed.unlink()
+            _, runs = run('collect', since='2026-08-01T00:00:00Z')
+            self.assertEqual(sorted(runs), ['present', 'removed'])
+            self.assertEqual(runs['removed']['wall_seconds'], 1200)
+            self.assertNotIn('carried_from_schema', runs['removed'])
+            # A window starting after both requests leaves them out of the dataset, not out of the cache.
+            data, runs = run('collect', since='2026-09-27T00:00:00Z')
+            self.assertEqual(data['runs'], [])
+            _, runs = run('collect')
+            self.assertEqual({k: r['id'] for k, r in runs.items()}, {k: r['id'] for k, r in before.items()})
+
     def summarise(self, runs, *args, collected_at=None, since='2026-09-01T00:00:00Z'):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)/'state'

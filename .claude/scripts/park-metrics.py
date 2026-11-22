@@ -269,12 +269,30 @@ def sources(claude, codex):
         ('codex', p) for sub in ('sessions', 'archived_sessions') for p in sorted((codex / sub).rglob('*.jsonl'))]
 
 
+def carry(cache, present):
+    """Cached entries a re-parse cannot rebuild: their source is no longer on disk."""
+    kept = {}
+    for key, entry in cache.get('files', {}).items():
+        if key in present or not entry.get('rows'):
+            continue
+        # Row fields are unchanged since schema 5; a bump that changes them migrates here.
+        if cache.get('version') != VERSION:
+            entry.setdefault('carried_from_schema', cache.get('version'))
+            for row in entry['rows']:
+                row.setdefault('carried_from_schema', cache.get('version'))
+        entry['fingerprint'] = None  # a source that returns is parsed afresh
+        kept[key] = entry
+    return kept
+
+
 def collect(args):
     with locked(args.state):
         cache = read(args.state / 'cache.json', {})
-        if cache.get('version') != VERSION or cache.get('since') != args.since:
-            cache = {'version': VERSION, 'since': args.since, 'files': {}}
         files = sources(args.claude_root, args.codex_root)
+        current = {str(p) for _, p in files}
+        if cache.get('version') != VERSION or cache.get('since') != args.since:
+            # Sources on disk are parsed again below; measurements of removed ones exist only here.
+            cache = {'version': VERSION, 'since': args.since, 'files': carry(cache, current)}
         changed = 0
         for harness, path in files:
             stat = path.stat()
@@ -286,8 +304,9 @@ def collect(args):
             rows, errors = extract(path, harness, args.since)
             cache['files'][str(path)] = dict(fingerprint=fingerprint, rows=rows, errors=errors, harness=harness)
             changed += 1
-        current = {str(p) for _, p in files}
-        rows = [r for data in cache['files'].values() for r in data['rows']]
+        # The window check applies to carried rows: a parse already leaves out earlier requests.
+        rows = [r for data in cache['files'].values() for r in data['rows']
+                if epoch(r['started_at']) >= epoch(args.since)]
         unique = {r['id']: r for r in rows}
         annotations = read(args.state / 'annotations.json', {})
         for row in unique.values():
