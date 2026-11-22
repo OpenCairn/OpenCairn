@@ -61,7 +61,7 @@ All sessions live in `06 Archive/OpenCairn/Session Logs/YYYY-MM-DD.md`. Multiple
 
 ## Provenance Chain
 
-Provenance is opt-in: `/provenance` creates a pending flag. It can attest final work products immediately; `/goodnight` processes pending transcript and session-log attestations after final writes and export. `/park` and its `/checkpoint` alias do not automatically request provenance.
+Provenance is opt-in: `/provenance` creates a pending flag. It can attest final work products immediately; `/goodnight` processes pending transcript and session-log attestations after final writes and export. `/park` does not automatically request provenance.
 
 All attestations retain hash-keyed snapshots and any available proofs. The validated provenance writer appends a new attestation and a separate supersession relationship on re-hash; it never rewrites an old row, hash or proof. Pending flags remain until every required work-product, transcript and session-log attestation has matching evidence. Verification requires bytes matching the recorded digest. A transcript export can change on re-export, so its current file is not a guaranteed preimage for an older proof.
 

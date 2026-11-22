@@ -44,7 +44,7 @@ want it.
 
 The `park` set installs the ledger, experimental snapshot trigger and advisory startup checks. Model turns dominate Park wall time; the helpers themselves do not establish model-time savings:
 - `harness-semantics-check.py` (SessionStart) — compares `claude --version` with locally recorded verification evidence and warns once on drift. The distribution has no verified-version manifest; absence is explicitly unverified, and a version observation never advances the baseline. See the sibling `harness-semantics-guide.md`.
-- `park-preflight.py` (UserPromptSubmit) — collects clock, parent ledger and unchecked This Week/Tickler candidates only for explicit Park/checkpoint requests. It emits native `additionalContext`; missing surfaces stay unknown and final task dedup still runs at Step 7. See the sibling `park-preflight-guide.md`.
+- `park-preflight.py` (UserPromptSubmit) — collects clock, parent ledger and unchecked This Week/Tickler candidates only for explicit Park requests. It emits native `additionalContext`; missing surfaces stay unknown and final task dedup still runs at Step 7. See the sibling `park-preflight-guide.md`.
 - `session-ledger.sh` (PostToolUse on `Write|Edit`) — records every file this session
   writes, keyed on the session id. Step 2a's enumeration becomes exact instead of
   reconstructed from mtimes, and §20 attribution comes free.

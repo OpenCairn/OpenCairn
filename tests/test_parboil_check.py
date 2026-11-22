@@ -61,7 +61,13 @@ class ParboilCheckTests(unittest.TestCase):
         self.assertFalse((self.state / f'{self.sid}.parboil.state').exists())
 
     def test_expanded_park_prompt_does_not_trigger(self):
-        self.assertEqual(self.hook('<command-name>/park</command-name>\n<command-args/>'), '')
+        for prompt in ['/park', '$park', '$park --quick',
+                       '<command-name>/park</command-name>\n<command-args/>',
+                       '<command-message>park</command-message>\n<command-name>/park</command-name>',
+                       '<skill><name>park</name><instructions>Capture session</instructions></skill>']:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.hook(prompt), '')
+                self.assertFalse((self.state / f'{self.sid}.parboil.state').exists())
 
     def test_checkpoint_is_not_a_park_request(self):
         # /checkpoint is Claude Code's built-in rewind alias, not Park.
