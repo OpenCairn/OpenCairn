@@ -286,7 +286,7 @@
     "_closeout": {
       "source": ".claude/commands/_closeout.md",
       "render": "codex/skills/_closeout.md",
-      "source_sha256": "5327ae40741a050fca549733080a49d37a10e7b99ab284216445e7c0712dfe09",
+      "source_sha256": "5f293fd4c4f495d97372e385be6d8deaae6442333c4dd37bf22c5471b890cdec",
       "render_sha256": "8ed2fb1fefeec2ba0ecbbf7def252be5b39c18af9ab178505c079cf238405a6c"
     },
     "_semantic-checks": {
