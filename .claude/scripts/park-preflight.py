@@ -22,14 +22,14 @@ def park_request(prompt):
         return False
     prompt = prompt.strip()
     # One direct command line. Questions, quotations and code are not requests.
-    if re.fullmatch(r'[/$](?:park|checkpoint)(?:[ \t]+--[^\n?`\'"<>]+)?', prompt):
+    if re.fullmatch(r'[/$]park(?:[ \t]+--[^\n?`\'"<>]+)?', prompt):
         return True
     # Harness expansion metadata must lead the prompt, not occur in pasted prose.
-    if re.match(r'^<skill>\s*<name>(?:park|checkpoint)</name>', prompt):
+    if re.match(r'^<skill>\s*<name>park</name>', prompt):
         return prompt.endswith('</skill>')
-    match = re.match(r'^(?:<command-message>(park|checkpoint)</command-message>\s*)?'
-                     r'<command-name>/(park|checkpoint)</command-name>(?:\s|$)', prompt)
-    return bool(match and (not match[1] or match[1] == match[2]))
+    match = re.match(r'^(?:<command-message>park</command-message>\s*)?'
+                     r'<command-name>/park</command-name>(?:\s|$)', prompt)
+    return bool(match)
 
 
 def source(path):

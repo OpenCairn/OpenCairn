@@ -97,10 +97,10 @@ fi
 REQUEST_FILTER='
     def park_request:
         gsub("^\\s+|\\s+$"; "")
-        | test("^[/$](?:park|checkpoint)(?:[ \\t]+[^\\n]*)?$")
+        | test("^[/$]park(?:[ \\t]+[^\\n]*)?$")
           or (startswith("<command-")
-              and test("<command-name>/(?:park|checkpoint)</command-name>"))
-          or test("^<skill>\\s*<name>(?:park|checkpoint)</name>");
+              and test("<command-name>/park</command-name>"))
+          or test("^<skill>\\s*<name>park</name>");
     def command_request:
         gsub("^\\s+|\\s+$"; "")
         | test("^<command-name>/[A-Za-z0-9_:-]+</command-name>(?:\\s|$)")

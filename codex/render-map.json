@@ -55,12 +55,6 @@
       "source_sha256": "70381572c6f65cf9ede5bec89a329c2c405251a3807f329e4d2311b0bb07aa23",
       "render_sha256": "65ce82079c37255b7e94920716aedcabec03f29055fd8a4421dafa85510a415e"
     },
-    "checkpoint": {
-      "source": ".claude/commands/checkpoint.md",
-      "render": "codex/skills/checkpoint/SKILL.md",
-      "source_sha256": "aa8413e8c7b78ac4b8978832cd5753325a9df3f0f519cffe3ce3add4cc96fd77",
-      "render_sha256": "271e5f30fe739949851c9896e47b5c7bd4440381824e414a4052b7715e650ab3"
-    },
     "complete-project": {
       "source": ".claude/commands/complete-project.md",
       "render": "codex/skills/complete-project/SKILL.md",

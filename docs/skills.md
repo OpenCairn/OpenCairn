@@ -105,6 +105,5 @@ Codex `update` and `migrate` are adapters to the canonical procedures in the ful
 
 | Claude Code | Codex | Required outcome | Check |
 |---|---|---|---|
-| [/checkpoint](../.claude/commands/checkpoint.md) | [$checkpoint](../codex/skills/checkpoint/SKILL.md) | Invoke `park`. | **Manual:** confirm the same-harness `park` workflow runs; the Codex adapter must also forward supplied arguments. Apply the `park` checks above. |
 | [/regroup](../.claude/commands/regroup.md) | [$regroup](../codex/skills/regroup/SKILL.md) | Invoke `afternoon`. | **Manual:** confirm the same-harness `afternoon` workflow runs; the Codex adapter must also forward supplied arguments. Apply the `afternoon` checks above. |
 | [/shutdown](../.claude/commands/shutdown.md) | [$shutdown](../codex/skills/shutdown/SKILL.md) | Invoke `goodnight`. | **Manual:** confirm the same-harness `goodnight` workflow runs; the Codex adapter must also forward supplied arguments. Apply the `goodnight` checks above. |

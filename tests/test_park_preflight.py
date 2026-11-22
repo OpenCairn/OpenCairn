@@ -61,9 +61,9 @@ class ParkPreflightTests(unittest.TestCase):
         return data
 
     def test_genuine_and_expanded_requests(self):
-        prompts = ['/park', '/park --quick', '/checkpoint', '$park', '$checkpoint --quick',
+        prompts = ['/park', '/park --quick', '$park', '$park --quick',
             '<command-name>/park</command-name>\n<command-args>--quick</command-args>',
-            '<command-message>checkpoint</command-message>\n<command-name>/checkpoint</command-name>',
+            '<command-message>park</command-message>\n<command-name>/park</command-name>',
             '<skill><name>park</name><instructions>Capture session</instructions></skill>']
         for prompt in prompts:
             with self.subTest(prompt=prompt):
@@ -75,7 +75,10 @@ class ParkPreflightTests(unittest.TestCase):
         for prompt in ['Explain /park', 'How does /park work?', '"/park"', "'/park'", '`/park`',
                        '```\n/park\n```', '> /park', '# Instructions\n/park',
                        '/park\nthen do something', '/parking', '/park?', '/park --quick?', '/park is a command in this pasted instruction',
-                       '<instructions><command-name>/park</command-name></instructions>']:
+                       '<instructions><command-name>/park</command-name></instructions>',
+                       '/checkpoint', '$checkpoint --quick',
+                       '<command-message>checkpoint</command-message>\n<command-name>/checkpoint</command-name>',
+                       '<skill><name>checkpoint</name><instructions>/park</instructions></skill>']:
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.invoke(prompt).stdout, '')
         self.assertEqual(self.invoke(hook_event_name='Stop').stdout, '')

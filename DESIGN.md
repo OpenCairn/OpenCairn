@@ -33,7 +33,7 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
     ↓
   work (conversation with Claude)
     ↓
-/park (also /checkpoint) → capture session state
+/park → capture session state
     ↓
 /pickup → resume from where you left off
     ↓
@@ -44,11 +44,8 @@ Sessions flow through a predictable lifecycle. Each stage has a dedicated comman
 
 | Command | Session file | Project-doc update | Bidirectional links | OTS stamp | Quality gate |
 |---------|-------------|-----------|-------------------|-----------|-------------|
-| `/checkpoint` | Same as `/park` | Same | Same | Same | Same |
 | `/park` | Append or same-day continuation | When state changes | Continuation links | No | Yes |
 | `/goodnight` | Append | When state changes | Continuation links | Explicit provenance flags only | Yes |
-
-**Key invariant:** `checkpoint.md` delegates directly to `/park`; it has no separate lightweight protocol.
 
 ### Session file format
 
@@ -190,9 +187,7 @@ Rules that span multiple commands. Violating these causes bugs.
 
 5. **Working memory model (goodnight).** Session files are read once at the start of `/goodnight`, then treated as write-only. Mid-flow corrections from the user update working memory AND the files, but the files are never re-read. Re-reading would pull stale data and undo the user's corrections.
 
-6. **Checkpoint stays an alias.** Its behaviour is the `/park` contract, not a separately maintained subset.
-
-7. **Verify fan-out in both directions.** After propagating a change, search the old value for missed references and the new value for intended destinations; use stable subject/container anchors when wording varies. Triage the full hit sets under [shared rules §12](.claude/commands/_shared-rules.md), preserving historical records.
+6. **Verify fan-out in both directions.** After propagating a change, search the old value for missed references and the new value for intended destinations; use stable subject/container anchors when wording varies. Triage the full hit sets under [shared rules §12](.claude/commands/_shared-rules.md), preserving historical records.
 
 ---
 

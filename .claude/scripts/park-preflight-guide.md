@@ -1,6 +1,6 @@
 # Park startup receipts
 
-`park-preflight.py` gathers read-only startup data for an explicit Park or checkpoint request. Native mode consumes UserPromptSubmit JSON and emits `hookSpecificOutput.additionalContext` containing the complete JSON receipt bundle. Ordinary prompts, questions about Park, quotations, fenced code and pasted prose emit nothing. Direct `/park`, `/checkpoint`, `$park` and `$checkpoint` forms support flag arguments, including `--quick`. Anchored command-name/command-message and skill-name expansions are supported for compatibility; matching expansion metadata is treated as a request, not authenticated by this parser.
+`park-preflight.py` gathers read-only startup data for an explicit Park request. Native mode consumes UserPromptSubmit JSON and emits `hookSpecificOutput.additionalContext` containing the complete JSON receipt bundle. Ordinary prompts, questions about Park, quotations, fenced code and pasted prose emit nothing. Direct `/park` and `$park` forms support flag arguments, including `--quick`. Anchored command-name/command-message and skill-name expansions are supported for compatibility; matching expansion metadata is treated as a request, not authenticated by this parser.
 
 [Claude's hook reference](https://code.claude.com/docs/en/hooks#userpromptsubmit) documents context delivery. An opt-in handler inside the existing `hooks.UserPromptSubmit` array is:
 
