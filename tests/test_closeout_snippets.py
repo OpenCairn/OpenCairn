@@ -17,6 +17,15 @@ CLOSEOUTS = (ROOT / '.claude/commands/_closeout.md', ROOT / 'codex/skills/_close
 PARKS = (ROOT / '.claude/commands/park.md', ROOT / 'codex/skills/park/SKILL.md')
 GOODNIGHTS = (ROOT / '.claude/commands/goodnight.md', ROOT / 'codex/skills/goodnight/SKILL.md')
 PARK_REVIEW = ROOT / 'codex/skills/park/scripts/park-review.py'
+# Formats whose header guarantees binary content; the live search skips them by extension.
+MEDIA_EXTENSIONS = (
+    'png jpg jpeg webp gif heic heif bmp ico tif tiff avif psd xcf '  # images
+    'arw cr2 cr3 nef dng raf orf rw2 '                                # camera raws
+    'mp4 mov mkv webm avi m4v mp3 m4a wav ogg flac opus aac '         # video, audio
+    'woff woff2 ttf otf eot zip gz tgz bz2 xz 7z rar zst tar '        # fonts, archives
+    'docx xlsx pptx odt ods odg ots').split()                         # zip-based office files
+# Extensions that can hold searchable text and must stay in the walk.
+SEARCHED_EXTENSIONS = ('pdf', 'doc', 'raw', 'json', 'md', 'txt', 'unknownext')
 
 
 def recipe(path: Path, marker: str) -> str:
@@ -358,6 +367,71 @@ class CloseoutSnippetTests(unittest.TestCase):
                 self.assertEqual(out.read_text(),
                                  './04 Areas/note.md:1:a long line naming the subject phrase in full\n')
                 self.assertIn('records: 1\n', result.stdout)
+
+    def test_live_search_excludes_media_by_extension_in_any_case(self):
+        for source in PARKS:
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); vault = root/'vault'
+                # Plain-text bytes under a media name: only the extension rule can exclude them.
+                for name, text in [('04 Areas/note.md', 'subject phrase\n'),
+                                   ('04 Areas/SCAN.PNG', 'subject phrase\nmedia-only marker\n'),
+                                   ('04 Areas/report.pdf', 'subject phrase\n'),
+                                   ('06 Archive/frozen.md', 'subject phrase\n')]:
+                    path = vault/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(text)
+                for ext in MEDIA_EXTENSIONS:
+                    (vault/f'04 Areas/lower.{ext}').write_text('extension probe\n')
+                    (vault/f'04 Areas/UPPER.{ext.upper()}').write_text('extension probe\n')
+                for ext in SEARCHED_EXTENSIONS:
+                    (vault/f'04 Areas/kept.{ext}').write_text('extension probe\n')
+                    (vault/f'04 Areas/ALSO.{ext.upper()}').write_text('extension probe\n')
+                (vault/'04 Areas/png').write_text('extension probe\n')  # a name, not an extension
+                # Control: without the block's exclusions the media-named file is ordinary searchable text.
+                control = subprocess.run(['rg', '--no-config', '-c', '-F', '--', 'subject phrase', '04 Areas/SCAN.PNG'],
+                                         cwd=vault, text=True, capture_output=True, timeout=20)
+                self.assertEqual((control.returncode, control.stdout), (0, '1\n'))
+
+                def search(needle, tag):
+                    out = root/f'{tag}.out'
+                    result = run_bash(recipe(source, 'LIVE SEARCH'), root, NEEDLE=needle, MATCH_MODE='phrase',
+                                      RAW_OUT=str(out), RAW_ERR=str(root/f'{tag}.err'))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    return result.stdout, sorted(out.read_text().splitlines())
+
+                printed, hits = search('subject phrase', 'text')
+                self.assertEqual(hits, ['./04 Areas/note.md:1:subject phrase', './04 Areas/report.pdf:1:subject phrase'])
+                self.assertIn('exit_status: 0', printed)
+                printed, hits = search('media-only marker', 'media')
+                self.assertEqual(hits, [])
+                self.assertIn('exit_status: 1', printed)
+                self.assertIn('records: 0\n', printed)
+                printed, hits = search('extension probe', 'probe')
+                kept = [f'kept.{ext}' for ext in SEARCHED_EXTENSIONS] + [f'ALSO.{ext.upper()}' for ext in SEARCHED_EXTENSIONS]
+                self.assertEqual(hits, sorted(f'./04 Areas/{name}:1:extension probe' for name in (*kept, 'png')))
+                # Negative conclusions stay scoped: the boundary text names the extension rule.
+                boundary = re.search(r'^\*\*Search boundary:\*\*.*$', source.read_text(encoding='utf-8'), re.M).group(0)
+                self.assertIn('by extension in any letter case', boundary)
+                self.assertIn('PDF and unlisted extensions stay included', boundary)
+
+    def test_new_entity_searches_take_the_live_search_media_exclusion(self):
+        # The inline new-entity commands name the block's media glob instead of repeating it.
+        for source in PARKS:
+            text = source.read_text(encoding='utf-8')
+            self.assertIn("each new-entity search adds the LIVE SEARCH block's media `--iglob`", text)
+            globs = re.findall(r"--iglob ('[^']+')", recipe(source, 'LIVE SEARCH'))
+            self.assertEqual(len(globs), 1, f'{source}: the media exclusion must stay one copyable argument')
+            command = re.search(r"`(rg [^`]*'<distinctive name>' \.)`", text).group(1)
+            argv = shlex.split(command.replace("'<distinctive name>'", "'Subject Phrase'"))
+            argv[argv.index('--'):argv.index('--')] = ['--iglob', *shlex.split(globs[0])]
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as tmp:
+                vault = Path(tmp)/'vault'
+                for name in ('04 Areas/note.md', '04 Areas/SCAN.PNG', '06 Archive/report.pdf'):
+                    path = vault/name; path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text('An earlier mention of the subject phrase.\n')
+                result = subprocess.run(argv, cwd=vault, stdin=subprocess.DEVNULL, text=True,
+                                        capture_output=True, timeout=20)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(sorted(line.split(':', 1)[0] for line in result.stdout.splitlines()),
+                                 ['./04 Areas/note.md', './06 Archive/report.pdf'])
 
     def test_new_entity_searches_ignore_user_ripgrep_config(self):
         # The pre-log new-entity commands are inline prose; run them as written under a hostile config.
