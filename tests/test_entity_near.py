@@ -293,6 +293,8 @@ def test_cli_reports_json_and_exit_status_with_a_control(tmp_path):
                                         capture_output=True, text=True, timeout=20)
     clean = run()
     report = json.loads(clean.stdout)
+    assert json.loads(run("--cache", str(tmp_path / "unused.sqlite")).stdout) == report  # ignored
+    assert not (tmp_path / "unused.sqlite").exists()
     assert clean.returncode == 0 and report["complete"] and report["matches"][0]["phrase"] == "ceder link"
     assert "body text not compared" in report["scope"]
     (root / "bad.md").write_bytes(b"\0")

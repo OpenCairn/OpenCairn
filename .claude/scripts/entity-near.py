@@ -231,6 +231,8 @@ def main():
     parser.add_argument("--root", required=True)
     parser.add_argument("--name", action="append", required=True)
     parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
+    # Accepted and ignored: instructions written for the cached version still pass it.
+    parser.add_argument("--cache", help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
         report = scan(args.root, args.name, args.max_bytes)
