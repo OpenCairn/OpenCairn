@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Park startup receipts, not final task deduplication or write approval."""
+"""Park startup receipts from read-only lookups, not final task deduplication or write approval."""
 
 import argparse
 import base64
@@ -15,6 +15,9 @@ import time
 
 TASK_PATTERN = r'^\s*[-*+]\s+\[ \]\s'
 SID_PATTERN = r'[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}'
+HOOK_LABEL = 'Park startup receipts (not final dedup):\n'
+# The harness shows the model only a short preview of hook output over 10,000 characters.
+HOOK_LIMIT = 9000
 
 
 def park_request(prompt):
@@ -210,8 +213,9 @@ def summary(data, receipt_path, raw):
         item['records'] = len(entry['receipt']['stdout'].splitlines()) if entry.get('receipt') else None
         tasks.append(item)
     vault = data['vault']
-    return {'kind': 'park-preflight-summary', 'receipt': bounded(receipt_path),
-            'receipt_sha256': hashlib.sha256(raw).hexdigest(), 'receipt_bytes': len(raw),
+    return {'kind': 'park-preflight-summary', 'receipt': str(receipt_path) if receipt_path else None,
+            'receipt_sha256': hashlib.sha256(raw).hexdigest() if raw else None,
+            'receipt_bytes': len(raw) if raw else None,
             'session': {'id': bounded(data['session']['id']), 'source': data['session']['source']},
             'clock': bounded((data['clock']['receipt'] or {}).get('stdout', '').strip(), 80),
             'final_dedup_complete': data['final_dedup_complete'], 'action': data['action'],
@@ -222,8 +226,30 @@ def summary(data, receipt_path, raw):
                              for item in data['dependencies']]}
 
 
+def hook_output(body, limit=HOOK_LIMIT):
+    """Hook stdout never exceeds the limit: shed detail the receipt file keeps instead."""
+    def render(value):
+        return json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit',
+            'additionalContext': HOOK_LABEL + json.dumps(value, ensure_ascii=True)}}, ensure_ascii=True)
+
+    def states(entry):
+        return {key: entry[key] for key in ('state', 'command', 'records') if key in entry}
+
+    text = render(body)
+    if len(text) > limit:
+        slim = {key: body[key] for key in ('kind', 'receipt', 'receipt_error', 'session',
+                                           'final_dedup_complete', 'action') if key in body}
+        slim.update(detail='omitted_for_size', vault=states(body['vault']), ledger=states(body['ledger']),
+                    task_candidates=[states(item) for item in body['task_candidates']])
+        text = render(slim)
+    if len(text) > limit:
+        text = render({'kind': 'park-preflight-summary', 'detail': 'omitted_for_size',
+                       'final_dedup_complete': False, 'action': 'run_normal_setup_reads'})
+    return text
+
+
 def write_receipt(path, data, vault):
-    """Write the complete bundle to a new file outside the vault; never replace one."""
+    """Write the complete bundle to a new owner-only file; never replace one or write inside `vault`."""
     target = path.absolute()
     if vault and (target.parent.resolve() == Path(vault) or Path(vault) in target.parent.resolve().parents):
         raise ValueError(f'receipt path is inside the vault: {target}')
@@ -240,7 +266,7 @@ def main():
     parser.add_argument('--session-id', help='actual parent id in manual mode')
     parser.add_argument('--cwd', type=Path, help='manual command working directory')
     parser.add_argument('--timeout', type=float, default=2.0, help='per command seconds, maximum 10')
-    parser.add_argument('--revalidate', type=Path, help='check source hashes of a saved stdout bundle')
+    parser.add_argument('--revalidate', type=Path, help='check source hashes of a saved bundle or receipt file')
     parser.add_argument('--receipt', type=Path, help='manual mode: write the raw bundle to this new path and print a bounded summary')
     args = parser.parse_args()
     if not 0 < args.timeout <= 10:
@@ -283,8 +309,19 @@ def main():
     elif args.manual:
         output = data
     else:
-        output = {'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit',
-                  'additionalContext': 'Park startup receipts (not final dedup):\n' + json.dumps(data, ensure_ascii=True)}}
+        # The complete bundle goes beside the session ledger; only a bounded summary enters context.
+        config = Path(env.get('CLAUDE_CONFIG_DIR') or str(Path.home() / '.claude'))
+        stamp = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+        receipt = (config / '.session-state'
+                   / f"{sid or 'no-session'}.park-preflight.{stamp}.{os.getpid()}.json").absolute()
+        try:
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            output = summary(data, receipt, write_receipt(receipt, data, None))
+        except OSError as exc:
+            output = summary(data, None, None)
+            output['receipt_error'] = bounded(exc)
+        print(hook_output(output))
+        return 0
     print(json.dumps(output, ensure_ascii=True))
     return 0
 

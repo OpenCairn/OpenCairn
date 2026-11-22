@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -52,13 +54,22 @@ class ParkPreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return result
 
+    def hook_summary(self, **kwargs):
+        stdout = self.invoke(**kwargs).stdout
+        self.assertLess(len(stdout), 10000)
+        hook = json.loads(stdout)['hookSpecificOutput']
+        self.assertEqual(hook['hookEventName'], 'UserPromptSubmit')
+        label, body = hook['additionalContext'].split('\n', 1)
+        self.assertEqual(label, 'Park startup receipts (not final dedup):')
+        return json.loads(body)
+
     def bundle(self, **kwargs):
-        data = json.loads(self.invoke(**kwargs).stdout)
-        if 'hookSpecificOutput' in data:
-            hook = data['hookSpecificOutput']
-            self.assertEqual(hook['hookEventName'], 'UserPromptSubmit')
-            return json.loads(hook['additionalContext'].split('\n', 1)[1])
-        return data
+        """The complete bundle: manual stdout, or the receipt file a hook summary names."""
+        if '--manual' in kwargs.get('args', ()):
+            return json.loads(self.invoke(**kwargs).stdout)
+        summary = self.hook_summary(**kwargs)
+        self.assertEqual(summary['kind'], 'park-preflight-summary')
+        return json.loads(Path(summary['receipt']).read_bytes())
 
     def test_genuine_and_expanded_requests(self):
         prompts = ['/park', '/park --quick', '$park', '$park --quick',
@@ -82,6 +93,7 @@ class ParkPreflightTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.invoke(prompt).stdout, '')
         self.assertEqual(self.invoke(hook_event_name='Stop').stdout, '')
+        self.assertEqual([p.name for p in self.state.iterdir()], ['event-root.tsv'])
 
     def test_event_root_ledger_and_complete_actual_command_receipts(self):
         data = self.bundle()
@@ -165,6 +177,94 @@ class ParkPreflightTests(unittest.TestCase):
         self.assertEqual(base64.b64decode(receipt['stdout_base64']), body.encode())
         self.assertEqual(base64.b64decode(receipt['stderr_base64']), diagnostic.encode())
         self.assertEqual(receipt['output_bytes'], 32000)
+
+    def test_hook_prints_capped_summary_and_saves_complete_receipt(self):
+        def snapshot(directory):
+            return {str(p.relative_to(directory)): p.read_bytes()
+                    for p in directory.rglob('*') if p.is_file()}
+        self.week.write_text('# Week\n' + ''.join(f'- [ ] task {i} {"x" * 40}\n' for i in range(3000)))
+        self.ledger.write_text(''.join(
+            f'2026-01-01T00:00:00Z\tWrite\t/fixture/note-{i}.md\tmain\n' for i in range(400)))
+        before = {str(p): snapshot(p) for p in [self.home, self.vault]}
+        result = self.invoke()
+        self.assertLess(len(result.stdout), 10000)
+        summary = json.loads(json.loads(result.stdout)['hookSpecificOutput']['additionalContext'].split('\n', 1)[1])
+        self.assertEqual(before, {str(p): snapshot(p) for p in [self.home, self.vault]})
+        self.assertEqual(summary['session'], {'id': 'event-root', 'source': 'UserPromptSubmit.session_id'})
+        self.assertFalse(summary['final_dedup_complete'])
+        self.assertEqual(summary['vault']['state'], 'checked')
+        self.assertEqual(summary['vault']['command']['exit_status'], 0)
+        self.assertEqual(summary['ledger']['state'], 'checked_nonempty')
+        self.assertEqual(summary['ledger']['command']['status'], 'completed')
+        self.assertEqual(summary['ledger']['records'], {'files': 400, 'writes': 400})
+        self.assertEqual([item['records'] for item in summary['task_candidates']], [3000, 1])
+        self.assertEqual([item['command']['exit_status'] for item in summary['task_candidates']], [0, 0])
+        self.assertNotIn('task 2999', result.stdout)
+        receipt = Path(summary['receipt'])
+        self.assertTrue(receipt.is_absolute())
+        self.assertEqual(receipt.parent, self.state)
+        self.assertEqual(sorted(p.name for p in self.state.iterdir()), sorted(['event-root.tsv', receipt.name]))
+        if os.name != 'nt':
+            self.assertEqual(receipt.stat().st_mode & 0o777, 0o600)
+        raw = receipt.read_bytes()
+        self.assertGreater(len(raw), 100_000)
+        self.assertEqual(summary['receipt_sha256'], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(summary['receipt_bytes'], len(raw))
+        data = json.loads(raw)
+        self.assertEqual(len(data['task_candidates'][0]['receipt']['stdout'].splitlines()), 3000)
+        self.assertIn('/fixture/note-399.md', data['ledger']['receipt']['stdout'])
+        check = json.loads(self.invoke(args=['--revalidate', str(receipt)]).stdout)
+        self.assertTrue(check['source_hashes_match'], check)
+
+    def test_hook_summary_sheds_detail_instead_of_exceeding_cap(self):
+        # Long non-ASCII paths inflate every escaped path field of the full summary.
+        deep = self.root / ('\u00e9' * 100) / ('\u00e8' * 100) / ('\u00ea' * 100)
+        deep.mkdir(parents=True)
+        vault = deep / 'vault'
+        shutil.move(str(self.vault), str(vault))
+        self.env['VAULT_PATH'] = str(vault)
+        result = self.invoke()
+        self.assertLess(len(result.stdout), 10000)
+        summary = json.loads(json.loads(result.stdout)['hookSpecificOutput']['additionalContext'].split('\n', 1)[1])
+        self.assertEqual(summary['detail'], 'omitted_for_size')
+        self.assertEqual(summary['session']['id'], 'event-root')
+        self.assertEqual(summary['vault']['state'], 'checked')
+        self.assertEqual(summary['ledger']['records'], {'files': 1, 'writes': 1})
+        self.assertEqual([item['records'] for item in summary['task_candidates']], [1, 1])
+        data = json.loads(Path(summary['receipt']).read_bytes())
+        self.assertEqual(data['vault']['path'], str(vault.resolve()))
+
+    def test_hook_output_cap_holds_for_any_summary(self):
+        spec = importlib.util.spec_from_file_location('park_preflight', SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        surface = {'state': 'checked_nonempty', 'path': 'p' * 5000, 'sha256': 'a' * 64,
+                   'command': {'status': 'completed', 'exit_status': 0, 'output_bytes': 1}, 'records': 1}
+        body = {'kind': 'park-preflight-summary', 'receipt': '/' + 'r' * 300, 'session': {'id': 's', 'source': 'x'},
+                'final_dedup_complete': False, 'action': 'fresh_read_and_dedup_before_writing',
+                'vault': dict(surface), 'ledger': dict(surface), 'task_candidates': [dict(surface)] * 2,
+                'dependencies': [dict(surface)] * 2}
+        shed = module.hook_output(body)
+        self.assertLessEqual(len(shed), module.HOOK_LIMIT)
+        self.assertLess(module.HOOK_LIMIT, 10000)
+        self.assertIn('r' * 300, shed)
+        self.assertNotIn('p' * 100, shed)
+        body['receipt'] = '/' + 'r' * 20000
+        last = module.hook_output(body)
+        self.assertLessEqual(len(last), module.HOOK_LIMIT)
+        notice = json.loads(json.loads(last)['hookSpecificOutput']['additionalContext'].split('\n', 1)[1])
+        self.assertEqual(notice['action'], 'run_normal_setup_reads')
+        self.assertFalse(notice['final_dedup_complete'])
+
+    def test_hook_still_summarises_when_receipt_cannot_be_written(self):
+        shutil.rmtree(self.state)
+        self.state.write_text('not a directory')
+        summary = self.hook_summary()
+        self.assertIsNone(summary['receipt'])
+        self.assertIsNone(summary['receipt_sha256'])
+        self.assertTrue(summary['receipt_error'])
+        self.assertEqual(summary['vault']['state'], 'checked')
+        self.assertEqual([item['records'] for item in summary['task_candidates']], [1, 1])
 
     def test_revalidation_detects_changed_sources_and_missing_surfaces(self):
         bundle = self.bundle()
