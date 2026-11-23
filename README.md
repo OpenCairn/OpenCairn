@@ -24,10 +24,6 @@ It combines a personal knowledge vault with reusable workflows for [Claude Code]
   <a href="#quick-start">Quick start</a> · <a href="docs/getting-started.md">Setup guide</a> · <a href="docs/skills.md">Skill reference</a> · <a href="DESIGN.md">Architecture</a>
 </p>
 
-## Optional semantic checks
-
-Claude and Codex workflows can use an optional [Jev second pass](.claude/commands/_semantic-checks.md) for explicitly selected synthetic or public text. It reuses a pinned `hermes-jev-skills` client and keeps decision receipts; private text, outages and uncertain results retain ordinary review. This bounded triage capability does not replace source checks or independent review.
-
 ## Who this is for
 
 OpenCairn suits people managing projects and life admin who want useful context to survive between AI sessions. You should be comfortable using a terminal and adapting a Markdown-based system to your own routines.
