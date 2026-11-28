@@ -286,8 +286,8 @@
     "_closeout": {
       "source": ".claude/commands/_closeout.md",
       "render": "codex/skills/_closeout.md",
-      "source_sha256": "249c5ac72c4ccd5e312f253ca1ec50a742a2ad893e1409adede4f6bd07522a82",
-      "render_sha256": "8ba85f0f490a795a1019e6c6cff286dcd66c7be236aae2da474df735163f9ae9"
+      "source_sha256": "ef7b0d2e5f4786fd5704a54655c8cf65c6f2e92b0f145eab672e051b780e266d",
+      "render_sha256": "d890fde825a610c504d9dd8088489f47c43346af09f705b7b4ef009cef78b5df"
     }
   }
 }
