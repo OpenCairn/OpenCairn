@@ -178,7 +178,7 @@ The script handles locking, file/header creation, and atomic numbering — paral
 
 **Continuation link** (only if continuing previous work): run `"{VAULT}/.claude/scripts/add-forward-link.sh" --continued-in "<original session's log file>" <orig-N> <new-N> "<topic>" "<today's YYYY-MM-DD>.md"`. The first file is the **original** log gaining `Continued in:`, never today's file; explicitly pass today's target-date filename on cross-day continuations, including archived originals. Links remain file-level (§13). A failure is reported as a warning, not silently treated as inserted.
 
-Use `"{VAULT}/.claude/scripts/update-session-section.sh" "<log>" --rename-heading N "<complete ## Session N - ... heading>"` for a needed heading correction; read and retain its existing time suffix and avoid unstable counts in topics. Every non-scratch deletion description quotes its authorising user words or says it was the session's decision; a summary request alone does not authorise deletion. A user decision left open belongs in Next Steps and its task home, not only `Check:`. For each in-session recommendation the user acted on, confirm the chosen option from the user's words or a tool result; an unconfirmed choice that gates a consequence (a follow-up, coding, filing or booking that depends on which option was taken) becomes a conditional open loop plus a `Missing:` line, never `None — work completed`.
+Use `"{VAULT}/.claude/scripts/update-session-section.sh" "<log>" --rename-heading N "<complete ## Session N - ... heading>"` for a needed heading correction; read and retain its existing time suffix and avoid unstable counts in topics. Every non-scratch deletion description quotes its authorising user words or says it was the session's decision; a summary request alone does not authorise deletion. A user decision that meets Step 7's task-home test belongs in Next Steps and its task home, not only `Check:`. For each in-session recommendation the user acted on, confirm the chosen option from the user's words or a tool result; an unconfirmed choice that gates a consequence (a follow-up, coding, filing or booking that depends on which option was taken) becomes a conditional open loop plus a `Missing:` line, never `None — work completed`.
 
 ### 4. At-risk work product
 
@@ -269,7 +269,9 @@ Output: `✓ Reference graph: N files updated for [identifier]` plus the actual 
 
 ### 7. Route open loops
 
-Route every open loop to exactly one canonical target — no per-item prompting. Apply Step 2(b)’s authored-check gate before saving routed checks, including Tickler and This Week items; a linked canonical procedure discharges the gate only when its actual criteria discriminate the current hypotheses. A routed setup action needs an observable done-condition isolating the new component and steps checked against the relevant live config.
+Before selecting a task home for a new follow-up, check the user's request and what the requested work left open. Route it to one canonical task home if the user asked for the follow-up or the requested work left it open. For an incidental finding, record the fact as plain prose in its canonical note, or in Next Steps with a `Check:` line if no note fits. Print `✓ Finding recorded: [item] → [note | Next Steps and Check]`.
+
+Route eligible open loops without per-item prompting. Apply Step 2(b)’s authored-check gate before saving routed checks, including Tickler and This Week items. A routed setup action needs an observable done-condition isolating the new component and steps checked against the relevant live config.
 
 **Already in This Week.md:** keep the existing task there; update any changed scope in place. Do not recapture or offload it through the routing rules below. Shared §9 owns carry-forward.
 
@@ -286,7 +288,7 @@ Route every open loop to exactly one canonical target — no per-item prompting.
 
 Before accepting an existing or rewritten task as coverage, compare its trigger, scope text and linked record with the session's final state. Update stale wording in place, including a completed mechanical subtask whose remaining verification still survives; update a living linked scope record when it omits that surviving scope. Keep historical records byte-identical; carry the current scope in the task and relink to its living canonical record or this session's entry. For each accepted existing item emit `✓ Covered: [item] (trigger | scope | linked record: current/updated/historical retained)` with the actual target. A deduplicated item must carry the surviving action and trigger itself, not just a session link; an undated item can cover an undated trigger when it preserves the exact action/condition. Do not invent a date to force deduplication. Name the map row checked (or `absent from table`) before using its fallback.
 
-Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. A zero-routing claim cites an observable (the dedup grep hit, or the session log's "None — work completed") and holds only when Step 3's acted-on-recommendation check left no conditional loop.
+Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. Support a zero-routing claim with the applicable evidence: dedup hits, recorded finding dispositions, or the session log's "None — work completed". Account for any conditional loop from Step 3's acted-on-recommendation check.
 
 ### 8. Backfill + mechanical verification
 
@@ -312,7 +314,7 @@ Give every file Step 4c did not inspect (Steps 5–8 writes, the seat's included
 
 Execute **Independent review** in the [shared close-out protocol](_closeout.md). Supply Step 8’s propagation result and verified Files list. Only a clean completed review permits Steps 10–11 and completion; the explicit Setup incomplete-checkpoint exception remains unchanged.
 
-User changes or world-state updates arriving during/after the gate require the shared protocol's new fix round before completion; a clean earlier report does not cover new bytes. Re-read edited regions and the assigned entry, including heading and all paraphrases, after every repair.
+Before recording a follow-up in any fix round, apply Step 7's task-home test, including when a reviewer calls the finding an unrecorded open loop. Apply Step 2(b) to any new or revised check. User changes or world-state updates arriving during or after the gate require a new fix round before completion. Re-read edited regions and the assigned entry, including the heading and its paraphrases, after every repair.
 
 ### 10. Skill monitor
 
@@ -361,6 +363,6 @@ Parked.
 [Roughly 50 words summarising the preceding session.]
 ```
 
-**Check / Missing lines:** print after the status lines and before the closing word. `Check:` names a judgement call this park made where a reasonable alternative would change what the user does next (a routing target, project link, dedup skip, classification or session framing). `Missing:` names detail this park needed but did not have (a value left out rather than invented, an unknown event date, an unresolved pass/fail criterion) and where the gap was left, including a gap a propagation seat reported. One line per item, naming its file or target. Omit either heading entirely when it has no items; never write `none`. Choices made under this skill's rules and things omitted as routine are not listed. These lines are where the user answers; acting on an answer is post-park work (below).
+**Check / Missing lines:** print after the status lines and before the closing word. `Check:` names a judgement call this park made where a reasonable alternative would change what the user does next (a routing target, project link, dedup skip, classification or session framing). It also flags an incidental finding recorded in Next Steps under Step 7. `Missing:` names detail this park needed but did not have (a value left out rather than invented, an unknown event date, an unresolved pass/fail criterion) and where the gap was left, including a gap a propagation seat reported. One line per item, naming its file or target. Omit either heading entirely when it has no items; never write `none`. Choices made under this skill's rules and things omitted as routine are not listed. These lines are where the user answers; acting on an answer is post-park work (below).
 
 Work done after this message is unparked: a further `/park` in the same conversation takes Step 1's merge path.
