@@ -89,7 +89,13 @@ Run and display the count-word/ordinal/back-reference/relative-time scan over fi
 <!-- BEGIN DURABILITY SCAN -->
 ```bash
 SCAN_RC=0
-rg -n -i '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|second|third|former|latter|above|below|this (line|section)|tomorrow|yesterday|next (day|week))\b' "$SCAN_INPUT" || SCAN_RC=$?
+# A bare weekday ends the line or is followed by something other than a date number.
+rg --no-config -n -i \
+  -e '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|second|third|former|latter|above|below)\b' \
+  -e '\b(lines?[[:blank:]]+[0-9]+([–-][0-9]+)?|this (line|section|year|month|quarter|week|morning|evening))\b' \
+  -e "\b(tomorrow|yesterday|next (day|week)|tonight|today(['’]s)?|currently|as of now)\b" \
+  -e '\b(mon(day)?|tue(s(day)?)?|wed(nesday)?|thu(r(s(day)?)?)?|fri(day)?|sat(urday)?|sun(day)?)\b[[:blank:]]*($|[^[:blank:]0-9,]|,[[:blank:]]*($|[^[:blank:]0-9]))' \
+  -- "$SCAN_INPUT" || SCAN_RC=$?
 [ "$SCAN_RC" -le 1 ] || exit "$SCAN_RC"
 printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate needs triage)\n' "$SCAN_RC"
 ```
