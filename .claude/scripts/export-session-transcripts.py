@@ -16,10 +16,18 @@ encrypted at rest in the rollout — only the task name is exportable.
 
 Usage:
     export-session-transcripts.py <vault_path> [--days N] [--all-projects]
+        [--verify-session HARNESS:SESSION_ID]
 
 Options:
     --days N       Export sessions modified in the last N days (default: 7)
     --all-projects Export every Claude Code project and Codex rollout
+    --verify-session claude:<session UUID> | codex:<rollout UUID>
+                   After writing, read back the day file this source was
+                   exported to and print one receipt line naming the file and
+                   the exact heading; exit non-zero unless that section holds
+                   this source's exact rendered body (a differing retained
+                   body is reported as identity inconclusive);
+                   exit 3 if the file changed after the write (rerun)
 """
 
 import argparse
@@ -434,12 +442,15 @@ def source_backed_body(existing, incoming):
     return existing
 
 
-def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
+def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5, capture=None):
     """Merge and atomically replace one day file under its canonical lock.
 
     locked-edit's whole-file mode compares the snapshot hash while holding the
     lock. Exit 2 means a concurrent exporter won after our read, so re-read,
     re-merge, and retry instead of clobbering its sessions.
+
+    `capture` (a dict, for --verify-session) receives the installed attempt's
+    merged mapping and exact content bytes.
     """
     incoming_keys = {session_identity(slug, start_time) for start_time, slug, _body in sessions}
 
@@ -468,6 +479,8 @@ def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
             stderr=subprocess.PIPE,
         )
         if result.returncode == 0:
+            if capture is not None:
+                capture["merged"], capture["content"] = merged, content
             return len(on_disk_keys - incoming_keys)
         if result.returncode == 2 and attempt + 1 < attempts:
             continue
@@ -480,13 +493,59 @@ def write_day_locked(output_file, date_str, sessions, locked_edit, attempts=5):
     raise RuntimeError(f"could not install {output_file}: concurrent updates did not settle")
 
 
+def verify_session_arg(value):
+    """Parse HARNESS:SESSION_ID for --verify-session."""
+    harness, _, sid = value.partition(":")
+    if harness not in ("claude", "codex") or not sid or "/" in sid:
+        raise argparse.ArgumentTypeError(
+            f"expected claude:<session UUID> or codex:<rollout UUID>, got {value!r}"
+        )
+    return harness, sid
+
+
+def body_is_source_slot(stored, produced):
+    """True when the merged slot holds exactly this source's rendered body.
+
+    Only writer whitespace (leading/trailing) is normalised. A longer or
+    different retained body under the same heading carries no provenance: it
+    may be this session's older export or a pruned different source.
+    """
+    produced = produced.strip()
+    return bool(produced) and stored.strip() == produced
+
+
+def finish_verify(label, heading, day_file, written):
+    """Receipt when the day file still holds the exact bytes this run wrote.
+
+    Returns 0 (receipt printed) or 3 (inconclusive: the file changed after the
+    write, so the verified slot may no longer be what is on disk).
+    """
+    try:
+        on_disk = day_file.read_bytes()
+    except OSError:
+        on_disk = None
+    if on_disk != written:
+        print(
+            f"Error: export not verified for {label}: inconclusive: day file changed after "
+            f"write (concurrent update?) — rerun: {day_file}",
+            file=sys.stderr,
+        )
+        return 3
+    print(f"Export verified: {label} | {day_file} | {heading}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("vault_path", type=Path)
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--all-projects", action="store_true")
     parser.add_argument("--fallback-any-project", action="store_true")
+    parser.add_argument("--verify-session", type=verify_session_arg, metavar="HARNESS:SESSION_ID")
     args = parser.parse_args()
+    verify = args.verify_session
+    verified = None  # (date_str, slug, start_time, body) once the verified source is queued
+    queued_sources = []  # (source path, date_str, slug, start_time, body) per queued session
 
     vault_path = args.vault_path
     locked_edit = Path(__file__).with_name("locked-edit.sh")
@@ -586,6 +645,9 @@ def main():
             body = formatted.split("\n", 1)[1] if "\n" in formatted else ""
             sessions_by_date[date_str].append((start_time, slug, body))
             exported += 1
+            queued_sources.append((jsonl_path, date_str, slug, start_time, body))
+            if verify == ("claude", jsonl_path.stem):
+                verified = (jsonl_path, date_str, slug, start_time, body)
 
     # Codex CLI rollouts — same mtime window; cwd-scoped unless --all-projects,
     # mirroring the Claude source's per-project scoping.
@@ -619,6 +681,9 @@ def main():
             body = formatted.split("\n", 1)[1] if "\n" in formatted else ""
             sessions_by_date[date_str].append((start_time, slug, body))
             codex_exported += 1
+            queued_sources.append((jsonl_path, date_str, slug, start_time, body))
+            if verify == ("codex", jsonl_path.stem[-36:]):
+                verified = (jsonl_path, date_str, slug, start_time, body)
     exported += codex_exported
 
     # Write one file per date — MERGE, never replace.
@@ -633,12 +698,16 @@ def main():
     # disk only when it is longer (a session that grew since the last export).
     files_written = 0
     carried_total = 0
+    written = {}  # verify mode: merged slot and bytes installed for the verified day
     for date_str, sessions in sorted(sessions_by_date.items()):
         output_file = output_dir / f"{date_str}.md"
         try:
             # Count carry-forwards from the snapshot that actually won the
             # compare-and-swap, not from a stale failed attempt.
-            carried_total += write_day_locked(output_file, date_str, sessions, locked_edit)
+            capture = written if verified and verified[1] == date_str else None
+            carried_total += write_day_locked(
+                output_file, date_str, sessions, locked_edit, capture=capture
+            )
         except (OSError, RuntimeError) as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -654,6 +723,53 @@ def main():
     for date_str in sorted(sessions_by_date.keys()):
         count = len(sessions_by_date[date_str])
         print(f"  {date_str}: {count} sessions")
+
+    if verify:
+        harness, sid = verify
+        label = f"{harness}:{sid}"
+        if verified is None:
+            if harness == "claude":
+                sources = [p for d in scan_dirs for p in d.glob("*.jsonl") if p.stem == sid]
+            else:
+                sources = [p for p in codex_files if p.stem[-36:] == sid]
+            if not sources:
+                reason = "source not found among the scanned session files"
+            elif sources[0].stat().st_mtime < cutoff_ts:
+                reason = f"source is outside the --days {days} window"
+            elif harness == "codex" and not all_projects and codex_meta(sources[0])[1] != os.getcwd():
+                reason = "source is outside this cwd's scope"
+            else:
+                reason = "source has no exportable messages"
+            print(f"Error: export not verified for {label}: {reason}", file=sys.stderr)
+            sys.exit(1)
+        source, date_str, slug, start_time, body = verified
+        heading = f"### {slug} ({start_time})"
+        day_file = output_dir / f"{date_str}.md"
+        identity = session_identity(slug, start_time)
+        conflicts = [
+            str(path) for path, other_date, other_slug, other_start, other_body in queued_sources
+            if path != source and other_date == date_str
+            and session_identity(other_slug, other_start) == identity
+            and other_body.strip() != body.strip()
+        ]
+        if conflicts:
+            print(
+                f"Error: export not verified for {label}: ambiguous, {heading!r} in {day_file} "
+                f"is shared with a different source: {', '.join(conflicts)}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        if not body_is_source_slot(written["merged"].get((slug, start_time), ""), body):
+            print(
+                f"Error: export not verified for {label}: identity inconclusive: {heading!r} in "
+                f"{day_file} holds a different retained body (kept on disk unchanged); "
+                "no provenance ties it to this source",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        status = finish_verify(label, heading, day_file, written["content"])
+        if status:
+            sys.exit(status)
 
 
 if __name__ == "__main__":

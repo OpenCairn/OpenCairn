@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -423,6 +423,230 @@ class ExportSessionTranscriptsTests(unittest.TestCase):
         self.assertNotIn("task-notification", rendered)
         # A header re-parses unchanged, so day-file merge keys are stable.
         self.assertIn(("slug", "13:28"), exporter.parse_exported_text(rendered + exporter.SEPARATOR))
+
+    # --verify-session: the receipt must name the heading the exporter wrote,
+    # in the dated file it chose, read back from disk.
+    CLAUDE_ID = "5bb930aa-4885-440c-b1cc-5027a09b0780"
+    CODEX_ID = "019c1234-5678-7abc-9def-0123456789ab"
+
+    def make_claude_session(self, home: Path, cwd: Path, slug=None, records=None, sid=None) -> Path:
+        path = home / ".claude/projects" / str(cwd).replace("/", "-") / f"{sid or self.CLAUDE_ID}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if records is None:
+            first = {"type": "user", "timestamp": "2026-08-16T03:04:00Z",
+                "message": {"role": "user", "content": "verify prompt"}}
+            if slug:
+                first["slug"] = slug
+            records = [first, {"type": "assistant", "timestamp": "2026-08-16T03:05:00Z",
+                "message": {"role": "assistant", "content": [{"type": "text", "text": "verify reply"}]}}]
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        return path
+
+    def verify_roots(self, tmp):
+        root = Path(tmp).resolve()
+        home, vault, cwd = root / "home", root / "vault", root / "project"
+        cwd.mkdir(parents=True)
+        return home, vault, cwd
+
+    def assert_receipt(self, result, harness, sid, day_file: Path, heading: str) -> None:
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        receipts = [l for l in result.stdout.splitlines() if l.startswith("Export verified:")]
+        self.assertEqual(receipts, [f"Export verified: {harness}:{sid} | {day_file} | {heading}"])
+        self.assertIn(heading, day_file.read_text(encoding="utf-8").splitlines())
+
+    def assert_no_receipt(self, result) -> None:
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Export verified", result.stdout)
+        self.assertTrue(result.stderr.strip())
+
+    def test_verify_session_claude_with_slug(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, slug="brisk-otter")
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_receipt(result, "claude", self.CLAUDE_ID, self.export_day_path(vault, src), "### brisk-otter (03:04)")
+
+    def test_verify_session_claude_slugless_uses_stem_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd)
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_receipt(result, "claude", self.CLAUDE_ID, self.export_day_path(vault, src), "### 5bb930aa (03:04)")
+
+    def test_verify_session_codex_uses_id13_slug(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_codex_rollout(home, cwd)
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"codex:{self.CODEX_ID}")
+            self.assert_receipt(result, "codex", self.CODEX_ID, self.export_day_path(vault, src), "### codex-019c1234-5678 (00:00)")
+            self.assertNotIn(f"### codex-{self.CODEX_ID}", self.export_day_path(vault, src).read_text())
+
+    def test_verify_session_cross_day_names_mtime_dated_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, slug="late-night")
+            earlier = (datetime.now() - timedelta(days=2)).replace(hour=12).timestamp()
+            os.utime(src, (earlier, earlier))
+            day_file = self.export_day_path(vault, src)
+            self.assertNotEqual(day_file.stem, datetime.now().strftime("%Y-%m-%d"))
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_receipt(result, "claude", self.CLAUDE_ID, day_file, "### late-night (03:04)")
+
+    def test_verify_session_unknown_id_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            self.make_claude_session(home, cwd, slug="brisk-otter")
+            self.make_codex_rollout(home, cwd)
+            for value in ("claude:00000000-0000-0000-0000-000000000000",
+                          f"codex:{self.CLAUDE_ID}", f"claude:{self.CODEX_ID}"):
+                with self.subTest(value=value):
+                    self.assert_no_receipt(self.run_exporter(home, vault, cwd, "--verify-session", value))
+
+    def test_verify_session_empty_or_excluded_source_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            self.make_claude_session(home, cwd, records=[{"type": "summary", "summary": "x"}])
+            self.assert_no_receipt(self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}"))
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, slug="stale")
+            old = (datetime.now() - timedelta(days=30)).timestamp()
+            os.utime(src, (old, old))
+            self.assert_no_receipt(self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}"))
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            self.make_claude_session(home, cwd, slug="here")
+            self.make_codex_rollout(home, cwd.parent / "elsewhere")  # outside cwd scope
+            self.assert_no_receipt(self.run_exporter(home, vault, cwd, "--verify-session", f"codex:{self.CODEX_ID}"))
+
+    OTHER_ID = "7d3e0c1a-0000-4000-8000-00000000beef"
+
+    @staticmethod
+    def shared_key_records(text):
+        return [{"type": "user", "timestamp": "2026-08-16T03:04:00Z", "slug": "shared-slug",
+                 "message": {"role": "user", "content": text}}]
+
+    def test_verify_session_rejects_shared_key_sources_as_ambiguous(self) -> None:
+        # Two Claude sources sharing slug and UTC start minute share one day-file
+        # key and the merge keeps one body; neither can be verified from it.
+        for short_text, long_text in (("short source", "other source, much longer body"),
+                                      ("short", "shorter, but wholly different source")):
+            with self.subTest(short=short_text), tempfile.TemporaryDirectory() as tmp:
+                home, vault, cwd = self.verify_roots(tmp)
+                src = self.make_claude_session(home, cwd, records=self.shared_key_records(short_text))
+                self.make_claude_session(home, cwd, records=self.shared_key_records(long_text), sid=self.OTHER_ID)
+                for sid in (self.CLAUDE_ID, self.OTHER_ID):
+                    result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{sid}")
+                    self.assert_no_receipt(result)
+                    self.assertIn("ambiguous", result.stderr)
+                self.assertIn("### shared-slug (03:04)", self.export_day_path(vault, src).read_text().splitlines())
+
+    def test_verify_session_rejects_prefix_ending_mid_message(self) -> None:
+        # The day file already holds another source's section under the key;
+        # our body is a character prefix of it, not a message prefix.
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, records=self.shared_key_records("short"))
+            foreign = self.make_claude_session(
+                home, cwd.parent / "scratch", records=self.shared_key_records("shorter, but wholly different source"))
+            body = exporter.format_session(exporter.parse_session(foreign), "shared-slug", "03:04").split("\n", 1)[1]
+            foreign.unlink()
+            day_file = self.export_day_path(vault, src)
+            day_file.parent.mkdir(parents=True)
+            day_file.write_text(exporter.render_day_file(day_file.stem, {("shared-slug", "03:04"): body}))
+            self.assert_no_receipt(self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}"))
+
+    def test_verify_session_longer_retained_copy_is_identity_inconclusive(self) -> None:
+        # A day file already holding a longer copy under this heading may be this
+        # session's older export or a pruned different source: no provenance
+        # proves which, so the merge keeps it on disk but no receipt is issued.
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, slug="brisk-otter")
+            body = exporter.format_session(exporter.parse_session(src), "brisk-otter", "03:04").split("\n", 1)[1]
+            day_file = self.export_day_path(vault, src)
+            day_file.parent.mkdir(parents=True)
+            longer = body.rstrip() + "\n\n**User (03:09 UTC):**\nlater turn since dropped from the source\n"
+            day_file.write_text(exporter.render_day_file(day_file.stem, {("brisk-otter", "03:04"): longer}))
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_no_receipt(result)
+            self.assertIn("identity inconclusive", result.stderr)
+            self.assertIn("later turn since dropped", day_file.read_text())
+
+    def test_verify_session_pruned_other_source_longer_transcript_fails(self) -> None:
+        # A different UUID exported a longer transcript under the same heading
+        # whose whole-message prefix equals ours, then its JSONL was pruned.
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, records=self.shared_key_records("short"))
+            other = self.make_claude_session(home, cwd, records=self.shared_key_records("short") + [
+                {"type": "assistant", "timestamp": "2026-08-16T03:06:00Z",
+                    "message": {"role": "assistant", "content": [{"type": "text", "text": "other session's later reply"}]}}],
+                sid=self.OTHER_ID)
+            self.run_exporter(home, vault, cwd)
+            other.unlink()  # the other UUID's source is pruned; only its day-file section remains
+            day_file = self.export_day_path(vault, src)
+            self.assertIn("other session's later reply", day_file.read_text())
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_no_receipt(result)
+            self.assertIn("identity inconclusive", result.stderr)
+            self.assertIn("other session's later reply", day_file.read_text())
+
+    def test_verify_session_quoted_day_file_in_message_passes(self) -> None:
+        # A quoted separator + header inside a message must not be read as a
+        # session boundary by the verify path.
+        quote = "copied transcript:\n\n---\n\n### other-slug (10:00)\nquoted session body"
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, records=[{"type": "user", "slug": "quoting",
+                "timestamp": "2026-08-16T03:04:00Z", "message": {"role": "user", "content": quote}}])
+            result = self.run_exporter(home, vault, cwd, "--verify-session", f"claude:{self.CLAUDE_ID}")
+            self.assert_receipt(result, "claude", self.CLAUDE_ID, self.export_day_path(vault, src), "### quoting (03:04)")
+
+    def test_verify_inconclusive_when_day_file_changed_after_write(self) -> None:
+        import contextlib, io
+        with tempfile.TemporaryDirectory() as tmp:
+            day = Path(tmp) / "2026-08-16.md"
+            day.write_bytes(b"written by this run")
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                self.assertEqual(exporter.finish_verify("claude:x", "### s (00:00)", day, b"written by this run"), 0)
+            self.assertIn("Export verified: claude:x |", out.getvalue())
+            day.write_bytes(b"rewritten by a concurrent exporter")
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                self.assertEqual(exporter.finish_verify("claude:x", "### s (00:00)", day, b"written by this run"), 3)
+            self.assertEqual(out.getvalue(), "")
+            self.assertIn("inconclusive", err.getvalue())
+
+    def test_verify_session_malformed_value_is_usage_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            for value in ("claude", "gemini:abc", "claude:", ":abc"):
+                with self.subTest(value=value):
+                    result = self.run_exporter(home, vault, cwd, "--verify-session", value)
+                    self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+                    self.assertIn("usage:", result.stderr)
+            self.assertFalse((vault / "06 Archive").exists())
+
+    def test_summary_output_unchanged_without_verify_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, vault, cwd = self.verify_roots(tmp)
+            src = self.make_claude_session(home, cwd, slug="brisk-otter")
+            plain = self.run_exporter(home, vault, cwd)
+            self.assertEqual(plain.returncode, 0, plain.stdout + plain.stderr)
+            self.assertEqual(plain.stdout.splitlines()[1:], [
+                "Sessions exported: 1 (0 Codex)",
+                "Export counts JSONL source files, not parked session-log entries.",
+                "Sessions skipped (empty): 0",
+                "Transcript files written: 1",
+                f"  {self.export_day_path(vault, src).stem}: 1 sessions",
+            ])
+            verified = self.run_exporter(home, vault.parent / "vault2", cwd,
+                                         "--verify-session", f"claude:{self.CLAUDE_ID}")
+            lines = verified.stdout.splitlines()
+            self.assertEqual(lines[:-1], plain.stdout.splitlines())
+            self.assertTrue(lines[-1].startswith("Export verified: "))
 
 if __name__ == "__main__":
     unittest.main()

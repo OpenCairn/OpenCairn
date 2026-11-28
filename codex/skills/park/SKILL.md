@@ -336,10 +336,11 @@ Park-owned monitor entries, transcript exports and generated review receipts fol
 ### 11. Export transcript (last, so it captures the audit)
 
 ```bash
-python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
+python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects \
+  --verify-session "codex:<rollout UUID>"
 ```
 
-`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count. The exporter covers Claude Code sessions and Codex rollouts alike; a Codex session's heading is `### codex-<id13> (HH:MM)`, `<id13>` being the first 13 characters of its rollout filename's UUID. The printed totals do not establish this session: to confirm it landed, search that day's `06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md` for `### codex-<id13> (`, not the full UUID.
+`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. `<rollout UUID>` is the full UUID ending this session's rollout filename; the exporter derives the `### codex-<id13> (HH:MM)` heading itself. Report the count. The exporter covers Claude Code sessions and Codex rollouts alike, and its printed totals do not establish this session. Presence evidence is the `Export verified:` receipt line, naming the destination day file and the exact heading, read back after writing with this rollout's body under it. A non-zero exit is not a success. Exit 3 (inconclusive: the day file changed after the write) means rerun; any other failure, report the error rather than searching an assumed date's file.
 
 ### Measurement close-out (full, quick and blocked paths)
 

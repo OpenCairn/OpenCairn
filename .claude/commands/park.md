@@ -323,10 +323,11 @@ Park-owned monitor entries, transcript exports and generated review receipts fol
 ### 11. Export transcript (last, so it captures the audit)
 
 ```bash
-python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects
+python3 "{VAULT}/.claude/scripts/export-session-transcripts.py" "{VAULT}" --days 7 --all-projects \
+  --verify-session "claude:<this session ID>"
 ```
 
-`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. Report the count; the printed totals do not establish this session, so confirm its `### <slug> (` heading (the `slug` field of this session's JSONL) is in that day's `06 Archive/OpenCairn/.Session Transcripts/YYYY-MM-DD.md`.
+`--all-projects` is cwd-independent and merges multi-project days (a single-project export hashes an incomplete day; do NOT use `--fallback-any-project`). `--days 7` because the cutoff is a rolling window from now — `--days 1` truncates boundary days. `<this session ID>` is the UUID naming this session's JSONL (resolve via `lib-session.sh`). Report the count; the totals do not establish this session. The `Export verified:` receipt line — destination day file and exact heading, read back after writing with this source's body under it — is the presence evidence. A non-zero exit is not a success: exit 3 (inconclusive, day file changed after write) means rerun; otherwise report the error, do not hand-search an assumed date's file.
 
 ### Measurement close-out (full, quick and blocked paths)
 
