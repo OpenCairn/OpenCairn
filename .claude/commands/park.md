@@ -290,7 +290,7 @@ Route eligible open loops without per-item prompting. Apply Step 2(b)’s author
 
 Before accepting an existing or rewritten task as coverage, compare its trigger, scope text and linked record with the session's final state. Update stale wording in place, including a completed mechanical subtask whose remaining verification still survives; update a living linked scope record when it omits that surviving scope. Keep historical records byte-identical; carry the current scope in the task and relink to its living canonical record or this session's entry. For each accepted existing item emit `✓ Covered: [item] (trigger | scope | linked record: current/updated/historical retained)` with the actual target. A deduplicated item must carry the surviving action and trigger itself, not just a session link; an undated item can cover an undated trigger when it preserves the exact action/condition. Do not invent a date to force deduplication. Name the map row checked (or `absent from table`) before using its fallback.
 
-Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. Support a zero-routing claim with the applicable evidence: dedup hits, recorded finding dispositions, or the session log's "None — work completed". Account for any conditional loop from Step 3's acted-on-recommendation check.
+Output: `✓ Routed: [item] → [target] (map row: [row | absent from table])` per item. When no tasks were routed, cite dedup hits, recorded finding dispositions, or the session log's "None — work completed". Account for any conditional loop from Step 3's acted-on-recommendation check.
 
 ### 8. Backfill + mechanical verification
 

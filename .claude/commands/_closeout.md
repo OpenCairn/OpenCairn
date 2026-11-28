@@ -93,12 +93,14 @@ Run and display the count-word/ordinal/back-reference/relative-time scan over fi
 <!-- BEGIN DURABILITY SCAN -->
 ```bash
 SCAN_RC=0
-# A bare weekday ends the line or is followed by something other than a date number.
+# Flag a weekday without a day number or followed by a time.
+WEEKDAY='\b(mon(day)?|tue(s(day)?)?|wed(nesday)?|thu(r(s(day)?)?)?|fri(day)?|sat(urday)?|sun(day)?)\b'
 rg --no-config -n -i \
   -e '\b(one|two|three|four|five|six|seven|eight|nine|ten|both|all|first|second|third|former|latter|above|below)\b' \
   -e '\b(lines?[[:blank:]]+[0-9]+([–-][0-9]+)?|this (line|section|year|month|quarter|week|morning|evening))\b' \
   -e "\b(tomorrow|yesterday|next (day|week)|tonight|today(['’]s)?|currently|as of now)\b" \
-  -e '\b(mon(day)?|tue(s(day)?)?|wed(nesday)?|thu(r(s(day)?)?)?|fri(day)?|sat(urday)?|sun(day)?)\b[[:blank:]]*($|[^[:blank:]0-9,]|,[[:blank:]]*($|[^[:blank:]0-9]))' \
+  -e "$WEEKDAY"'[[:blank:]]*($|[^[:blank:]0-9,]|,[[:blank:]]*($|[^[:blank:]0-9]))' \
+  -e "$WEEKDAY"'[[:blank:],]+[0-9]{1,2}(:[0-9]{2}|[[:blank:]]*[ap]\.?m)\b' \
   -- "$SCAN_INPUT" || SCAN_RC=$?
 [ "$SCAN_RC" -le 1 ] || exit "$SCAN_RC"
 printf 'Durability scan: %s (0=candidates, 1=no candidates; every candidate needs triage)\n' "$SCAN_RC"
@@ -208,7 +210,7 @@ Output: the script's `RESULT:` line plus what you fixed.
 
 **Review packet currency and reach:** after remediation or a world-state update, reconcile the assigned entry and rewrite affected Files descriptions as whole section bodies, retaining other rows. Run a fresh Assigned-session extraction after the latest entry edit. List each replaced/retired phrase and, before rebuilding the brief, run `rg --no-config --hidden --no-ignore -n -F -i -- '<old phrase>' '<fresh assigned session block>' '<local Files target>'` over that bounded entry (heading and continuation lines included) and every local text Files target, including comments; also check the owning hub's Session History gloss. Retain raw hits/controls and triage per §12, preserving genuine historical quotations. Repair stale live wording, refresh extraction after any entry edit, and repeat the affected search. Remote or non-text targets require scoped evidence or an explicit unresolved gap. Refresh scope, attribution (§20), evidence, inspection targets and changed-source hashes, then regenerate the brief and scan it for retired wording and fragile count/back-reference tokens. A later user edit or status change requires reconciliation, delta propagation, verification and a new review before acceptance; alternatively wait for the user's editing to pause.
 
-**Brief assembly:** before the first build, save the actual assembly command as a script in this close-out's session state. Have it read the assigned entry and retained raw evidence from files at execution time. Keep any evidence selection in the script and append the selected bytes verbatim. After remediation, refresh affected inputs and rerun that script to a fresh brief, then check its output and digest before despatch. Use quoted here-documents for static template text and append dynamic excerpts from their explicit input paths. For transcript excerpts, use an exact call identifier or a unique marker, and check that the selected result is the one used by the claim.
+Save the actual brief assembly command as a script in this close-out's session state before the first build. Have it read the assigned entry and retained raw evidence from files at execution time. Keep any evidence selection in the script and append the selected bytes verbatim. After remediation, refresh affected inputs and rerun that script to a fresh brief, then check its output and digest before despatch. Use quoted here-documents for static template text and append dynamic excerpts from their explicit input paths. For transcript excerpts, use an exact call identifier or a unique marker, and check that the selected result is the one used by the claim.
 
 **Before every despatch, including the first:** apply §16's decisive-span, version/state-run and coded-answer coverage check to the final brief and attachments.
 
@@ -232,6 +234,8 @@ Use a fresh read-only reviewer through the Agent tool (`subagent_type: "read-onl
 Receive and display the report; enforce §23's attestation. Missing evidence or incomplete coverage requires same-seat follow-up, not a clean label. Sanity-check findings against the live file and the primary session’s pre-state. **A coverage finding is closed by a re-run search, not by rewording.** When a finding says a search, grep or enumeration could have missed something (a quoted or differently spelt argument, an unread log or location), re-run a widened search that would have caught the miss the finding names, cite its argv and output (or receipt path) beside the remediation, and let that result decide the claim. Narrowing the claim's wording without the re-run leaves the finding open. When the widened search cannot be run, removing the claim, or scoping it explicitly to the surface actually searched, also closes the finding. The main session fixes confirmed attributable findings through the normal locked writers (§5), reports each remediation to a path already in the Files list as `<path>: description extension: <text>` and rewrites its **complete section body**, retaining every other row, with `update-session-section.sh --replace` (§23) while new paths go through backfill, rechecks changed identifiers through the caller’s propagation procedure, and reruns **Backfill and verification**. Rerun the saved assembly script and resume the same independent reviewer for another full scoped pass. Repeat after every fix round until a completed pass finds no further findings; there is no one-round cap. Inspect any unexpected reviewer write against the read-only contract and reconcile it before accepting the report.
 
 For unavailable evidence, a required user decision or out-of-scope action, retain the concrete blocker and report `✗ Audit: not clean — <reason>`. For a disputed finding, send the reviewer the counter-evidence; unresolved disagreement is a blocker. Never weaken the gate or change the model to claim completion.
+
+After a clean report and immediately before accepting it, rerun the comparisons for every bulk reference manifest. Resolve each recorded live member path again and compare its current SHA-256 and recorded mode with the frozen manifest. For a Git range, confirm the recorded base and tip resolve to the expected commits and verify the listed path and object pairs. Check any live checkout or install covered by that claim separately. Retain the raw recheck with completion evidence. A missing, unreadable, retargeted or changed member blocks acceptance. Reconcile the scope and rerun verification and review before accepting a new report.
 
 Save the accepted report per **Completion evidence** before returning to the caller.
 
